@@ -65,6 +65,54 @@ pub fn craps(rng: &mut impl Rng) -> TestResult {
     )
 }
 
+/// Run the craps test; returns the two p-values as separate `TestResult`s.
+///
+/// Test 1: normal-approximation test on win count.
+/// Test 2: chi-square test on throws-per-game distribution.
+pub fn craps_both(rng: &mut impl Rng) -> Vec<TestResult> {
+    let mut wins = 0usize;
+    let mut throw_counts = [0u32; 22];
+
+    for _ in 0..N_GAMES {
+        let (won, throws) = play_craps(rng);
+        if won { wins += 1; }
+        let idx = (throws - 1).min(21);
+        throw_counts[idx] += 1;
+    }
+
+    let mu_w = N_GAMES as f64 * P_WIN;
+    let sigma_w = (N_GAMES as f64 * P_WIN * (1.0 - P_WIN)).sqrt();
+    let z_wins = (wins as f64 - mu_w) / sigma_w;
+    let p_wins = erfc(z_wins.abs() / SQRT_2);
+
+    let expected = expected_throw_probs();
+    let chi_sq: f64 = throw_counts
+        .iter()
+        .zip(expected.iter())
+        .filter(|(_, &e)| e * N_GAMES as f64 >= 5.0)
+        .map(|(&c, &e)| {
+            let exp = e * N_GAMES as f64;
+            (c as f64 - exp).powi(2) / exp
+        })
+        .sum();
+    let df = throw_counts.iter().zip(expected.iter())
+        .filter(|(_, &e)| e * N_GAMES as f64 >= 5.0).count() - 1;
+    let p_throws = igamc(df as f64 / 2.0, chi_sq / 2.0);
+
+    vec![
+        TestResult::with_note(
+            "diehard::craps_wins",
+            p_wins,
+            format!("games={N_GAMES}, wins={wins}, z={z_wins:.4}"),
+        ),
+        TestResult::with_note(
+            "diehard::craps_throws",
+            p_throws,
+            format!("games={N_GAMES}, df={df}, χ²={chi_sq:.4}"),
+        ),
+    ]
+}
+
 /// Play one craps game.  Returns (won, number_of_throws).
 fn play_craps(rng: &mut impl Rng) -> (bool, usize) {
     let first = roll_dice(rng);
@@ -82,9 +130,19 @@ fn play_craps(rng: &mut impl Rng) -> (bool, usize) {
 }
 
 fn roll_dice(rng: &mut impl Rng) -> u32 {
-    let d1 = (rng.next_u32() % 6) + 1;
-    let d2 = (rng.next_u32() % 6) + 1;
+    let d1 = uniform_bounded(rng, 6) + 1;
+    let d2 = uniform_bounded(rng, 6) + 1;
     d1 + d2
+}
+
+fn uniform_bounded(rng: &mut impl Rng, bound: u32) -> u32 {
+    let zone = u32::MAX - (u32::MAX % bound);
+    loop {
+        let v = rng.next_u32();
+        if v < zone {
+            return v % bound;
+        }
+    }
 }
 
 /// Exact P(game takes exactly k throws) for k = 1..=22 (k=22 means ≥22).

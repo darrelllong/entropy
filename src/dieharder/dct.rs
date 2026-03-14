@@ -1,107 +1,109 @@
 //! DIEHARDER test 206 — dab_dct.
 //!
-//! Applies the Discrete Cosine Transform (Type II) to blocks of the output and
-//! tests the resulting spectral coefficients for uniformity.  Detects periodic
-//! structure and spectral non-uniformity that is invisible to time-domain tests.
-//! Bauer ranks this the second-best test in DIEHARDER for detecting bias.
+//! Performs a Type-II Discrete Cosine Transform on blocks of raw 32-bit words
+//! from the RNG.  For each block, the position of the maximum absolute DCT value
+//! is recorded; a chi-square test checks that this position is uniformly
+//! distributed over all block positions (primary method: tsamples > 5 × ntuple).
+//!
+//! Algorithm from `dieharder-3.31.1/libdieharder/dab_dct.c`:
+//!   1. Rotate raw u32 words (rotAmount increases by rmax_bits/4 each quarter).
+//!   2. DCT-II: X[k] = Σ x[j] cos(π(j+½)k/N)  (direct O(n²), n=256).
+//!   3. Adjust DC component: X[0] -= N·(2³¹−½); X[0] /= √2.
+//!   4. Record argmax |X[k]|.
+//!   Chi-square on position counts; expected = tsamples/ntuple per position.
 //!
 //! # Author
 //! David Bauer, *Dieharder* (2006), test `dab_dct`.
+//! Source: `dieharder-3.31.1/libdieharder/dab_dct.c`
 
 use crate::{math::igamc, result::TestResult};
 use std::f64::consts::PI;
 
-const BLOCK_SIZE: usize = 512;
-const N_BLOCKS: usize = 1_000;
+/// Block length (ntuple), must be a power of 2.
+const NTUPLE: usize = 256;
+/// Number of blocks (tsamples).  Must be > 5 × NTUPLE for the primary method.
+const TSAMPLES: usize = 5_000;
+/// Bit width of each generator word (rmax_bits = 32 for u32 output).
+const RMAX_BITS: u32 = 32;
 
 /// Run the DCT spectral test.
 ///
 /// # Author
 /// David Bauer, Dieharder (2006), `dab_dct`.
 pub fn dct(words: &[u32]) -> TestResult {
-    let needed = N_BLOCKS * BLOCK_SIZE / 4 + 1;
+    let needed = TSAMPLES * NTUPLE;
     if words.len() < needed {
         return TestResult::insufficient("dieharder::dct", "not enough words");
     }
 
-    // Convert to bytes then to floats in [−1, 1).
-    let bytes: Vec<f64> = words
-        .iter()
-        .flat_map(|&w| w.to_le_bytes())
-        .take(N_BLOCKS * BLOCK_SIZE)
-        .map(|b| b as f64 / 128.0 - 1.0)
-        .collect();
+    // v = 2^(rmax_bits−1).  DC mean for a block of N uniform u32 values is
+    // N·(v − 0.5) since E[U32] ≈ 2^31 − 0.5.
+    let v = 1u64 << (RMAX_BITS - 1);
+    let mean_dc = NTUPLE as f64 * (v as f64 - 0.5);
 
-    // For each block, compute DCT-II, collect all AC coefficients (skip DC),
-    // and chi-square test them against N(0, σ²) with σ² = BLOCK_SIZE/2.
-    let mut all_coefs: Vec<f64> = Vec::with_capacity(N_BLOCKS * (BLOCK_SIZE - 1));
+    // positionCounts[k] counts how many blocks had position k as the |DCT| argmax.
+    let mut position_counts = vec![0u64; NTUPLE];
 
-    for block_idx in 0..N_BLOCKS {
-        let block = &bytes[block_idx * BLOCK_SIZE..(block_idx + 1) * BLOCK_SIZE];
-        let coefs = dct_ii(block);
-        // Skip DC component (index 0); use AC components.
-        all_coefs.extend_from_slice(&coefs[1..]);
+    for j in 0..TSAMPLES {
+        // rotAmount increases by rmax_bits/4 every TSAMPLES/4 blocks,
+        // matching `if j != 0 && j % (tsamples/4) == 0 { rotAmount += rmax_bits/4; }`.
+        let rot_amount = ((j / (TSAMPLES / 4)) as u32 * (RMAX_BITS / 4)) % RMAX_BITS;
+
+        let block = &words[j * NTUPLE..(j + 1) * NTUPLE];
+
+        // Compute DCT-II of the rotated raw words (as unsigned integers).
+        let mut dct_vals = dct_ii_u32(block, rot_amount);
+
+        // Adjust DC component: subtract block mean, then divide by √2.
+        dct_vals[0] -= mean_dc;
+        dct_vals[0] /= 2f64.sqrt();
+
+        // Record the position of the maximum absolute DCT value.
+        let max_pos = dct_vals
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+
+        position_counts[max_pos] += 1;
     }
 
-    // Test: the AC coefficients of an i.i.d. uniform input should be normal
-    // with zero mean.  For bytes mapped to (b/128 - 1), Var(x) ≈ 1/3.
-    // For DCT-II (unnormalized), Var(X[k]) = Var(x) × Σ cos²(…) = Var(x) × N/2
-    // = (1/3) × (BLOCK_SIZE / 2) = BLOCK_SIZE / 6.
-    let sigma = (BLOCK_SIZE as f64 / 6.0).sqrt();
-    let n_bins = 20usize;
-    let bin_width = 6.0 * sigma / n_bins as f64;
-    let lower = -3.0 * sigma;
-
-    // Bin layout: counts[0] = left tail (c < lower), counts[1..=n_bins] = interior
-    // bins, counts[n_bins+1] = right tail (c ≥ lower + n_bins×bin_width).
-    // The interior index starts at 1, not 0, to keep the left tail in counts[0].
-    let mut counts = vec![0u32; n_bins + 2]; // +2 for tails
-    for &c in &all_coefs {
-        let idx = if c < lower {
-            0
-        } else {
-            let i = ((c - lower) / bin_width) as usize + 1;
-            i.min(n_bins + 1)
-        };
-        counts[idx] += 1;
-    }
-
-    let total = all_coefs.len() as f64;
-    let expected: Vec<f64> = {
-        let mut e = vec![0.0f64; n_bins + 2];
-        // Normal PDF integrated over each bin.
-        use crate::math::normal_cdf;
-        e[0] = normal_cdf(lower / sigma) * total; // left tail
-        for i in 0..n_bins {
-            let lo = lower + i as f64 * bin_width;
-            let hi = lo + bin_width;
-            e[i + 1] = (normal_cdf(hi / sigma) - normal_cdf(lo / sigma)) * total;
-        }
-        e[n_bins + 1] = (1.0 - normal_cdf(3.0)) * total; // right tail
-        e
-    };
-
-    let chi_sq: f64 = counts
+    // Chi-square for uniformity of position counts.
+    // Expected count per position = TSAMPLES / NTUPLE.
+    let expected = TSAMPLES as f64 / NTUPLE as f64;
+    let chi_sq: f64 = position_counts
         .iter()
-        .zip(expected.iter())
-        .filter(|(_, &e)| e >= 5.0)
-        .map(|(&c, &e)| (c as f64 - e).powi(2) / e)
+        .map(|&c| (c as f64 - expected).powi(2) / expected)
         .sum();
-    let df = counts.iter().zip(expected.iter()).filter(|(_, &e)| e >= 5.0).count() - 1;
+    let df = NTUPLE - 1;
 
     let p_value = igamc(df as f64 / 2.0, chi_sq / 2.0);
 
     TestResult::with_note(
         "dieharder::dct",
         p_value,
-        format!("block={BLOCK_SIZE}, N={N_BLOCKS}, χ²={chi_sq:.4}"),
+        format!("ntuple={NTUPLE}, tsamples={TSAMPLES}, χ²={chi_sq:.4}"),
     )
 }
 
-/// DCT-II of a real sequence: X[k] = Σ_{n=0}^{N−1} x[n] cos(π(n+½)k/N).
-fn dct_ii(x: &[f64]) -> Vec<f64> {
-    let n = x.len();
+/// Direct O(n²) DCT-II of raw u32 words with bit-rotation.
+///
+/// X[k] = Σ_{j=0}^{N-1} x[j] · cos(π(j+½)k/N)
+///
+/// where x[j] is the rotated word cast to f64.  Matches `fDCT2` in dab_dct.c.
+fn dct_ii_u32(words: &[u32], rot_amount: u32) -> Vec<f64> {
+    let n = words.len();
     let scale = PI / n as f64;
+
+    let x: Vec<f64> = words
+        .iter()
+        .map(|&w| {
+            let rotated = if rot_amount == 0 { w } else { w.rotate_left(rot_amount) };
+            rotated as f64
+        })
+        .collect();
+
     (0..n)
         .map(|k| {
             x.iter()

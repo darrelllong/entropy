@@ -1,15 +1,14 @@
 //! NIST SP 800-22 §2.6 — Discrete Fourier Transform (Spectral) Test.
 //!
-//! Converts the bit sequence to a ±1 sequence, applies the DFT, and checks
+//! Converts the bit sequence to a ±1 sequence, applies the FFT, and checks
 //! whether the number of DFT magnitudes that exceed a threshold is consistent
 //! with an i.i.d. uniform source.
 //!
-//! Uses the O(n²) DFT from [`crate::math::dft_magnitudes`]; for the default
-//! n = 1 000 this is ~10⁶ operations and takes < 1 ms.
+//! Uses an O(n log n) FFT on the full input sequence via [`crate::math::fft_magnitudes`].
 //!
 //! Minimum recommended sequence length: n ≥ 1 000.
 
-use crate::{math::{dft_magnitudes, erfc}, result::TestResult};
+use crate::{math::{fft_magnitudes, erfc}, result::TestResult};
 use std::f64::consts::SQRT_2;
 
 /// Run the spectral (DFT) test.
@@ -22,16 +21,11 @@ pub fn spectral(bits: &[u8]) -> TestResult {
         return TestResult::insufficient("nist::spectral", "n < 1000");
     }
 
-    // The O(n²) DFT is only tractable for small n.  NIST §2.6 recommends n = 1 000
-    // as the default; we cap at 1 000 so the test runs in bounded time.
-    let bits = &bits[..1_000.min(n)];
-    let n = bits.len();
-
     // Convert bits to ±1.
     let x: Vec<f64> = bits.iter().map(|&b| if b == 1 { 1.0 } else { -1.0 }).collect();
 
-    // DFT magnitudes; only the first n/2 are independent.
-    let mags = dft_magnitudes(&x);
+    // FFT magnitudes; only the first n/2 are independent.
+    let mags = fft_magnitudes(&x);
 
     // Threshold T such that P(|X_k| < T) = 0.95 under H₀.
     let threshold = (n as f64 * 0.05_f64.ln().abs()).sqrt();

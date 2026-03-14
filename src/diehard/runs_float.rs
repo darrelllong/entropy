@@ -1,116 +1,187 @@
-//! DIEHARD Test 15 — Runs Test (floating-point).
+//! DIEHARD Test 15 — Runs Test (floating-point / integer comparison).
 //!
-//! Counts ascending and descending monotone *runs* in sequences of floats
-//! in [0,1).  This is distinct from the NIST runs test (§2.3), which counts
-//! bit-level transitions.  The covariance matrices for runs-up and runs-down
-//! are known analytically; a quadratic form in the weak inverse yields a
-//! chi-square statistic.
+//! Counts ascending and descending monotone runs in successive 32-bit
+//! integers from the generator.  Run lengths are binned into 6 categories
+//! (≥6 pooled).  A quadratic form in the weak inverse of the known
+//! covariance matrix gives a chi-square-like statistic with df = 6.
 //!
-//! Sequence length: 10 000 floats, repeated 10 times × 2 directions.
+//! This is repeated 10 times, yielding 10 p-values each for up-runs and
+//! down-runs.  A final Kolmogorov-Smirnov test on each set of 10 p-values
+//! produces the reported results.
+//!
+//! Covariance matrix and expected proportions from:
+//! R.G.T. Grafton, "The Runs-Up and Runs-Down Tests", *Applied Statistics*
+//! 30, Algorithm AS 157, 1981.  See also Knuth TAOCP Vol 2 §3.3.2.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::{igamc, ks_test}, rng::Rng, result::TestResult};
 
 const SEQ_LEN: usize = 10_000;
 const REPEATS: usize = 10;
+const RUN_MAX: usize = 6;
 
-// Empirical run-length probabilities for i.i.d. Uniform[0,1) ascending runs.
-// A geometric distribution (1/2)^k is wrong because run-start values are
-// NOT uniform: after a descent the starting value is biased toward 0,
-// making longer runs more likely.  Probabilities verified by 100M-sample
-// Monte Carlo simulation:
-//   k=1: 0.33333, k=2: 0.41658, k=3: 0.18337, k=4: 0.05281,
-//   k=5: 0.01152, k≥6: 0.00238
-// Categories: lengths 1, 2, 3, 4, 5, ≥6 (pooled).
-const PI_UP: [f64; 6] = [
-    0.333_333,  // length 1
-    0.416_667,  // length 2
-    0.183_333,  // length 3
-    0.052_778,  // length 4
-    0.011_574,  // length 5
-    0.002_315,  // length ≥ 6 (pooled)
+/// Pseudoinverse of the covariance matrix for runs-up (= runs-down), scaled
+/// by n.  Source: Grafton 1981 (AS 157), Knuth TAOCP Vol 2, as reproduced in
+/// Dieharder 3.31.1 diehard_runs.c.
+const A: [[f64; RUN_MAX]; RUN_MAX] = [
+    [ 4529.4,   9044.9,  13568.0,  18091.0,  22615.0,  27892.0],
+    [ 9044.9,  18097.0,  27139.0,  36187.0,  45234.0,  55789.0],
+    [13568.0,  27139.0,  40721.0,  54281.0,  67852.0,  83685.0],
+    [18091.0,  36187.0,  54281.0,  72414.0,  90470.0, 111580.0],
+    [22615.0,  45234.0,  67852.0,  90470.0, 113262.0, 139476.0],
+    [27892.0,  55789.0,  83685.0, 111580.0, 139476.0, 172860.0],
 ];
 
-// For DIEHARD's runs test we use the simpler chi-square on run-length histograms.
+/// Expected proportion of runs of length i+1 (i=0..5, where i=5 means ≥6).
+const B: [f64; RUN_MAX] = [
+    1.0 / 6.0,
+    5.0 / 24.0,
+    11.0 / 120.0,
+    19.0 / 720.0,
+    29.0 / 5040.0,
+    1.0 / 840.0,
+];
 
-/// Run the float-sequence runs test.
+/// Run the runs test using the covariance-matrix quadratic form from DIEHARD.
+///
+/// Returns two `TestResult`s: one for up-runs, one for down-runs.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
+pub fn runs_float_both(rng: &mut impl Rng) -> Vec<TestResult> {
+    let mut up_pvals: Vec<f64> = Vec::with_capacity(REPEATS);
+    let mut dn_pvals: Vec<f64> = Vec::with_capacity(REPEATS);
+
+    for _ in 0..REPEATS {
+        let (uv, dv) = runs_quad_form(rng, SEQ_LEN);
+        up_pvals.push(igamc(3.0, uv / 2.0));
+        dn_pvals.push(igamc(3.0, dv / 2.0));
+    }
+
+    let p_up = ks_test(&mut up_pvals);
+    let p_dn = ks_test(&mut dn_pvals);
+
+    vec![
+        TestResult::with_note(
+            "diehard::runs_up",
+            p_up,
+            format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form"),
+        ),
+        TestResult::with_note(
+            "diehard::runs_down",
+            p_dn,
+            format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form"),
+        ),
+    ]
+}
+
+/// Backward-compatible single-result wrapper (returns min of up/down p-values).
 pub fn runs_float(words: &[u32]) -> TestResult {
-    let needed = REPEATS * SEQ_LEN * 2;
+    // This wrapper uses the first SEQ_LEN*REPEATS words from the slice.
+    // For the proper two-result version, call runs_float_both.
+    let needed = SEQ_LEN * REPEATS;
     if words.len() < needed {
-        return TestResult::insufficient("diehard::runs_float", "not enough words");
+        return TestResult::insufficient("diehard::runs_up", "not enough words");
     }
-
-    let floats: Vec<f64> = words.iter().map(|&w| w as f64 / 4_294_967_296.0).collect();
-
-    let mut total_chi_sq = 0.0f64;
-    let mut total_df = 0usize;
-
-    for rep in 0..REPEATS {
-        // Runs-up
-        let up_slice = &floats[rep * SEQ_LEN..(rep + 1) * SEQ_LEN];
-        let (chi_up, df_up) = runs_chi_sq(up_slice, SEQ_LEN);
-        total_chi_sq += chi_up;
-        total_df += df_up;
-
-        // Runs-down (reverse the sequence)
-        let down_slice: Vec<f64> = floats[REPEATS * SEQ_LEN + rep * SEQ_LEN
-            ..REPEATS * SEQ_LEN + (rep + 1) * SEQ_LEN]
-            .iter()
-            .rev()
-            .copied()
-            .collect();
-        let (chi_dn, df_dn) = runs_chi_sq(&down_slice, SEQ_LEN);
-        total_chi_sq += chi_dn;
-        total_df += df_dn;
-    }
-
-    let p_value = igamc(total_df as f64 / 2.0, total_chi_sq / 2.0);
-
+    let (mut up_pvals, mut dn_pvals): (Vec<f64>, Vec<f64>) = (0..REPEATS)
+        .map(|rep| {
+            let slice = &words[rep * SEQ_LEN..(rep + 1) * SEQ_LEN];
+            runs_quad_form_slice(slice)
+        })
+        .map(|(uv, dv)| (igamc(3.0, uv / 2.0), igamc(3.0, dv / 2.0)))
+        .unzip();
+    let p = ks_test(&mut up_pvals).min(ks_test(&mut dn_pvals));
     TestResult::with_note(
-        "diehard::runs_float",
-        p_value,
-        format!("seq_len={SEQ_LEN}, repeats={REPEATS}, χ²={total_chi_sq:.4}"),
+        "diehard::runs_up_down",
+        p,
+        format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form"),
     )
 }
 
-/// Compute run-length histogram chi-square for a float sequence (ascending runs).
-fn runs_chi_sq(seq: &[f64], _n: usize) -> (f64, usize) {
-    const MAX_CATEGORY: usize = 6;
-    let mut counts = [0u32; MAX_CATEGORY];
+/// Compute the quadratic form statistic for up-runs and down-runs in one
+/// sequence of `n` random integers drawn from `rng`.
+///
+/// Returns (uv, dv) where p = igamc(3.0, v/2.0) for each direction.
+fn runs_quad_form(rng: &mut impl Rng, n: usize) -> (f64, f64) {
+    let mut upruns  = [0usize; RUN_MAX];
+    let mut downruns = [0usize; RUN_MAX];
+    let mut ucount = 1usize;
+    let mut dcount = 1usize;
 
-    let mut run_len = 1usize;
-    for i in 1..seq.len() {
-        if seq[i] >= seq[i - 1] {
-            run_len += 1;
+    let first = rng.next_u32();
+    let mut last = first;
+    let mut next = first;
+    for _ in 1..n {
+        next = rng.next_u32();
+        if next > last {
+            ucount += 1;
+            if ucount > RUN_MAX { ucount = RUN_MAX; }
+            downruns[dcount - 1] += 1;
+            dcount = 1;
         } else {
-            let idx = (run_len - 1).min(MAX_CATEGORY - 1);
-            counts[idx] += 1;
-            run_len = 1;
+            dcount += 1;
+            if dcount > RUN_MAX { dcount = RUN_MAX; }
+            upruns[ucount - 1] += 1;
+            ucount = 1;
+        }
+        last = next;
+    }
+
+    if next > first {
+        downruns[dcount - 1] += 1;
+    } else {
+        upruns[ucount - 1] += 1;
+    }
+
+    (quadratic_form(&upruns, n), quadratic_form(&downruns, n))
+}
+
+/// Same as `runs_quad_form` but operates on a pre-collected word slice.
+fn runs_quad_form_slice(words: &[u32]) -> (f64, f64) {
+    let n = words.len();
+    let mut upruns   = [0usize; RUN_MAX];
+    let mut downruns = [0usize; RUN_MAX];
+    let mut ucount = 1usize;
+    let mut dcount = 1usize;
+    let first = words[0];
+    let mut next = first;
+
+    for i in 1..n {
+        next = words[i];
+        if next > words[i - 1] {
+            ucount += 1;
+            if ucount > RUN_MAX { ucount = RUN_MAX; }
+            downruns[dcount - 1] += 1;
+            dcount = 1;
+        } else {
+            dcount += 1;
+            if dcount > RUN_MAX { dcount = RUN_MAX; }
+            upruns[ucount - 1] += 1;
+            ucount = 1;
         }
     }
-    // Flush final run.
-    let idx = (run_len - 1).min(MAX_CATEGORY - 1);
-    counts[idx] += 1;
 
-    let total_runs: f64 = counts.iter().map(|&c| c as f64).sum();
+    if next > first {
+        downruns[dcount - 1] += 1;
+    } else {
+        upruns[ucount - 1] += 1;
+    }
 
-    // Expected count for each length category.
-    let chi_sq: f64 = counts
-        .iter()
-        .zip(PI_UP.iter())
-        .filter(|(_, &p)| p * total_runs >= 1.0)
-        .map(|(&c, &p)| {
-            let exp = p * total_runs;
-            (c as f64 - exp).powi(2) / exp
-        })
-        .sum();
+    (quadratic_form(&upruns, n), quadratic_form(&downruns, n))
+}
 
-    let df = counts.iter().zip(PI_UP.iter()).filter(|(_, &p)| p * total_runs >= 1.0).count() - 1;
-
-    (chi_sq, df.max(1))
+/// v = Σᵢⱼ (counts[i] − n·b[i]) · (counts[j] − n·b[j]) · A[i][j] / n
+fn quadratic_form(counts: &[usize; RUN_MAX], n: usize) -> f64 {
+    let nf = n as f64;
+    let mut v = 0.0f64;
+    for i in 0..RUN_MAX {
+        for j in 0..RUN_MAX {
+            v += (counts[i] as f64 - nf * B[i])
+                * (counts[j] as f64 - nf * B[j])
+                * A[i][j];
+        }
+    }
+    v / nf
 }

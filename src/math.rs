@@ -160,10 +160,24 @@ pub fn ks_test(samples: &mut Vec<f64>) -> f64 {
 
 /// P-value for the Kolmogorov-Smirnov statistic D with sample size n.
 ///
-/// Uses the Kolmogorov distribution series.  For large n this converges
-/// quickly; for small n (< 35) uses the exact formula.
+/// For n ≥ 5 uses the Stephens (1974) continuity-corrected argument
+///   t = D · (√n + 0.12 + 0.11/√n)
+/// in the asymptotic Kolmogorov series (Kolmogorov 1933).  This reduces
+/// the approximation error from O(1/√n) to O(1/n), yielding results accurate
+/// to within ~1% for n ≥ 5.
+///
+/// For n < 5, the correction is applied but accuracy is limited; the result
+/// should be treated with caution.
+///
+/// Reference:
+/// - Stephens, M.A. (1974). EDF Statistics for Goodness of Fit and Some
+///   Comparisons. *JASA* 69(347), 730-737.
+/// - Kolmogorov, A.N. (1933). Sulla determinazione empirica di una legge di
+///   distribuzione. *Giornale dell'Istituto Italiano degli Attuari* 4, 83-91.
 pub fn ks_pvalue(d: f64, n: usize) -> f64 {
-    let s = d * (n as f64).sqrt();
+    let nf = n as f64;
+    // Stephens (1974) corrected argument: reduces error from O(1/√n) to O(1/n).
+    let s = d * (nf.sqrt() + 0.12 + 0.11 / nf.sqrt());
     // Asymptotic series (Kolmogorov 1933)
     let s2 = -2.0 * s * s;
     let mut sum = 0.0_f64;
@@ -185,6 +199,20 @@ pub fn chi2_pvalue(chi_sq: f64, df: usize) -> f64 {
 }
 
 // ── Discrete Fourier Transform (DFT) ─────────────────────────────────────────
+
+/// FFT for a real input of arbitrary length n.
+/// Returns magnitudes |X_k| for k = 0..n.
+///
+/// Uses `rustfft` so the NIST spectral test can analyze the full sequence
+/// length instead of truncating to a radix-2 prefix.
+pub fn fft_magnitudes(x: &[f64]) -> Vec<f64> {
+    let n = x.len();
+    let mut planner = FftPlanner::<f64>::new();
+    let fft = planner.plan_fft_forward(n);
+    let mut buffer: Vec<Complex<f64>> = x.iter().map(|&re| Complex { re, im: 0.0 }).collect();
+    fft.process(&mut buffer);
+    buffer.into_iter().map(|c| c.norm()).collect()
+}
 
 /// Naïve O(n²) DFT of a real sequence, returning magnitudes |X_k| for k = 0..n.
 ///
@@ -238,3 +266,4 @@ mod tests {
         assert!((normal_cdf(1.0) + normal_cdf(-1.0) - 1.0).abs() < 1e-6);
     }
 }
+use rustfft::{num_complex::Complex, FftPlanner};

@@ -31,22 +31,27 @@ use crate::{result::TestResult, rng::Rng};
 /// the minimum for most tests.
 pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
     let bits = rng.collect_bits(n);
-    vec![
+    let mut results = vec![
         frequency::frequency(&bits),
         block_frequency::block_frequency(&bits, 128),
         runs::runs(&bits),
         longest_run::longest_run(&bits),
         matrix_rank::matrix_rank(&bits),
         spectral::spectral(&bits),
-        non_overlapping_template::non_overlapping_template(&bits, 9),
         overlapping_template::overlapping_template(&bits, 9),
         universal::universal(&bits),
         linear_complexity::linear_complexity(&bits, 500),
-        serial::serial(&bits, 3),
         approximate_entropy::approximate_entropy(&bits, 10),
         cumulative_sums::cumulative_sums_forward(&bits),
         cumulative_sums::cumulative_sums_backward(&bits),
-        random_excursions::random_excursions(&bits),
-        random_excursions_variant::random_excursions_variant(&bits),
-    ]
+    ];
+    // Non-overlapping template: all 148 aperiodic 9-bit templates (SP 800-22 §2.7, Appendix E).
+    results.extend(non_overlapping_template::non_overlapping_all(&bits));
+    // Serial has two p-values; emit both rather than collapsing to min.
+    results.extend(serial::serial_both(&bits, 3));
+    // Random excursions has 8 sub-tests; emit all.
+    results.extend(random_excursions::random_excursions_all(&bits));
+    // Random excursions variant has 18 sub-tests; emit all.
+    results.extend(random_excursions_variant::random_excursions_variant_all(&bits));
+    results
 }

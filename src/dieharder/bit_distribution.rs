@@ -36,6 +36,25 @@ pub fn bit_distribution(words: &[u32], max_bits: usize) -> TestResult {
     )
 }
 
+/// Run the bit-distribution test; returns one `TestResult` per word width.
+///
+/// This is the statistically correct interface: each width is an independent test.
+/// Using the minimum p-value across widths — as `bit_distribution` does — is
+/// statistically invalid.
+pub fn bit_distribution_all(words: &[u32], max_bits: usize) -> Vec<TestResult> {
+    (1..=max_bits.min(20))
+        .filter_map(|n| {
+            test_width(words, n).map(|p| {
+                TestResult::with_note(
+                    "dieharder::bit_distribution",
+                    p,
+                    format!("width={n}"),
+                )
+            })
+        })
+        .collect()
+}
+
 fn test_width(words: &[u32], n: usize) -> Option<f64> {
     let table_size = 1usize << n;
     let mask = (table_size - 1) as u32;

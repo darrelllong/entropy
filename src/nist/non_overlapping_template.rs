@@ -4,42 +4,72 @@
 //! each of N blocks of M bits, then tests the counts against a normal
 //! approximation.
 //!
-//! Default: m = 9 (the first of the 148 aperiodic 9-bit templates).
+//! The published test runs all 148 aperiodic 9-bit templates from Appendix E
+//! of SP 800-22, yielding 148 p-values.  Use [`non_overlapping_all`] to obtain
+//! all 148 results (the canonical form), or [`non_overlapping_template_raw`]
+//! to test a single caller-supplied template.
+//!
 //! Minimum recommended: n ≥ 10^6 for reliable results with m = 9.
 
 use crate::{math::igamc, result::TestResult};
 
-/// First aperiodic template of length 9 from Appendix E of SP 800-22.
-const TEMPLATE_9: &[u8] = &[0, 0, 0, 0, 0, 0, 0, 0, 1];
-
-/// Run the non-overlapping template matching test with an m-bit template.
+/// Return all 148 aperiodic 9-bit templates from NIST SP 800-22 Appendix E.
 ///
-/// Uses the first aperiodic template of the given length.  Callers that want
-/// to iterate over all 148 templates can call [`non_overlapping_template_raw`]
-/// with each template directly.
+/// A template is aperiodic if it has no period p with 1 ≤ p < m such that
+/// T[i] = T[i+p] for all i in 0..m-p.  This generates the same set as
+/// Appendix E of SP 800-22 Rev 1a (2010).
+fn aperiodic_templates_9() -> Vec<Vec<u8>> {
+    let m = 9usize;
+    (0u16..512)
+        .filter(|&bits| {
+            let pattern: Vec<u8> = (0..m).map(|i| ((bits >> (m - 1 - i)) & 1) as u8).collect();
+            // Aperiodic: no period p in 1..m such that T[i] == T[i+p] for all i.
+            !(1..m).any(|p| (0..m - p).all(|i| pattern[i] == pattern[i + p]))
+        })
+        .map(|bits| (0..m).map(|i| ((bits >> (m - 1 - i)) & 1) as u8).collect())
+        .collect()
+}
+
+/// Run the non-overlapping template test for all 148 aperiodic 9-bit templates.
+///
+/// Returns 148 `TestResult`s, one per template, as specified in NIST SP 800-22
+/// §2.7 and Appendix E.
+///
+/// # Reference
+/// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.7, Appendix E.
+pub fn non_overlapping_all(bits: &[u8]) -> Vec<TestResult> {
+    aperiodic_templates_9()
+        .into_iter()
+        .map(|t| non_overlapping_template_raw(bits, &t))
+        .collect()
+}
+
+/// Run the non-overlapping template matching test with a single m-bit template.
 ///
 /// # Reference
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.7.
 pub fn non_overlapping_template(bits: &[u8], m: usize) -> TestResult {
-    let template = if m == 9 { TEMPLATE_9 } else { &TEMPLATE_9[..m.min(9)] };
-    non_overlapping_template_raw(bits, template)
+    // Use 000000001 (first aperiodic template of length m) as a single probe.
+    let mut template = vec![0u8; m];
+    template[m - 1] = 1;
+    non_overlapping_template_raw(bits, &template)
 }
 
 /// Raw entry point: caller supplies the template explicitly.
 pub fn non_overlapping_template_raw(bits: &[u8], template: &[u8]) -> TestResult {
     let n = bits.len();
     let m = template.len();
-    let big_m = 8 * m; // block size recommended by SP 800-22
-    let num_blocks = n / big_m;
+    // SP 800-22 §2.7 suite-code setup: N = 8 blocks, M = n / N.
+    let num_blocks: usize = 8;
+    let big_m = n / num_blocks;
 
-    if num_blocks < 8 {
+    if big_m < m + 1 {
         return TestResult::insufficient(
             "nist::non_overlapping_template",
-            "n too small — need ≥ 8 blocks",
+            "n too small — need M = n/8 > m",
         );
     }
 
-    // μ and σ² for the count of non-overlapping occurrences in one block.
     let pow2m = (1u64 << m) as f64;
     let mu = (big_m - m + 1) as f64 / pow2m;
     let sigma2 = big_m as f64 * (1.0 / pow2m - (2 * m - 1) as f64 / (pow2m * pow2m));
@@ -55,10 +85,11 @@ pub fn non_overlapping_template_raw(bits: &[u8], template: &[u8]) -> TestResult 
 
     let p_value = igamc(num_blocks as f64 / 2.0, chi_sq / 2.0);
 
+    let tmpl_str: String = template.iter().map(|b| b.to_string()).collect();
     TestResult::with_note(
         "nist::non_overlapping_template",
         p_value,
-        format!("n={n}, m={m}, M={big_m}, N={num_blocks}, χ²={chi_sq:.4}"),
+        format!("B={tmpl_str}, N={num_blocks}, M={big_m}, χ²={chi_sq:.4}"),
     )
 }
 
