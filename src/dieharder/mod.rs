@@ -23,8 +23,7 @@ use crate::{result::TestResult, rng::Rng};
 /// `quick` reduces the O(n²) geometric test parameters for fast iteration.
 pub fn run_all(rng: &mut impl Rng, n_u32: usize, quick: bool) -> Vec<TestResult> {
     let words = rng.collect_u32s(n_u32);
-    vec![
-        bit_distribution::bit_distribution(&words, 8),
+    let mut results = vec![
         minimum_distance_nd::minimum_distance_nd(rng, 5, quick),
         permutations::permutations(rng, 5),
         lagged_sums::lagged_sums(&words, 1),
@@ -32,8 +31,12 @@ pub fn run_all(rng: &mut impl Rng, n_u32: usize, quick: bool) -> Vec<TestResult>
         ks_uniform::ks_uniform(&words),
         byte_distribution::byte_distribution(&words),
         dct::dct(&words),
-        fill_tree::fill_tree(&words),
         monobit2::monobit2(&words),
-        gcd::gcd(rng),
-    ]
+    ];
+    results.extend(fill_tree::fill_tree_both(&words));
+    // bit_distribution has per-width results; emit each independently.
+    results.extend(bit_distribution::bit_distribution_all(&words, 8));
+    // gcd has two independent statistics (GCD distribution + step counts).
+    results.extend(gcd::gcd_both(rng));
+    results
 }

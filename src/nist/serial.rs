@@ -44,6 +44,43 @@ pub fn serial(bits: &[u8], m: usize) -> TestResult {
     )
 }
 
+/// Run the serial test; returns the two p-values as separate `TestResult`s.
+///
+/// This is the statistically correct way to report the serial test.
+/// Taking min(p1, p2) — as done by `serial` — inflates false-failure rates.
+pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
+    let n = bits.len();
+    if n < 1_000 || m < 2 {
+        return vec![
+            TestResult::insufficient("nist::serial_delta1", "n < 1000 or m < 2"),
+            TestResult::insufficient("nist::serial_delta2", "n < 1000 or m < 2"),
+        ];
+    }
+
+    let psi_m  = psi_sq(bits, m,     n);
+    let psi_m1 = psi_sq(bits, m - 1, n);
+    let psi_m2 = if m >= 2 { psi_sq(bits, m - 2, n) } else { 0.0 };
+
+    let del2 = psi_m - 2.0 * psi_m1 + psi_m2;
+    let del1 = psi_m - psi_m1;
+
+    let p1 = igamc(2.0_f64.powi(m as i32 - 2), del2 / 2.0);
+    let p2 = igamc(2.0_f64.powi(m as i32 - 1), del1 / 2.0);
+
+    vec![
+        TestResult::with_note(
+            "nist::serial_delta1",
+            p1,
+            format!("n={n}, m={m}, ∇²ψ²={del2:.4}"),
+        ),
+        TestResult::with_note(
+            "nist::serial_delta2",
+            p2,
+            format!("n={n}, m={m}, ∇ψ²={del1:.4}"),
+        ),
+    ]
+}
+
 /// Compute the ψ² statistic for patterns of length `l` in the circular
 /// (wrap-around) sequence of length `n`.
 fn psi_sq(bits: &[u8], l: usize, n: usize) -> f64 {

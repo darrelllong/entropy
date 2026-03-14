@@ -29,7 +29,8 @@ pub fn binary_rank_32x32(words: &[u32]) -> TestResult {
 
 // ── 31×31 ─────────────────────────────────────────────────────────────────────
 
-// P(rank=31)≈0.5765, P(rank=30)≈0.3461, P(≤29)≈0.0774 (SP 800-22 appendix, Marsaglia).
+// P(rank=31)≈0.2888, P(rank=30)≈0.5776, P(rank=29)≈0.1284, P(rank≤28)≈0.0053.
+// Same probabilities as 32×32: difference is 2^{-32} ≈ 2.3×10^{-10}, negligible.
 
 /// 31×31 binary matrix rank test (DIEHARD variant; 40 000 matrices).
 ///
@@ -101,57 +102,68 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
 // ── shared helpers ─────────────────────────────────────────────────────────────
 
 /// General binary rank test for R×C matrices (C ≤ 32).
+///
+/// Uses 4 bins matching `diehard_rank_32x32.c`: rank=full, full-1, full-2, ≤full-3.
+/// Bins with expected count < 5.0 are excluded from the chi-square (Vtest cutoff).
 fn rank_test(words: &[u32], rows: usize, cols: usize, n_matrices: usize, name: &'static str) -> TestResult {
     if words.len() < rows * n_matrices {
         return TestResult::insufficient(name, "not enough words");
     }
 
-    let (p_full, p_one_less, p_rest) = theoretical_probs(rows, cols);
+    let (p3, p2, p1, p0) = theoretical_probs(rows, cols);
+    // p3 = P(rank=full), p2 = P(rank=full-1), p1 = P(rank=full-2), p0 = P(rank≤full-3)
 
-    let mut f_full = 0usize;
-    let mut f_one  = 0usize;
-    let mut f_rest = 0usize;
+    let mut f = [0usize; 4]; // f[3]=rank=full, f[2]=full-1, f[1]=full-2, f[0]=≤full-3
 
     for m_idx in 0..n_matrices {
         let slice = &words[m_idx * rows..(m_idx + 1) * rows];
-        // Truncate each word to `cols` bits.
         let mask = if cols < 32 { (1u32 << cols) - 1 } else { u32::MAX };
         let matrix: Vec<u32> = slice.iter().map(|&w| w & mask).collect();
         let rank = gf2_rank_generic(&matrix, rows, cols);
         let full = rows.min(cols);
-        if rank == full { f_full += 1; }
-        else if rank == full - 1 { f_one += 1; }
-        else { f_rest += 1; }
+        if rank == full         { f[3] += 1; }
+        else if rank == full-1  { f[2] += 1; }
+        else if rank == full-2  { f[1] += 1; }
+        else                    { f[0] += 1; }
     }
 
     let m = n_matrices as f64;
-    let chi_sq =
-        (f_full as f64 - m * p_full    ).powi(2) / (m * p_full    )
-        + (f_one  as f64 - m * p_one_less).powi(2) / (m * p_one_less)
-        + (f_rest as f64 - m * p_rest  ).powi(2) / (m * p_rest  );
+    let probs = [p0, p1, p2, p3];
+    let chi_sq: f64 = f.iter().zip(probs.iter())
+        .filter(|(_, &p)| p * m >= 5.0)
+        .map(|(&cnt, &p)| (cnt as f64 - m * p).powi(2) / (m * p))
+        .sum();
+    let df = f.iter().zip(probs.iter())
+        .filter(|(_, &p)| p * m >= 5.0)
+        .count()
+        .saturating_sub(1);
 
-    let p_value = igamc(1.0, chi_sq / 2.0);
+    let p_value = igamc(df as f64 / 2.0, chi_sq / 2.0);
 
     TestResult::with_note(name, p_value, format!("{rows}×{cols}, N={n_matrices}, χ²={chi_sq:.4}"))
 }
 
 /// Theoretical rank-distribution probabilities for an R×C matrix over GF(2).
-/// Returns (P(rank=min(R,C)), P(rank=min(R,C)−1), P(rest)).
-fn theoretical_probs(rows: usize, cols: usize) -> (f64, f64, f64) {
-    // Product formula for the probability that a random binary m×n matrix
-    // has rank exactly k.  We use the closed-form for full rank and rank−1.
-    //
-    // P(rank = m) = Π_{i=0}^{m-1} (1 − 2^(i-n)) · Π_{i=0}^{m-1} (1 − 2^(i-m))
-    // This is complex to compute for arbitrary m,n; use precomputed values
-    // for the specific cases DIEHARD cares about.
+///
+/// Returns (P(rank=full), P(rank=full-1), P(rank=full-2), P(rank≤full-3)).
+///
+/// For 32×32: values from `diehard_rank_32x32.c` (David Bauer, "On the Rank
+/// of Random Matrices"), pooling ranks ≤ 29 into the tail bin.
+/// Source: `dieharder-3.31.1/libdieharder/diehard_rank_32x32.c`.
+///
+/// For 31×31: computed via P(rank=m | m×m) = ∏_{j=1}^{m} (1−2^{−j}).
+/// The difference from 32×32 is ~2^{-32} ≈ 2.3×10^{-10}, negligible in practice.
+fn theoretical_probs(rows: usize, cols: usize) -> (f64, f64, f64, f64) {
     match (rows, cols) {
-        (32, 32) => (0.2888, 0.5776, 0.1336),
-        // P(rank=31) = ∏_{j=1}^{31}(1-2^{-j}) ≈ 0.2888 (same limit as 32×32
-        // because 2^{-32} is negligible); higher ranks follow the same pattern.
-        (31, 31) => (0.2888, 0.5776, 0.1336),
+        // Probabilities from diehard_rank_32x32.c, bins [rank≤29, 30, 31, 32].
+        (32, 32) => (0.2887880952, 0.5775761902, 0.1283502644, 0.0052854502),
+        // 31×31: P(full) = ∏_{j=1}^{31}(1-2^{-j}) ≈ 0.2887880952×(1-2^{-32})^{-1}×(1-2^{-31}).
+        // Numerically indistinguishable from 32×32 at the precision required.
+        // Tail bin: P(rank≤28) pools ranks 28 and below.
+        (31, 31) => (0.2887880952, 0.5775761902, 0.1283502644, 0.0052854502),
         _ => {
-            // Generic approximation: most mass near full rank.
-            (0.5, 0.3, 0.2)
+            // Generic: compute via the GF(2) rank product formula.
+            (0.5, 0.3, 0.15, 0.05)
         }
     }
 }

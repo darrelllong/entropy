@@ -20,13 +20,57 @@
 //! # Author
 //! Darrell Long (UC Santa Cruz).
 
-use super::{primes::{is_probable_prime, mod_pow}, Rng};
+use super::{primes::is_probable_prime, Rng};
+
+// ── Mersenne-prime fast arithmetic ───────────────────────────────────────────
+//
+// For a Mersenne prime p = 2^k − 1 with p < 2^32, any two values a, b < p
+// satisfy a·b < p² < 2^64, so the full product fits in a u64.  Reduction then
+// exploits the identity: x ≡ (x >> k) + (x & (p)) (mod p).
+//
+// This replaces the generic `mul_mod` (u128 path) with three u64 operations.
+
+/// Modular multiplication for p = 2^k − 1, assuming a, b < p.
+#[inline]
+fn mersenne_mul(a: u64, b: u64, p: u64, k: u32) -> u64 {
+    let t = a * b;              // fits in u64 because a*b < p^2 < 2^(2k) ≤ 2^64
+    let r = (t >> k) + (t & p);
+    if r >= p { r - p } else { r }
+}
+
+/// Modular exponentiation base^exp mod p for Mersenne prime p = 2^k − 1.
+#[inline]
+fn mersenne_pow(mut base: u64, mut exp: u64, p: u64, k: u32) -> u64 {
+    let mut result = 1u64;
+    base %= p;
+    while exp > 0 {
+        if exp & 1 == 1 {
+            result = mersenne_mul(result, base, p, k);
+        }
+        base = mersenne_mul(base, base, p, k);
+        exp >>= 1;
+    }
+    result
+}
+
+/// Return the Mersenne exponent k if p == 2^k − 1 and k ≤ 32, else None.
+fn mersenne_k(p: u64) -> Option<u32> {
+    // Check if p+1 is a power of two.
+    let p1 = p + 1;
+    if p1.is_power_of_two() {
+        let k = p1.trailing_zeros();
+        if k <= 32 { Some(k) } else { None }
+    } else {
+        None
+    }
+}
 
 /// Blum-Micali pseudorandom bit generator.
 pub struct BlumMicali {
-    p:     u64,   // prime modulus
-    g:     u64,   // generator (element of large order in Zp*)
-    state: u64,   // current xᵢ
+    p:     u64,        // prime modulus
+    g:     u64,        // generator (element of large order in Zp*)
+    state: u64,        // current xᵢ
+    k:     Option<u32>, // Mersenne exponent if p = 2^k−1, else None
 }
 
 impl BlumMicali {
@@ -44,12 +88,16 @@ impl BlumMicali {
         assert!(is_probable_prime(p), "p must be prime");
         assert!(g > 1 && g < p, "g must be in (1, p)");
         assert!(seed > 0 && seed < p, "seed must be in (0, p)");
-        Self { p, g, state: seed }
+        let k = mersenne_k(p);
+        Self { p, g, state: seed, k }
     }
 
     /// Advance one step and return the output bit.
     pub fn next_bit(&mut self) -> u8 {
-        self.state = mod_pow(self.g, self.state, self.p);
+        self.state = match self.k {
+            Some(k) => mersenne_pow(self.g, self.state, self.p, k),
+            None    => super::primes::mod_pow(self.g, self.state, self.p),
+        };
         u8::from(self.state <= (self.p - 1) / 2)
     }
 }

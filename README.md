@@ -1,133 +1,134 @@
 # entropy
 
-A pure, safe Rust statistical test suite for pseudorandom number generators.
+`entropy` is a pure Rust statistical test suite for pseudorandom number generators.
 
-Implements every test from:
-- **NIST SP 800-22 Rev 1a** — the canonical 15-test battery for cryptographic RNG evaluation
-- **DIEHARD** (Marsaglia, 1995) — tests not already in NIST SP 800-22
-- **DIEHARDER** (Brown, 2006) — tests not already in NIST or DIEHARD
+It aims to provide a readable, hackable implementation of the major classic batteries:
 
-Original reference PDFs are in `pubs/`.
+- NIST SP 800-22 Rev. 1a
+- DIEHARD
+- DIEHARDER
+
+This is a serious audit tool, but it is not a magical oracle. Some tests are fully faithful to the published or reference implementations, some are close ports of the Dieharder source, and a small number are still approximate. The project is strongest when it is explicit about which is which.
+
+## What This Repository Is For
+
+Use this repository when you want to:
+
+- run a broad battery of statistical checks against RNGs implemented in Rust
+- compare obviously bad generators against stronger ones
+- inspect the test code directly instead of treating a binary as a black box
+- experiment with classic randomness batteries in one codebase
+
+Do not use it as the sole basis for claiming a generator is cryptographically secure.
+
+## Current State
+
+The crate builds and tests cleanly:
+
+```sh
+cargo build
+cargo test
+```
+
+The test runner lives in [src/main.rs](/Users/darrell/entropy/src/main.rs) and the library entrypoints are split across:
+
+- [src/nist](/Users/darrell/entropy/src/nist)
+- [src/diehard](/Users/darrell/entropy/src/diehard)
+- [src/dieharder](/Users/darrell/entropy/src/dieharder)
+
+The current external audit is in [PEERREVIEW.md](/Users/darrell/entropy/PEERREVIEW.md).
 
 ## Running
 
+Full runner:
+
 ```sh
-cargo run --release
+cargo run --release --bin run_tests
 ```
 
-This runs every test against several RNGs available on macOS:
+Useful variants:
 
-| RNG | Expected outcome |
-|-----|-----------------|
-| `/dev/urandom` (OsRng) | Pass all tests |
-| Xorshift32 (Marsaglia) | Pass most; may fail linear-complexity |
-| LCG-bad (glibc `rand` parameters) | Fail spectral, runs, serial, … |
-| MINSTD (Park-Miller) | Fail several |
-| Constant (`0xDEAD_DEAD`) | Fail everything |
-| Counter (`0, 1, 2, …`) | Fail everything |
+```sh
+cargo run --release --bin run_tests -- --suite nist
+cargo run --release --bin run_tests -- --suite diehard --quick
+cargo run --release --bin run_tests -- --test nist::spectral
+```
 
-## Attribution rules
+Benchmark harness:
 
-Any function whose algorithm is adapted from DIEHARD or DIEHARDER carries
-a `# Author` line in its doc-comment citing the original author.
+```sh
+cargo run --release --bin bench_rngs
+```
+
+## What The Runner Exercises
+
+The default runner compares several built-in generators, including:
+
+- `/dev/urandom`
+- MT19937
+- Xorshift32 and Xorshift64
+- classic LCG-style generators
+- Blum Blum Shub
+- Blum-Micali
+- AES-128-CTR as a deterministic keystream source
+- intentionally bad generators like a constant stream and a counter
+
+That makes the output useful both for regression testing and for sanity-checking that the batteries still punish obviously bad constructions.
+
+## Implementation Status
+
+Status here means "how comfortable this repository should be claiming fidelity," not "whether the test compiles."
+
+| Area | Status |
+|------|--------|
+| NIST SP 800-22: frequency, block_frequency, runs, longest_run, matrix_rank, spectral, serial, approximate_entropy, cumulative_sums, universal, linear_complexity | Faithful or close faithful implementations |
+| NIST SP 800-22: non_overlapping_template | Faithful for all 148 aperiodic 9-bit templates with the standard `N = 8` block setup |
+| NIST SP 800-22: random_excursions, random_excursions_variant | Faithful family outputs; runner emits all per-state results |
+| DIEHARD: operm5, runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones, craps | Faithful or close to the Dieharder reference implementation |
+| DIEHARD: squeeze, overlapping_sums | Close to the Dieharder source, but Dieharder itself documents these as weak or broken tests |
+| DIEHARDER: fill_tree, gcd | Faithful; runner emits both underlying sub-results |
+| DIEHARDER: bit_distribution | Approximate aggregate pattern-frequency test, not Brown's `rgb_bitdist` |
+| Several geometric / higher-level Dieharder-style tests | Plausible and useful, but still best treated as implementation-reviewed rather than externally validated |
+
+## Important Caveats
+
+- Passing these tests does not prove unpredictability, backtracking resistance, or cryptographic suitability.
+- A single low p-value is not automatically evidence that a generator is broken.
+- Some tests naturally emit families of p-values; the runner now preserves many of those families instead of flattening them into one fake verdict.
+- A few historically famous tests are themselves weak. In particular, Dieharder explicitly calls out some classic tests as poor discriminators.
+
+## Project Layout
+
+- [src/math.rs](/Users/darrell/entropy/src/math.rs): special functions, KS helper, FFT support
+- [src/result.rs](/Users/darrell/entropy/src/result.rs): shared result type and display logic
+- [src/rng](/Users/darrell/entropy/src/rng): RNG implementations used by the harness
+- [src/nist](/Users/darrell/entropy/src/nist): NIST SP 800-22 tests
+- [src/diehard](/Users/darrell/entropy/src/diehard): DIEHARD tests
+- [src/dieharder](/Users/darrell/entropy/src/dieharder): DIEHARDER tests
+
+## Attribution
+
+Functions adapted from DIEHARD or DIEHARDER include `# Author` citations in their doc comments. The goal is not to erase provenance behind a Rust rewrite.
+
+## References
+
+Primary references used by the code and audit:
+
+- NIST SP 800-22 Rev. 1a
+- George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995)
+- Robert G. Brown, *Dieharder* 3.31.x source
+- Marsaglia and Tsang, "Some Difficult-to-pass Tests of Randomness"
+
+The source PDFs and papers live under `pubs/`.
 
 ---
 
-## Bibliography
+<p align="center">
+  <a href="https://commons.wikimedia.org/wiki/File%3AHet_snijden_van_de_kei._Rijksmuseum_SK-A-1601.jpeg">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/d/dd/Het_snijden_van_de_kei._Rijksmuseum_SK-A-1601.jpeg" alt="Extracting the stone of madness" width="360" />
+  </a>
+</p>
 
-All referenced documents are in `pubs/`. BibTeX entries for every source:
-
-```bibtex
-@techreport{nist-sp-800-22,
-  author      = {Rukhin, Andrew and Soto, Juan and Nechvatal, James and
-                 Smid, Miles and Barker, Elaine and Leigh, Stefan and
-                 Levenson, Mark and Vangel, Mark and Banks, David and
-                 Heckert, Alan and Dray, James and Vo, San},
-  title       = {{A Statistical Test Suite for Random and Pseudorandom
-                  Number Generators for Cryptographic Applications}},
-  institution = {National Institute of Standards and Technology},
-  year        = {2010},
-  number      = {SP 800-22 Rev 1a},
-  type        = {Special Publication},
-  doi         = {10.6028/NIST.SP.800-22r1a},
-}
-
-@techreport{nist-sp-800-90a,
-  author      = {Barker, Elaine and Kelsey, John},
-  title       = {{Recommendation for Random Number Generation Using
-                  Deterministic Random Bit Generators}},
-  institution = {National Institute of Standards and Technology},
-  year        = {2015},
-  number      = {SP 800-90A Rev 1},
-  type        = {Special Publication},
-  doi         = {10.6028/NIST.SP.800-90Ar1},
-}
-
-@techreport{nist-sp-800-90b,
-  author      = {Turan, Meltem S{\"o}nmez and Barker, Elaine and Kelsey,
-                 John and McKay, Kerry A. and Baish, Mary L. and Boyle, Mike},
-  title       = {{Recommendation for the Entropy Sources Used for Random
-                  Bit Generation}},
-  institution = {National Institute of Standards and Technology},
-  year        = {2018},
-  number      = {SP 800-90B},
-  type        = {Special Publication},
-  doi         = {10.6028/NIST.SP.800-90B},
-}
-
-@techreport{nist-sp-800-90c,
-  author      = {Barker, Elaine and Kelsey, John and McKay, Kerry},
-  title       = {{Recommendation for Random Bit Generator (RBG) Constructions}},
-  institution = {National Institute of Standards and Technology},
-  year        = {2024},
-  number      = {SP 800-90C},
-  type        = {Special Publication},
-}
-
-@techreport{fips-140-3,
-  author      = {{National Institute of Standards and Technology}},
-  title       = {{Security Requirements for Cryptographic Modules}},
-  institution = {National Institute of Standards and Technology},
-  year        = {2019},
-  number      = {FIPS 140-3},
-  type        = {Federal Information Processing Standard},
-  doi         = {10.6028/NIST.FIPS.140-3},
-}
-
-@misc{marsaglia1995diehard,
-  author      = {Marsaglia, George},
-  title       = {{DIEHARD: A Battery of Tests of Randomness}},
-  year        = {1995},
-  howpublished= {CD-ROM. Florida State University.
-                 \url{https://stat.fsu.edu/pub/diehard/}},
-}
-
-@misc{brown2006dieharder,
-  author      = {Brown, Robert G.},
-  title       = {{Dieharder: A Random Number Test Suite}},
-  year        = {2006},
-  note        = {Version 3.31.1},
-  howpublished= {\url{https://webhome.phy.duke.edu/~rgb/General/dieharder.php}},
-}
-
-@article{marsaglia2002gcd,
-  author  = {Marsaglia, George and Tsang, Wai Wan},
-  title   = {{Some Difficult-to-pass Tests of Randomness}},
-  journal = {Journal of Statistical Software},
-  year    = {2002},
-  volume  = {7},
-  number  = {3},
-  pages   = {1--9},
-  doi     = {10.18637/jss.v007.i03},
-}
-
-@phdthesis{hughes2021badrandom,
-  author  = {Hughes, James Prescott},
-  title   = {{BADRANDOM: The Effect and Mitigations for Low Entropy
-              Random Numbers in TLS}},
-  school  = {University of California, Santa Cruz},
-  year    = {2021},
-  month   = {December},
-  note    = {Committee chair: Professor Darrell Long},
-}
-```
+<p align="center">
+  <em>Extracting the Stone of Madness</em>, after Hieronymus Bosch. Image source: <a href="https://commons.wikimedia.org/wiki/File%3AHet_snijden_van_de_kei._Rijksmuseum_SK-A-1601.jpeg">Wikimedia Commons</a>.
+</p>

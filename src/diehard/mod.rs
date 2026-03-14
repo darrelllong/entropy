@@ -28,7 +28,7 @@ use crate::{result::TestResult, rng::Rng};
 /// `quick` reduces the O(n²) geometric test parameters for fast iteration.
 pub fn run_all(rng: &mut impl Rng, n_u32: usize, quick: bool) -> Vec<TestResult> {
     let words = rng.collect_u32s(n_u32);
-    vec![
+    let mut results = vec![
         birthday_spacings::birthday_spacings(&words),
         operm5::operm5(&words),
         binary_rank::binary_rank_32x32(&words),
@@ -45,7 +45,10 @@ pub fn run_all(rng: &mut impl Rng, n_u32: usize, quick: bool) -> Vec<TestResult>
         spheres_3d::spheres_3d(rng, quick),
         squeeze::squeeze(rng),
         overlapping_sums::overlapping_sums(&words),
-        runs_float::runs_float(&words),
-        craps::craps(rng),
-    ]
+    ];
+    // runs_float_both returns two results: one for up-runs, one for down-runs.
+    results.extend(runs_float::runs_float_both(rng));
+    // craps has two independent statistics; emit both rather than collapsing to min.
+    results.extend(craps::craps_both(rng));
+    results
 }

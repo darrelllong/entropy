@@ -19,15 +19,15 @@ pub fn permutations(rng: &mut impl Rng, t: usize) -> TestResult {
     }
 
     let n_perms = factorial(t);
-    let n_samples = 100_000.max(n_perms * 50); // enough for stable chi-square
-    let n_floats = n_samples + t - 1;
-
-    let floats: Vec<f64> = (0..n_floats).map(|_| rng.next_f64()).collect();
+    // Use non-overlapping k-tuples: tsamples independent draws of k values.
+    // rgb_permutations.c: for t in 0..tsamples { fill testv[0..k] with k rands; sort; count }
+    let n_samples = 100_000.max(n_perms * 30); // tsamples >> 30·k!
 
     let mut counts = vec![0u32; n_perms];
-    for i in 0..n_samples {
-        let window = &floats[i..i + t];
-        let rank = perm_rank(window, t);
+    let mut testv = vec![0.0f64; t];
+    for _ in 0..n_samples {
+        for v in testv.iter_mut() { *v = rng.next_f64(); }
+        let rank = perm_rank(&testv, t);
         counts[rank] += 1;
     }
 

@@ -1,19 +1,23 @@
 //! [`Rng`] trait and all generator implementations used by the test suite.
 
+pub mod aes_ctr;
 pub mod bad;
 pub mod blum_blum_shub;
 pub mod blum_micali;
 pub mod c_stdlib;
+pub mod dual_ec;
 pub mod lcg;
 pub mod mt19937;
 pub mod os;
 pub mod primes;
 pub mod xorshift;
 
+pub use aes_ctr::AesCtr;
 pub use bad::{ConstantRng, CounterRng};
 pub use blum_blum_shub::BlumBlumShub;
 pub use blum_micali::BlumMicali;
 pub use c_stdlib::{CRand, Rand48};
+pub use dual_ec::DualEcDrbg;
 pub use lcg::{Lcg32, LcgVariant};
 pub use mt19937::Mt19937;
 pub use os::OsRng;

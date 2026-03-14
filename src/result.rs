@@ -55,7 +55,11 @@ impl fmt::Display for TestResult {
         } else {
             "FAIL"
         };
-        write!(f, "[{status}] {:<48}  p = {:.6}", self.name, self.p_value)?;
+        if self.skipped() {
+            write!(f, "[{status}] {:<48}  p = N/A", self.name)?;
+        } else {
+            write!(f, "[{status}] {:<48}  p = {:.6}", self.name, self.p_value)?;
+        }
         if let Some(n) = &self.note {
             write!(f, "  ({n})")?;
         }
