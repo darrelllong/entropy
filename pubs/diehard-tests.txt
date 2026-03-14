@@ -1,0 +1,312 @@
+DIEHARD: Battery of Tests of Randomness
+George Marsaglia, Florida State University
+Originally published 1995 on CD-ROM; distribution at stat.fsu.edu/pub/diehard/
+
+This file is derived from Marsaglia's original tests.txt (extracted from Diehard.zip)
+and diehard.doc (the official instructions), both from the DIEHARD distribution.
+
+=========================================================================
+COMPLETE LIST OF DIEHARD TESTS (15 tests, numbered as menu items 1-15)
+=========================================================================
+
+NOTE: Marsaglia's diehard.doc says "examples of some tests (15) from the DIEHARD
+battery of tests." The original also had a 31x31 Binary Rank test not in the
+standard diehard.exe menu, making the total test count sometimes cited as 18
+(counting OPSO, OQSO, and DNA separately, and counting both rank matrix sizes).
+
+---------------------------------------------------------------------------
+TEST 1: BIRTHDAY SPACINGS TEST
+---------------------------------------------------------------------------
+Choose m birthdays in a year of n days. List the spacings between the
+birthdays. If j is the number of values that occur more than once in that
+list, then j is asymptotically Poisson distributed with mean m^3/(4n).
+This test uses n=2^24 and m=2^9, so that the underlying distribution for j
+is taken to be Poisson with lambda=2^27/(2^26)=2. A sample of 500 j's is
+taken, and a chi-square goodness of fit test provides a p-value. The first
+test uses bits 1-24 (counting from the left) from integers in the specified
+file. Then the file is closed and reopened. Next, bits 2-25 are used to
+provide birthdays, then 3-26 and so on to bits 9-32. Each set of bits
+provides a p-value, and the nine p-values provide a sample for a KSTEST.
+
+What it measures: Whether random numbers exhibit the expected birthday
+collision probability. Weak generators often have too few or too many
+collisions in the spacings between randomly chosen "birthdays."
+
+---------------------------------------------------------------------------
+TEST 2: OVERLAPPING 5-PERMUTATIONS TEST (OPERM5)
+---------------------------------------------------------------------------
+Looks at a sequence of one million 32-bit random integers. Each set of
+five consecutive integers can be in one of 120 states (the 5! possible
+orderings). The 5th, 6th, 7th,... numbers each provide a state. As many
+thousands of state transitions are observed, cumulative counts are made of
+the number of occurrences of each state. The quadratic form in the weak
+inverse of the 120x120 covariance matrix yields a test equivalent to the
+likelihood ratio test that the 120 cell counts came from the specified
+(asymptotically) normal distribution with the specified 120x120 covariance
+matrix (with rank 99). Uses 1,000,000 integers, twice.
+
+What it measures: Whether all 120 orderings of 5 consecutive integers
+appear with the correct frequencies (i.e., whether relative orderings of
+adjacent numbers are uniformly distributed).
+
+---------------------------------------------------------------------------
+TEST 3: BINARY RANK TEST FOR 31x31 MATRICES
+---------------------------------------------------------------------------
+The leftmost 31 bits of 31 random integers from the test sequence are used
+to form a 31x31 binary matrix over the field {0,1}. The rank is determined.
+That rank can be from 0 to 31, but ranks < 28 are rare, and their counts
+are pooled with those for rank 28. Ranks are found for 40,000 such random
+matrices and a chi-square test is performed on counts for ranks 31, 30, 29
+and <=28.
+
+What it measures: Whether the linear algebra structure (rank) of random
+binary matrices matches theory. A biased generator will produce matrices
+with rank distributions that differ from what is expected for truly random bits.
+
+---------------------------------------------------------------------------
+TEST 4: BINARY RANK TEST FOR 32x32 MATRICES
+---------------------------------------------------------------------------
+A random 32x32 binary matrix is formed, each row a 32-bit random integer.
+The rank is determined. Ranks less than 29 are rare and their counts are
+pooled with those for rank 29. Ranks are found for 40,000 such random
+matrices and a chi-square test is performed on counts for ranks 32, 31, 30
+and <=29.
+
+What it measures: Same concept as 31x31 but using full 32-bit integers for
+each row. Tests linear dependence structure in the bit output.
+
+---------------------------------------------------------------------------
+TEST 5: BINARY RANK TEST FOR 6x8 MATRICES
+---------------------------------------------------------------------------
+From each of six random 32-bit integers, a specified byte is chosen, and
+the resulting six bytes form a 6x8 binary matrix whose rank is determined.
+That rank can be from 0 to 6, but ranks 0,1,2,3 are rare; their counts are
+pooled with those for rank 4. Ranks are found for 100,000 random matrices,
+and a chi-square test is performed on counts for ranks 6, 5 and <=4.
+
+What it measures: Linear dependence structure of byte-level (8-bit) output
+from the generator, using smaller matrices than the 31x31 and 32x32 tests.
+
+---------------------------------------------------------------------------
+TEST 6: BITSTREAM TEST
+---------------------------------------------------------------------------
+The file under test is viewed as a stream of bits b1, b2,... Consider an
+alphabet with two letters (0 and 1) and think of the stream as a succession
+of overlapping 20-letter "words." The bitstream test counts the number of
+missing 20-letter (20-bit) words in a string of 2^21 overlapping 20-letter
+words. There are 2^20 possible 20-letter words. For a truly random string,
+the number of missing words j should be normally distributed with mean
+141,909 and sigma 428. The test is repeated twenty times.
+
+What it measures: Whether all possible 20-bit patterns appear in the bit
+stream with approximately the right frequency (the "monkey at a typewriter"
+approach: given enough keystrokes, all words should appear).
+
+---------------------------------------------------------------------------
+TEST 7: TESTS OPSO, OQSO, DNA (Three Monkey Tests)
+---------------------------------------------------------------------------
+
+OPSO (Overlapping-Pairs-Sparse-Occupancy):
+Considers 2-letter words from an alphabet of 1024 letters. Each letter is
+determined by a specified ten bits from a 32-bit integer. OPSO generates
+2^21 (overlapping) 2-letter words and counts the number of missing words.
+That count should be very close to normally distributed with mean 141,909,
+sigma 290.
+
+OQSO (Overlapping-Quadruples-Sparse-Occupancy):
+Similar to OPSO, except it considers 4-letter words from an alphabet of 32
+letters, each letter determined by a designated string of 5 consecutive bits.
+The mean number of missing words in a sequence of 2^21 four-letter words is
+141,909, with sigma = 295.
+
+DNA:
+Considers an alphabet of 4 letters (C, G, A, T), determined by two
+designated bits in the sequence. It considers 10-letter words, so that as in
+OPSO and OQSO, there are 2^20 possible words, and the mean number of missing
+words from a string of 2^21 (overlapping) 10-letter words is 141,909.
+The standard deviation sigma=339 was determined by simulation.
+
+What they measure: Sparse occupancy tests -- how many possible short "words"
+of various lengths and alphabets go unvisited in a long sample. A biased or
+correlated generator will visit fewer or more distinct patterns than expected.
+
+---------------------------------------------------------------------------
+TEST 8: COUNT-THE-1's TEST ON A STREAM OF BYTES
+---------------------------------------------------------------------------
+Consider the file as a stream of bytes (four per 32-bit integer). Each byte
+can contain from 0 to 8 ones, with probabilities 1,8,28,56,70,56,28,8,1
+over 256. The stream of bytes provides a string of overlapping 5-letter
+words, each letter taking values A,B,C,D,E, where the letter is determined
+by the number of 1's in a byte (0,1,or 2 -> A; 3 -> B; 4 -> C; 5 -> D;
+6,7, or 8 -> E). There are 5^5 = 3125 possible 5-letter words, and from
+256,000 overlapping 5-letter words, counts are made on the frequencies for
+each word. The quadratic form in the weak inverse of the covariance matrix
+provides a chi-square test: Q5-Q4, the difference of the naive Pearson sums.
+
+What it measures: Distribution of overlapping pentagram patterns when bytes
+are remapped through a 5-symbol alphabet based on their Hamming weight.
+
+---------------------------------------------------------------------------
+TEST 9: COUNT-THE-1's TEST FOR SPECIFIC BYTES
+---------------------------------------------------------------------------
+Similar to Test 8, but instead of using the stream of all bytes, a specific
+byte position is chosen from each successive 32-bit integer (e.g., the
+leftmost bits 1 to 8). The specified bytes from successive integers provide
+a string of overlapping 5-letter words using the same A,B,C,D,E mapping.
+
+What it measures: Same word-frequency test as Test 8, but applied to a
+specific byte lane, revealing bit-plane non-uniformities.
+
+---------------------------------------------------------------------------
+TEST 10: PARKING LOT TEST
+---------------------------------------------------------------------------
+In a square of side 100, randomly "park" a car -- a circle of radius 1.
+Then try to park more cars, each time trying a new random location if a
+crash would occur. Each attempt leads to either a crash or a success.
+A simple characterization: k, the number of cars successfully parked after
+n=12,000 attempts. Simulation shows that k should average 3523 with sigma
+21.9 and is very close to normally distributed. (k-3523)/21.9 should be a
+standard normal variable, converted to a uniform variable, providing input
+to a KSTEST based on a sample of 10.
+
+Note: The documentation describes round cars, but the implementation uses
+square cars (side 1). The parking lot test is known to have relatively low
+sensitivity compared to other tests.
+
+What it measures: Geometric/spatial uniformity and independence of
+2D random coordinate pairs by testing how many non-overlapping random
+circles can be packed.
+
+---------------------------------------------------------------------------
+TEST 11: MINIMUM DISTANCE TEST (2D)
+---------------------------------------------------------------------------
+100 times: choose n=8000 random points in a square of side 10000. Find d,
+the minimum distance between the (n^2-n)/2 pairs of points. If the points
+are truly independent uniform, then d^2, the square of the minimum distance,
+should be exponentially distributed with mean 0.995. Thus 1-exp(-d^2/0.995)
+should be uniform on [0,1) and a KSTEST on the resulting 100 values serves
+as a test of uniformity for random points in the square.
+
+What it measures: Spatial distribution of 2D random point pairs; tests
+whether the nearest-neighbor distance follows the correct exponential distribution.
+
+---------------------------------------------------------------------------
+TEST 12: 3D SPHERES TEST (Minimum Distance in 3D)
+---------------------------------------------------------------------------
+Choose 4000 random points in a cube of edge 1000. At each point, center a
+sphere large enough to reach the next closest point. The volume of the
+smallest such sphere is exponentially distributed with mean 120*pi/3. Thus
+the radius cubed is exponential with mean 30. The 3DSPHERES test generates
+4000 such spheres 20 times. Each minimum radius cubed leads to a uniform
+variable by means of 1-exp(-r^3/30), then a KSTEST is done on the 20
+p-values.
+
+What it measures: Whether the distribution of nearest-neighbor distances
+in 3D space follows the correct exponential distribution, testing spatial
+uniformity and independence in three dimensions.
+
+---------------------------------------------------------------------------
+TEST 13: SQUEEZE TEST
+---------------------------------------------------------------------------
+Random integers are floated to get uniforms on [0,1). Starting with
+k=2^31=2147483647, the test finds j, the number of iterations necessary
+to reduce k to 1, using the reduction k=ceiling(k*U), with U provided by
+floating integers from the file being tested. Such j's are found 100,000
+times, then counts for the number of times j was <=6, 7,..., 47, >=48 are
+used to provide a chi-square test for cell frequencies.
+
+What it measures: Whether the multiplicative "squeezing" convergence to 1
+follows the expected distribution, testing the uniform distribution of
+floating-point values derived from the integer output.
+
+---------------------------------------------------------------------------
+TEST 14: OVERLAPPING SUMS TEST
+---------------------------------------------------------------------------
+Integers are floated to get a sequence U(1), U(2),... of uniform [0,1)
+variables. Then overlapping sums S(1) = U(1)+...+U(100), S(2) = U(2)+...+U(101),
+etc. are formed. The S's are virtually normal with a certain covariance
+matrix. A linear transformation of the S's converts them to a sequence of
+independent standard normals, which are converted to uniform variables for
+a KSTEST. The p-values from ten KSTESTs are given still another KSTEST.
+
+What it measures: Serial correlation among consecutive random numbers.
+If consecutive values are correlated, the overlapping sums will deviate
+from the expected normal distribution.
+
+---------------------------------------------------------------------------
+TEST 15: RUNS TEST
+---------------------------------------------------------------------------
+Counts runs up and runs down in a sequence of uniform [0,1) variables
+obtained by floating the 32-bit integers. A run is a maximal monotone
+subsequence. The covariance matrices for the runs-up and runs-down are
+well known, leading to chi-square tests for quadratic forms in the weak
+inverses of the covariance matrices. Runs are counted for sequences of
+length 10,000. This is done ten times, then repeated.
+
+What it measures: Whether ascending and descending runs of random numbers
+appear with the correct length distribution. Correlated generators produce
+runs that are too long or too short.
+
+Note: Marsaglia considered this the only "standard" test in DIEHARD, and
+the only one of the standard tests he found to be very effective.
+
+---------------------------------------------------------------------------
+TEST 16 (bonus, in diehard.exe but listed separately): CRAPS TEST
+---------------------------------------------------------------------------
+Plays 200,000 games of craps. Finds the number of wins and the number of
+throws necessary to end each game. The number of wins should be very close
+to a normal with mean 200000p and variance 200000p(1-p), with p=244/495.
+Throws necessary to complete the game can vary from 1 to infinity, but
+counts for all > 21 are lumped with 21. A chi-square test is made on the
+number-of-throws cell counts.
+
+What it measures: Whether pairs of random integers (interpreted as dice
+rolls) produce the correct game-outcome distributions over many craps games.
+
+=========================================================================
+DOWNLOAD
+=========================================================================
+
+Original DIEHARD distribution:
+  https://ani.stat.fsu.edu/diehard/Diehard.zip  (599 KB, ~Jan 2010 last mod)
+  (formerly at stat.fsu.edu/pub/diehard/)
+
+Contains: diehard.exe, diequick.exe, tests.txt, diehard.doc, makewhat.exe,
+asc2bin.exe, getrnor.exe, meld.exe, dosxmsf.exe, operm5d.ata (covariance
+matrix for OPERM5)
+
+Note: The executables are DOS/Windows 32-bit binaries from 1995-1997.
+The source code was available in C (an f2c translation from Fortran).
+Robert Brown's dieharder re-implements all tests in clean GPL C code.
+
+=========================================================================
+COMPARISON: DIEHARD TESTS vs. NIST SP 800-22
+=========================================================================
+
+Tests IN DIEHARD but NOT in NIST SP 800-22:
+  1. Birthday Spacings (Poisson spacing collision test)
+  2. Overlapping 5-Permutations / OPERM5 (ordering of 5 consecutive values)
+  3. Binary Rank 31x31 matrices
+  4. Binary Rank 32x32 matrices
+  5. Binary Rank 6x8 matrices  (NIST SP 800-22 has Binary Matrix Rank but at different sizes)
+  6. Bitstream / OPSO (Overlapping-Pairs-Sparse-Occupancy, 20-bit monkey test)
+  7. OQSO (Overlapping-Quadruples-Sparse-Occupancy)
+  8. DNA (4-letter alphabet monkey test)
+  9. Count the 1's (Stream) -- uses byte Hamming weight -> 5-letter alphabet
+ 10. Count the 1's (Specific Bytes) -- same but per byte-lane
+ 11. Parking Lot (2D random circle packing)
+ 12. Minimum Distance / 2D Spheres (nearest-neighbor in 2D)
+ 13. 3D Spheres (nearest-neighbor in 3D)
+ 14. Squeeze (multiplicative convergence test)
+ 15. Overlapping Sums (sum of 100 consecutive values, test for serial correlation)
+ 16. Runs (ascending/descending runs of floats) -- NIST has a Runs test on bits
+ 17. Craps (dice game simulation)
+
+Note on overlaps:
+- NIST Binary Matrix Rank: uses m x Q matrices, typically square;
+  DIEHARD uses 31x31, 32x32, and 6x8. The concept overlaps but sizes differ.
+- NIST Runs: counts bit-level runs (transitions in 0/1 sequences);
+  DIEHARD Runs: counts monotone runs in floating-point sequences.
+  These test different things and are NOT equivalent.
+- NIST Non-overlapping/Overlapping Template Matching: differs from DIEHARD's
+  OPSO/OQSO/DNA/Bitstream tests (different formulation and focus).
