@@ -26,10 +26,14 @@
 //! ```
 
 use std::collections::HashSet;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, CRand, ConstantRng, CounterRng, CryptoCtrDrbg,
-    DualEcDrbg, Lcg32, Mt19937, OsRng, Rand48, Rng, Xorshift32, Xorshift64,
+    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ConstantRng,
+    CounterRng, CryptoCtrDrbg, DualEcDrbg, Lcg32, LinuxLibcRandom, Mt19937,
+    OsRng, Rand48, Rng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    WindowsVb6Rnd, Xorshift32, Xorshift64,
 };
 use entropy::{diehard, dieharder, nist, result::TestResult};
 use std::thread;
@@ -49,6 +53,7 @@ struct Args {
     quick:       bool,
     suites:      HashSet<Suite>,  // empty = all three
     test_filter: Option<String>,  // substring match on TestResult::name
+    rng_filters: Vec<String>,     // substring match on RNG label
 }
 
 impl Args {
@@ -56,6 +61,7 @@ impl Args {
         let mut quick = false;
         let mut explicit_suites: HashSet<Suite> = HashSet::new();
         let mut test_filter: Option<String> = None;
+        let mut rng_filters: Vec<String> = Vec::new();
         let mut suite_explicit = false;
 
         let argv: Vec<String> = std::env::args().skip(1).collect();
@@ -87,6 +93,13 @@ impl Args {
                         None    => die("--test requires an argument"),
                     }
                 }
+                "--rng" => {
+                    i += 1;
+                    match argv.get(i) {
+                        Some(v) => rng_filters.push(v.clone()),
+                        None    => die("--rng requires an argument"),
+                    }
+                }
                 other => die(&format!(
                     "unknown option '{other}' — run with --help for usage"
                 )),
@@ -113,7 +126,7 @@ impl Args {
             HashSet::new()  // empty = all three
         };
 
-        Args { quick, suites, test_filter }
+        Args { quick, suites, test_filter, rng_filters }
     }
 
     fn run_suite(&self, s: &Suite) -> bool {
@@ -123,23 +136,30 @@ impl Args {
     fn matches(&self, name: &str) -> bool {
         self.test_filter.as_ref().map_or(true, |pat| name.contains(pat.as_str()))
     }
+
+    fn matches_rng(&self, label: &str) -> bool {
+        self.rng_filters.is_empty()
+            || self.rng_filters.iter().any(|pat| label.contains(pat))
+    }
 }
 
 fn print_usage() {
     eprintln!(
-        "Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--help]\n\
+        "Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--rng <label>] [--help]\n\
          \n\
          --suite  Run only this battery.  Repeatable: --suite nist --suite diehard.\n\
          --test   Show only tests whose name contains <name>.\n\
                   Prefix nist::/diehard::/dieharder:: also limits which battery runs.\n\
+         --rng    Run only RNGs whose label contains <label>. Repeatable.\n\
          --quick  Reduced sample counts in DIEHARD/DIEHARDER (faster, less sensitive).\n\
          \n\
          Examples:\n\
-           run_tests                              # full battery, all RNGs\n\
-           run_tests --suite nist                 # NIST SP 800-22 only\n\
-           run_tests --test nist::frequency       # single test (NIST only generated)\n\
-           run_tests --test frequency             # all tests containing \"frequency\"\n\
-           run_tests --suite diehard --quick"
+          run_tests                              # full battery, all RNGs\n\
+          run_tests --suite nist                 # NIST SP 800-22 only\n\
+          run_tests --test nist::frequency       # single test (NIST only generated)\n\
+          run_tests --rng Windows                # only the Windows CRT generator\n\
+          run_tests --test frequency             # all tests containing \"frequency\"\n\
+          run_tests --suite diehard --quick"
     );
 }
 
@@ -160,39 +180,55 @@ struct RngResults {
 type RunFn = Box<dyn FnOnce() -> RngResults + Send + 'static>;
 
 fn make_runs(args: Args) -> Vec<RunFn> {
+    let mut runs = Vec::new();
+
     macro_rules! run {
         ($label:expr, $rng:expr) => {{
-            let a = args.clone();
-            Box::new(move || run_one($label, $rng, &a)) as RunFn
+            if args.matches_rng($label) {
+                let a = args.clone();
+                runs.push(Box::new(move || run_one($label, $rng, &a)) as RunFn);
+            }
         }};
     }
     macro_rules! run_nist {
         ($label:expr, $rng:expr) => {{
-            let a = args.clone();
-            Box::new(move || run_nist_only($label, $rng, &a)) as RunFn
+            if args.matches_rng($label) {
+                let a = args.clone();
+                runs.push(Box::new(move || run_nist_only($label, $rng, &a)) as RunFn);
+            }
         }};
     }
 
-    vec![
-        run!("OsRng (/dev/urandom)",         OsRng::new()),
-        run!("MT19937 (seed=19650218)",       Mt19937::new(19650218)),
-        run!("Xorshift64 (seed=1)",           Xorshift64::new(1)),
-        run!("Xorshift32 (seed=1)",           Xorshift32::new(1)),
-        run!("C rand() (seed=1)",             CRand::new(1)),
-        run!("C mrand48 (seed=1)",            Rand48::new(1)),
-        run!("LCG glibc rand (seed=1)",       Lcg32::glibc()),
-        run!("LCG MINSTD (seed=1)",           Lcg32::minstd()),
-        run!("BBS (p=2³¹−1, q=4294967291)",  BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567)),
-        run!("Blum-Micali (p=2³¹−1, g=7)",   BlumMicali::new(2_147_483_647, 7, 42)),
-        run!("AES-128-CTR (NIST key)",        AesCtr::with_nist_key()),
-        run!("cryptography::CtrDrbgAes256 (seed=00..2f)", CryptoCtrDrbg::with_test_seed()),
-        run!("Constant (0xDEAD_DEAD)",        ConstantRng::new(0xDEAD_DEAD)),
-        run!("Counter (0,1,2,…)",             CounterRng::new(0)),
-        // Dual_EC_DRBG: two P-256 scalar multiplications per 30-byte block.
-        // DIEHARD/DIEHARDER would require ~2 M scalar mults — NIST only.
-        run_nist!("Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)",
-            DualEcDrbg::p256(&[0u8; 31].iter().copied().chain([1u8]).collect::<Vec<_>>())),
-    ]
+    run!("OsRng (/dev/urandom)",         OsRng::new());
+    run!("MT19937 (seed=19650218)",       Mt19937::new(19650218));
+    run!("Xorshift64 (seed=1)",           Xorshift64::new(1));
+    run!("Xorshift32 (seed=1)",           Xorshift32::new(1));
+    run!("BAD Unix System V rand() (15-bit LCG, seed=1)", SystemVRand::new(1));
+    run!("BAD Unix System V mrand48() (seed=1)", Rand48::new(1));
+    run!("BAD Unix BSD random() TYPE_3 (seed=1)", BsdRandom::new(1));
+    run!("BAD Unix Linux glibc rand()/random() (seed=1)", LinuxLibcRandom::new(1));
+    run!("BAD Unix FreeBSD12 rand_r() compat (seed=1)", BsdRandCompat::new(1));
+    run!("BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)", WindowsMsvcRand::new(1));
+    run!("BAD Windows VB6/VBA Rnd() (project seed=1)", WindowsVb6Rnd::new(1));
+    run!("BAD Windows .NET Random(seed=1) compat", WindowsDotNetRandom::new(1));
+    run!("ANSI C sample LCG (1103515245,12345; seed=1)", Lcg32::ansi_c());
+    run!("LCG MINSTD (seed=1)",           Lcg32::minstd());
+    run!("BBS (p=2³¹−1, q=4294967291)",  BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567));
+    run!("Blum-Micali (p=2³¹−1, g=7)",   BlumMicali::new(2_147_483_647, 7, 42));
+    run!("AES-128-CTR (NIST key)",        AesCtr::with_nist_key());
+    run!("cryptography::CtrDrbgAes256 (seed=00..2f)", CryptoCtrDrbg::with_test_seed());
+    run!("Constant (0xDEAD_DEAD)",        ConstantRng::new(0xDEAD_DEAD));
+    run!("Counter (0,1,2,…)",             CounterRng::new(0));
+    // Dual_EC_DRBG: two P-256 scalar multiplications per 30-byte block.
+    // DIEHARD/DIEHARDER would require ~2 M scalar mults — NIST only.
+    run_nist!("Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)",
+        DualEcDrbg::p256(&[0u8; 31].iter().copied().chain([1u8]).collect::<Vec<_>>()));
+
+    if runs.is_empty() {
+        die("no RNG labels matched --rng filter");
+    }
+
+    runs
 }
 
 fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
@@ -241,20 +277,43 @@ fn main() {
     );
 
     let banner = "=".repeat(72);
-    let mut all_results: Vec<Option<RngResults>> = (0..n_rngs).map(|_| None).collect();
+    let work = Arc::new(Mutex::new(
+        runs.into_iter()
+            .enumerate()
+            .collect::<VecDeque<(usize, RunFn)>>(),
+    ));
+    let results = Arc::new(Mutex::new(
+        (0..n_rngs).map(|_| None).collect::<Vec<Option<RngResults>>>(),
+    ));
 
-    let mut run_iter = runs.into_iter().enumerate();
-    loop {
-        let batch: Vec<(usize, RunFn)> = run_iter.by_ref().take(n_cores).collect();
-        if batch.is_empty() { break; }
-        let handles: Vec<(usize, thread::JoinHandle<RngResults>)> = batch
-            .into_iter()
-            .map(|(idx, f)| (idx, thread::spawn(f)))
-            .collect();
-        for (idx, handle) in handles {
-            all_results[idx] = Some(handle.join().expect("worker thread panicked"));
-        }
+    let worker_count = n_cores.min(n_rngs);
+    let handles: Vec<_> = (0..worker_count)
+        .map(|_| {
+            let work = Arc::clone(&work);
+            let results = Arc::clone(&results);
+            thread::spawn(move || loop {
+                let next = {
+                    let mut queue = work.lock().expect("work queue mutex poisoned");
+                    queue.pop_front()
+                };
+                let Some((idx, task)) = next else {
+                    break;
+                };
+                let result = task();
+                let mut out = results.lock().expect("results mutex poisoned");
+                out[idx] = Some(result);
+            })
+        })
+        .collect();
+
+    for handle in handles {
+        handle.join().expect("worker thread panicked");
     }
+
+    let all_results = match Arc::try_unwrap(results) {
+        Ok(results) => results.into_inner().expect("results mutex poisoned"),
+        Err(_) => panic!("results still shared after workers finished"),
+    };
 
     for r in all_results.into_iter().flatten() {
         print_rng_results(&r, &banner, &args);

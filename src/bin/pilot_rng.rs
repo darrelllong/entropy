@@ -11,15 +11,20 @@
 //! Usage:
 //!   pilot_rng <name>
 //!
-//! Names: osrng  mt19937  xorshift64  xorshift32  crand  rand48  lcg_glibc
-//!        lcg_minstd  bbs  blum_micali  aes_ctr  constant  counter
+//! Names: osrng  mt19937  xorshift64  xorshift32  sysv_rand  rand48
+//!        bsd_random  linux_glibc_random  bsd_rand_compat
+//!        windows_msvc_rand  windows_vb6_rnd  windows_dotnet_random
+//!        ansi_c_lcg  lcg_minstd  bbs  blum_micali  aes_ctr
+//!        crypto_ctr_drbg  constant  counter
 
 use std::hint::black_box;
 use std::time::Instant;
 
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, CRand, ConstantRng, CounterRng,
-    Lcg32, Mt19937, OsRng, Rand48, Rng, Xorshift32, Xorshift64,
+    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ConstantRng,
+    CounterRng, CryptoCtrDrbg, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Rand48,
+    Rng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
+    Xorshift32, Xorshift64,
 };
 
 fn workload_words() -> u64 {
@@ -58,12 +63,24 @@ fn main() {
             measure(Xorshift64::new(1), n),
         "xorshift32" =>
             measure(Xorshift32::new(1), n),
-        "crand" =>
-            measure(CRand::new(1), n),
+        "sysv_rand" =>
+            measure(SystemVRand::new(1), n),
         "rand48" =>
             measure(Rand48::new(1), n),
-        "lcg_glibc" =>
-            measure(Lcg32::glibc(), n),
+        "bsd_random" =>
+            measure(BsdRandom::new(1), n),
+        "linux_glibc_random" =>
+            measure(LinuxLibcRandom::new(1), n),
+        "bsd_rand_compat" =>
+            measure(BsdRandCompat::new(1), n),
+        "windows_msvc_rand" =>
+            measure(WindowsMsvcRand::new(1), n),
+        "windows_vb6_rnd" =>
+            measure(WindowsVb6Rnd::new(1), n),
+        "windows_dotnet_random" =>
+            measure(WindowsDotNetRandom::new(1), n),
+        "ansi_c_lcg" =>
+            measure(Lcg32::ansi_c(), n),
         "lcg_minstd" =>
             measure(Lcg32::minstd(), n),
         "bbs" =>
@@ -72,6 +89,8 @@ fn main() {
             measure(BlumMicali::new(2_147_483_647, 7, 42), n),
         "aes_ctr" =>
             measure(AesCtr::with_nist_key(), n),
+        "crypto_ctr_drbg" =>
+            measure(CryptoCtrDrbg::with_test_seed(), n),
         "constant" =>
             measure(ConstantRng::new(0xDEAD_DEAD), n),
         "counter" =>

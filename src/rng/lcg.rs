@@ -1,17 +1,20 @@
 //! Linear Congruential Generators — several parameter sets, some notoriously weak.
 //!
-//! LCGs have the form  xₙ₊₁ = (a·xₙ + c) mod m.
-//! The `bad` variant uses the parameters from the classic glibc `rand()`, which
-//! famously fails the NIST spectral test and several DIEHARD tests.
+//! LCGs have the form `x_(n+1) = (a*x_n + c) mod m`.
+//! These are parameterized mathematical generators, not necessarily faithful
+//! libc APIs. Historical Unix libc wrappers live in [`super::c_stdlib`].
 
 use super::Rng;
 
 /// Which parameter set to use.
 #[derive(Debug, Clone, Copy)]
 pub enum LcgVariant {
-    /// glibc `rand()`: a = 1_103_515_245, c = 12_345, m = 2³¹.
-    /// Returns bits 30..16 of the state — notoriously weak.
-    GlibcRand,
+    /// The classic ANSI C / old-POSIX sample LCG:
+    /// `x = x * 1103515245 + 12345 (mod 2^31)`.
+    ///
+    /// This is the parameter set widely printed in manuals and sample code,
+    /// but it is not glibc's actual `rand()` implementation.
+    AnsiC,
     /// MINSTD (Park & Miller, 1988): a = 16_807, c = 0, m = 2³¹ − 1.
     /// Passes some tests but fails spectral and serial tests.
     Minstd,
@@ -37,7 +40,7 @@ pub struct Lcg32 {
 impl Lcg32 {
     pub fn new(variant: LcgVariant, seed: u64) -> Self {
         match variant {
-            LcgVariant::GlibcRand => Self {
+            LcgVariant::AnsiC => Self {
                 state: seed & 0x7FFF_FFFF,
                 a: 1_103_515_245,
                 c: 12_345,
@@ -68,9 +71,9 @@ impl Lcg32 {
         }
     }
 
-    /// Convenience: glibc rand with seed 1.
-    pub fn glibc() -> Self {
-        Self::new(LcgVariant::GlibcRand, 1)
+    /// Convenience: ANSI C sample LCG with seed 1.
+    pub fn ansi_c() -> Self {
+        Self::new(LcgVariant::AnsiC, 1)
     }
 
     /// Convenience: MINSTD with seed 1.
