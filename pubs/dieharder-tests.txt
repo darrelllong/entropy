@@ -1,0 +1,301 @@
+DIEHARDER: A GNU Public License Random Number Tester
+Robert G. Brown, Duke University Physics Department
+Version 3.31.1 (latest stable release)
+
+Source: https://webhome.phy.duke.edu/~rgb/General/dieharder.php
+Manual PDF: https://rurban.github.io/dieharder/manual/dieharder.pdf
+GitHub mirrors:
+  https://github.com/seehuhn/dieharder     (seehuhn fork, maintenance fixes)
+  https://github.com/rurban/dieharder      (rurban fork)
+  https://github.com/eddelbuettel/dieharder (eddelbuettel/Debian maintenance)
+
+This file documents all tests registered in dieharder 3.31.1, based on
+direct inspection of dieharder_test_types.c and libdieharder source files
+extracted from dieharder-3.31.1.tgz.
+
+=========================================================================
+TEST NUMBERING RANGES
+=========================================================================
+   0-99    Diehard / Marsaglia-Tsang tests
+ 100-199   NIST Statistical Test Suite (STS / SP 800-22) tests
+ 200-499   "Other" tests: RGB original + DAB contributed tests
+ 500-999   Reserved for future use
+
+=========================================================================
+SECTION A: DIEHARD TESTS (test numbers 0-17)
+=========================================================================
+These are Brown's clean GPL C re-implementations of Marsaglia's original
+DIEHARD tests, plus the Marsaglia-Tsang GCD test (number 17).
+
+  0  diehard_birthdays       -- Birthday Spacings
+  1  diehard_operm5          -- Overlapping 5-Permutations (OPERM5)
+  2  diehard_rank_32x32      -- Binary Rank Test, 32x32 matrices
+  3  diehard_rank_6x8        -- Binary Rank Test, 6x8 matrices
+  4  diehard_bitstream       -- Bitstream (20-bit missing words)
+  5  diehard_opso            -- Overlapping Pairs Sparse Occupancy
+  6  diehard_oqso            -- Overlapping Quadruples Sparse Occupancy
+  7  diehard_dna             -- DNA (4-letter alphabet sparse occupancy)
+  8  diehard_count_1s_stream -- Count the 1's on a stream of bytes
+  9  diehard_count_1s_byte   -- Count the 1's on specific bytes
+ 10  diehard_parking_lot     -- Parking Lot Test
+ 11  diehard_2dsphere        -- Minimum Distance (2D sphere/circle)
+ 12  diehard_3dsphere        -- 3D Spheres (minimum distance in 3D)
+ 13  diehard_squeeze         -- Squeeze Test
+ 14  diehard_sums            -- Overlapping Sums [MARKED: DO NOT USE -- known buggy]
+ 15  diehard_runs            -- Runs Test (ascending/descending runs)
+ 16  diehard_craps           -- Craps Test
+ 17  marsaglia_tsang_gcd     -- GCD Test (Marsaglia & Tsang, 2002)
+
+Note on test 14 (diehard_sums): This test is marked "Do Not Use" in
+dieharder documentation due to implementation issues. It remains in the
+suite for historical completeness but should not be used for evaluation.
+
+---------------------------------------------------------------------------
+TEST 17 (new to dieharder, not in original DIEHARD): marsaglia_tsang_gcd
+---------------------------------------------------------------------------
+Source: Marsaglia and Tsang, "Some Difficult-to-Pass Tests of Randomness,"
+Journal of Statistical Software, Vol. 7, Issue 3, 2002.
+
+Generates pairs of random 32-bit unsigned integers (u, v) and computes
+two statistics: their greatest common divisor (GCD) and the number of
+steps k of Euclid's algorithm required to find it. The distributions of
+GCD values and step counts k are compared against the theoretically expected
+distributions for truly random 32-bit integers. Tests 10^7 pairs (default).
+
+What it measures: Whether pairs of random integers exhibit the correct GCD
+distribution and the correct number of Euclidean algorithm steps. Some
+generators produce systematically wrong GCD distributions, exposing
+structural correlations between successive output values.
+
+=========================================================================
+SECTION B: NIST STS TESTS (test numbers 100-102)
+=========================================================================
+Brown's re-implementations of three selected tests from NIST SP 800-22.
+
+ 100  sts_monobit   -- NIST Monobit (Frequency) Test
+ 101  sts_runs      -- NIST Runs Test (bit-level transitions)
+ 102  sts_serial    -- NIST Serial / Generalized Serial Test (n-tuple frequencies)
+
+Note: Dieharder includes only three of NIST SP 800-22's fifteen tests.
+Brown considered many of the NIST tests to be weaker than or redundant
+with tests in dieharder's other categories (see libdieharder/NOTES).
+The libdieharder/NOTES file contains extensive critique of the NIST STS
+methodology, particularly of the Runs and Serial statistics.
+
+=========================================================================
+SECTION C: RGB / OTHER TESTS (test numbers 200-209)
+=========================================================================
+These tests are unique to dieharder. Tests 200-204 were written by
+Robert G. Brown ("rgb"). Tests 205-209 were contributed by David Bauer
+("dab") for dieharder 3.x.
+
+---------------------------------------------------------------------------
+200  rgb_bitdist -- Bit Distribution Test (RGB original)
+---------------------------------------------------------------------------
+Tests the distribution of all possible n-bit patterns (n-tuples) within
+the generator output. For each bit-width from 1 to n_max (parameterizable,
+default up to ~8 bits), slides a window across the bit stream and counts
+the frequency of each possible bit pattern. Performs a chi-square test
+on the full vector of pattern counts rather than just a single summary
+statistic. Brown describes this as a "much better" generalization of both
+the NIST Monobit and Runs tests, and as a superior version of Marsaglia's
+Bitstream test.
+
+What it measures: Complete bit-pattern frequency distribution at multiple
+word lengths simultaneously. Catches any systematic imbalance in the
+distribution of 1- through n-bit patterns. Brown notes that essentially
+all known weak generators fail this test at 6 bits or fewer.
+
+Note: rgb_bitdist in the source also appears under dh_num_other_tests,
+test index 200, and is described in libdieharder/NOTES as "the BEST
+generalization of sts_monobit and perhaps better than rgb_binomial as well."
+
+---------------------------------------------------------------------------
+201  rgb_minimum_distance -- Generalized Minimum Distance (RGB original)
+---------------------------------------------------------------------------
+A generalization of Marsaglia's 2D and 3D minimum-distance tests extended
+to arbitrary dimensionality (parameterizable). Randomly places n points
+in a d-dimensional unit hypercube, finds the minimum distance between any
+pair of points, and tests whether this minimum distance follows the correct
+exponential distribution.
+
+What it measures: Spatial uniformity and independence of random coordinate
+tuples in d-dimensional space. More general than DIEHARD's fixed 2D and
+3D sphere tests.
+
+---------------------------------------------------------------------------
+202  rgb_permutations -- Permutations Test (RGB original)
+---------------------------------------------------------------------------
+Draws t consecutive values from the generator, determines the rank-ordering
+(permutation) of those values, and counts how often each of the t! possible
+orderings appears. Performs a chi-square test on the counts against the
+uniform distribution over orderings.
+
+What it measures: Whether all orderings of t consecutive output values
+appear with equal frequency. Similar in spirit to DIEHARD's OPERM5, but
+parameterizable and applied more cleanly.
+
+---------------------------------------------------------------------------
+203  rgb_lagged_sums -- Lagged Sum Test (RGB original)
+---------------------------------------------------------------------------
+Computes sums of uniform deviates sampled from the generator, skipping
+a configurable number of samples ("lag") between each value used. Tests
+whether these lagged sums are normally distributed with the expected mean
+and variance. The lag parameter can be varied to expose autocorrelations
+at different distances in the output sequence.
+
+What it measures: Lagged autocorrelations in the generator output. A
+generator with period-specific weaknesses (e.g., a linear congruential
+generator with certain lags) will produce sums that deviate from expected
+normal distributions at specific lag values.
+
+---------------------------------------------------------------------------
+204  rgb_kstest_test -- Kolmogorov-Smirnov Test Meta-Test (RGB original)
+---------------------------------------------------------------------------
+A meta-test that applies the Kolmogorov-Smirnov (KS) test (specifically
+the Kuiper variant, which uses D+ + D- for circular symmetry) to a large
+sample of uniform variates from the generator. Verifies that the generator's
+output is consistent with a uniform distribution on [0,1) by comparing the
+empirical CDF to the theoretical CDF.
+
+What it measures: Overall uniformity of the generator's output distribution.
+Unlike tests that examine bit patterns or sequential structure, this directly
+tests whether the floating-point values derived from the generator are
+uniformly distributed. Uses the Kuiper variant for improved sensitivity
+across the full range.
+
+Note: Brown documents that this test has historically produced some false
+positives and is considered less reliable than rgb_bitdist for practical
+use.
+
+---------------------------------------------------------------------------
+205  dab_bytedistrib -- Byte Distribution Test (DAB / David Bauer)
+---------------------------------------------------------------------------
+Tests the frequency distribution of individual byte values (0-255) in the
+generator output. Collects byte values from the generator stream and
+performs a chi-square test on the 256-bucket histogram to verify that each
+possible byte value (0x00 through 0xFF) appears with approximately equal
+probability (1/256).
+
+What it measures: Whether the marginal byte-level distribution is uniform.
+A simple but sensitive test -- any generator with systematic byte-level
+bias will fail this.
+
+---------------------------------------------------------------------------
+206  dab_dct -- Discrete Cosine Transform Test (DAB / David Bauer)
+---------------------------------------------------------------------------
+Applies a discrete cosine transform (DCT) analysis to blocks of generator
+output. Detects periodic structure or spectral non-uniformity in the
+output sequence that would not be visible in individual-sample distribution
+tests.
+
+What it measures: Frequency-domain spectral properties of the generator
+output. Can detect periodic patterns or correlations that survive in the
+frequency domain even when the time-domain distribution appears uniform.
+Ranked second-best in dieharder after dab_monobit2 for detecting bias.
+
+---------------------------------------------------------------------------
+207  dab_filltree -- Fill Tree Test (DAB / David Bauer)
+---------------------------------------------------------------------------
+Constructs a binary tree (trie) by inserting random bit sequences and
+measures how the tree fills up. The depth and fill statistics of the
+resulting tree are compared against the expected distributions for a
+truly random input.
+
+What it measures: Correlations in the bit-level structure of the generator
+output, detected through the structure of a binary trie built from the
+output. Correlated generators fill trees differently from independent
+random generators.
+
+---------------------------------------------------------------------------
+208  dab_filltree2 -- Fill Tree Test Variant 2 (DAB / David Bauer)
+---------------------------------------------------------------------------
+A variant of dab_filltree using a different tree construction method or
+parameterization to capture different structural correlations.
+
+What it measures: Similar to dab_filltree, tests bit-level correlation
+structure via binary tree construction, with different sensitivity
+characteristics.
+
+---------------------------------------------------------------------------
+209  dab_monobit2 -- Enhanced Monobit Test (DAB / David Bauer)
+---------------------------------------------------------------------------
+An enhanced version of the basic monobit (bit-balance) test. Measures the
+balance of 0-bits vs. 1-bits at a more granular level than the NIST monobit.
+May apply the test at multiple bit positions or over multiple sliding
+windows simultaneously to provide higher sensitivity.
+
+What it measures: Bit-level balance (ratio of 0s to 1s) with greater
+sensitivity than the basic monobit. Described in testing literature as
+"the best test in Dieharder by far" for detecting generator bias, with
+dab_dct being the next best.
+
+=========================================================================
+SECTION D: INACTIVE / DEVELOPMENT TESTS (not in default test loop)
+=========================================================================
+The following tests exist in the source but are commented out of the
+test registration list (marked as reserved/development in the 900 range):
+
+  rgb_operm (rgb_operm.c)   -- RGB Overlapping Permutations variant
+  rgb_lmn   (rgb_lmn.c)     -- RGB LMN test (undocumented, development)
+
+Additionally present in source but not registered as a runnable test:
+  marsaglia_tsang_gorilla.c -- Gorilla test (Marsaglia/Tsang paper), exists
+                               in source but not exposed in default test loop
+                               of dieharder 3.31.1
+
+Other source files that are internal utilities (not tests):
+  rgb_persist.c  -- Detects "stuck" or repeated bits (used diagnostically)
+  rgb_timing.c   -- Timing/benchmarking utility
+
+=========================================================================
+SUMMARY: TESTS UNIQUE TO DIEHARDER (not in DIEHARD or NIST SP 800-22)
+=========================================================================
+
+From the DIEHARD range (0-99), added beyond original DIEHARD:
+  17. marsaglia_tsang_gcd -- GCD and Euclidean steps distribution test
+      (from Marsaglia & Tsang 2002 paper, not in original 1995 DIEHARD)
+
+From the STS range (100-102):
+  These are all in NIST SP 800-22, so none are unique to dieharder.
+  (They are subsets of SP 800-22, not additions to it.)
+
+From the RGB/Other range (200-209) -- ALL unique to dieharder:
+  200. rgb_bitdist          -- Multi-width bit-pattern frequency distribution
+  201. rgb_minimum_distance -- Generalized N-dimensional minimum distance
+  202. rgb_permutations     -- Parameterizable permutation frequency test
+  203. rgb_lagged_sums      -- Lagged autocorrelation via sum distributions
+  204. rgb_kstest_test      -- KS / Kuiper test of output uniformity
+  205. dab_bytedistrib      -- Byte value frequency distribution
+  206. dab_dct              -- Discrete Cosine Transform spectral analysis
+  207. dab_filltree         -- Binary trie fill statistics
+  208. dab_filltree2        -- Binary trie fill statistics (variant 2)
+  209. dab_monobit2         -- Enhanced high-sensitivity monobit test
+
+Total: 1 new Marsaglia-family test + 10 entirely original tests = 11 tests
+unique to dieharder (not in original DIEHARD 1995 and not in NIST SP 800-22).
+
+=========================================================================
+DOWNLOAD LINKS
+=========================================================================
+
+Official releases from Duke (Robert G. Brown):
+  https://webhome.phy.duke.edu/~rgb/General/dieharder/dieharder-3.31.1.tgz  [LATEST STABLE]
+  https://webhome.phy.duke.edu/~rgb/General/dieharder/dieharder-3.31.0.tgz
+  https://webhome.phy.duke.edu/~rgb/General/dieharder/dieharder-3.29.4beta.tgz
+  https://webhome.phy.duke.edu/~rgb/General/dieharder/dieharder.tgz  [symlink to latest]
+
+RPM packages also available at same base URL.
+
+Manual (PDF):
+  https://rurban.github.io/dieharder/manual/dieharder.pdf
+
+Installation (Debian/Ubuntu):
+  sudo apt-get install dieharder
+
+Running all tests:
+  dieharder -a              (run all tests, default parameters)
+  dieharder -l              (list all known tests)
+  dieharder -d N -h         (show description for test number N)
+
+Dependencies: GNU Scientific Library (GSL)
