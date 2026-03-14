@@ -49,6 +49,8 @@ pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
     results.extend(non_overlapping_template::non_overlapping_all(&bits));
     // Serial has two p-values; emit both rather than collapsing to min.
     results.extend(serial::serial_both(&bits, 3));
+    // Maurer's original parametric family is useful beyond the single NIST-picked setting.
+    results.extend(universal::universal_parametric_all(&bits));
     // Random excursions has 8 sub-tests; emit all.
     results.extend(random_excursions::random_excursions_all(&bits));
     // Random excursions variant has 18 sub-tests; emit all.

@@ -71,13 +71,19 @@ The default runner compares several built-in generators, including:
 - `/dev/urandom`
 - MT19937
 - Xorshift32 and Xorshift64
-- classic LCG-style generators
+- historical weak Unix libc generators:
+  System V `rand()` and `mrand48()`, BSD `random()`, Linux glibc `rand()/random()`, and the old FreeBSD `rand_r()` compatibility path
+- historical weak Microsoft/Windows-family generators:
+  CRT `rand()`, VB6/VBA `Rnd()`, and classic `.NET Random(seed)` compatibility
+- classic standalone LCG-style generators
 - Blum Blum Shub
 - Blum-Micali
 - AES-128-CTR as a deterministic keystream source
 - intentionally bad generators like a constant stream and a counter
 
 That makes the output useful both for regression testing and for sanity-checking that the batteries still punish obviously bad constructions.
+
+Those Unix libc APIs are included precisely because they are bad historical RNGs. They are useful as negative controls, not as designs to copy.
 
 ## Implementation Status
 
@@ -86,10 +92,11 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | Area | Status |
 |------|--------|
 | NIST SP 800-22: frequency, block_frequency, runs, longest_run, matrix_rank, spectral, serial, approximate_entropy, cumulative_sums, universal, linear_complexity | Faithful or close faithful implementations |
+| Maurer (1992): parametric universal family `L=6..16` | Added alongside the NIST-locked single setting; emits every parameter set that fits the available sample |
 | NIST SP 800-22: non_overlapping_template | Faithful for all 148 aperiodic 9-bit templates with the standard `N = 8` block setup |
 | NIST SP 800-22: random_excursions, random_excursions_variant | Faithful family outputs; runner emits all per-state results |
-| DIEHARD: operm5, runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones, craps | Faithful or close to the Dieharder reference implementation |
-| DIEHARD: squeeze, overlapping_sums | Close to the Dieharder source, but Dieharder itself documents these as weak or broken tests |
+| DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to the Dieharder reference implementation |
+| Removed on purpose | See the explicit removed-test list below |
 | DIEHARDER: fill_tree, gcd | Faithful; runner emits both underlying sub-results |
 | DIEHARDER: bit_distribution | Approximate aggregate pattern-frequency test, not Brown's `rgb_bitdist` |
 | Several geometric / higher-level Dieharder-style tests | Plausible and useful, but still best treated as implementation-reviewed rather than externally validated |
@@ -100,6 +107,19 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 - A single low p-value is not automatically evidence that a generator is broken.
 - Some tests naturally emit families of p-values; the runner now preserves many of those families instead of flattening them into one fake verdict.
 - A few historically famous tests are themselves weak. In particular, Dieharder explicitly calls out some classic tests as poor discriminators.
+
+## Removed On Purpose
+
+These are not accidental omissions. They were removed because the Dieharder reference source or documentation says they are broken, deprecated, or effectively obsolete.
+
+- `DIEHARD` removed: `operm5`
+  Dieharder describes the original overlapping Diehard OPERM5 as the broken/defunct test that `rgb_operm` was meant to replace.
+- `DIEHARD` removed: `overlapping_sums`
+  Dieharder says this test is completely useless, broken, and not worth fixing, and explicitly says not to use it.
+- `DIEHARD` removed: `count_ones_specific_bytes`
+  Dieharder says this byte-lane variant is effectively obsolete compared to the stream variant and `rgb_bitdist`.
+- `DIEHARDER` removed: none currently
+  Deprecated internals such as the Kuiper KS path are intentionally not exposed as active tests in this crate.
 
 ## Project Layout
 
@@ -121,9 +141,21 @@ Primary references used by the code and audit:
 - NIST SP 800-22 Rev. 1a
 - George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995)
 - Robert G. Brown, *Dieharder* 3.31.x source
-- Marsaglia and Tsang, "Some Difficult-to-pass Tests of Randomness"
+- Marsaglia and Tsang, "Some Difficult-to-pass Tests of Randomness," *Journal of Statistical Software* 7(3), 2002
 
-The source PDFs and papers live under `pubs/`.
+Additional suites and tests surveyed (candidates for future implementation):
+
+- L'Ecuyer and Simard, "TestU01: A C Library for Empirical Testing of Random Number Generators," *ACM TOMS* 33(4), 2007 — the current gold standard; BigCrush contains ~106 tests including BirthdaySpacings, Gap, CouponCollector, MaxOft, LempelZiv, HammingCorr, RandomWalk, and LinearComplexity profile tests, many of which catch defects invisible to all three batteries here.
+- Chris Doty-Humphrey (Crow), *PractRand* 0.95, 2018 — streaming suite; BCFN, DC6, FPF, and TMFn tests are designed specifically for small-state generators (xorshift*, PCG) that pass all classic batteries.
+- Knuth, *The Art of Computer Programming* Vol. 2 §3.3.2 — classical tests not in NIST/Diehard: Gap, Poker (hand-type), Permutation, Wald-Wolfowitz runs above/below median, and the Serial Correlation Coefficient with exact variance.
+- Maurer, "A Universal Statistical Test for Random Bit Generators," *Journal of Cryptology* 5(2), 1992 — the full parametric form (L=10–16) is substantially more sensitive than the fixed NIST implementation.
+- Pincus, "Approximate Entropy as a Measure of System Complexity," *PNAS* 88, 1991 — multi-scale ApEn(m) vs. m profile catches correlation length; NIST uses only a single scale.
+- Hellekalek and Wegenkittl, "Empirical Evidence Concerning AES," *ACM Trans. Modeling and Computer Simulation* 13(4), 2003 — Walsh-Hadamard spectral test; sensitive to nonlinear Boolean structure in keystream generators.
+- Golić, "On the Linear Complexity and Multidimensional Distribution of Decimated m-Sequences," *IEEE Trans. Inf. Theory* 43(3), 1997 — decimated linear complexity; directly relevant to stream ciphers and LFSR-based generators.
+- Doganaksoy and Göloglu, "On the Weakness of Non-Dual Bent Functions," *SAC 2005*, LNCS 3897 — L1-norm DFT variant; catches diffuse periodic structure missed by NIST's peak-count statistic.
+- Webster and Tavares, "On the Design of S-Boxes," *CRYPTO 1985* — Strict Avalanche Criterion and Bit Independence Criterion; applicable to seeded PRNGs to test differential output behavior.
+
+The source PDFs and papers live under `pubs/`. Full BibTeX entries and implementation notes are in [BIB.md](BIB.md).
 
 ---
 

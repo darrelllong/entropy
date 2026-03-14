@@ -9,8 +9,10 @@
 //!   cargo run --release --bin bench_rngs
 
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, CRand, ConstantRng, CounterRng,
-    Lcg32, Mt19937, OsRng, Rand48, Rng, Xorshift32, Xorshift64,
+    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ConstantRng,
+    CounterRng, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Rand48, Rng,
+    SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
+    Xorshift32, Xorshift64,
 };
 use std::time::Instant;
 
@@ -90,9 +92,15 @@ fn main() {
     bench("MT19937 (seed=19650218)",       Mt19937::new(19650218));
     bench("Xorshift64 (seed=1)",           Xorshift64::new(1));
     bench("Xorshift32 (seed=1)",           Xorshift32::new(1));
-    bench("C rand() (seed=1)",             CRand::new(1));
-    bench("C mrand48 (seed=1)",            Rand48::new(1));
-    bench("LCG glibc rand (seed=1)",       Lcg32::glibc());
+    bench("BAD Unix System V rand() (seed=1)", SystemVRand::new(1));
+    bench("BAD Unix System V mrand48() (seed=1)", Rand48::new(1));
+    bench("BAD Unix BSD random() TYPE_3 (seed=1)", BsdRandom::new(1));
+    bench("BAD Unix Linux glibc rand()/random() (seed=1)", LinuxLibcRandom::new(1));
+    bench("BAD Unix FreeBSD12 rand_r() compat (seed=1)", BsdRandCompat::new(1));
+    bench("BAD Windows CRT rand() (seed=1)", WindowsMsvcRand::new(1));
+    bench("BAD Windows VB6/VBA Rnd() (seed=1)", WindowsVb6Rnd::new(1));
+    bench("BAD Windows .NET Random(seed=1) compat", WindowsDotNetRandom::new(1));
+    bench("ANSI C sample LCG (seed=1)",    Lcg32::ansi_c());
     bench("LCG MINSTD (seed=1)",           Lcg32::minstd());
     bench("BBS (p=2³¹−1, q=4294967291)",  BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567));
     bench("Blum-Micali (p=2³¹−1, g=7)",   BlumMicali::new(2_147_483_647, 7, 42));

@@ -85,19 +85,29 @@ echo ""
 echo "| Generator                            |   MW/s   | ±CI 95%  | Runs  |"
 echo "|--------------------------------------|----------|----------|-------|"
 
-#              name           display                               words/probe
-measure osrng       "OsRng (/dev/urandom)"                    100000
-measure mt19937     "MT19937 (seed=19650218)"               10000000
-measure xorshift64  "Xorshift64 (seed=1)"                   10000000
-measure xorshift32  "Xorshift32 (seed=1)"                   10000000
-measure crand       "C rand() (seed=1)"                     10000000
-measure rand48      "C mrand48 (seed=1)"                    10000000
-measure lcg_glibc   "LCG glibc rand (seed=1)"               10000000
-measure lcg_minstd  "LCG MINSTD (seed=1)"                   10000000
-measure bbs         "BBS (p=2^31-1, q=4294967291)"          10000000
-measure blum_micali "Blum-Micali (p=2^31-1, g=7)"               50000
-measure aes_ctr     "AES-128-CTR (NIST key)"                10000000
-measure constant    "Constant (0xDEAD_DEAD)"                10000000
-measure counter     "Counter (0,1,2,...)"                   10000000
+# Keep each probe comfortably above timer noise. The ultra-fast synthetic
+# generators need much larger batches than the cryptographic or libc RNGs.
+#
+#              name             display                                      words/probe
+measure osrng         "OsRng (/dev/urandom)"                           100000
+measure mt19937       "MT19937 (seed=19650218)"                       25000000
+measure xorshift64    "Xorshift64 (seed=1)"                           25000000
+measure xorshift32    "Xorshift32 (seed=1)"                           25000000
+measure sysv_rand     "BAD Unix System V rand() (seed=1)"             10000000
+measure rand48        "BAD Unix System V mrand48() (seed=1)"          25000000
+measure bsd_random    "BAD Unix BSD random() TYPE_3 (seed=1)"         10000000
+measure linux_glibc_random "BAD Unix Linux glibc rand()/random() (seed=1)" 10000000
+measure bsd_rand_compat "BAD Unix FreeBSD12 rand_r() compat (seed=1)" 10000000
+measure windows_msvc_rand "BAD Windows CRT rand() (seed=1)"           10000000
+measure windows_vb6_rnd "BAD Windows VB6/VBA Rnd() (seed=1)"          10000000
+measure windows_dotnet_random "BAD Windows .NET Random(seed=1) compat" 10000000
+measure ansi_c_lcg    "ANSI C sample LCG (seed=1)"                    10000000
+measure lcg_minstd    "LCG MINSTD (seed=1)"                           10000000
+measure bbs           "BBS (p=2^31-1, q=4294967291)"                  10000000
+measure blum_micali   "Blum-Micali (p=2^31-1, g=7)"                       50000
+measure aes_ctr       "AES-128-CTR (NIST key)"                        10000000
+measure crypto_ctr_drbg "cryptography::CtrDrbgAes256 (seed=00..2f)"    1000000
+measure constant      "Constant (0xDEAD_DEAD)"                      1000000000
+measure counter       "Counter (0,1,2,...)"                         1000000000
 
 echo ""

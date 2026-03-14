@@ -17,7 +17,10 @@ pub use aes_ctr::AesCtr;
 pub use bad::{ConstantRng, CounterRng};
 pub use blum_blum_shub::BlumBlumShub;
 pub use blum_micali::BlumMicali;
-pub use c_stdlib::{CRand, Rand48};
+pub use c_stdlib::{
+    BsdRandCompat, BsdRandom, CRand, LinuxLibcRandom, Rand48, SystemVRand,
+    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
+};
 pub use crypto_cprng::CryptoCtrDrbg;
 pub use dual_ec::DualEcDrbg;
 pub use lcg::{Lcg32, LcgVariant};

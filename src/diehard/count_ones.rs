@@ -5,8 +5,9 @@
 //! Overlapping 5-letter words from the stream are counted; the 5⁵ = 3125
 //! word frequencies are tested via chi-square.
 //!
-//! Test 8 uses all bytes from the stream.
-//! Test 9 uses only a specific byte lane (byte 0) from each word.
+//! This crate retains only the stream variant.  The specific-byte-lane
+//! variant was retired by Dieharder's author as effectively obsolete
+//! compared to the stream form and `rgb_bitdist`.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
@@ -37,28 +38,6 @@ pub fn count_ones_stream(words: &[u32]) -> TestResult {
 
     let letters: Vec<usize> = bytes.iter().map(|&b| hamming_letter(b)).collect();
     count_ones_test(&letters, "diehard::count_ones_stream")
-}
-
-/// Count-the-1's test on a specific byte lane (byte 0 of each word).
-///
-/// # Author
-/// George Marsaglia, DIEHARD (1995).
-pub fn count_ones_specific_bytes(words: &[u32]) -> TestResult {
-    let needed = N_SAMPLES + WORD_LEN - 1;
-    if words.len() < needed {
-        return TestResult::insufficient(
-            "diehard::count_ones_specific_bytes",
-            "not enough words",
-        );
-    }
-
-    let letters: Vec<usize> = words
-        .iter()
-        .take(needed)
-        .map(|&w| hamming_letter((w & 0xFF) as u8))
-        .collect();
-
-    count_ones_test(&letters, "diehard::count_ones_specific_bytes")
 }
 
 fn hamming_letter(b: u8) -> usize {
