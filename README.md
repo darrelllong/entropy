@@ -10,6 +10,10 @@ It aims to provide a readable, hackable implementation of the major classic batt
 
 This is a serious audit tool, but it is not a magical oracle. Some tests are fully faithful to the published or reference implementations, some are close ports of the Dieharder source, and a small number are still approximate. The project is strongest when it is explicit about which is which.
 
+## Dependency Note
+
+This repository depends on Darrell Long's [`cryptography`](https://github.com/darrelllong/cryptography) repository via a local Cargo path dependency. It is currently used for elliptic-curve support and related primitives needed by some of the bundled RNG implementations, and may also supply other low-level cryptographic building blocks over time.
+
 ## What This Repository Is For
 
 Use this repository when you want to:
