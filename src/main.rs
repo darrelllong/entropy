@@ -28,7 +28,7 @@
 use std::collections::HashSet;
 
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, CRand, ConstantRng, CounterRng,
+    AesCtr, BlumBlumShub, BlumMicali, CRand, ConstantRng, CounterRng, CryptoCtrDrbg,
     DualEcDrbg, Lcg32, Mt19937, OsRng, Rand48, Rng, Xorshift32, Xorshift64,
 };
 use entropy::{diehard, dieharder, nist, result::TestResult};
@@ -185,6 +185,7 @@ fn make_runs(args: Args) -> Vec<RunFn> {
         run!("BBS (p=2³¹−1, q=4294967291)",  BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567)),
         run!("Blum-Micali (p=2³¹−1, g=7)",   BlumMicali::new(2_147_483_647, 7, 42)),
         run!("AES-128-CTR (NIST key)",        AesCtr::with_nist_key()),
+        run!("cryptography::CtrDrbgAes256 (seed=00..2f)", CryptoCtrDrbg::with_test_seed()),
         run!("Constant (0xDEAD_DEAD)",        ConstantRng::new(0xDEAD_DEAD)),
         run!("Counter (0,1,2,…)",             CounterRng::new(0)),
         // Dual_EC_DRBG: two P-256 scalar multiplications per 30-byte block.
