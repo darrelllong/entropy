@@ -1,130 +1,185 @@
 //! DIEHARD Test 7 — Monkey Tests: OPSO, OQSO, DNA.
 //!
-//! Each test counts missing "words" in a sparse alphabet generated from
-//! overlapping subfields of the 32-bit output.  Missing word counts should
-//! be approximately normal.
+//! These implementations follow the Dieharder reference C closely:
+//! `diehard_opso.c`, `diehard_oqso.c`, and `diehard_dna.c`.
 //!
-//! | Test | Alphabet | Word length | Expected missing | σ |
-//! |------|----------|-------------|-----------------|---|
-//! | OPSO | 1024 (10-bit) | 2 | 141 909 | 290 |
-//! | OQSO | 32 (5-bit)   | 4 | 141 909 | 295 |
-//! | DNA  | 4 (2-bit)    | 10 | 141 909 | 339 |
-//!
-//! # Author
-//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
+//! The key detail is that the letter fields are extracted from fixed bit
+//! positions inside separate 32-bit words. This is not a unified continuous
+//! bitstream test.
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
 
-const STREAM: usize = 1 << 21; // 2^21 overlapping words
+const STREAM: usize = 1 << 21;
+const WORD_SPACE: usize = 1 << 20;
+const BITSET_BYTES: usize = WORD_SPACE / 8;
+
+const OPSO_MEAN: f64 = 141_909.329_955_006_9;
+const OPSO_SIGMA: f64 = 290.462_263_403_8;
+const OQSO_MEAN: f64 = 141_909.600_532_131_6;
+const OQSO_SIGMA: f64 = 294.655_872_365_8;
+const DNA_MEAN: f64 = 141_910.402_604_762_9;
+const DNA_SIGMA: f64 = 337.290_150_690_4;
+
+#[inline]
+fn mark_seen(seen: &mut [u8], index: usize) {
+    seen[index >> 3] |= 1u8 << (index & 7);
+}
+
+fn missing_count(seen: &[u8]) -> usize {
+    seen.iter().map(|byte| 8 - byte.count_ones() as usize).sum()
+}
+
+fn monkey_result(name: &'static str, missing: usize, mean: f64, sigma: f64) -> TestResult {
+    let z = (missing as f64 - mean) / sigma;
+    let p_value = erfc(z.abs() / SQRT_2);
+    TestResult::with_note(name, p_value, format!("missing={missing}, z={z:.4}"))
+}
 
 /// Overlapping Pairs Sparse Occupancy (OPSO).
 ///
-/// # Author
-/// George Marsaglia, DIEHARD (1995).
+/// Reference: `diehard_opso.c`
 pub fn opso(words: &[u32]) -> TestResult {
-    monkey_test(
-        words,
-        10,  // bits per letter
-        2,   // letters per word
-        290.0,
-        "diehard::opso",
-    )
+    if words.len() < STREAM {
+        return TestResult::insufficient("diehard::opso", "not enough words");
+    }
+
+    let mut seen = vec![0u8; BITSET_BYTES];
+    let mut pair = 0usize;
+    while pair < STREAM / 2 {
+        let j0 = words[2 * pair];
+        let k0 = words[2 * pair + 1];
+
+        let low = (((j0 & 0x03ff) as usize) << 10) | ((k0 & 0x03ff) as usize);
+        let high = ((((j0 >> 10) & 0x03ff) as usize) << 10) | (((k0 >> 10) & 0x03ff) as usize);
+
+        mark_seen(&mut seen, low);
+        mark_seen(&mut seen, high);
+        pair += 1;
+    }
+
+    monkey_result("diehard::opso", missing_count(&seen), OPSO_MEAN, OPSO_SIGMA)
 }
 
 /// Overlapping Quadruples Sparse Occupancy (OQSO).
 ///
-/// # Author
-/// George Marsaglia, DIEHARD (1995).
+/// Reference: `diehard_oqso.c`
 pub fn oqso(words: &[u32]) -> TestResult {
-    monkey_test(
-        words,
-        5,   // bits per letter
-        4,   // letters per word
-        295.0,
-        "diehard::oqso",
-    )
-}
-
-/// DNA test: 4-letter alphabet {C,G,A,T}, 10-letter words.
-///
-/// # Author
-/// George Marsaglia, DIEHARD (1995).
-pub fn dna(words: &[u32]) -> TestResult {
-    monkey_test(
-        words,
-        2,   // bits per letter
-        10,  // letters per word
-        339.0,
-        "diehard::dna",
-    )
-}
-
-/// Generic monkey test.
-///
-/// Extracts overlapping words of `word_len` letters from the bit stream,
-/// where each letter is `bits_per_letter` bits.
-fn monkey_test(
-    words: &[u32],
-    bits_per_letter: usize,
-    word_len: usize,
-    sigma: f64,
-    name: &'static str,
-) -> TestResult {
-    let letter_bits = bits_per_letter;
-    let alphabet_size = 1usize << letter_bits;
-    let total_possible = alphabet_size.pow(word_len as u32);
-
-    // Total bits needed: STREAM letters of `letter_bits` each + overlap.
-    let bits_needed = STREAM * letter_bits + letter_bits * (word_len - 1);
-    let words_needed = (bits_needed + 31) / 32;
-
+    let words_needed = (STREAM / 6) * 4 + if STREAM % 6 == 0 { 0 } else { 4 };
     if words.len() < words_needed {
-        return TestResult::insufficient(name, "not enough words");
+        return TestResult::insufficient("diehard::oqso", "not enough words");
     }
 
-    // Unpack bits.
-    let mut bits = Vec::with_capacity(bits_needed);
-    'outer: for &w in words {
-        for i in 0..32 {
-            bits.push(((w >> i) & 1) as u8);
-            if bits.len() >= bits_needed { break 'outer; }
+    let mut seen = vec![0u8; BITSET_BYTES];
+    let mut word_idx = 0usize;
+    let mut boffset = 0u32;
+    let mut i0 = 0u32;
+    let mut j0 = 0u32;
+    let mut k0 = 0u32;
+    let mut l0 = 0u32;
+
+    for t in 0..STREAM {
+        if t % 6 == 0 {
+            i0 = words[word_idx];
+            j0 = words[word_idx + 1];
+            k0 = words[word_idx + 2];
+            l0 = words[word_idx + 3];
+            word_idx += 4;
+            boffset = 0;
         }
+
+        let i = ((i0 >> boffset) & 0x1f) as usize;
+        let j = ((j0 >> boffset) & 0x1f) as usize;
+        let k = ((k0 >> boffset) & 0x1f) as usize;
+        let l = ((l0 >> boffset) & 0x1f) as usize;
+        let index = (((i << 5) | j) << 10) | ((k << 5) | l);
+        mark_seen(&mut seen, index);
+        boffset += 5;
     }
 
-    // Build letters from bit stream.
-    let _letter_mask = alphabet_size - 1;
-    let word_mask = total_possible - 1;
-    let mut seen = vec![false; total_possible];
+    monkey_result("diehard::oqso", missing_count(&seen), OQSO_MEAN, OQSO_SIGMA)
+}
 
-    let mut current_word = 0usize;
+/// DNA test.
+///
+/// Reference: `diehard_dna.c`
+pub fn dna(words: &[u32]) -> TestResult {
+    // Each group of 10 words yields 16 samples at boffset ∈ {0,2,4,...,30}.
+    // Step must be 2 to keep each 2-bit field aligned within its word;
+    // boffset=31 would yield only 1 meaningful bit (MSB only), never letters 2 or 3.
+    let groups = STREAM.div_ceil(16);
+    let words_needed = groups * 10;
+    if words.len() < words_needed {
+        return TestResult::insufficient("diehard::dna", "not enough words");
+    }
 
-    // Initialise the first (word_len − 1) letters.
-    for i in 0..word_len - 1 {
-        let mut letter = 0usize;
-        for j in 0..letter_bits {
-            letter |= (bits[i * letter_bits + j] as usize) << j;
+    let mut seen = vec![0u8; BITSET_BYTES];
+    let mut word_idx = 0usize;
+    let mut boffset = 0u32;
+    let mut group = [0u32; 10];
+
+    for t in 0..STREAM {
+        if t % 16 == 0 {
+            group.copy_from_slice(&words[word_idx..word_idx + 10]);
+            word_idx += 10;
+            boffset = 0;
         }
-        current_word = (current_word * alphabet_size + letter) & word_mask;
-    }
 
-    // Slide over STREAM letters.
-    for i in (word_len - 1)..(word_len - 1 + STREAM) {
-        let mut letter = 0usize;
-        for j in 0..letter_bits {
-            let idx = i * letter_bits + j;
-            if idx < bits.len() {
-                letter |= (bits[idx] as usize) << j;
-            }
+        let mut index = 0usize;
+        for word in group {
+            index = (index << 2) | (((word >> boffset) & 0x3) as usize);
         }
-        current_word = (current_word * alphabet_size + letter) & word_mask;
-        seen[current_word] = true;
+        mark_seen(&mut seen, index);
+        boffset += 2;
     }
 
-    let missing = seen.iter().filter(|&&s| !s).count();
-    let expected = 141_909.0_f64;
-    let z = (missing as f64 - expected) / sigma;
-    let p_value = erfc(z.abs() / SQRT_2);
+    monkey_result("diehard::dna", missing_count(&seen), DNA_MEAN, DNA_SIGMA)
+}
 
-    TestResult::with_note(name, p_value, format!("missing={missing}, z={z:.4}"))
+#[cfg(test)]
+mod tests {
+    use super::{
+        dna, missing_count, monkey_result, opso, oqso, mark_seen, BITSET_BYTES, DNA_MEAN, OQSO_MEAN,
+        OPSO_MEAN, STREAM, WORD_SPACE,
+    };
+
+    #[test]
+    fn missing_count_tracks_bitset_holes() {
+        let mut seen = vec![0u8; BITSET_BYTES];
+        mark_seen(&mut seen, 0);
+        mark_seen(&mut seen, 7);
+        mark_seen(&mut seen, 8);
+        assert_eq!(WORD_SPACE - 3, missing_count(&seen));
+    }
+
+    #[test]
+    fn insufficient_data_returns_skip() {
+        let words = vec![0u32; 10];
+        assert!(opso(&words).skipped());
+        assert!(oqso(&words).skipped());
+        assert!(dna(&words).skipped());
+    }
+
+    #[test]
+    fn monkey_means_are_close_to_2_pow_20_exp_neg_2() {
+        let analytical = (WORD_SPACE as f64) * (-2.0f64).exp();
+        assert!((OPSO_MEAN - analytical).abs() < 2.0);
+        assert!((OQSO_MEAN - analytical).abs() < 2.0);
+        assert!((DNA_MEAN - analytical).abs() < 3.0);
+    }
+
+    #[test]
+    fn constant_stream_fails_hard() {
+        let words = vec![0u32; STREAM * 10];
+        assert!(opso(&words).p_value < 1e-10);
+        assert!(oqso(&words).p_value < 1e-10);
+        assert!(dna(&words).p_value < 1e-10);
+    }
+
+    #[test]
+    fn monkey_result_formats_reasonable_note() {
+        let result = monkey_result("test", 123_456, OPSO_MEAN, 290.0);
+        assert_eq!(result.name, "test");
+        assert!(result.note.unwrap().contains("missing=123456"));
+    }
 }

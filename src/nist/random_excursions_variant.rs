@@ -10,7 +10,6 @@
 //! Minimum recommended: J ≥ 500.
 
 use crate::{math::erfc, result::TestResult};
-use std::f64::consts::SQRT_2;
 
 /// States tested: x ∈ {-9,-8,…,-1,+1,…,+9}.
 const STATES: [i32; 18] = [-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9];
@@ -52,7 +51,8 @@ pub fn random_excursions_variant_all(bits: &[u8]) -> Vec<TestResult> {
             let count = *visit_counts.get(&x).unwrap_or(&0) as f64;
             let numer = (count - j as f64).abs();
             let denom = (2.0 * j as f64 * (4.0 * x.unsigned_abs() as f64 - 2.0)).sqrt();
-            let p_value = erfc(numer / (denom * SQRT_2));
+            // NIST STS randomexcursionsvariant.c: erfc(|ξ(x)-J|/√(2J(4|x|-2))).
+            let p_value = erfc(numer / denom);
             TestResult::with_note(
                 "nist::random_excursions_variant",
                 p_value,

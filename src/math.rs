@@ -139,9 +139,9 @@ fn gammcf(a: f64, x: f64) -> f64 {
 /// Two-sided Kolmogorov-Smirnov test: returns the p-value for the hypothesis
 /// that `samples` are drawn from U(0, 1).
 ///
-/// Uses Marsaglia's series from G. Marsaglia, W. W. Tsang, J. Wang,
-/// "Evaluating Kolmogorov's Distribution", *Journal of Statistical Software*
-/// 8(18), 2003.
+/// Uses the exact/speedup hybrid from Dieharder's `kstest.c`, which in turn
+/// ports G. Marsaglia, W. W. Tsang, J. Wang, "Evaluating Kolmogorov's
+/// Distribution", *Journal of Statistical Software* 8(18), 2003.
 pub fn ks_test(samples: &mut Vec<f64>) -> f64 {
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = samples.len();
@@ -158,23 +158,39 @@ pub fn ks_test(samples: &mut Vec<f64>) -> f64 {
     ks_pvalue(d, n)
 }
 
+const KS_EXACT_MAX_N: usize = 4_999;
+
 /// P-value for the Kolmogorov-Smirnov statistic D with sample size n.
 ///
-/// For n ≥ 5 uses the Stephens (1974) continuity-corrected argument
-///   t = D · (√n + 0.12 + 0.11/√n)
-/// in the asymptotic Kolmogorov series (Kolmogorov 1933).  This reduces
-/// the approximation error from O(1/√n) to O(1/n), yielding results accurate
-/// to within ~1% for n ≥ 5.
-///
-/// For n < 5, the correction is applied but accuracy is limited; the result
-/// should be treated with caution.
+/// For moderate sample sizes, this uses the exact/speedup hybrid matrix method
+/// from Dieharder's `p_ks_new()` (Marsaglia-Tsang-Wang 2003).  For large `n`
+/// it falls back to the Stephens-corrected asymptotic Kolmogorov series.
 ///
 /// Reference:
+/// - Brown, R.G., `libdieharder/kstest.c`, Dieharder 3.31.1.
+/// - Marsaglia, G., Tsang, W.W., Wang, J. (2003). Evaluating Kolmogorov's
+///   Distribution. *Journal of Statistical Software* 8(18).
 /// - Stephens, M.A. (1974). EDF Statistics for Goodness of Fit and Some
 ///   Comparisons. *JASA* 69(347), 730-737.
 /// - Kolmogorov, A.N. (1933). Sulla determinazione empirica di una legge di
 ///   distribuzione. *Giornale dell'Istituto Italiano degli Attuari* 4, 83-91.
 pub fn ks_pvalue(d: f64, n: usize) -> f64 {
+    if n == 0 {
+        return 0.0;
+    }
+    if d <= 0.0 {
+        return 1.0;
+    }
+    if d >= 1.0 {
+        return 0.0;
+    }
+    if n <= KS_EXACT_MAX_N {
+        return ks_pvalue_exact(d, n).clamp(0.0, 1.0);
+    }
+    ks_pvalue_asymptotic(d, n)
+}
+
+fn ks_pvalue_asymptotic(d: f64, n: usize) -> f64 {
     let nf = n as f64;
     // Stephens (1974) corrected argument: reduces error from O(1/√n) to O(1/n).
     let s = d * (nf.sqrt() + 0.12 + 0.11 / nf.sqrt());
@@ -189,6 +205,103 @@ pub fn ks_pvalue(d: f64, n: usize) -> f64 {
         }
     }
     (2.0 * sum).clamp(0.0, 1.0)
+}
+
+fn ks_pvalue_exact(d: f64, n: usize) -> f64 {
+    let nf = n as f64;
+    let s = d * d * nf;
+    // Dieharder's fast right-tail fallback inside the "exact" path.
+    if s > 7.24 || (s > 3.76 && n > 99) {
+        return 2.0 * (-(2.000_071 + 0.331 / nf.sqrt() + 1.409 / nf) * s).exp();
+    }
+
+    let k = (nf * d).floor() as usize + 1;
+    let m = 2 * k - 1;
+    let h = k as f64 - nf * d;
+
+    let mut hmat = vec![0.0; m * m];
+    for i in 0..m {
+        for j in 0..m {
+            if i + 1 >= j + 1 {
+                hmat[i * m + j] = 1.0;
+            }
+        }
+    }
+
+    for i in 0..m {
+        hmat[i * m] -= h.powi((i + 1) as i32);
+        hmat[(m - 1) * m + i] -= h.powi((m - i) as i32);
+    }
+    if 2.0 * h - 1.0 > 0.0 {
+        hmat[(m - 1) * m] += (2.0 * h - 1.0).powi(m as i32);
+    }
+
+    for i in 0..m {
+        for j in 0..m {
+            let span = i as isize - j as isize + 1;
+            if span > 0 {
+                let mut denom = 1.0;
+                for g in 1..=span as usize {
+                    denom *= g as f64;
+                }
+                hmat[i * m + j] /= denom;
+            }
+        }
+    }
+
+    let (q, mut exponent) = matrix_power_scaled(&hmat, m, n);
+    let idx = (k - 1) * m + (k - 1);
+    let mut prob = q[idx];
+    for i in 1..=n {
+        prob *= i as f64 / nf;
+        if prob < 1e-140 {
+            prob *= 1e140;
+            exponent -= 140;
+        }
+    }
+    prob *= 10f64.powi(exponent);
+    (1.0 - prob).clamp(0.0, 1.0)
+}
+
+fn matrix_power_scaled(a: &[f64], m: usize, power: usize) -> (Vec<f64>, i32) {
+    if power == 1 {
+        return (a.to_vec(), 0);
+    }
+
+    let (half_power, half_exp) = matrix_power_scaled(a, m, power / 2);
+    let mut squared = matrix_multiply(&half_power, &half_power, m);
+    let mut exponent = 2 * half_exp;
+
+    if power % 2 == 1 {
+        squared = matrix_multiply(a, &squared, m);
+    }
+
+    renormalize_matrix(&mut squared, &mut exponent);
+    (squared, exponent)
+}
+
+fn matrix_multiply(a: &[f64], b: &[f64], m: usize) -> Vec<f64> {
+    let mut c = vec![0.0; m * m];
+    for i in 0..m {
+        for j in 0..m {
+            let mut sum = 0.0;
+            for k in 0..m {
+                sum += a[i * m + k] * b[k * m + j];
+            }
+            c[i * m + j] = sum;
+        }
+    }
+    c
+}
+
+fn renormalize_matrix(v: &mut [f64], exponent: &mut i32) {
+    if v.iter().all(|&x| x <= 1.0e140) {
+        return;
+    }
+    for x in v.iter_mut() {
+        *x *= 1.0e-140;
+    }
+    *exponent += 140;
 }
 
 // ── Chi-square p-value (convenience) ─────────────────────────────────────────
@@ -264,6 +377,12 @@ mod tests {
         // erfc approximation is accurate to ~1.2e-7, not 1e-12.
         assert!((normal_cdf(0.0) - 0.5).abs() < 1e-6);
         assert!((normal_cdf(1.0) + normal_cdf(-1.0) - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn ks_pvalue_respects_boundaries() {
+        assert_eq!(ks_pvalue(0.0, 10), 1.0);
+        assert_eq!(ks_pvalue(1.0, 10), 0.0);
     }
 }
 use rustfft::{num_complex::Complex, FftPlanner};

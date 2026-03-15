@@ -11,14 +11,26 @@ use crate::{math::igamc, result::TestResult};
 
 /// Run the overlapping template test.
 ///
-/// The template is the all-ones pattern of length `m`.
+/// The template is the all-ones pattern of length `m`.  Only `m = 9` with
+/// `M = 1032` is supported: the theoretical Markov-chain probabilities in the
+/// pi table (SP 800-22 §2.8.7, Table 4) are valid only for that pair.
+/// Passing any other value of `m` returns an insufficient result.
 ///
 /// # Reference
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.8.
 pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
+    // The pi table below is derived from the Markov chain model for m = 9,
+    // M = 1032 only (SP 800-22 §2.8.7, Table 4).  Using it for any other m
+    // yields incorrect chi-square probabilities and false p-values.
+    if m != 9 {
+        return TestResult::insufficient(
+            "nist::overlapping_template",
+            "only m = 9 is supported; pi table is valid for m = 9, M = 1032 only",
+        );
+    }
+
     let n = bits.len();
-    // SP 800-22 recommends M = 1032 for m = 9; we generalise M = m * 115.
-    let big_m = 1032_usize;
+    let big_m = 1032_usize; // SP 800-22 §2.8: M = 1032 for m = 9
     let num_blocks = n / big_m;
 
     if num_blocks < 5 {
@@ -30,8 +42,7 @@ pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
 
     let k = 5usize; // number of categories (0..=k, where k means "≥ k")
 
-    // Markov-chain theoretical probabilities for m = 9, M = 1032 (Table 4,
-    // SP 800-22 §2.8.7).  These are correct for the default parameters.
+    // Theoretical probabilities for m = 9, M = 1032 (Table 4, SP 800-22 §2.8.7).
     let pi: [f64; 6] = [0.364091, 0.185659, 0.139381, 0.100571, 0.070432, 0.139865];
 
     let template: Vec<u8> = vec![1u8; m];

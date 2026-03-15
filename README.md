@@ -34,13 +34,13 @@ cargo build
 cargo test
 ```
 
-The test runner lives in [src/main.rs](/Users/darrell/entropy/src/main.rs) and the library entrypoints are split across:
+The test runner lives in [src/main.rs](src/main.rs) and the library entrypoints are split across:
 
-- [src/nist](/Users/darrell/entropy/src/nist)
-- [src/diehard](/Users/darrell/entropy/src/diehard)
-- [src/dieharder](/Users/darrell/entropy/src/dieharder)
+- [src/nist](src/nist)
+- [src/diehard](src/diehard)
+- [src/dieharder](src/dieharder)
 
-The current external audit is in [PEERREVIEW.md](/Users/darrell/entropy/PEERREVIEW.md).
+The current external audit is in [PEERREVIEW.md](PEERREVIEW.md).
 
 ## Running
 
@@ -62,6 +62,19 @@ Benchmark harness:
 
 ```sh
 cargo run --release --bin bench_rngs
+```
+
+Webster-Tavares seed-avalanche probe:
+
+```sh
+cargo run --release --bin webster_tavares -- --samples 1024
+```
+
+Additional BIB-backed research probes:
+
+```sh
+cargo run --release --bin bib_tests -- --rng AES
+cargo run --release --bin testu01_lz -- --rng AES
 ```
 
 ## What The Runner Exercises
@@ -98,8 +111,14 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to the Dieharder reference implementation |
 | Removed on purpose | See the explicit removed-test list below |
 | DIEHARDER: fill_tree, gcd | Faithful; runner emits both underlying sub-results |
-| DIEHARDER: bit_distribution | Approximate aggregate pattern-frequency test, not Brown's `rgb_bitdist` |
+| DIEHARDER: bit_distribution | Faithful `rgb_bitdist` core statistic with explicit per-width, per-pattern Vtest outputs instead of Brown's random one-pattern collapse |
 | Several geometric / higher-level Dieharder-style tests | Plausible and useful, but still best treated as implementation-reviewed rather than externally validated |
+| Webster–Tavares (1985): strict avalanche / bit-independence probe over seeded RNG families | Implemented as a research binary (`webster_tavares`); computes the dependence matrix and avalanche-variable correlations from the paper |
+| Knuth TAOCP Vol. 2 §3.3.2: permutation, gap, and Wald-Wolfowitz runs-above/below-median tests | Implemented as a research binary (`bib_tests`) over uniform `[0,1)` streams |
+| Pincus (1991): approximate-entropy profile `ApEn(m)` over multiple embedding dimensions | Implemented as a research binary (`bib_tests`) to complement the single fixed NIST setting |
+| TestU01 (2009): `scomp_LempelZiv` core statistic and official empirical calibration table | Implemented as a research binary (`testu01_lz`); exact per-replication `LZ78` phrase count and TestU01 `μ/σ` normalization, but not yet the full TestU01 goodness-of-fit reporting stack |
+| TestU01 (2009): `sstring_HammingCorr` and `sstring_HammingIndep` core statistics | Implemented as part of `upstream_tests`; faithful TestU01 bit extraction, asymptotic normal `HammingCorr`, and TestU01-style `gofs_MinExpected=10` lumping for the main `HammingIndep` chi-square |
+| PractRand pre-0.95: `FPF(4,14,6)` core statistic | Implemented as part of `upstream_tests`; faithful stride-spaced windowing and exponent/significand bucket counts, but without PractRand's empirical calibration tables/suspicion scores |
 
 ## Important Caveats
 
@@ -123,16 +142,28 @@ These are not accidental omissions. They were removed because the Dieharder refe
 
 ## Project Layout
 
-- [src/math.rs](/Users/darrell/entropy/src/math.rs): special functions, KS helper, FFT support
-- [src/result.rs](/Users/darrell/entropy/src/result.rs): shared result type and display logic
-- [src/rng](/Users/darrell/entropy/src/rng): RNG implementations used by the harness
-- [src/nist](/Users/darrell/entropy/src/nist): NIST SP 800-22 tests
-- [src/diehard](/Users/darrell/entropy/src/diehard): DIEHARD tests
-- [src/dieharder](/Users/darrell/entropy/src/dieharder): DIEHARDER tests
+- [src/math.rs](src/math.rs): special functions, KS helper, FFT support
+- [src/result.rs](src/result.rs): shared result type and display logic
+- [src/rng](src/rng): RNG implementations used by the harness
+- [src/nist](src/nist): NIST SP 800-22 tests
+- [src/diehard](src/diehard): DIEHARD tests
+- [src/dieharder](src/dieharder): DIEHARDER tests
 
 ## Attribution
 
 Functions adapted from DIEHARD or DIEHARDER include `# Author` citations in their doc comments. The goal is not to erase provenance behind a Rust rewrite.
+
+## Reference Corpus
+
+This repository keeps a local reference shelf under [pubs/](pubs) so people can check the implementation work against the actual standards, manuals, source releases, and papers instead of trusting summaries.
+
+Included now:
+
+- standards: `NIST-SP-800-22r1a.pdf`, `NIST-SP-800-90Ar1.pdf`, `NIST-SP-800-90B.pdf`, `NIST-SP-800-90C.pdf`, `NIST-FIPS-140-3.pdf`
+- classic source and docs: `Diehard.zip`, `diehard-doc.txt`, `diehard-tests.txt`, `dieharder-3.31.1.tgz`, `dieharder-manual.pdf`, `dieharder-tests.txt`
+- core survey and extension papers: `lecuyer-simard-2007-testu01.pdf`, `maurer-1992-universal-test.pdf`, `marsaglia-tsang-2002-difficult-tests.pdf`, `pincus-1991-approximate-entropy.pdf`, `webster-tavares-1985-sbox-design.pdf`, `hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf`
+
+When the code claims fidelity to a published test, these are the documents the project is expected to match.
 
 ## References
 
@@ -155,7 +186,7 @@ Additional suites and tests surveyed (candidates for future implementation):
 - Doganaksoy and Göloglu, "On the Weakness of Non-Dual Bent Functions," *SAC 2005*, LNCS 3897 — L1-norm DFT variant; catches diffuse periodic structure missed by NIST's peak-count statistic.
 - Webster and Tavares, "On the Design of S-Boxes," *CRYPTO 1985* — Strict Avalanche Criterion and Bit Independence Criterion; applicable to seeded PRNGs to test differential output behavior.
 
-The source PDFs and papers live under `pubs/`. Full BibTeX entries and implementation notes are in [BIB.md](BIB.md).
+The source PDFs, manuals, and source archives live under `pubs/`. Full BibTeX entries and implementation notes are in [BIB.md](BIB.md).
 
 ---
 

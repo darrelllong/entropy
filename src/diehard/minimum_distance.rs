@@ -5,6 +5,18 @@
 //! distributed with mean 0.995.  Repeats 100 times; 100 p-values are
 //! tested with a Kolmogorov-Smirnov test.
 //!
+//! # ⚠ Known-Buggy Formula
+//!
+//! The original DIEHARD formula `1 − exp(−d²/λ)` is **acknowledged as buggy
+//! and obsolete** by the Dieharder maintainer (see `diehard_2dsphere.c`:
+//! "This test is OBSOLETE. ... The formula used here is WRONG.").  The
+//! corrected version is the Fischler formula implemented in
+//! [`crate::dieharder::minimum_distance_nd`] with `d = 2`.
+//!
+//! This module preserves the original buggy formula solely for historical
+//! comparison with legacy DIEHARD output.  **Do not use this result for
+//! genuine randomness assessment.**
+//!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
@@ -13,10 +25,14 @@ use crate::{math::ks_test, rng::Rng, result::TestResult};
 const SQUARE_SIDE: f64 = 10_000.0;
 const LAMBDA: f64 = 0.995; // expected mean of d²
 
-/// Run the 2D minimum distance test.
+/// Run the 2D minimum distance test (legacy buggy formula — see module docs).
 ///
 /// `quick`: use 500 points and 20 repeats instead of 8 000 × 100 to avoid the
 /// O(n²) cost during development.
+///
+/// # ⚠ Buggy Formula
+/// Uses `1 − exp(−d²/λ)`, which the Dieharder maintainer explicitly marks as
+/// wrong.  Use [`crate::dieharder::minimum_distance_nd`] for a correct result.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -43,7 +59,7 @@ pub fn minimum_distance_2d(rng: &mut impl Rng, quick: bool) -> TestResult {
     TestResult::with_note(
         "diehard::minimum_distance_2d",
         p_value,
-        format!("n={n_points}, side={SQUARE_SIDE}, repeats={repeats}"),
+        format!("n={n_points}, side={SQUARE_SIDE}, repeats={repeats} [BUGGY FORMULA — see diehard_2dsphere.c; use minimum_distance_nd(d=2) instead]"),
     )
 }
 

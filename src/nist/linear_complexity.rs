@@ -28,9 +28,11 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
         );
     }
 
-    // Theoretical mean μ = M/2 + (9 + r)/36  where r = M mod 2.
-    let r = (m % 2) as f64;
-    let mu = m as f64 / 2.0 + (9.0 + r) / 36.0 - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32);
+    // Theoretical mean μ = M/2 + (9 + (−1)^M)/36 − (M/3 + 2/9)/2^M.
+    // SP 800-22 §2.10.4 and NIST STS linear.c: the numerator is (9 + (−1)^M),
+    // which is 10 for even M and 8 for odd M — NOT (9 + M%2).
+    let pow_neg1_m = if m % 2 == 0 { 1.0_f64 } else { -1.0_f64 };
+    let mu = m as f64 / 2.0 + (9.0 + pow_neg1_m) / 36.0 - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32);
 
     // Category boundaries for T = (−1)^M (L − μ) + 2/9.
     // Six categories: T ≤ −2.5, (−2.5,−1.5], (−1.5,−0.5], (−0.5,0.5],

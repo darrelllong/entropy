@@ -1,100 +1,79 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 900" width="920" height="900" role="img" aria-labelledby="title desc">
-  <title id="title">Entropy pilot throughput radar</title>
-  <desc id="desc">Radar chart of normalized log10 throughput for the Darby normal-preset Pilot run.</desc>
-  <defs><style>
-    .bg { fill: #f6f3ec; }
-    .grid { fill: none; stroke: #d6c8b6; stroke-width: 1.2; }
-    .axis { stroke: #b9a58f; stroke-width: 1; }
-    .shape { fill: rgba(176, 76, 47, 0.20); stroke: #b04c2f; stroke-width: 3; }
-    .dot { fill: #8f311d; }
-    .title { fill: #2b2118; font: 700 30px Georgia, serif; }
-    .subtitle { fill: #5d4d3d; font: 15px Georgia, serif; }
-    .ring { fill: #6b5a47; font: 12px Georgia, serif; }
-    .num { fill: #2f2418; font: 700 14px Georgia, serif; }
-    .legend { fill: #2f2418; font: 14px Georgia, serif; }
-    .foot { fill: #6b5a47; font: 13px Georgia, serif; }
-  </style></defs>
-  <rect class="bg" x="0" y="0" width="920" height="900" rx="22" />
-  <text class="title" x="460" y="44" text-anchor="middle">Pilot Throughput Radar</text>
-  <text class="subtitle" x="460" y="70" text-anchor="middle">Darby ARM64, Pilot normal preset, normalized log10(MW/s)</text>
-  <polygon class="grid" points="460.0,240.0 503.3,248.1 540.8,271.3 567.4,306.5 579.5,348.9 575.4,392.8 555.8,432.3 523.2,462.0 482.0,478.0 438.0,478.0 396.8,462.0 364.2,432.3 344.6,392.8 340.5,348.9 352.6,306.5 379.2,271.3 416.7,248.1" />
-  <text class="ring" x="460" y="248.0" text-anchor="middle">20%</text>
-  <polygon class="grid" points="460.0,210.0 514.2,220.1 561.1,249.1 594.3,293.1 609.4,346.2 604.3,401.0 579.7,450.4 539.0,487.5 487.6,507.4 432.4,507.4 381.0,487.5 340.3,450.4 315.7,401.0 310.6,346.2 325.7,293.1 358.9,249.1 405.8,220.1" />
-  <text class="ring" x="460" y="218.0" text-anchor="middle">40%</text>
-  <polygon class="grid" points="460.0,180.0 525.0,192.2 581.3,227.0 621.1,279.8 639.2,343.4 633.1,409.3 603.6,468.5 554.8,513.0 493.1,536.9 426.9,536.9 365.2,513.0 316.4,468.5 286.9,409.3 280.8,343.4 298.9,279.8 338.7,227.0 395.0,192.2" />
-  <text class="ring" x="460" y="188.0" text-anchor="middle">60%</text>
-  <polygon class="grid" points="460.0,150.0 535.9,164.2 601.5,204.8 648.0,266.4 669.1,340.6 662.0,417.5 627.6,486.6 570.6,538.5 498.6,566.4 421.4,566.4 349.4,538.5 292.4,486.6 258.0,417.5 250.9,340.6 272.0,266.4 318.5,204.8 384.1,164.2" />
-  <text class="ring" x="460" y="158.0" text-anchor="middle">80%</text>
-  <polygon class="grid" points="460.0,120.0 546.7,136.2 621.7,182.6 674.8,253.0 699.0,337.9 690.8,425.7 651.5,504.6 586.3,564.1 504.1,595.9 415.9,595.9 333.7,564.1 268.5,504.6 229.2,425.7 221.0,337.9 245.2,253.0 298.3,182.6 373.3,136.2" />
-  <text class="ring" x="460" y="128.0" text-anchor="middle">100%</text>
-  <line class="axis" x1="460" y1="360" x2="460.0" y2="120.0" />
-  <text class="num" x="460.0" y="92.0" text-anchor="middle">1</text>
-  <line class="axis" x1="460" y1="360" x2="546.7" y2="136.2" />
-  <text class="num" x="556.8" y="110.1" text-anchor="middle">2</text>
-  <line class="axis" x1="460" y1="360" x2="621.7" y2="182.6" />
-  <text class="num" x="640.6" y="161.9" text-anchor="middle">3</text>
-  <line class="axis" x1="460" y1="360" x2="674.8" y2="253.0" />
-  <text class="num" x="699.9" y="240.5" text-anchor="middle">4</text>
-  <line class="axis" x1="460" y1="360" x2="699.0" y2="337.9" />
-  <text class="num" x="726.9" y="335.3" text-anchor="middle">5</text>
-  <line class="axis" x1="460" y1="360" x2="690.8" y2="425.7" />
-  <text class="num" x="717.8" y="433.3" text-anchor="middle">6</text>
-  <line class="axis" x1="460" y1="360" x2="651.5" y2="504.6" />
-  <text class="num" x="673.9" y="521.5" text-anchor="middle">7</text>
-  <line class="axis" x1="460" y1="360" x2="586.3" y2="564.1" />
-  <text class="num" x="601.1" y="587.9" text-anchor="middle">8</text>
-  <line class="axis" x1="460" y1="360" x2="504.1" y2="595.9" />
-  <text class="num" x="509.2" y="623.4" text-anchor="middle">9</text>
-  <line class="axis" x1="460" y1="360" x2="415.9" y2="595.9" />
-  <text class="num" x="410.8" y="623.4" text-anchor="middle">10</text>
-  <line class="axis" x1="460" y1="360" x2="333.7" y2="564.1" />
-  <text class="num" x="318.9" y="587.9" text-anchor="middle">11</text>
-  <line class="axis" x1="460" y1="360" x2="268.5" y2="504.6" />
-  <text class="num" x="246.1" y="521.5" text-anchor="middle">12</text>
-  <line class="axis" x1="460" y1="360" x2="229.2" y2="425.7" />
-  <text class="num" x="202.2" y="433.3" text-anchor="middle">13</text>
-  <line class="axis" x1="460" y1="360" x2="221.0" y2="337.9" />
-  <text class="num" x="193.1" y="335.3" text-anchor="middle">14</text>
-  <line class="axis" x1="460" y1="360" x2="245.2" y2="253.0" />
-  <text class="num" x="220.1" y="240.5" text-anchor="middle">15</text>
-  <line class="axis" x1="460" y1="360" x2="298.3" y2="182.6" />
-  <text class="num" x="279.4" y="161.9" text-anchor="middle">16</text>
-  <line class="axis" x1="460" y1="360" x2="373.3" y2="136.2" />
-  <text class="num" x="363.2" y="110.1" text-anchor="middle">17</text>
-  <polygon class="shape" points="460.0,176.6 533.2,171.0 597.3,209.4 629.8,275.4 659.2,341.5 634.2,409.6 604.5,469.1 551.9,508.4 494.9,546.4 425.5,544.3 366.5,511.1 319.4,466.2 293.1,407.5 300.1,345.2 379.4,319.9 298.3,182.7 373.3,136.2" />
-  <circle class="dot" cx="460.0" cy="176.6" r="4" />
-  <circle class="dot" cx="533.2" cy="171.0" r="4" />
-  <circle class="dot" cx="597.3" cy="209.4" r="4" />
-  <circle class="dot" cx="629.8" cy="275.4" r="4" />
-  <circle class="dot" cx="659.2" cy="341.5" r="4" />
-  <circle class="dot" cx="634.2" cy="409.6" r="4" />
-  <circle class="dot" cx="604.5" cy="469.1" r="4" />
-  <circle class="dot" cx="551.9" cy="508.4" r="4" />
-  <circle class="dot" cx="494.9" cy="546.4" r="4" />
-  <circle class="dot" cx="425.5" cy="544.3" r="4" />
-  <circle class="dot" cx="366.5" cy="511.1" r="4" />
-  <circle class="dot" cx="319.4" cy="466.2" r="4" />
-  <circle class="dot" cx="293.1" cy="407.5" r="4" />
-  <circle class="dot" cx="300.1" cy="345.2" r="4" />
-  <circle class="dot" cx="379.4" cy="319.9" r="4" />
-  <circle class="dot" cx="298.3" cy="182.7" r="4" />
-  <circle class="dot" cx="373.3" cy="136.2" r="4" />
-  <text class="legend" x="90" y="640">1. MT19937 (210.2 MW/s)</text>
-  <text class="legend" x="90" y="664">2. Xorshift64 (673.3 MW/s)</text>
-  <text class="legend" x="90" y="688">3. Xorshift32 (719.6 MW/s)</text>
-  <text class="legend" x="90" y="712">4. SysV rand() (307.9 MW/s)</text>
-  <text class="legend" x="90" y="736">5. SysV mrand48() (573.7 MW/s)</text>
-  <text class="legend" x="90" y="760">6. BSD random() (183.5 MW/s)</text>
-  <text class="legend" x="90" y="784">7. glibc rand/random() (182.8 MW/s)</text>
-  <text class="legend" x="90" y="808">8. FreeBSD rand_r() (123.3 MW/s)</text>
-  <text class="legend" x="90" y="832">9. Windows CRT rand() (307.6 MW/s)</text>
-  <text class="legend" x="390" y="640">10. Windows VB6 Rnd() (269.6 MW/s)</text>
-  <text class="legend" x="390" y="664">11. .NET Random(seed) (149.5 MW/s)</text>
-  <text class="legend" x="390" y="688">12. ANSI C LCG (137 MW/s)</text>
-  <text class="legend" x="390" y="712">13. MINSTD (116.2 MW/s)</text>
-  <text class="legend" x="390" y="736">14. AES-128-CTR (53.33 MW/s)</text>
-  <text class="legend" x="390" y="760">15. CtrDrbgAes256 (0.7594 MW/s)</text>
-  <text class="legend" x="390" y="784">16. Constant (6356 MW/s)</text>
-  <text class="legend" x="390" y="808">17. Counter (6376 MW/s)</text>
-  <text class="foot" x="460" y="872" text-anchor="middle">Inner radius corresponds to the slowest measured generator (0.7594 MW/s); outer radius to the fastest (6376 MW/s).</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900">
+<rect width="100%" height="100%" fill="#f6f1e8"/>
+<g stroke="#d8cdb8" fill="none">
+<polygon points="450.0,345.0 492.7,354.1 528.0,379.7 549.9,417.6 554.4,461.0 540.9,502.5 511.7,534.9 471.8,552.7 428.2,552.7 388.3,534.9 359.1,502.5 345.6,461.0 350.1,417.6 372.0,379.7 407.3,354.1" stroke-width="1"/>
+<polygon points="450.0,300.0 511.0,313.0 561.5,349.6 592.7,403.6 599.2,465.7 579.9,525.0 538.2,571.4 481.2,596.7 418.8,596.7 361.8,571.4 320.1,525.0 300.8,465.7 307.3,403.6 338.5,349.6 389.0,313.0" stroke-width="1"/>
+<polygon points="450.0,255.0 529.3,271.9 594.9,319.5 635.5,389.7 643.9,470.4 618.9,547.5 564.6,607.8 490.5,640.7 409.5,640.7 335.4,607.8 281.1,547.5 256.1,470.4 264.5,389.7 305.1,319.5 370.7,271.9" stroke-width="1"/>
+<polygon points="450.0,210.0 547.6,230.7 628.4,289.4 678.3,375.8 688.7,475.1 657.8,570.0 591.1,644.2 499.9,684.8 400.1,684.8 308.9,644.2 242.2,570.0 211.3,475.1 221.7,375.8 271.6,289.4 352.4,230.7" stroke-width="1"/>
+<polygon points="450.0,165.0 565.9,189.6 661.8,259.3 721.1,361.9 733.4,479.8 696.8,592.5 617.5,680.6 509.3,728.8 390.7,728.8 282.5,680.6 203.2,592.5 166.6,479.8 178.9,361.9 238.2,259.3 334.1,189.6" stroke-width="1"/>
+</g>
+<g stroke="#b8aa90" stroke-width="1">
+<line x1="450" y1="450" x2="450.0" y2="150.0"/>
+<line x1="450" y1="450" x2="572.0" y2="175.9"/>
+<line x1="450" y1="450" x2="672.9" y2="249.3"/>
+<line x1="450" y1="450" x2="735.3" y2="357.3"/>
+<line x1="450" y1="450" x2="748.4" y2="481.4"/>
+<line x1="450" y1="450" x2="709.8" y2="600.0"/>
+<line x1="450" y1="450" x2="626.3" y2="692.7"/>
+<line x1="450" y1="450" x2="512.4" y2="743.4"/>
+<line x1="450" y1="450" x2="387.6" y2="743.4"/>
+<line x1="450" y1="450" x2="273.7" y2="692.7"/>
+<line x1="450" y1="450" x2="190.2" y2="600.0"/>
+<line x1="450" y1="450" x2="151.6" y2="481.4"/>
+<line x1="450" y1="450" x2="164.7" y2="357.3"/>
+<line x1="450" y1="450" x2="227.1" y2="249.3"/>
+<line x1="450" y1="450" x2="328.0" y2="175.9"/>
+</g>
+<polygon points="450.0,204.0 565.2,191.2 661.8,259.3 692.9,371.1 724.9,478.9 657.5,569.8 590.9,643.9 497.1,671.4 396.7,700.8 301.7,654.1 249.2,565.9 222.0,474.0 235.9,380.4 301.2,316.1 425.6,395.2" fill="#c86b3c55" stroke="#9f4b1b" stroke-width="3"/>
+<g fill="#9f4b1b">
+<circle cx="450.0" cy="204.0" r="4.5"/>
+<circle cx="565.2" cy="191.2" r="4.5"/>
+<circle cx="661.8" cy="259.3" r="4.5"/>
+<circle cx="692.9" cy="371.1" r="4.5"/>
+<circle cx="724.9" cy="478.9" r="4.5"/>
+<circle cx="657.5" cy="569.8" r="4.5"/>
+<circle cx="590.9" cy="643.9" r="4.5"/>
+<circle cx="497.1" cy="671.4" r="4.5"/>
+<circle cx="396.7" cy="700.8" r="4.5"/>
+<circle cx="301.7" cy="654.1" r="4.5"/>
+<circle cx="249.2" cy="565.9" r="4.5"/>
+<circle cx="222.0" cy="474.0" r="4.5"/>
+<circle cx="235.9" cy="380.4" r="4.5"/>
+<circle cx="301.2" cy="316.1" r="4.5"/>
+<circle cx="425.6" cy="395.2" r="4.5"/>
+</g>
+<g font-family="Georgia, serif" font-size="18" fill="#3f3426">
+<text x="450.0" y="98.0" text-anchor="middle">MT19937</text>
+<text x="450.0" y="118.0" text-anchor="middle" font-size="14" fill="#7a6850">208.8 MW/s</text>
+<text x="593.2" y="128.4" text-anchor="start">Xorshift64</text>
+<text x="593.2" y="148.4" text-anchor="start" font-size="14" fill="#7a6850">643.9 MW/s</text>
+<text x="711.6" y="214.5" text-anchor="start">Xorshift32</text>
+<text x="711.6" y="234.5" text-anchor="start" font-size="14" fill="#7a6850">678.4 MW/s</text>
+<text x="784.8" y="341.2" text-anchor="start">SysV rand</text>
+<text x="784.8" y="361.2" text-anchor="start" font-size="14" fill="#7a6850">277.2 MW/s</text>
+<text x="800.1" y="486.8" text-anchor="start">mrand48</text>
+<text x="800.1" y="506.8" text-anchor="start" font-size="14" fill="#7a6850">522.9 MW/s</text>
+<text x="754.8" y="626.0" text-anchor="start">BSD random</text>
+<text x="754.8" y="646.0" text-anchor="start" font-size="14" fill="#7a6850">171.9 MW/s</text>
+<text x="656.9" y="734.8" text-anchor="start">glibc random</text>
+<text x="656.9" y="754.8" text-anchor="start" font-size="14" fill="#7a6850">172 MW/s</text>
+<text x="523.2" y="794.3" text-anchor="middle">FreeBSD rand_r</text>
+<text x="523.2" y="814.3" text-anchor="middle" font-size="14" fill="#7a6850">115.1 MW/s</text>
+<text x="376.8" y="794.3" text-anchor="middle">Win CRT rand</text>
+<text x="376.8" y="814.3" text-anchor="middle" font-size="14" fill="#7a6850">285.7 MW/s</text>
+<text x="243.1" y="734.8" text-anchor="end">VB6 Rnd</text>
+<text x="243.1" y="754.8" text-anchor="end" font-size="14" fill="#7a6850">251.9 MW/s</text>
+<text x="145.2" y="626.0" text-anchor="end">.NET Random</text>
+<text x="145.2" y="646.0" text-anchor="end" font-size="14" fill="#7a6850">136.1 MW/s</text>
+<text x="99.9" y="486.8" text-anchor="end">ANSI C LCG</text>
+<text x="99.9" y="506.8" text-anchor="end" font-size="14" fill="#7a6850">125.6 MW/s</text>
+<text x="115.2" y="341.2" text-anchor="end">MINSTD</text>
+<text x="115.2" y="361.2" text-anchor="end" font-size="14" fill="#7a6850">110.9 MW/s</text>
+<text x="188.4" y="214.5" text-anchor="end">AES-CTR</text>
+<text x="188.4" y="234.5" text-anchor="end" font-size="14" fill="#7a6850">52.16 MW/s</text>
+<text x="306.8" y="128.4" text-anchor="end">CtrDrbgAes256</text>
+<text x="306.8" y="148.4" text-anchor="end" font-size="14" fill="#7a6850">0.7516 MW/s</text>
+</g>
+<text x="450" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#2f2418">Pilot Throughput (log-normalized)</text>
+<text x="450" y="82" text-anchor="middle" font-family="Georgia, serif" font-size="16" fill="#6f5d46">darby.local · preset=normal · excluded: OsRng, BBS, Blum-Micali</text>
 </svg>

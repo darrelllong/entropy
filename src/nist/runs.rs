@@ -10,7 +10,6 @@
 //! Minimum recommended sequence length: n ≥ 100.
 
 use crate::{math::erfc, result::TestResult};
-use std::f64::consts::SQRT_2;
 
 /// Run the runs test.
 ///
@@ -39,7 +38,8 @@ pub fn runs(bits: &[u8]) -> TestResult {
 
     let numer = (v_n as f64 - 2.0 * n as f64 * pi * (1.0 - pi)).abs();
     let denom = 2.0 * (2.0 * n as f64).sqrt() * pi * (1.0 - pi);
-    let p_value = erfc(numer / (denom * SQRT_2));
+    // NIST STS runs.c: erfc_arg = |V_n - 2nπ(1-π)| / (2π(1-π)√(2n)); p = erfc(erfc_arg).
+    let p_value = erfc(numer / denom);
 
     TestResult::with_note(
         "nist::runs",

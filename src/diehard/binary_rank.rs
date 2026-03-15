@@ -151,21 +151,54 @@ fn rank_test(words: &[u32], rows: usize, cols: usize, n_matrices: usize, name: &
 /// of Random Matrices"), pooling ranks ≤ 29 into the tail bin.
 /// Source: `dieharder-3.31.1/libdieharder/diehard_rank_32x32.c`.
 ///
-/// For 31×31: computed via P(rank=m | m×m) = ∏_{j=1}^{m} (1−2^{−j}).
-/// The difference from 32×32 is ~2^{-32} ≈ 2.3×10^{-10}, negligible in practice.
+/// For other sizes we compute the exact GF(2) rank probabilities directly from
+/// the matrix-count formula instead of reusing the 32×32 constants.
 fn theoretical_probs(rows: usize, cols: usize) -> (f64, f64, f64, f64) {
     match (rows, cols) {
         // Probabilities from diehard_rank_32x32.c, bins [rank≤29, 30, 31, 32].
         (32, 32) => (0.2887880952, 0.5775761902, 0.1283502644, 0.0052854502),
-        // 31×31: P(full) = ∏_{j=1}^{31}(1-2^{-j}) ≈ 0.2887880952×(1-2^{-32})^{-1}×(1-2^{-31}).
-        // Numerically indistinguishable from 32×32 at the precision required.
-        // Tail bin: P(rank≤28) pools ranks 28 and below.
-        (31, 31) => (0.2887880952, 0.5775761902, 0.1283502644, 0.0052854502),
+        (31, 31) => {
+            let full = gf2_rank_probability(31, 31, 31);
+            let full_minus_1 = gf2_rank_probability(31, 31, 30);
+            let full_minus_2 = gf2_rank_probability(31, 31, 29);
+            let tail = (1.0 - full - full_minus_1 - full_minus_2).max(0.0);
+            (full, full_minus_1, full_minus_2, tail)
+        }
         _ => {
-            // Generic: compute via the GF(2) rank product formula.
-            (0.5, 0.3, 0.15, 0.05)
+            let full = rows.min(cols);
+            let p_full = gf2_rank_probability(rows, cols, full);
+            let p_full_minus_1 = if full >= 1 {
+                gf2_rank_probability(rows, cols, full - 1)
+            } else {
+                0.0
+            };
+            let p_full_minus_2 = if full >= 2 {
+                gf2_rank_probability(rows, cols, full - 2)
+            } else {
+                0.0
+            };
+            let p_tail = (1.0 - p_full - p_full_minus_1 - p_full_minus_2).max(0.0);
+            (p_full, p_full_minus_1, p_full_minus_2, p_tail)
         }
     }
+}
+
+fn gf2_rank_probability(rows: usize, cols: usize, rank: usize) -> f64 {
+    if rank > rows.min(cols) {
+        return 0.0;
+    }
+    if rank == 0 {
+        return 2f64.powi(-((rows * cols) as i32));
+    }
+    let mut log_prob = -((rows * cols) as f64) * std::f64::consts::LN_2;
+    for i in 0..rank {
+        let ip = i as i32;
+        let rows_term = 2f64.powi(rows as i32) - 2f64.powi(ip);
+        let cols_term = 2f64.powi(cols as i32) - 2f64.powi(ip);
+        let rank_term = 2f64.powi(rank as i32) - 2f64.powi(ip);
+        log_prob += rows_term.ln() + cols_term.ln() - rank_term.ln();
+    }
+    log_prob.exp()
 }
 
 /// GF(2) rank of a matrix stored as rows of u32 (up to 32 columns).
@@ -195,4 +228,23 @@ fn gf2_rank_generic(matrix: &[u32], rows: usize, cols: usize) -> usize {
 fn gf2_rank_6x8(matrix: &[u8; 6], rows: usize, cols: usize) -> usize {
     let as_u32: Vec<u32> = matrix.iter().map(|&b| b as u32).collect();
     gf2_rank_generic(&as_u32, rows, cols)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{gf2_rank_probability, theoretical_probs};
+
+    #[test]
+    fn exact_31x31_probabilities_sum_to_one() {
+        let (p_full, p_m1, p_m2, p_tail) = theoretical_probs(31, 31);
+        assert!(((p_full + p_m1 + p_m2 + p_tail) - 1.0).abs() < 1e-12);
+        assert!(p_full > 0.28 && p_full < 0.29);
+        assert!(p_tail > 0.0);
+    }
+
+    #[test]
+    fn generic_rank_probability_matches_32x32_reference_close() {
+        let p = gf2_rank_probability(32, 32, 32);
+        assert!((p - 0.2887880952).abs() < 1e-9);
+    }
 }
