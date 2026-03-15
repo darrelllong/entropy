@@ -15,16 +15,22 @@
 //!        bsd_random  linux_glibc_random  bsd_rand_compat
 //!        windows_msvc_rand  windows_vb6_rnd  windows_dotnet_random
 //!        ansi_c_lcg  lcg_minstd  bbs  blum_micali  aes_ctr
+//!        spongebob  squidward
+//!        pcg32  pcg64  xoshiro256ss  xoroshiro128ss
+//!        wyrand  sfc64  jsf64
+//!        chacha20  hmac_drbg  hash_drbg
 //!        crypto_ctr_drbg  constant  counter
 
 use std::hint::black_box;
 use std::time::Instant;
 
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ConstantRng,
-    CounterRng, CryptoCtrDrbg, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Rand48,
-    Rng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
-    Xorshift32, Xorshift64,
+    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
+    ConstantRng, CounterRng, CryptoCtrDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32,
+    LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64,
+    SpongeBob, Squidward, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    WindowsVb6Rnd, WyRand, Xoroshiro128StarStar, Xorshift32, Xorshift64,
+    Xoshiro256StarStar,
 };
 
 fn workload_words() -> u64 {
@@ -89,6 +95,30 @@ fn main() {
             measure(BlumMicali::new(2_147_483_647, 7, 42), n),
         "aes_ctr" =>
             measure(AesCtr::with_nist_key(), n),
+        "spongebob" =>
+            measure(SpongeBob::with_test_seed(), n),
+        "squidward" =>
+            measure(Squidward::with_test_seed(), n),
+        "pcg32" =>
+            measure(Pcg32::new(42, 54), n),
+        "pcg64" =>
+            measure(Pcg64::new(1, 1), n),
+        "xoshiro256ss" =>
+            measure(Xoshiro256StarStar::new(1, 2, 3, 4), n),
+        "xoroshiro128ss" =>
+            measure(Xoroshiro128StarStar::new(1, 2), n),
+        "wyrand" =>
+            measure(WyRand::new(42), n),
+        "sfc64" =>
+            measure(Sfc64::new(1, 2, 3), n),
+        "jsf64" =>
+            measure(Jsf64::new(0xdead_beef), n),
+        "chacha20" =>
+            measure(ChaCha20Rng::from_os_rng(), n),
+        "hmac_drbg" =>
+            measure(HmacDrbg::from_os_rng(), n),
+        "hash_drbg" =>
+            measure(HashDrbg::from_os_rng(), n),
         "crypto_ctr_drbg" =>
             measure(CryptoCtrDrbg::with_test_seed(), n),
         "constant" =>
