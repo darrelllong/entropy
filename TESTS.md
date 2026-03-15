@@ -37,8 +37,11 @@ Notes:
   faithful `rgb_bitdist` now emits its full per-pattern family.
 - `738` results means the full active battery plus the always-skipped
   Maurer `L=13..16` rows.
-- `714` results means the RNG also missed the NIST excursion-family
-  precondition, so those two families collapsed to one skip each.
+- `714` results means the `random_excursions` and `random_excursions_variant`
+  families were also skipped: those tests require the signed random walk to
+  complete at least J=500 full zero-crossing cycles within the 1,000,000-bit
+  sample; when J<500, both families are skipped entirely, dropping the count
+  by 24 (from 738 to 714).
 - `199` results means `Dual_EC_DRBG` ran the NIST and Maurer families only.
 - With `714`-`738` tests, a genuinely good generator should still expect about
   `7` low single-test p-values by chance at `α = 0.01`.
@@ -118,12 +121,14 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   compute their ranks by Gaussian elimination, and compare the counts of
   ranks $32$, $31$, and $\le 30$ to the exact null probabilities. The generic
   rank law is
-  $P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$,
+
+$$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
+
   and NIST uses a chi-square over the pooled bins.
 
 - **`spectral`.** Map bits to $\pm1$, take the DFT, and count how many Fourier
   magnitudes fall below the threshold $T=\sqrt{n\ln 20}$. With
-  $N_1=\#\{|F_k|<T\}$ and null expectation $N_0=0.95\,n/2$, the test forms a
+  $N_1=|\{k:|F_k|<T\}|$ and null expectation $N_0=0.95\,n/2$, the test forms a
   standardized deviation $d=(N_1-N_0)/\sqrt{n\cdot 0.95 \cdot 0.05/4}$ and
   reports $p=\mathrm{erfc}(|d|/\sqrt{2})$.
 
@@ -205,7 +210,9 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 - **`binary_rank_32x32`.** Fill $40{,}000$ binary $32\times 32$ matrices over
   $\mathbb{F}_2$, compute their ranks, and compare the counts of
   $32$, $31$, $30$, and $\le 29$ to the exact GF(2) rank law
-  $P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$.
+
+$$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
+
   The reported p-value comes from the pooled chi-square on those bins.
 
 - **`binary_rank_31x31`.** This is the same GF(2) rank test, but on
@@ -464,7 +471,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 Re-run with `from_os_rng()` seeding (the earlier `seed=00..3f` result with 15 FAILs
 was an artifact of the all-zeros-ascending test seed, not a structural flaw).
 
-- `7` failures total (`708` tests — excursion-family precondition missed this run):
+- `7` failures total (`708` tests — the signed walk completed fewer than J=500 zero-crossing cycles, so `random_excursions` and `random_excursions_variant` were both skipped):
   - `nist::universal`: `p = 0.000636`
   - `maurer::universal_l07`: `p = 0.000636` (same statistic)
   - `nist::non_overlapping_template` at `B=100010000`: `p = 0.003790`
@@ -508,7 +515,7 @@ was an artifact of the all-zeros-ascending test seed, not a structural flaw).
 
 ### Xoroshiro128\*\* (OsRng seed)
 
-- `13` failures (`708` tests — excursion precondition missed), all in `bit_distribution` and `non_overlapping_template`:
+- `13` failures (`708` tests — fewer than J=500 zero-crossings, so both excursion families were skipped), all in `bit_distribution` and `non_overlapping_template`:
   - two `nist::non_overlapping_template` lows
   - eleven `dieharder::bit_distribution` lows, two below `p = 0.001`:
     - width `8`, pattern `113`: `p = 0.000243`
@@ -519,7 +526,7 @@ was an artifact of the all-zeros-ascending test seed, not a structural flaw).
 
 ### WyRand (OsRng seed)
 
-- `10` failures (`708` tests — excursion precondition missed):
+- `10` failures (`708` tests — fewer than J=500 zero-crossings, so both excursion families were skipped):
   - three `nist::non_overlapping_template` lows
   - seven `dieharder::bit_distribution` lows, one below `p = 0.01`:
     - width `7`, pattern `125`: `p = 0.001528`
@@ -582,8 +589,8 @@ what each generator is and why its test counts are what they are:
   failures are isolated template or bit-distribution lows, no family structure.
 - **Xoroshiro128\*\*** — 13 FAILs; higher than Xoshiro256\*\* as expected from the
   smaller state.  Two failures dip below `p=0.001` in `bit_distribution`; a
-  re-run would scatter them.  Counts 708 tests because the excursion precondition
-  was not met this seed.
+  re-run would scatter them.  Counts 708 tests because the signed walk produced
+  fewer than J=500 zero-crossings, so both excursion families were skipped.
 - **WyRand** — 10 FAILs (708 tests), all in `non_overlapping_template` and
   `bit_distribution`.  No family failures.
 - **SFC64** — 10 FAILs including one isolated hit at `p=0.000028`.  That
@@ -605,8 +612,6 @@ what each generator is and why its test counts are what they are:
   worth monitoring on a second run.
 
 ## Bottom Line
-
-This run is much more believable than the old one.
 
 - Weak generators are still annihilated; good generators cluster near the expected
   false-positive budget.

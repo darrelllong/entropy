@@ -113,7 +113,7 @@ generators.
 This is the classic 15-bit libc LCG
 $x_{n+1} = 1103515245\,x_n + 12345 \pmod{2^{32}}$,
 with output
-$y_n = (x_n \gg 16)\ \&\ 0x7fff$.
+`y[n] = (x[n] >> 16) & 0x7fff`.
 It is historically important precisely because it is bad: tiny effective
 output width, linear structure, and easy predictability. It remains useful here
 as a negative control and compatibility target. The benchmark shows it is fast;
@@ -165,7 +165,7 @@ fails more often than the BSD/glibc additive family.
 This is the old MSVCRT/UCRT generator
 $x_{n+1} = 214013\,x_n + 2531011 \pmod{2^{32}}$,
 with output
-$y_n = (x_n \gg 16)\ \&\ 0x7fff$.
+`y[n] = (x[n] >> 16) & 0x7fff`.
 It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
 linearity, and trivial predictability. It is in the benchmark because it was
 widely deployed in real code, not because it deserves respect. See
