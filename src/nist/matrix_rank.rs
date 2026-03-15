@@ -52,7 +52,7 @@ pub fn matrix_rank(bits: &[u8]) -> TestResult {
     TestResult::with_note(
         "nist::matrix_rank",
         p_value,
-        format!("N={num_matrices}, F32={f_32}, F31={f_31}, F<30={f_less}, χ²={chi_sq:.4}"),
+        format!("N={num_matrices}, F32={f_32}, F31={f_31}, F≤30={f_less}, χ²={chi_sq:.4}"),
     )
 }
 

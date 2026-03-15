@@ -106,6 +106,8 @@ measure lcg_minstd    "LCG MINSTD (seed=1)"                           10000000
 measure bbs           "BBS (p=2^31-1, q=4294967291)"                  10000000
 measure blum_micali   "Blum-Micali (p=2^31-1, g=7)"                       50000
 measure aes_ctr       "AES-128-CTR (NIST key)"                        10000000
+measure spongebob     "SpongeBob (SHA3-512 chain, seed=00..3f)"        2500000
+measure squidward     "Squidward (SHA-256 chain, seed=00..1f)"        10000000
 measure crypto_ctr_drbg "cryptography::CtrDrbgAes256 (seed=00..2f)"    1000000
 measure constant      "Constant (0xDEAD_DEAD)"                      1000000000
 measure counter       "Counter (0,1,2,...)"                         1000000000
