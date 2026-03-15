@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900">
+<rect width="100%" height="100%" fill="#f6f1e8"/>
+<!-- grid rings at r=105,150,195,240,285 — 10 spokes, 36° apart -->
+<g stroke="#d8cdb8" fill="none">
+<polygon points="450.0,345.0 511.7,365.1 549.9,417.6 549.9,482.4 511.7,534.9 450.0,555.0 388.3,534.9 350.1,482.4 350.1,417.6 388.3,365.1" stroke-width="1"/>
+<polygon points="450.0,300.0 538.2,328.6 592.7,403.6 592.7,496.4 538.2,571.4 450.0,600.0 361.8,571.4 307.3,496.4 307.3,403.6 361.8,328.6" stroke-width="1"/>
+<polygon points="450.0,255.0 564.6,292.2 635.5,389.7 635.5,510.3 564.6,607.8 450.0,645.0 335.4,607.8 264.5,510.3 264.5,389.7 335.4,292.2" stroke-width="1"/>
+<polygon points="450.0,210.0 591.1,255.8 678.3,375.8 678.3,524.2 591.1,644.2 450.0,690.0 308.9,644.2 221.7,524.2 221.7,375.8 308.9,255.8" stroke-width="1"/>
+<polygon points="450.0,165.0 617.5,219.4 721.1,361.9 721.1,538.1 617.5,680.6 450.0,735.0 282.5,680.6 178.9,538.1 178.9,361.9 282.5,219.4" stroke-width="1"/>
+</g>
+<!-- spokes -->
+<g stroke="#b8aa90" stroke-width="1">
+<line x1="450" y1="450" x2="450.0" y2="150.0"/>
+<line x1="450" y1="450" x2="626.3" y2="207.3"/>
+<line x1="450" y1="450" x2="735.3" y2="357.3"/>
+<line x1="450" y1="450" x2="735.3" y2="542.7"/>
+<line x1="450" y1="450" x2="626.3" y2="692.7"/>
+<line x1="450" y1="450" x2="450.0" y2="750.0"/>
+<line x1="450" y1="450" x2="273.7" y2="692.7"/>
+<line x1="450" y1="450" x2="164.7" y2="542.7"/>
+<line x1="450" y1="450" x2="164.7" y2="357.3"/>
+<line x1="450" y1="450" x2="273.7" y2="207.3"/>
+</g>
+<!-- data polygon: JSF64 SFC64 Xoshiro256** Xoroshiro128** PCG32 WyRand PCG64 ChaCha20 Hash_DRBG HMAC_DRBG -->
+<!-- radii (log-normalized same scale as original): 281.7 280.7 279.9 277.2 263.6 262.3 230.3 205.3 123.9 80.5 -->
+<polygon points="450.0,168.3 615.0,222.9 716.2,363.5 713.6,535.6 604.9,663.3 450.0,712.3 314.6,636.4 254.7,513.5 332.2,411.7 402.7,384.9" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="3"/>
+<g fill="#1b4b9f">
+<circle cx="450.0" cy="168.3" r="4.5"/>
+<circle cx="615.0" cy="222.9" r="4.5"/>
+<circle cx="716.2" cy="363.5" r="4.5"/>
+<circle cx="713.6" cy="535.6" r="4.5"/>
+<circle cx="604.9" cy="663.3" r="4.5"/>
+<circle cx="450.0" cy="712.3" r="4.5"/>
+<circle cx="314.6" cy="636.4" r="4.5"/>
+<circle cx="254.7" cy="513.5" r="4.5"/>
+<circle cx="332.2" cy="411.7" r="4.5"/>
+<circle cx="402.7" cy="384.9" r="4.5"/>
+</g>
+<!-- labels -->
+<g font-family="Georgia, serif" font-size="17" fill="#3f3426">
+<text x="450.0" y="108.0" text-anchor="middle">JSF64</text>
+<text x="450.0" y="128.0" text-anchor="middle" font-size="13" fill="#7a6850">615 MW/s</text>
+<text x="638.0" y="184.0" text-anchor="start">SFC64</text>
+<text x="638.0" y="202.0" text-anchor="start" font-size="13" fill="#7a6850">597 MW/s</text>
+<text x="755.0" y="342.0" text-anchor="start">Xoshiro256**</text>
+<text x="755.0" y="360.0" text-anchor="start" font-size="13" fill="#7a6850">583 MW/s</text>
+<text x="755.0" y="535.0" text-anchor="start">Xoroshiro128**</text>
+<text x="755.0" y="553.0" text-anchor="start" font-size="13" fill="#7a6850">537 MW/s</text>
+<text x="638.0" y="704.0" text-anchor="start">PCG32</text>
+<text x="638.0" y="722.0" text-anchor="start" font-size="13" fill="#7a6850">356 MW/s</text>
+<text x="450.0" y="774.0" text-anchor="middle">WyRand</text>
+<text x="450.0" y="792.0" text-anchor="middle" font-size="13" fill="#7a6850">342 MW/s</text>
+<text x="262.0" y="704.0" text-anchor="end">PCG64</text>
+<text x="262.0" y="722.0" text-anchor="end" font-size="13" fill="#7a6850">130 MW/s</text>
+<text x="145.0" y="535.0" text-anchor="end">ChaCha20</text>
+<text x="145.0" y="553.0" text-anchor="end" font-size="13" fill="#7a6850">61 MW/s</text>
+<text x="145.0" y="342.0" text-anchor="end">Hash_DRBG</text>
+<text x="145.0" y="360.0" text-anchor="end" font-size="13" fill="#7a6850">5.2 MW/s</text>
+<text x="262.0" y="184.0" text-anchor="end">HMAC_DRBG</text>
+<text x="262.0" y="202.0" text-anchor="end" font-size="13" fill="#7a6850">1.4 MW/s</text>
+</g>
+<text x="450" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="26" fill="#2f2418">Pilot Throughput — New Generators (log-normalized)</text>
+<text x="450" y="80" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="#6f5d46">darby.lan · ARM aarch64 · same scale as original radar</text>
+</svg>

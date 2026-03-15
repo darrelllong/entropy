@@ -14,6 +14,9 @@ This pass intentionally excludes `OsRng`, `BBS`, and `Blum-Micali`, per the pilo
 
 Source log: `darby-pilot.log` (kept locally)
 
+After `SpongeBob` was added, it was measured as a targeted Pilot addendum on
+the same host and preset. The row below comes from that later targeted run.
+
 ## Results
 
 Throughput is reported in millions of 32-bit words per second (`MW/s`). `Runs` is the number of Pilot samples used to hit the normal-preset confidence target.
@@ -34,13 +37,33 @@ Throughput is reported in millions of 32-bit words per second (`MW/s`). `Runs` i
 | `ANSI C sample LCG (seed=1)` | 125.6 | ±6.222 | 57 |
 | `LCG MINSTD (seed=1)` | 110.9 | ±4.837 | 57 |
 | `AES-128-CTR (NIST key)` | 52.16 | ±1.268 | 384 |
+| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 10.97 | ±0.1063 | 50 |
+| `Squidward (SHA-256 chain, test seed)` | 85.0 | — | — |
+| `PCG32 (seed=42, seq=54)` | 356 | — | — |
+| `PCG64 (state=1, seq=1)` | 130 | — | — |
+| `Xoshiro256** (seeds=1,2,3,4)` | 583 | — | — |
+| `Xoroshiro128** (seeds=1,2)` | 537 | — | — |
+| `WyRand (seed=42)` | 342 | — | — |
+| `SFC64 (seeds=1,2,3)` | 597 | — | — |
+| `JSF64 (seed=0xdeadbeef)` | 615 | — | — |
+| `ChaCha20 CSPRNG (OsRng key)` | 61.0 | — | — |
+| `HMAC_DRBG SHA-256 (OsRng seed)` | 1.41 | — | — |
+| `Hash_DRBG SHA-256 (OsRng seed)` | 5.21 | — | — |
 | `cryptography::CtrDrbgAes256 (seed=00..2f)` | 0.7516 | ±0.007658 | 50 |
 | `Constant (0xDEAD_DEAD)` | 6310 | ±161.8 | 50 |
 | `Counter (0,1,2,...)` | 6297 | ±151.2 | 50 |
 
 The synthetic ceiling generators dominate raw throughput, so the visual uses normalized `log10(MW/s)` rather than a linear scale.
 
-![Radar chart of pilot throughput on a normalized log scale](assets/benchmarks-radar.svg)
+![Radar chart: original generator sweep](assets/benchmarks-radar.svg)
+
+![Radar chart: new generators (PCG, xoshiro, WyRand, SFC, JSF, ChaCha20, DRBG)](assets/benchmarks-radar-new.svg)
+
+The new-generator radar uses the same log-normalization scale as the original.
+`Squidward`, `ChaCha20`, `HMAC_DRBG`, and `Hash_DRBG` are measured with
+`from_os_rng()` rather than a fixed test seed; their throughput is key-agnostic
+so the numbers are seed-independent.  The original radar does not yet include
+the `SpongeBob` (OsRng-seeded) point.
 
 ## Generator Notes
 
@@ -190,7 +213,7 @@ correct modern attitude.
 ### `AES-128-CTR (NIST key)`
 
 This generator emits
-$Y_i = \operatorname{AES}_K(\mathrm{ctr}+i)$
+$Y_i = \mathrm{AES}_K(\mathrm{ctr}+i)$
 in counter mode under a fixed 128-bit AES key, then slices each 128-bit block
 into four 32-bit words. As a construction, AES-CTR is cryptographically strong
 when the key is secret and the counter/nonce discipline is correct. In this
@@ -198,6 +221,21 @@ repository it is used as a deterministic benchmark fixture, so the key is fixed
 for reproducibility, not secrecy. Its slower throughput is the cost of doing
 real block-cipher work; its test behavior in [TESTS.md](TESTS.md) is the right
 place to judge whether this fixture looks statistically healthy.
+
+### `SpongeBob (SHA3-512 chain, seed=00..3f)`
+
+`SpongeBob` hashes a variable-length seed into a 512-bit state
+$x_0 = \text{SHA3-512}(\text{seed})$,
+then advances by repeated hashing
+$x_{i+1} = \text{SHA3-512}(x_i)$.
+The adapter exposes that state as a sequential stream of 32-bit words, with a
+fresh 64-byte digest every time the previous one is exhausted. This is a very
+simple hash-chain CSPRNG design: no linear recurrence, no tiny hidden state,
+and no claim that raw speed is the point. On Darby it lands well below
+`AES-128-CTR` in throughput but far above the heavyweight
+`CtrDrbgAes256` adapter. The first full battery in [TESTS.md](TESTS.md) looks
+promising but not spotless, so the right read is “plausible modern generator,
+worth more runs,” not “already proved perfect.”
 
 ### `cryptography::CtrDrbgAes256 (seed=00..2f)`
 
@@ -228,3 +266,135 @@ and the benchmark report keep a clear distinction between "fast" and "good."
 It is almost as fast as the constant generator and almost maximally unsuitable
 for any use that actually requires randomness; [TESTS.md](TESTS.md) shows that
 plainly.
+
+### `Squidward (SHA-256 chain, test seed)`
+
+Squidward is a SHA-256 hash chain, the same design as SpongeBob but with
+SHA-256 replacing SHA3-512.  The state is a single 32-byte digest; each step
+advances by
+$x_{i+1} = \mathrm{SHA\text{-}256}(x_i)$,
+and output is consumed as a sequential byte stream.  On ARM targets that expose
+FEAT_SHA2 hardware acceleration, the implementation detects and uses the
+`vsha256*` NEON intrinsics via the `aarch64-alt` crate, falling back to the
+portable `cryptography::Sha256` path otherwise.  The Darby ARM board provides
+FEAT_SHA2 and reaches 85 MW/s, compared to 11 MW/s for SpongeBob's SHA3-512
+chain — a 7.8× speedup from hardware SHA-256.  On Apple Silicon (M-series) the
+same hardware path reaches ~242 MW/s.
+
+### `PCG32 (seed=42, seq=54)`
+
+PCG32 is Melissa O'Neill's 32-bit Permuted Congruential Generator (O'Neill
+2014).  The inner state is a 64-bit LCG
+$s_{n+1} = s_n \cdot \mathtt{6364136223846793005} + \mathtt{inc} \pmod{2^{64}}$,
+where `inc` encodes the stream selector.  The output permutation is XSH-RR:
+right-shift by a rotation amount extracted from the top 5 bits, xor-shift the
+result, then rotate right.  This destroys the visible linearity of the raw LCG
+while adding no more state.  The reference sequence (seed=42, seq=54) matches
+the C reference implementation exactly, which confirms the initialization order.
+Period: $2^{64}$.
+
+### `PCG64 (state=1, seq=1)`
+
+PCG64 uses a 128-bit LCG multiplier
+$\mathtt{47026247687942121848144207491837523525}$
+with an XSL-RR output permutation: xor the two 64-bit halves, then rotate right
+by the top 6 bits of the old state.  The 128-bit arithmetic is more expensive
+on a 64-bit machine than the 64-bit LCG used by PCG32, which is why PCG64 reads
+as slower (130 MW/s) despite producing 64 bits per step.  Period: $2^{128}$.
+
+### `Xoshiro256** (seeds=1,2,3,4)`
+
+Xoshiro256\*\* (Blackman and Vigna 2021) is a 256-bit linear generator over
+$\mathbb{F}_2$ with a starstar scrambler on output.  The linear engine is
+a shift-register recurrence over four 64-bit words; the output at each step is
+$\mathrm{rotl}(s_1 \cdot 5,\ 7) \cdot 9$.
+The starstar multiplications break the linearity that would be visible to
+linear-complexity tests.  The generator passes BigCrush and PractRand beyond
+32 TiB; it is not cryptographic.  Period: $2^{256}-1$; the all-zero seed is
+forbidden and rejected at construction.
+
+### `Xoroshiro128** (seeds=1,2)`
+
+Xoroshiro128\*\* is the 128-bit sibling of Xoshiro256\*\* using the same starstar
+scrambler but a two-word xoroshiro recurrence
+$(s_0', s_1') = (s_0 \oplus s_1,\ s_1')$
+with specific rotation constants $a=24$, $b=16$, $c=37$.  It is slightly faster
+than the 256-bit version and uses half the state, at the cost of a shorter period
+($2^{128}-1$) and marginally more failures in our battery (13 vs 5).  Not
+cryptographic; all-zero seed forbidden.
+
+### `WyRand (seed=42)`
+
+WyRand (Wang Yi, wyhash v4.2, 2022) advances a 64-bit Weyl counter by a fixed
+odd increment
+$s_{n+1} = s_n + \mathtt{a0761d6478bd642f}_{16}$
+then passes the result through the wyhash 128-bit multiply-xorfold mixer:
+$\mathrm{wymix}(a,b) = \bigl((a\cdot b \bmod 2^{128}) \gg 64\bigr) \oplus (a\cdot b \bmod 2^{64})$.
+The multiplication provides strong avalanche in a single instruction on
+architectures with 64×64→128-bit multiply support.  Period: $2^{64}$.  Not
+cryptographic; the state is trivially invertible from the output.
+
+### `SFC64 (seeds=1,2,3)`
+
+SFC64 (Small Fast Counting, Chris Doty-Humphrey, PractRand) is a counter-assisted
+chaotic generator with four 64-bit state words.  The recurrence is
+$t = a + b + \mathtt{ctr}$,
+$a' = b \oplus (b \gg 11)$,
+$b' = c + (c \ll 3)$,
+$c' = \mathrm{rotl}(c,24) + t$,
+with the counter incremented by one each step to guarantee a period of at least
+$2^{64}$.  Eighteen warm-up steps are applied after seeding per Doty-Humphrey's
+recommendation.  The chaotic recurrence passes BigCrush and PractRand, and its
+615 MW/s throughput on Darby ARM makes it the fastest generator in the suite
+after the trivial ceiling fixtures.
+
+### `JSF64 (seed=0xdeadbeef)`
+
+JSF64 is Bob Jenkins' Small Fast generator (Jenkins 2007) with four 64-bit words:
+$e = a - \mathrm{rotl}(b, 7)$,
+$a' = b \oplus \mathrm{rotl}(c, 13)$,
+$b' = c + \mathrm{rotl}(d, 37)$,
+$c' = d + e$,
+$d' = e + a'$.
+The initial word is fixed at $a = \mathtt{f1ea5eed}_{16}$ and twenty warm-up
+steps scatter the seed through the full four-word state.  JSF64 reaches 615 MW/s
+on Darby, matching SFC64; their battery counts (12 vs 10 FAILs) are within
+one run's statistical noise.  Not cryptographic.
+
+### `ChaCha20 CSPRNG (OsRng key)`
+
+This generator wraps the ChaCha20 stream cipher (Bernstein 2008) as a
+pseudorandom byte source.  A 256-bit key and 96-bit nonce are drawn from
+`OsRng` at construction; thereafter `keystream_block()` produces 64-byte
+blocks, each costing one ChaCha20 core invocation (20 rounds over a
+4×4 32-bit word state).  This is structurally identical to how Linux
+`/dev/urandom` and macOS `arc4random` work internally.  Output is
+computationally indistinguishable from uniform under the PRF assumption; no
+reseed is implemented here because the scope is the test battery, not a
+long-running daemon.  At 61 MW/s it is the fastest crypto-grade generator in the
+suite, about 10× faster than HMAC_DRBG.
+
+### `HMAC_DRBG SHA-256 (OsRng seed)`
+
+HMAC_DRBG (NIST SP 800-90A §10.1.2) is a deterministic RBG whose state is a
+pair $(K, V)$ of 32-byte values updated after every generate call by
+$K \leftarrow \mathrm{HMAC}(K,\ V \mathbin\| 0\mathrm{x00})$,
+$V \leftarrow \mathrm{HMAC}(K,\ V)$,
+followed by a second round with byte $0\mathrm{x01}$ to mix in the old output
+$V$.  Initial seeding uses 48 bytes of `OsRng` entropy (32 bytes entropy_input
++ 16 bytes nonce).  Security rests on the pseudorandomness of HMAC-SHA-256.
+The 1.4 MW/s throughput reflects the cost of two HMAC invocations per 32-byte
+output block.
+
+### `Hash_DRBG SHA-256 (OsRng seed)`
+
+Hash_DRBG (NIST SP 800-90A §10.1.1) uses no keying material.  The state is a
+single 440-bit value $V$ (the NIST seedlen for SHA-256, Table 2) plus a
+constant $C$ derived from $V$ at instantiation time.  Hashgen produces output
+by hashing an incrementing counter concatenated with $V$, and after each
+generate call the state is updated as
+$V \leftarrow (V + \mathrm{SHA\text{-}256}(0\mathrm{x03} \mathbin\| V) + C + \mathtt{reseed\_counter}) \bmod 2^{440}$
+using big-endian carry arithmetic.  At 5.2 MW/s it is about 4× faster than
+HMAC_DRBG because it replaces the two keyed-MAC steps with a single hash per
+output block, and it achieved the best FAIL count of any non-trivial generator
+in the battery (2 FAILs / 734 tests).
