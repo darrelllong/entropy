@@ -12,8 +12,10 @@
 //!
 //! This implementation uses a u64 modulus (32-bit Blum primes) so that each
 //! squaring is a single 128-bit multiply — fast enough for the test battery.
-//! The lower 32 bits of each state word are used as output; extracting up to
-//! ⌊log₂ n⌋ bits per step is provably secure for BBS.
+//! The lower 32 bits of each state word are used as output. Note: the tight
+//! provably-secure per-step bit count for BBS is O(log₂ log₂ n) ≈ 6 bits for
+//! a 64-bit modulus; the full 32-bit output exceeds the formal security proof
+//! but is acceptable for a statistical test battery.
 //!
 //! # Reference
 //! L. Blum, M. Blum, and M. Shub, "A Simple Unpredictable Pseudo-Random

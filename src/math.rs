@@ -92,7 +92,7 @@ fn gamser(a: f64, x: f64) -> f64 {
     let mut ap = a;
     let mut del = 1.0 / a;
     let mut sum = del;
-    for _ in 0..200 {
+    for _ in 0..500 {
         ap += 1.0;
         del *= x / ap;
         sum += del;
@@ -116,7 +116,7 @@ fn gammcf(a: f64, x: f64) -> f64 {
     let mut c = 1.0 / fpmin;
     let mut d = if b.abs() < fpmin { fpmin } else { 1.0 / b };
     let mut h = d;
-    for i in 1_u64..=200 {
+    for i in 1_u64..=500 {
         let an = -(i as f64) * (i as f64 - a);
         b += 2.0;
         // Update d: clamp before inverting so we never divide by zero.

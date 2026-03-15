@@ -56,7 +56,10 @@ pub fn craps(rng: &mut impl Rng) -> TestResult {
     let df = throw_counts.iter().zip(expected.iter()).filter(|(_, &e)| e * N_GAMES as f64 >= 5.0).count() - 1;
     let p_throws = igamc(df as f64 / 2.0, chi_sq / 2.0);
 
-    let p_value = p_wins.min(p_throws);
+    // Fisher's method: -2·(ln p₁ + ln p₂) ~ χ²(4); p = igamc(2, T/2).
+    // min(p_wins, p_throws) was wrong — it inflates FPR to ~2% at α=0.01.
+    let fisher = -2.0 * (p_wins.ln() + p_throws.ln());
+    let p_value = igamc(2.0, fisher / 2.0);
 
     TestResult::with_note(
         "diehard::craps",

@@ -11,8 +11,8 @@
 use entropy::rng::{
     AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ConstantRng,
     CounterRng, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Rand48, Rng,
-    SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
-    Xorshift32, Xorshift64,
+    SpongeBob, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    WindowsVb6Rnd, Xorshift32, Xorshift64,
 };
 use std::time::Instant;
 
@@ -105,6 +105,7 @@ fn main() {
     bench("BBS (p=2³¹−1, q=4294967291)",  BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567));
     bench("Blum-Micali (p=2³¹−1, g=7)",   BlumMicali::new(2_147_483_647, 7, 42));
     bench("AES-128-CTR (NIST key)",        AesCtr::with_nist_key());
+    bench("SpongeBob (SHA3-512 chain, seed=00..3f)", SpongeBob::with_test_seed());
     bench("Constant (0xDEAD_DEAD)",        ConstantRng::new(0xDEAD_DEAD));
     bench("Counter (0,1,2,…)",             CounterRng::new(0));
 

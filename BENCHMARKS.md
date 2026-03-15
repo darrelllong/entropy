@@ -62,8 +62,7 @@ The synthetic ceiling generators dominate raw throughput, so the visual uses nor
 The new-generator radar uses the same log-normalization scale as the original.
 `Squidward`, `ChaCha20`, `HMAC_DRBG`, and `Hash_DRBG` are measured with
 `from_os_rng()` rather than a fixed test seed; their throughput is key-agnostic
-so the numbers are seed-independent.  The original radar does not yet include
-the `SpongeBob` (OsRng-seeded) point.
+so the numbers are seed-independent.
 
 ## Generator Notes
 
