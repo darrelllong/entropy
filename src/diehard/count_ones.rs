@@ -2,24 +2,41 @@
 //!
 //! Each byte is mapped to a letter {A,B,C,D,E} based on its Hamming weight:
 //!   0,1,2 → A;  3 → B;  4 → C;  5 → D;  6,7,8 → E.
-//! Overlapping 5-letter words from the stream are counted; the 5⁵ = 3125
-//! word frequencies are tested via chi-square.
+//!
+//! The reference statistic is the **Q5 − Q4 difference**
+//! (Marsaglia, DIEHARD 1995; `diehard_count_1s_stream.c`):
+//!
+//! 1. Collect N = 256 000 overlapping 5-letter words → chi-square Q5 over
+//!    3125 = 5⁵ categories using letter-probability-weighted expected counts.
+//! 2. Collect the same N overlapping 4-letter words (leading 4 letters of each
+//!    5-letter window) → chi-square Q4 over 625 = 5⁴ categories.
+//! 3. The test statistic  Z = (Q5 − Q4 − 2500) / √5000  is approximately
+//!    standard normal under H₀.  Mean 2500 and σ √5000 are the values given
+//!    in Marsaglia's original C source.
 //!
 //! This crate retains only the stream variant.  The specific-byte-lane
-//! variant was retired by Dieharder's author as effectively obsolete
-//! compared to the stream form and `rgb_bitdist`.
+//! variant was retired by Dieharder's author as obsolete compared to the
+//! stream form and `rgb_bitdist`.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::erfc, result::TestResult};
+use std::f64::consts::SQRT_2;
 
 const WORD_LEN: usize = 5;
 const ALPHA_SIZE: usize = 5;
-const N_CATEGORIES: usize = 3125; // 5^5
+const N_CATEGORIES5: usize = 3125; // 5^5
+const N_CATEGORIES4: usize = 625;  // 5^4
 const N_SAMPLES: usize = 256_000;
 
+// Reference statistic parameters (Marsaglia, diehard_count_1s_stream.c).
+const QDIFF_MEAN: f64 = 2500.0;
+const QDIFF_STDDEV: f64 = 70.710_678; // √5000
+
 /// Count-the-1's test on a stream of all bytes.
+///
+/// Uses the Q5 − Q4 difference statistic from Marsaglia's reference C source.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -52,49 +69,52 @@ fn hamming_letter(b: u8) -> usize {
 
 fn count_ones_test(letters: &[usize], name: &'static str) -> TestResult {
     let n = N_SAMPLES;
-    let mut counts = [0u32; N_CATEGORIES];
 
-    // Encode first window.
-    let mut word = 0usize;
-    for &l in &letters[..WORD_LEN - 1] {
-        word = word * ALPHA_SIZE + l;
-    }
-
-    for i in (WORD_LEN - 1)..n + WORD_LEN - 1 {
-        word = (word * ALPHA_SIZE + letters[i]) % N_CATEGORIES;
-        counts[word] += 1;
-    }
-
-    // Letter probabilities: P(weight ∈ {0,1,2})=37/256, P(3)=56/256,
-    // P(4)=70/256, P(5)=56/256, P(6,7,8)=37/256.
-    // Each letter in a 5-letter word is drawn from an independent byte, so
-    // E[count(w)] = n × P(l₁)×…×P(l₅) for word w = (l₁,…,l₅).
-    // This replaces the incorrect uniform expected count (n/3125).
+    // Letter marginal probabilities (binomial weights for 8 trials, p=0.5).
+    // P(A)=P(E)=37/256, P(B)=P(D)=56/256, P(C)=70/256.
     let lp = [37.0_f64/256.0, 56.0/256.0, 70.0/256.0, 56.0/256.0, 37.0/256.0];
     let nf = n as f64;
-    let chi_sq: f64 = counts
-        .iter()
-        .enumerate()
-        .map(|(w, &c)| {
-            let l = [w/625, (w/125)%5, (w/25)%5, (w/5)%5, w%5];
-            let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]] * lp[l[4]];
-            if exp < 5.0 { return 0.0; }
-            (c as f64 - exp).powi(2) / exp
-        })
-        .sum();
 
-    let df = counts
-        .iter()
-        .enumerate()
-        .filter(|&(w, _)| {
-            let l = [w/625, (w/125)%5, (w/25)%5, (w/5)%5, w%5];
-            let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]] * lp[l[4]];
-            exp >= 5.0
-        })
-        .count()
-        .saturating_sub(1);
+    let mut counts5 = [0u32; N_CATEGORIES5];
+    let mut counts4 = [0u32; N_CATEGORIES4];
 
-    let p_value = igamc(df as f64 / 2.0, chi_sq / 2.0);
+    // Encode the initial (WORD_LEN − 1)-letter prefix.
+    let mut word5 = 0usize;
+    for &l in &letters[..WORD_LEN - 1] {
+        word5 = word5 * ALPHA_SIZE + l;
+    }
 
-    TestResult::with_note(name, p_value, format!("n={n}, χ²={chi_sq:.4}"))
+    // Slide over N complete 5-letter windows.
+    for i in (WORD_LEN - 1)..(n + WORD_LEN - 1) {
+        word5 = (word5 * ALPHA_SIZE + letters[i]) % N_CATEGORIES5;
+        counts5[word5] += 1;
+        // The leading 4-letter prefix of this window is word5 / ALPHA_SIZE.
+        counts4[word5 / ALPHA_SIZE] += 1;
+    }
+
+    // Q5: Vtest chi-square on 5-letter words.
+    let q5: f64 = counts5.iter().enumerate().map(|(w, &c)| {
+        let l = [w/625, (w/125)%5, (w/25)%5, (w/5)%5, w%5];
+        let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]] * lp[l[4]];
+        if exp < 5.0 { return 0.0; }
+        (c as f64 - exp).powi(2) / exp
+    }).sum();
+
+    // Q4: Vtest chi-square on 4-letter words.
+    let q4: f64 = counts4.iter().enumerate().map(|(w, &c)| {
+        let l = [w/125, (w/25)%5, (w/5)%5, w%5];
+        let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]];
+        if exp < 5.0 { return 0.0; }
+        (c as f64 - exp).powi(2) / exp
+    }).sum();
+
+    // Reference statistic: Z = (Q5 − Q4 − 2500) / √5000.
+    let z = (q5 - q4 - QDIFF_MEAN) / QDIFF_STDDEV;
+    let p_value = erfc(z.abs() / SQRT_2);
+
+    TestResult::with_note(
+        name,
+        p_value,
+        format!("n={n}, Q5={q5:.2}, Q4={q4:.2}, Q5-Q4={:.2}, Z={z:.4}", q5 - q4),
+    )
 }

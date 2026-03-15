@@ -17,3 +17,4 @@ pub mod rng;
 pub mod nist;
 pub mod diehard;
 pub mod dieharder;
+pub mod research;

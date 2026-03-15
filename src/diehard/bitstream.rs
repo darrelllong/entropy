@@ -24,7 +24,7 @@ const REPEATS: usize = 20;
 /// George Marsaglia, DIEHARD (1995).
 pub fn bitstream(words: &[u32]) -> TestResult {
     // Each run needs STREAM_LEN/32 words of input to get STREAM_LEN bits.
-    let bits_needed = STREAM_LEN + WINDOW; // overlapping windows
+    let bits_needed = STREAM_LEN + WINDOW - 1; // 2^21 windows over 2^21+19 bits
     let words_needed = (bits_needed + 31) / 32;
 
     if words.len() < REPEATS * words_needed {
@@ -35,7 +35,7 @@ pub fn bitstream(words: &[u32]) -> TestResult {
 
     for rep in 0..REPEATS {
         let chunk = &words[rep * words_needed..(rep + 1) * words_needed];
-        let bits = words_to_bits(chunk, bits_needed);
+        let bits = words_to_bits_msb(chunk, bits_needed);
         let missing = count_missing_20bit_words(&bits);
         let z = (missing as f64 - EXPECTED_MISSING) / SIGMA;
         let p = erfc(z.abs() / SQRT_2);
@@ -52,11 +52,11 @@ pub fn bitstream(words: &[u32]) -> TestResult {
     )
 }
 
-fn words_to_bits(words: &[u32], n: usize) -> Vec<u8> {
+fn words_to_bits_msb(words: &[u32], n: usize) -> Vec<u8> {
     let mut bits = Vec::with_capacity(n);
     for &w in words {
         for i in 0..32 {
-            bits.push(((w >> i) & 1) as u8);
+            bits.push(((w >> (31 - i)) & 1) as u8);
             if bits.len() == n { return bits; }
         }
     }
@@ -80,4 +80,27 @@ fn count_missing_20bit_words(bits: &[u8]) -> usize {
     }
 
     seen.iter().filter(|&&s| !s).count()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{count_missing_20bit_words, words_to_bits_msb, STREAM_LEN, WINDOW};
+
+    #[test]
+    fn extracts_bits_msb_first() {
+        let bits = words_to_bits_msb(&[0x8000_0001], 4);
+        assert_eq!(bits, vec![1, 0, 0, 0]);
+    }
+
+    #[test]
+    fn uses_exact_number_of_overlapping_windows() {
+        let bits_needed = STREAM_LEN + WINDOW - 1;
+        assert_eq!(STREAM_LEN, bits_needed - WINDOW + 1);
+    }
+
+    #[test]
+    fn all_zero_stream_has_all_but_one_missing_word() {
+        let bits = vec![0u8; WINDOW + 50];
+        assert_eq!((1 << 20) - 1, count_missing_20bit_words(&bits));
+    }
 }

@@ -35,6 +35,9 @@ pub struct Lcg32 {
     /// How many bits to right-shift the state before returning (some LCGs
     /// discard low bits).
     shift: u32,
+    /// Optional output mask for libc-style generators that return fewer than
+    /// 32 significant bits after shifting.
+    output_mask: u32,
 }
 
 impl Lcg32 {
@@ -46,6 +49,7 @@ impl Lcg32 {
                 c: 12_345,
                 m: 1 << 31,
                 shift: 0,
+                output_mask: u32::MAX,
             },
             LcgVariant::Minstd => Self {
                 state: if seed == 0 { 1 } else { seed % 2_147_483_647 },
@@ -53,6 +57,7 @@ impl Lcg32 {
                 c: 0,
                 m: 2_147_483_647,
                 shift: 0,
+                output_mask: u32::MAX,
             },
             LcgVariant::Borland => Self {
                 state: seed & 0xFFFF_FFFF,
@@ -60,6 +65,7 @@ impl Lcg32 {
                 c: 1,
                 m: 1 << 32,
                 shift: 0,
+                output_mask: u32::MAX,
             },
             LcgVariant::Msvc => Self {
                 state: seed & 0xFFFF_FFFF,
@@ -67,6 +73,7 @@ impl Lcg32 {
                 c: 2_531_011,
                 m: 1 << 32,
                 shift: 16,
+                output_mask: 0x7FFF,
             },
         }
     }
@@ -85,6 +92,19 @@ impl Lcg32 {
 impl Rng for Lcg32 {
     fn next_u32(&mut self) -> u32 {
         self.state = (self.a.wrapping_mul(self.state).wrapping_add(self.c)) % self.m;
-        (self.state >> self.shift) as u32
+        ((self.state >> self.shift) as u32) & self.output_mask
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Lcg32, LcgVariant};
+    use crate::rng::Rng;
+
+    #[test]
+    fn msvc_variant_matches_known_seed_1_prefix() {
+        let mut rng = Lcg32::new(LcgVariant::Msvc, 1);
+        let got: Vec<u32> = (0..5).map(|_| rng.next_u32()).collect();
+        assert_eq!(got, vec![41, 18_467, 6_334, 26_500, 19_169]);
     }
 }
