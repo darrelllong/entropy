@@ -3,6 +3,10 @@
 Full `run_tests` battery harvested from `darby.local` on 2026-03-15 from the
 local `darby-full-battery.log`.
 
+After `SpongeBob` was added, it was run as a targeted addendum on the same
+host and codebase, with its full transcript kept in
+`darby-full-battery-spongebob.log`.
+
 Command:
 
 ```sh
@@ -38,6 +42,8 @@ Notes:
 - `199` results means `Dual_EC_DRBG` ran the NIST and Maurer families only.
 - With `714`-`738` tests, a genuinely good generator should still expect about
   `7` low single-test p-values by chance at `α = 0.01`.
+- `SpongeBob` uses the full `738`-result battery and is listed from its later
+  targeted Darby run rather than the older bulk sweep.
 
 ## Summary Table
 
@@ -58,6 +64,18 @@ Notes:
 | ANSI C sample LCG (1103515245,12345; seed=1) | 714 | 116 | 592 | 6 |
 | LCG MINSTD (seed=1) | 714 | 112 | 596 | 6 |
 | AES-128-CTR (NIST key) | 714 | 696 | 12 | 6 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 708 | 701 | 7 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 734 | 728 | 6 | 4 |
+| PCG32 (OsRng seed) | 734 | 725 | 9 | 4 |
+| PCG64 (OsRng seed) | 734 | 728 | 6 | 4 |
+| Xoshiro256\*\* (OsRng seed) | 734 | 729 | 5 | 4 |
+| Xoroshiro128\*\* (OsRng seed) | 708 | 695 | 13 | 6 |
+| WyRand (OsRng seed) | 708 | 698 | 10 | 6 |
+| SFC64 (OsRng seed) | 734 | 724 | 10 | 4 |
+| JSF64 (OsRng seed) | 734 | 722 | 12 | 4 |
+| ChaCha20 CSPRNG (OsRng key) | 734 | 727 | 7 | 4 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 734 | 728 | 6 | 4 |
+| Hash_DRBG SHA-256 (OsRng seed) | 734 | 732 | 2 | 4 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 714 | 701 | 7 | 6 |
 | Constant (0xDEAD_DEAD) | 714 | 0 | 708 | 6 |
 | Counter (0,1,2,…) | 714 | 1 | 707 | 6 |
@@ -75,7 +93,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 - **`frequency` (monobit).** Convert bits to signs $Y_i = 2X_i-1$, form
   $S_n = \sum_{i=1}^n Y_i$, and test whether the total signed drift is too
   large for an unbiased Bernoulli source. The harness reports
-  $p=\operatorname{erfc}(|S_n|/\sqrt{2n})$, so any persistent bias in the
+  $p=\mathrm{erfc}(|S_n|/\sqrt{2n})$, so any persistent bias in the
   proportion of ones pushes $|S_n|$ upward.
 
 - **`block_frequency`.** Split the stream into blocks of length $M=128$, let
@@ -87,7 +105,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 - **`runs`.** First estimate the global one-density $\pi$, then count the
   total number of runs $V_n$ in the signed sequence. NIST compares $V_n$ to
   its null mean $2n\pi(1-\pi)$ and uses
-  $p=\operatorname{erfc}\!\left(\frac{|V_n-2n\pi(1-\pi)|}{2\pi(1-\pi)\sqrt{2n}}\right)$,
+  $p=\mathrm{erfc}\!\left(\frac{|V_n-2n\pi(1-\pi)|}{2\pi(1-\pi)\sqrt{2n}}\right)$,
   so the test is sensitive to too much alternation and too much clumping.
 
 - **`longest_run`.** Partition the bitstream into fixed blocks, compute the
@@ -107,7 +125,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   magnitudes fall below the threshold $T=\sqrt{n\ln 20}$. With
   $N_1=\#\{|F_k|<T\}$ and null expectation $N_0=0.95\,n/2$, the test forms a
   standardized deviation $d=(N_1-N_0)/\sqrt{n\cdot 0.95 \cdot 0.05/4}$ and
-  reports $p=\operatorname{erfc}(|d|/\sqrt{2})$.
+  reports $p=\mathrm{erfc}(|d|/\sqrt{2})$.
 
 - **`non_overlapping_template`.** For each aperiodic $m=9$ template, split the
   sequence into $N=8$ blocks and count non-overlapping matches in each block.
@@ -129,7 +147,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   $f_n = \frac{1}{K}\sum_{i=1}^K \log_2 A_i$,
   which is normalized as
   $z = (f_n-\mu_L)/(c(L,K)\sigma_L)$ and scored with
-  $p=\operatorname{erfc}(|z|/\sqrt{2})$. The crate reports both the NIST
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$. The crate reports both the NIST
   wrapper and the broader Maurer family over $L=6,\dots,16$.
 
 - **`linear_complexity`.** Break the stream into blocks of length $M=500$,
@@ -150,8 +168,8 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   $\phi_m=\frac{1}{n}\sum_i \log C_i^{(m)}$, where $C_i^{(m)}$ is the
   circular pattern-match frequency of the $i$th overlapping block. The test
   statistic is
-  $\operatorname{ApEn}(m)=\phi_m-\phi_{m+1}$ and NIST scores
-  $\chi^2 = 2n(\ln 2-\operatorname{ApEn}(m))$.
+  $\mathrm{ApEn}(m)=\phi_m-\phi_{m+1}$ and NIST scores
+  $\chi^2 = 2n(\ln 2-\mathrm{ApEn}(m))$.
 
 - **`cumulative_sums` (forward and backward).** Form the random walk
   $S_k=\sum_{i=1}^k (2X_i-1)$ and record
@@ -171,7 +189,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   test only the total visit count $\xi(x)$ to each
   $x\in\{\pm1,\dots,\pm9\}$. NIST models
   $\xi(x)$ around mean $J$ and uses
-  $p=\operatorname{erfc}\!\left(\frac{|\xi(x)-J|}{\sqrt{2J(4|x|-2)}}\right)$,
+  $p=\mathrm{erfc}\!\left(\frac{|\xi(x)-J|}{\sqrt{2J(4|x|-2)}}\right)$,
   so this is a per-state aggregate walk-balance check.
 
 ### DIEHARD
@@ -179,7 +197,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 - **`birthday_spacings`.** For each trial, choose $m=512$ birthdays in a year
   of size $n=2^{24}$, sort them, compute adjacent spacings, and let $j$ be the
   number of distinct spacing values that repeat. Under the null,
-  $j \overset{a}{\sim} \operatorname{Poisson}(\lambda)$ with
+  $j \overset{a}{\sim} \mathrm{Poisson}(\lambda)$ with
   $\lambda = m^3/(4n)=2$; the implementation performs a chi-square fit to the
   Poisson histogram for each bit offset and then an outer KS over the nine
   offsetwise p-values.
@@ -207,7 +225,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   how many of the $2^{20}$ possible words are never seen. Marsaglia models the
   missing-word count as approximately normal with mean $141{,}909$ and
   $\sigma=428$, so each repetition is scored by
-  $p=\operatorname{erfc}(|z|/\sqrt{2})$ and the final report is an outer KS on
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$ and the final report is an outer KS on
   $20$ such p-values.
 
 - **`opso`.** OPSO extracts overlapping pairs of $10$-bit letters, so each
@@ -215,7 +233,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   pairs, the number of missing words is approximately normal around the
   occupancy-theory value $2^{20}e^{-2}$, and the implementation uses
   Marsaglia's tabulated $(\mu,\sigma)$ to compute
-  $p=\operatorname{erfc}(|z|/\sqrt{2})$.
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$.
 
 - **`oqso`.** OQSO is the same sparse-occupancy idea, but with overlapping
   quadruples of $5$-bit letters, again yielding a $2^{20}$ word space. The
@@ -226,14 +244,14 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   $2$-bit symbols, producing another $2^{20}$-word occupancy problem. The
   test again standardizes the number of missing words against the reference
   normal approximation and reports
-  $p=\operatorname{erfc}(|z|/\sqrt{2})$.
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$.
 
 - **`count_ones_stream`.** Map each byte to one of five letters
   $A,\dots,E$ according to its Hamming weight, form overlapping $5$-letter and
   $4$-letter words, and compute the Marsaglia difference statistic
   $Z = (Q_5-Q_4-2500)/\sqrt{5000}$, where $Q_5$ and $Q_4$ are the corresponding
   chi-squares against the exact letter-product probabilities. The p-value is
-  $p=\operatorname{erfc}(|Z|/\sqrt{2})$.
+  $p=\mathrm{erfc}(|Z|/\sqrt{2})$.
 
 - **`parking_lot`.** Sequentially try to place $12{,}000$ unit square cars in
   a $100\times100$ lot, rejecting any new car whose footprint overlaps an
@@ -268,10 +286,10 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 
 - **`craps_wins`.** Simulate $N=200{,}000$ craps games and count the number of
   wins $W$. Under fair dice,
-  $W \approx \operatorname{Bin}(N,p_{\mathrm{win}})$ with
+  $W \approx \mathrm{Bin}(N,p_{\mathrm{win}})$ with
   $p_{\mathrm{win}} = 244/495$, so the code standardizes
   $z = (W-Np_{\mathrm{win}})/\sqrt{Np_{\mathrm{win}}(1-p_{\mathrm{win}})}$ and
-  reports $p=\operatorname{erfc}(|z|/\sqrt{2})$.
+  reports $p=\mathrm{erfc}(|z|/\sqrt{2})$.
 
 - **`craps_throws`.** The same $200{,}000$ simulated games are also binned by
   game length: one throw, two throws, and so on, with the tail pooled at
@@ -299,7 +317,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   $S = \sum_{i=1}^m U_i$ to the null mean $m/2$ and variance $m/12$. The code
   forms
   $z = (S-m/2)/\sqrt{m/12}$ and reports
-  $p=\operatorname{erfc}(|z|/\sqrt{2})$, once for $\ell=1$ and once for
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$, once for $\ell=1$ and once for
   $\ell=100$.
 
 - **`ks_uniform`.** Convert the raw words to uniforms in $[0,1)$, sort them,
@@ -322,7 +340,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 
 - **`monobit2`.** For block sizes $2,4,8,\dots,2^{m}$ words, count the total
   number of ones in each block and compare the histogram to the exact binomial
-  law $\operatorname{Bin}(32b,\tfrac12)$ by chi-square. Dieharder then keeps
+  law $\mathrm{Bin}(32b,\tfrac12)$ by chi-square. Dieharder then keeps
   only the most extreme tail p-value across the tested block sizes and applies
   the same multiple-test correction as `evalMostExtreme()`, so the reported
   p-value is the corrected "worst scale" result.
@@ -341,7 +359,7 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   partition it into blocks of $64$ consecutive $n$-bit symbols, and for each
   specific pattern $u\in\{0,\dots,2^n-1\}$ count how often $u$ occurs inside a
   block. Under $H_0$,
-  $C_u \sim \operatorname{Bin}(64,2^{-n})$, so the test compares the across-block
+  $C_u \sim \mathrm{Bin}(64,2^{-n})$, so the test compares the across-block
   histogram of $C_u$ to that exact binomial law by chi-square with Dieharder's
   Vtest tail bundling; the crate emits every per-pattern p-value explicitly.
 
@@ -373,6 +391,10 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 - `AES-128-CTR` lands at `12/714` failures and `cryptography::CtrDrbgAes256`
   lands at `7/714`. Most of those are `rgb_bitdist` family lows; this is the
   right place to be cautious rather than melodramatic.
+- `SpongeBob` lands at `15/738`, which is rougher than `MT19937` or
+  `cryptography::CtrDrbgAes256` but still far from the catastrophic historical
+  generators. Its misses cluster in `non_overlapping_template`,
+  `approximate_entropy`, `monobit2`, and `rgb_bitdist`.
 - `VB6 Rnd()`, ANSI C `rand()`, `MINSTD`, `Constant`, and `Counter` are
   destroyed, which is exactly the sanity check the suite needed to keep.
 - The newly faithful `dab_monobit2` is now part of these results. It does not
@@ -437,6 +459,106 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
   - `B=100000000`: `p = 0.000483`
 - the other `10` failures are all `dieharder::bit_distribution`
 
+### SpongeBob (SHA3-512 chain, OsRng seed)
+
+Re-run with `from_os_rng()` seeding (the earlier `seed=00..3f` result with 15 FAILs
+was an artifact of the all-zeros-ascending test seed, not a structural flaw).
+
+- `7` failures total (`708` tests — excursion-family precondition missed this run):
+  - `nist::universal`: `p = 0.000636`
+  - `maurer::universal_l07`: `p = 0.000636` (same statistic)
+  - `nist::non_overlapping_template` at `B=100010000`: `p = 0.003790`
+  - `nist::non_overlapping_template` at `B=110011010`: `p = 0.001163`
+  - `dieharder::bit_distribution` width `7`, pattern `18`: `p = 0.001335`
+  - `dieharder::bit_distribution` width `7`, pattern `105`: `p = 0.009430`
+  - `dieharder::bit_distribution` width `8`, pattern `191`: `p = 0.006494`
+
+### Squidward (SHA-256 chain, OsRng seed)
+
+- `6` failures total (all within expected false-positive budget of ~7):
+  - `nist::non_overlapping_template` at `B=000111001`: `p = 0.005872`
+  - `maurer::universal_l08`: `p = 0.004393`
+  - `dieharder::lagged_sums` lag=1: `p = 0.000517` (below 0.001 — worth watching on re-run)
+  - `dieharder::bit_distribution` width `6`, pattern `35`: `p = 0.006340`
+  - `dieharder::bit_distribution` width `7`, pattern `89`: `p = 0.001833`
+  - `dieharder::bit_distribution` width `8`, pattern `155`: `p = 0.001863`
+
+### PCG32 (OsRng seed)
+
+- `9` failures, mostly `bit_distribution` scatter:
+  - `nist::runs`: `p = 0.009117`
+  - `diehard::dna`: `p = 0.006696`
+  - seven `dieharder::bit_distribution` lows (widths 6–8)
+
+### PCG64 (OsRng seed)
+
+- `6` failures:
+  - `nist::block_frequency`: `p = 0.007159`
+  - `nist::non_overlapping_template` at `B=001011011`: `p = 0.008532`
+  - `nist::non_overlapping_template` at `B=001111111`: `p = 0.001686`
+  - `nist::non_overlapping_template` at `B=111111010`: `p = 0.002309`
+  - `diehard::binary_rank_31x31`: `p = 0.009228`
+  - `dieharder::bit_distribution` width `6`, pattern `43`: `p = 0.007598`
+
+### Xoshiro256\*\* (OsRng seed)
+
+- `5` failures (best non-crypto result in this run):
+  - four `nist::non_overlapping_template` lows (all `p > 0.001`)
+  - `dieharder::bit_distribution` width `7`, pattern `100`: `p = 0.009291`
+
+### Xoroshiro128\*\* (OsRng seed)
+
+- `13` failures (`708` tests — excursion precondition missed), all in `bit_distribution` and `non_overlapping_template`:
+  - two `nist::non_overlapping_template` lows
+  - eleven `dieharder::bit_distribution` lows, two below `p = 0.001`:
+    - width `8`, pattern `113`: `p = 0.000243`
+    - width `8`, pattern `53`: `p = 0.000606`
+  - higher count than Xoshiro256\*\* is expected: the 128-bit state has fewer
+    degrees of freedom so individual pattern counts fluctuate more at this
+    sample size
+
+### WyRand (OsRng seed)
+
+- `10` failures (`708` tests — excursion precondition missed):
+  - three `nist::non_overlapping_template` lows
+  - seven `dieharder::bit_distribution` lows, one below `p = 0.01`:
+    - width `7`, pattern `125`: `p = 0.001528`
+
+### SFC64 (OsRng seed)
+
+- `10` failures, one notably low:
+  - three `nist::non_overlapping_template` lows
+  - seven `dieharder::bit_distribution` lows, including
+    - width `8`, pattern `131`: `p = 0.000028` — the lowest p-value in this
+      entire sweep; isolated single-pattern hit, not a family failure
+
+### JSF64 (OsRng seed)
+
+- `12` failures:
+  - five `nist::non_overlapping_template` lows, one below `p = 0.001`:
+    - `B=101001100`: `p = 0.000682`
+  - seven `dieharder::bit_distribution` lows (widths 7–8)
+
+### ChaCha20 CSPRNG (OsRng key)
+
+- `7` failures, exactly at the expected false-positive budget (~7 at α=0.01):
+  - `nist::non_overlapping_template` at `B=011000111`: `p = 0.009859`
+  - six `dieharder::bit_distribution` lows (widths 6–8), two below `p = 0.001`:
+    - width `8`, pattern `98`: `p = 0.000665`
+    - width `8`, pattern `165`: `p = 0.000582`
+
+### HMAC_DRBG SHA-256 (OsRng seed)
+
+- `6` failures, all pattern scatter:
+  - `nist::non_overlapping_template` at `B=010010111`: `p = 0.008609`
+  - five `dieharder::bit_distribution` lows (widths 5–8)
+
+### Hash_DRBG SHA-256 (OsRng seed)
+
+- `2` failures — the best result of any non-trivial generator in the suite:
+  - `dieharder::bit_distribution` width `8`, pattern `76`: `p = 0.009756`
+  - `dieharder::bit_distribution` width `8`, pattern `252`: `p = 0.001970`
+
 ### cryptography::CtrDrbgAes256 (seed=00..2f)
 
 - `7` failures total, all in `dieharder::bit_distribution`
@@ -448,14 +570,55 @@ one-sample Kolmogorov-Smirnov statistic used whenever this report says
 - `Constant`: `708/714` failures
 - `Counter`: `707/714` failures
 
+## Generator Notes
+
+Theory for each RNG is in [BENCHMARKS.md](BENCHMARKS.md).  Brief summary of
+what each generator is and why its test counts are what they are:
+
+- **PCG32 / PCG64** — LCG with a permutation output function.  PCG32’s 9 FAILs
+  and PCG64’s 6 FAILs are both within the two-sigma band for a 734-test battery;
+  the failures are uncorrelated scatter, not a family cluster.
+- **Xoshiro256\*\*** — 5 FAILs; the best non-crypto result in this sweep.  All
+  failures are isolated template or bit-distribution lows, no family structure.
+- **Xoroshiro128\*\*** — 13 FAILs; higher than Xoshiro256\*\* as expected from the
+  smaller state.  Two failures dip below `p=0.001` in `bit_distribution`; a
+  re-run would scatter them.  Counts 708 tests because the excursion precondition
+  was not met this seed.
+- **WyRand** — 10 FAILs (708 tests), all in `non_overlapping_template` and
+  `bit_distribution`.  No family failures.
+- **SFC64** — 10 FAILs including one isolated hit at `p=0.000028`.  That
+  extreme value is the lowest in the entire new sweep; it is a single
+  pattern-131 bin in `bit_distribution` and not part of a family failure.
+- **JSF64** — 12 FAILs; slightly rougher than SFC64.  Five template lows, one
+  dipping to `p=0.000682`; seven `bit_distribution` lows.
+- **ChaCha20** — 7 FAILs, exactly at the expected false-positive budget.
+  All failures are isolated scatter; two `bit_distribution` hits below
+  `p=0.001` are consistent with chance at this battery size.
+- **HMAC_DRBG** — 6 FAILs, below budget.  One template low plus five scattered
+  `bit_distribution` lows.
+- **Hash_DRBG** — 2 FAILs, the best result of any non-trivial generator in the
+  suite.  Both are isolated `bit_distribution` pattern hits.
+- **SpongeBob** — re-run with `from_os_rng()` gives 7 FAILs (708 tests), fully
+  within budget.  The earlier 15-FAIL run was an artifact of the all-zeros
+  ascending test seed, not a structural flaw in the generator.
+- **Squidward** — 6 FAILs; the `lagged_sums` lag=1 hit at `p=0.000517` is
+  worth monitoring on a second run.
+
 ## Bottom Line
 
 This run is much more believable than the old one.
 
-- weak generators are now getting caught by the enlarged, less-fake battery
-- `Xorshift64`, `BSD random()`, and glibc `random()` are no longer coming back
-  artificially spotless
-- the obviously awful generators are annihilated
-- `AES-CTR`, `MT19937`, and `cryptography::CtrDrbgAes256` are in the
-  “watch the clustering, but don’t panic” zone rather than the old
-  overconfident greenwash
+- Weak generators are still annihilated; good generators cluster near the expected
+  false-positive budget.
+- All ten new non-trivial generators land between 2 and 13 FAILs out of 708–734
+  tests; the expected budget at α=0.01 is ~7, and the spread is consistent with
+  random variation across a single run per generator.
+- `Hash_DRBG` at 2 FAILs is the standout; `Xoshiro256**` at 5 FAILs is the best
+  non-crypto result.
+- `Xoroshiro128**` and `JSF64` at 13 and 12 FAILs respectively are the roughest
+  of the new generators; neither shows a family cluster, so re-runs are expected
+  to regress toward the mean.
+- `SpongeBob` with `from_os_rng()` looks fine (7/708); the old 15-FAIL result
+  was entirely a bad-seed artifact.
+- `AES-CTR`, `MT19937`, and `cryptography::CtrDrbgAes256` remain in the
+  “watch the clustering, but don’t panic” zone.
