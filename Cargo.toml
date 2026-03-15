@@ -19,5 +19,6 @@ name = "entropy"
 path = "src/lib.rs"
 
 [dependencies]
-cryptography = { path = "../cryptography" }
-rustfft = "6.2"
+cryptography  = { path = "../cryptography" }
+aarch64-alt   = { path = "../cryptography/fast/Apple-Silicon/aarch64-alt" }
+rustfft       = "6.2"

@@ -1,0 +1,234 @@
+//! Hash_DRBG — NIST SP 800-90A Rev. 1 §10.1.1, instantiated with SHA-256.
+//!
+//! A deterministic random bit generator whose security rests on the
+//! one-wayness of SHA-256 (modelled as a random oracle).  Unlike HMAC_DRBG,
+//! no keying material is used; the state is a single 440-bit value V (the
+//! NIST-specified `seedlen` for SHA-256) and a constant C derived from V.
+//!
+//! Hashgen produces output by hashing an incrementing counter concatenated
+//! with V, delivering 32 bytes per SHA-256 call.  After each generate
+//! request V and C are updated per §10.1.1.5.
+//!
+//! # Seedlen rationale (SP 800-90A Table 2)
+//! For SHA-256 (outlen=256 bits, security_strength=256 bits):
+//!   seedlen = 440 bits = 55 bytes.
+//!
+//! # References
+//! NIST SP 800-90A Rev. 1, "Recommendation for Random Number Generation
+//! Using Deterministic Random Bit Generators", §10.1.1, 2015.
+//! [pubs/NIST-SP-800-90Ar1.pdf]
+//!
+//! # Author
+//! NIST (specification); Darrell Long (Rust implementation).
+
+use cryptography::Sha256;
+
+use super::{OsRng, Rng};
+
+const SEEDLEN:  usize = 55;  // 440 bits — Table 2, SHA-256 row
+const OUTLEN:   usize = 32;  // SHA-256 output = 256 bits = 32 bytes
+
+/// Hash_DRBG instantiated with SHA-256 per NIST SP 800-90A §10.1.1.
+pub struct HashDrbg {
+    v:              [u8; SEEDLEN],
+    c:              [u8; SEEDLEN],
+    reseed_counter: u64,
+    buf:            [u8; OUTLEN],  // buffered Hashgen output
+    offset:         usize,
+    // V snapshot at the start of the current Hashgen run.
+    gen_v:          [u8; SEEDLEN],
+    gen_blocks:     u32,           // blocks produced from gen_v so far
+    gen_needed:     u32,           // total blocks needed for current request
+}
+
+impl HashDrbg {
+    /// Instantiate from OS entropy (entropy_input=55 B, nonce=16 B).
+    #[must_use]
+    pub fn from_os_rng() -> Self {
+        let mut os = OsRng::new();
+        let mut seed = [0u8; SEEDLEN + 16];
+        for chunk in seed.chunks_exact_mut(4) {
+            chunk.copy_from_slice(&os.next_u32().to_le_bytes());
+        }
+        // V = Hash_df(entropy_input || nonce, 440 bits)
+        let v = hash_df(&seed, SEEDLEN);
+        // C = Hash_df(0x00 || V, 440 bits)
+        let c = {
+            let mut input = [0u8; 1 + SEEDLEN];
+            input[0] = 0x00;
+            input[1..].copy_from_slice(&v);
+            hash_df(&input, SEEDLEN)
+        };
+        let mut drbg = Self {
+            v, c, reseed_counter: 1,
+            buf: [0u8; OUTLEN], offset: OUTLEN,
+            gen_v: [0u8; SEEDLEN], gen_blocks: 0, gen_needed: 0,
+        };
+        // Prime the first generate block.
+        drbg.start_generate();
+        drbg
+    }
+
+    /// Begin a new Hashgen sequence: snapshot V, reset block counter.
+    fn start_generate(&mut self) {
+        self.gen_v = self.v;
+        self.gen_blocks = 0;
+        self.gen_needed = 1; // we produce blocks on demand
+    }
+
+    /// Produce the next 32-byte Hashgen block and finalise if this is the last.
+    fn refill(&mut self) {
+        // Hashgen §10.1.1.4: w_i = Hash(data); data = (data+1) mod 2^seedlen
+        let block = sha256_bytes(&self.gen_v);
+        self.buf.copy_from_slice(&block);
+        add1_mod2seedlen(&mut self.gen_v);
+        self.gen_blocks += 1;
+        self.offset = 0;
+
+        // After each block, finalise V per §10.1.1.5 then start next round.
+        self.finalise_generate();
+        self.start_generate();
+    }
+
+    /// §10.1.1.5: update V after a generate call.
+    fn finalise_generate(&mut self) {
+        // H = Hash(0x03 || V)
+        let h = {
+            let mut input = [0u8; 1 + SEEDLEN];
+            input[0] = 0x03;
+            input[1..].copy_from_slice(&self.v);
+            sha256_bytes(&input)
+        };
+
+        // V = (V + H + C + reseed_counter) mod 2^seedlen
+        // Accumulate into V in-place using big-endian arithmetic.
+        add_bytes_mod(&mut self.v, &h);
+        add_bytes_mod(&mut self.v, &self.c.clone());
+        add_u64_mod(&mut self.v, self.reseed_counter);
+        self.reseed_counter = self.reseed_counter.wrapping_add(1);
+    }
+
+    fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
+        const { assert!(N <= OUTLEN, "chunk larger than SHA-256 output") }
+        if self.offset == OUTLEN {
+            self.refill();
+        }
+        if self.offset + N > OUTLEN {
+            self.refill();
+        }
+        let out = self.buf[self.offset..self.offset + N].try_into().unwrap();
+        self.offset += N;
+        out
+    }
+}
+
+// ── Helper: Hash_df (SP 800-90A §10.3.1) ─────────────────────────────────────
+
+/// Derive `out_bytes` bytes from `input` using SHA-256 (seedlen=440 bits).
+fn hash_df(input: &[u8], out_bytes: usize) -> [u8; SEEDLEN] {
+    let bits = (out_bytes * 8) as u32;
+    let num_blocks = out_bytes.div_ceil(OUTLEN);
+    let mut temp = [0u8; OUTLEN * 2]; // enough for 2 SHA-256 blocks (covers 55 B)
+    for i in 0..num_blocks {
+        let counter = (i + 1) as u8;
+        // Hash(counter || bits_as_4_be_bytes || input)
+        let mut msg = Vec::with_capacity(5 + input.len());
+        msg.push(counter);
+        msg.extend_from_slice(&bits.to_be_bytes());
+        msg.extend_from_slice(input);
+        let block = Sha256::digest(&msg);
+        let start = i * OUTLEN;
+        let end   = start + OUTLEN;
+        temp[start..end].copy_from_slice(&block);
+    }
+    let mut out = [0u8; SEEDLEN];
+    out.copy_from_slice(&temp[..SEEDLEN]);
+    out
+}
+
+// ── Arithmetic helpers (big-endian mod 2^seedlen) ────────────────────────────
+
+/// data = (data + 1) mod 2^seedlen (big-endian, in-place).
+fn add1_mod2seedlen(data: &mut [u8; SEEDLEN]) {
+    let mut carry = 1u16;
+    for b in data.iter_mut().rev() {
+        carry += *b as u16;
+        *b = carry as u8;
+        carry >>= 8;
+    }
+}
+
+/// data = (data + addend[..]) mod 2^seedlen, addend is right-aligned.
+fn add_bytes_mod(data: &mut [u8; SEEDLEN], addend: &[u8]) {
+    let mut carry = 0u16;
+    let data_len = data.len();
+    let add_len  = addend.len();
+    for i in (0..data_len).rev() {
+        let add_byte = if i + add_len >= data_len {
+            addend[i + add_len - data_len]
+        } else {
+            0
+        };
+        carry = data[i] as u16 + add_byte as u16 + carry;
+        data[i] = carry as u8;
+        carry >>= 8;
+    }
+}
+
+/// data = (data + n) mod 2^seedlen, n is a 64-bit counter.
+fn add_u64_mod(data: &mut [u8; SEEDLEN], n: u64) {
+    let bytes = n.to_be_bytes();
+    add_bytes_mod(data, &bytes);
+}
+
+#[inline]
+fn sha256_bytes(input: &[u8]) -> [u8; OUTLEN] {
+    Sha256::digest(input)
+}
+
+impl Default for HashDrbg {
+    fn default() -> Self { Self::from_os_rng() }
+}
+
+impl Rng for HashDrbg {
+    fn next_u32(&mut self) -> u32 {
+        u32::from_le_bytes(self.take_bytes::<4>())
+    }
+    fn next_u64(&mut self) -> u64 {
+        u64::from_le_bytes(self.take_bytes::<8>())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_drbg_nonzero() {
+        let mut rng = HashDrbg::from_os_rng();
+        let v: u64 = (0..8).map(|_| rng.next_u64()).fold(0, |a, b| a | b);
+        assert_ne!(v, 0);
+    }
+
+    #[test]
+    fn hash_drbg_advances() {
+        let mut rng = HashDrbg::from_os_rng();
+        let v0 = rng.next_u64();
+        let v1 = rng.next_u64();
+        assert_ne!(v0, v1);
+    }
+
+    #[test]
+    fn hash_df_length() {
+        // Hash_df output must be exactly SEEDLEN bytes.
+        let out = hash_df(b"test input", SEEDLEN);
+        assert_eq!(out.len(), SEEDLEN);
+    }
+
+    #[test]
+    fn add1_wraps() {
+        let mut v = [0xffu8; SEEDLEN];
+        add1_mod2seedlen(&mut v);
+        assert!(v.iter().all(|&b| b == 0)); // 2^440 ≡ 0
+    }
+}

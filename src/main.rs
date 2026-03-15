@@ -30,10 +30,12 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ConstantRng,
-    CounterRng, CryptoCtrDrbg, DualEcDrbg, Lcg32, LinuxLibcRandom, Mt19937,
-    OsRng, Rand48, Rng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
-    WindowsVb6Rnd, Xorshift32, Xorshift64,
+    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
+    ConstantRng, CounterRng, CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg,
+    Jsf64, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng,
+    Sfc64, SpongeBob, Squidward, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    WindowsVb6Rnd, WyRand, Xoroshiro128StarStar, Xorshift32, Xorshift64,
+    Xoshiro256StarStar,
 };
 use entropy::{diehard, dieharder, nist, result::TestResult};
 use std::thread;
@@ -216,6 +218,18 @@ fn make_runs(args: Args) -> Vec<RunFn> {
     run!("BBS (p=2³¹−1, q=4294967291)",  BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567));
     run!("Blum-Micali (p=2³¹−1, g=7)",   BlumMicali::new(2_147_483_647, 7, 42));
     run!("AES-128-CTR (NIST key)",        AesCtr::with_nist_key());
+    run!("SpongeBob (SHA3-512 chain, OsRng seed)",  SpongeBob::from_os_rng());
+    run!("Squidward (SHA-256 chain, OsRng seed)",   Squidward::from_os_rng());
+    run!("PCG32 (OsRng seed)",                      Pcg32::from_os_rng());
+    run!("PCG64 (OsRng seed)",                      Pcg64::from_os_rng());
+    run!("Xoshiro256** (OsRng seed)",               Xoshiro256StarStar::from_os_rng());
+    run!("Xoroshiro128** (OsRng seed)",             Xoroshiro128StarStar::from_os_rng());
+    run!("WyRand (OsRng seed)",                     WyRand::from_os_rng());
+    run!("SFC64 (OsRng seed)",                      Sfc64::from_os_rng());
+    run!("JSF64 (OsRng seed)",                      Jsf64::from_os_rng());
+    run!("ChaCha20 CSPRNG (OsRng key)",             ChaCha20Rng::from_os_rng());
+    run!("HMAC_DRBG SHA-256 (OsRng seed)",          HmacDrbg::from_os_rng());
+    run!("Hash_DRBG SHA-256 (OsRng seed)",          HashDrbg::from_os_rng());
     run!("cryptography::CtrDrbgAes256 (seed=00..2f)", CryptoCtrDrbg::with_test_seed());
     run!("Constant (0xDEAD_DEAD)",        ConstantRng::new(0xDEAD_DEAD));
     run!("Counter (0,1,2,…)",             CounterRng::new(0));
