@@ -32,6 +32,28 @@ from pathlib import Path
 REPO = Path(__file__).parent.parent
 
 # ---------------------------------------------------------------------------
+# Battery slot counts (derived from the suite structure; update here if tests
+# are added or removed, rather than in prose strings throughout the file).
+# ---------------------------------------------------------------------------
+
+NIST_SLOTS      = 199   # 12 fixed + 148 non_overlapping + 2 serial + 11 Maurer + 8 RE + 18 REV
+DIEHARD_SLOTS   = 17    # see src/diehard/mod.rs
+DIEHARDER_SLOTS = 522   # see src/dieharder/mod.rs
+FULL_SLOTS      = NIST_SLOTS + DIEHARD_SLOTS + DIEHARDER_SLOTS   # 738
+
+# Random excursions emit 8 per-state results; variant emits 18.
+RE_STATES       = 8
+REV_STATES      = 18
+EXCURSION_TOTAL = RE_STATES + REV_STATES   # 26 individual results when active
+
+# When excursions skip, both families collapse to 1 SKIP each → 26 − 2 = 24 fewer slots.
+EXCURSION_SKIP_SAVINGS = EXCURSION_TOTAL - 2   # 24
+SKIPPED_SLOTS   = FULL_SLOTS - EXCURSION_SKIP_SAVINGS   # 714
+
+# Minimum zero-crossing cycles for the excursion families to run.
+EXCURSION_J_MIN = 500
+
+# ---------------------------------------------------------------------------
 # Log parser
 # ---------------------------------------------------------------------------
 
@@ -150,28 +172,28 @@ Notes:
 The battery total differs from run to run because several test families are
 conditionally skipped based on properties of the sample, not the generator.
 
-The battery has **738 test slots** at this sample size:
+The battery has **{FULL_SLOTS} test slots** at this sample size:
 
-- **738 results** — the "full active battery" outcome: the signed-random-walk
+- **{FULL_SLOTS} results** — the "full active battery" outcome: the signed-random-walk
   tests (`random_excursions` and `random_excursions_variant`) completed
-  successfully (J ≥ 500 zero-crossing cycles).  At {mbits} Mbit the expected
+  successfully (J ≥ {EXCURSION_J_MIN} zero-crossing cycles).  At {mbits} Mbit the expected
   cycle count is J ≈ {int(math.sqrt(2 * n_bits / math.pi))} (= √(2n/π)),
   comfortably above the threshold for well-behaved generators.
 
-- **714 results** — 24 fewer slots than the full battery.  The excursion
-  families normally emit 8 + 18 = 26 individual per-state results; when the
-  signed random walk produces fewer than J = 500 complete zero-crossing cycles
+- **{SKIPPED_SLOTS} results** — {EXCURSION_SKIP_SAVINGS} fewer slots than the full battery.  The excursion
+  families normally emit {RE_STATES} + {REV_STATES} = {EXCURSION_TOTAL} individual per-state results; when the
+  signed random walk produces fewer than J = {EXCURSION_J_MIN} complete zero-crossing cycles
   both families are each collapsed to a single family-level SKIP entry,
-  yielding 26 − 2 = 24 fewer slots.  Degenerate generators (Constant,
+  yielding {EXCURSION_TOTAL} − 2 = {EXCURSION_SKIP_SAVINGS} fewer slots.  Degenerate generators (Constant,
   Counter, ANSI C LCG, MINSTD) always land here; a handful of non-degenerate
   generators can too, depending on their random seed.
 
-- **199 results** — `Dual_EC_DRBG` only: two P-256 scalar multiplications per
+- **{NIST_SLOTS} results** — `Dual_EC_DRBG` only: two P-256 scalar multiplications per
   30-byte output block makes DIEHARD and DIEHARDER prohibitively slow, so only
   the NIST SP 800-22 suite is run.
 
 **Expected false positives.**  At α = 0.01, a perfect generator should fail
-roughly 1% of tests by chance.  With 714–738 active tests, the expected
+roughly 1% of tests by chance.  With {SKIPPED_SLOTS}–{FULL_SLOTS} active tests, the expected
 false-fail count is approximately 7.  Isolated failures below that threshold
 are noise, not structure.
 """
