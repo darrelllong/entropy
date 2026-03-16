@@ -1,1 +1,1 @@
-| SpongeBob (SHAKE256 pool, seed=00..3f) |    65.54 | ±0.6008 |    50 |
+| SpongeBob (SHA3-512 chain, seed=00..3f)  |    32.09 | ±0.2296 |    50 |
