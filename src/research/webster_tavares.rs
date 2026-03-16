@@ -15,6 +15,7 @@
 //! For large input spaces the authors recommend random sampling rather than
 //! exhaustive enumeration. This implementation follows that rule.
 
+use crate::seed::splitmix64;
 use core::fmt;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -96,14 +97,6 @@ impl fmt::Display for AvalancheReport {
             self.mean_bic_abs_corr,
         )
     }
-}
-
-fn splitmix64(state: &mut u64) -> u64 {
-    *state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-    let mut z = *state;
-    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    z ^ (z >> 31)
 }
 
 fn pair_count(n: usize) -> usize {

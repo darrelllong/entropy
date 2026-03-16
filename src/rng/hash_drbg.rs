@@ -39,10 +39,10 @@ pub struct HashDrbg {
     reseed_counter: u64,
     buf:            [u8; OUTLEN],  // buffered Hashgen output
     offset:         usize,
-    // V snapshot at the start of the current Hashgen run.
+    // Incrementing counter for the current Hashgen sequence (§10.1.1.4
+    // "data").  Snapshotted from V at the start of each 32-byte block run
+    // and incremented by add1_mod2seedlen after each block.
     gen_v:          [u8; SEEDLEN],
-    gen_blocks:     u32,           // blocks produced from gen_v so far
-    gen_needed:     u32,           // total blocks needed for current request
 }
 
 impl HashDrbg {
@@ -66,30 +66,28 @@ impl HashDrbg {
         let mut drbg = Self {
             v, c, reseed_counter: 1,
             buf: [0u8; OUTLEN], offset: OUTLEN,
-            gen_v: [0u8; SEEDLEN], gen_blocks: 0, gen_needed: 0,
+            gen_v: [0u8; SEEDLEN],
         };
         // Prime the first generate block.
         drbg.start_generate();
         drbg
     }
 
-    /// Begin a new Hashgen sequence: snapshot V, reset block counter.
+    /// Begin a new Hashgen sequence: snapshot V into the working counter.
     fn start_generate(&mut self) {
         self.gen_v = self.v;
-        self.gen_blocks = 0;
-        self.gen_needed = 1; // we produce blocks on demand
     }
 
-    /// Produce the next 32-byte Hashgen block and finalise if this is the last.
+    /// Produce the next 32-byte Hashgen block (§10.1.1.4) then update V
+    /// per §10.1.1.5 so the next call begins a fresh generate sequence.
     fn refill(&mut self) {
-        // Hashgen §10.1.1.4: w_i = Hash(data); data = (data+1) mod 2^seedlen
+        // w_i = Hash(data); data = (data + 1) mod 2^seedlen
         let block = sha256_bytes(&self.gen_v);
         self.buf.copy_from_slice(&block);
         add1_mod2seedlen(&mut self.gen_v);
-        self.gen_blocks += 1;
         self.offset = 0;
 
-        // After each block, finalise V per §10.1.1.5 then start next round.
+        // Update V after the generate call, then arm gen_v for the next one.
         self.finalise_generate();
         self.start_generate();
     }

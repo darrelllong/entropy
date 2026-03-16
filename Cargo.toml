@@ -3,7 +3,7 @@ name        = "entropy"
 version     = "0.1.0"
 edition     = "2021"
 description = "A pure-Rust statistical test suite for pseudorandom number generators (NIST SP 800-22, DIEHARD, DIEHARDER)"
-license     = "MIT"
+license     = "BSD-2-Clause"
 default-run = "run_tests"
 
 [[bin]]

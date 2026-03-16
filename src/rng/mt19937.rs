@@ -67,10 +67,9 @@ impl Rng for Mt19937 {
 mod tests {
     use super::*;
 
-    // Reference output from the original mt19937ar.c by Matsumoto & Nishimura.
-    // Generated with seed = 19650218 and the array-init variant; the simpler
-    // seed-with-a-single-integer reference uses seed = 19650218.
-    // Verified against the reference mt19937ar output table.
+    // Reference output from the original mt19937ar.c (Matsumoto & Nishimura).
+    // Uses the single-integer seed path: `init_genrand(19650218)`.
+    // Expected values taken directly from the mt19937ar.c reference output table.
     #[test]
     fn known_output_seed_19650218() {
         let mut rng = Mt19937::new(19650218);
