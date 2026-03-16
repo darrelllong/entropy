@@ -7,7 +7,7 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::{gf2_rank, igamc}, result::TestResult};
 
 // ── 32×32 ─────────────────────────────────────────────────────────────────────
 
@@ -123,7 +123,7 @@ fn rank_test(words: &[u32], rows: usize, cols: usize, n_matrices: usize, name: &
         let slice = &words[m_idx * rows..(m_idx + 1) * rows];
         matrix.clear();
         matrix.extend(slice.iter().map(|&w| w & mask));
-        let rank = gf2_rank_generic(&matrix, rows, cols);
+        let rank = gf2_rank(&matrix, rows, cols);
         let full = rows.min(cols);
         if rank == full         { f[3] += 1; }
         else if rank == full-1  { f[2] += 1; }
@@ -205,33 +205,10 @@ fn gf2_rank_probability(rows: usize, cols: usize, rank: usize) -> f64 {
     log_prob.exp()
 }
 
-/// GF(2) rank of a matrix stored as rows of u32 (up to 32 columns).
-fn gf2_rank_generic(matrix: &[u32], rows: usize, cols: usize) -> usize {
-    let mut m = matrix.to_vec();
-    let mut rank = 0usize;
-    let mut pivot_row = 0usize;
-
-    for col in 0..cols {
-        let found = (pivot_row..rows).find(|&r| (m[r] >> col) & 1 == 1);
-        if let Some(r) = found {
-            m.swap(pivot_row, r);
-            rank += 1;
-            let pivot = m[pivot_row];
-            for r in 0..rows {
-                if r != pivot_row && (m[r] >> col) & 1 == 1 {
-                    m[r] ^= pivot;
-                }
-            }
-            pivot_row += 1;
-        }
-    }
-    rank
-}
-
 /// GF(2) rank of a 6×8 matrix stored as 6 bytes.
 fn gf2_rank_6x8(matrix: &[u8; 6], rows: usize, cols: usize) -> usize {
-    let as_u32: Vec<u32> = matrix.iter().map(|&b| b as u32).collect();
-    gf2_rank_generic(&as_u32, rows, cols)
+    let as_u32: [u32; 6] = std::array::from_fn(|i| matrix[i] as u32);
+    gf2_rank(&as_u32, rows, cols)
 }
 
 #[cfg(test)]

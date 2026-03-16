@@ -5,7 +5,7 @@
 //!
 //! Minimum recommended sequence length: n ≥ 38 912 (for at least 38 matrices).
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::{gf2_rank, igamc}, result::TestResult};
 
 const ROWS: usize = 32;
 const COLS: usize = 32;
@@ -56,12 +56,12 @@ pub fn matrix_rank(bits: &[u8]) -> TestResult {
     )
 }
 
-/// Compute the GF(2) rank of a 32×32 binary matrix via Gaussian elimination.
+/// Compute the GF(2) rank of a 32×32 binary matrix.
 ///
 /// `bits` must have exactly 1024 elements (0 or 1), row-major.
+/// Packs each row into a u32 word, then delegates to `math::gf2_rank`.
 fn gf2_rank_32x32(bits: &[u8]) -> usize {
-    // Pack each row into a u32 bitmask.
-    let mut matrix: [u32; ROWS] = [0; ROWS];
+    let mut matrix = [0u32; ROWS];
     for (r, row) in bits.chunks_exact(COLS).enumerate() {
         let mut word = 0u32;
         for (c, &b) in row.iter().enumerate() {
@@ -69,25 +69,5 @@ fn gf2_rank_32x32(bits: &[u8]) -> usize {
         }
         matrix[r] = word;
     }
-
-    let mut rank = 0usize;
-    let mut pivot_row = 0usize;
-
-    for col in 0..COLS {
-        // Find a row at or below pivot_row with a 1 in column `col`.
-        let found = (pivot_row..ROWS).find(|&r| (matrix[r] >> col) & 1 == 1);
-        if let Some(r) = found {
-            matrix.swap(pivot_row, r);
-            rank += 1;
-            // Eliminate this column in all other rows.
-            let pivot = matrix[pivot_row];
-            for r in 0..ROWS {
-                if r != pivot_row && (matrix[r] >> col) & 1 == 1 {
-                    matrix[r] ^= pivot;
-                }
-            }
-            pivot_row += 1;
-        }
-    }
-    rank
+    gf2_rank(&matrix, ROWS, COLS)
 }

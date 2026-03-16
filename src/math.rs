@@ -350,6 +350,38 @@ pub fn dft_magnitudes(x: &[f64]) -> Vec<f64> {
         .collect()
 }
 
+// ── GF(2) rank ────────────────────────────────────────────────────────────────
+
+/// GF(2) rank of a binary matrix via Gaussian elimination, shared between
+/// the NIST SP 800-22 matrix-rank test and the DIEHARD binary-rank test.
+///
+/// `matrix` is a slice of `rows` packed u32 row-words; bit `c` of `matrix[r]`
+/// is the entry at row `r`, column `c`.  Only the low `cols` bits of each word
+/// are used (caller must mask if needed).
+///
+/// Time: O(rows × cols × min(rows,cols)).
+pub fn gf2_rank(matrix: &[u32], rows: usize, cols: usize) -> usize {
+    let mut m = matrix.to_vec();
+    let mut rank = 0usize;
+    let mut pivot_row = 0usize;
+
+    for col in 0..cols {
+        let found = (pivot_row..rows).find(|&r| (m[r] >> col) & 1 == 1);
+        if let Some(r) = found {
+            m.swap(pivot_row, r);
+            rank += 1;
+            let pivot = m[pivot_row];
+            for r in 0..rows {
+                if r != pivot_row && (m[r] >> col) & 1 == 1 {
+                    m[r] ^= pivot;
+                }
+            }
+            pivot_row += 1;
+        }
+    }
+    rank
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
