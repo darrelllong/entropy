@@ -20,5 +20,7 @@ path = "src/lib.rs"
 
 [dependencies]
 cryptography  = { path = "../cryptography" }
-aarch64-alt   = { path = "../cryptography/fast/Apple-Silicon/aarch64-alt" }
 rustfft       = "6.2"
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-alt   = { path = "../cryptography/fast/Apple-Silicon/aarch64-alt" }
