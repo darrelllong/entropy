@@ -51,7 +51,11 @@ fn next_n_bits_msb(words: &[u32], bit_cursor: &mut usize, nbits: usize) -> Optio
     Some(value)
 }
 
-fn vtest_pvalue(observed: &[f64], expected: &[f64], cutoff: f64) -> Option<(f64, usize, f64)> {
+/// Vtest chi-square on integer observed counts vs f64 expected counts.
+///
+/// Takes `observed` as integer counts (exact, no rounding) and converts to
+/// f64 only at the chi-square computation stage.
+fn vtest_pvalue(observed: &[u32], expected: &[f64], cutoff: f64) -> Option<(f64, usize, f64)> {
     if observed.len() != expected.len() || observed.is_empty() {
         return None;
     }
@@ -63,7 +67,7 @@ fn vtest_pvalue(observed: &[f64], expected: &[f64], cutoff: f64) -> Option<(f64,
     let mut tail_exp = 0.0;
 
     for i in 0..observed.len() {
-        let obs = observed[i];
+        let obs = observed[i] as f64;
         let exp = expected[i];
         if exp >= cutoff {
             let diff = obs - exp;
@@ -109,7 +113,9 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
         .map(|b| tsamples as f64 * binomial_pmf(BSAMPLES, b, ntuple_prob))
         .collect();
 
-    let mut histograms = vec![vec![0f64; BSAMPLES + 1]; value_max];
+    // Histograms store exact integer counts; conversion to f64 happens only
+    // inside vtest_pvalue at the chi-square computation stage.
+    let mut histograms = vec![vec![0u32; BSAMPLES + 1]; value_max];
     let mut count = vec![0usize; value_max];
     let mut cursor = 0usize;
 
@@ -120,7 +126,7 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
             count[value] += 1;
         }
         for pattern in 0..value_max {
-            histograms[pattern][count[pattern]] += 1.0;
+            histograms[pattern][count[pattern]] += 1;
         }
     }
 
