@@ -115,7 +115,7 @@ generators.
 ### `BAD Unix System V rand() (seed=1)`
 
 This is the classic 15-bit libc LCG
-$x_{n+1} = 1103515245\,x_n + 12345 \pmod{2^{32}}$,
+$x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{32}}$,
 with output
 $y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
 It is historically important precisely because it is bad: tiny effective
@@ -126,7 +126,7 @@ as a negative control and compatibility target. The benchmark shows it is fast;
 ### `BAD Unix System V mrand48() (seed=1)`
 
 `mrand48()` is the POSIX 48-bit LCG
-$x_{n+1} = (0x5DEECE66D\,x_n + 0xB) \bmod 2^{48}$,
+$x_{n+1} = (0x5DEECE66D\times x_n + 0xB) \bmod 2^{48}$,
 with the high bits returned as output. It is materially better than old
 15-bit `rand()`, which is why it survives more tests and runs faster than
 heavier modern CSPRNGs, but it is still just a linear congruential generator.
@@ -157,7 +157,7 @@ trick them into thinking it belongs anywhere near cryptographic use.
 ### `BAD Unix FreeBSD12 rand_r() compat (seed=1)`
 
 This compatibility path is the single-word Park-Miller family:
-$x_{n+1} = 16807\,x_n \pmod{2^{31}-1}$,
+$x_{n+1} = 16807\times x_n \pmod{2^{31}-1}$,
 with a small ABI-shaped wrapper around the returned value. It exists here
 because real systems shipped it, not because it is good. Like other one-word
 LCGs, it is predictable and structurally weak. The benchmark page shows it is
@@ -167,7 +167,7 @@ fails more often than the BSD/glibc additive family.
 ### `BAD Windows CRT rand() (seed=1)`
 
 This is the old MSVCRT/UCRT generator
-$x_{n+1} = 214013\,x_n + 2531011 \pmod{2^{32}}$,
+$x_{n+1} = 214013\times x_n + 2531011 \pmod{2^{32}}$,
 with output
 $y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
 It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
@@ -178,7 +178,7 @@ widely deployed in real code, not because it deserves respect. See
 ### `BAD Windows VB6/VBA Rnd() (seed=1)`
 
 VB6/VBA `Rnd()` uses a 24-bit linear state with update
-$x_{n+1} = (0x43FD43FD\,x_n + 0x00C39EC3) \bmod 2^{24}$,
+$x_{n+1} = (0x43FD43FD\times x_n + 0x00C39EC3) \bmod 2^{24}$,
 then scales that tiny state into a floating-point sample in $[0,1)$. This is
 catastrophically small and easy to predict, which is exactly why it is one of
 the most heavily destroyed entries in [TESTS.md](TESTS.md). It is a wonderful
@@ -197,7 +197,7 @@ it can still look deceptively clean in one run. The right conclusion is
 ### `ANSI C sample LCG (seed=1)`
 
 This is the textbook sample LCG
-$x_{n+1} = 1103515245\,x_n + 12345 \pmod{2^{31}}$.
+$x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{31}}$.
 It is not meant to represent some hidden good libc implementation; it is here
 as the famous printed-manual recurrence that showed up in endless example code.
 It is fast because it is trivial arithmetic, and it is awful because that same
@@ -207,7 +207,7 @@ arithmetic creates glaring lattice and serial structure. The battery results in
 ### `LCG MINSTD (seed=1)`
 
 MINSTD is the Park-Miller multiplicative congruential generator
-$x_{n+1} = 16807\,x_n \pmod{2^{31}-1}$.
+$x_{n+1} = 16807\times x_n \pmod{2^{31}-1}$.
 Historically it was a serious improvement over many older LCGs, and it is a
 nice clean mathematical benchmark, but it is still a small-state linear
 generator and still not remotely cryptographic. The throughput is unremarkable
