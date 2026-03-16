@@ -9,6 +9,10 @@
 //! with V, delivering 32 bytes per SHA-256 call.  After each generate
 //! request V and C are updated per §10.1.1.5.
 //!
+//! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
+//! per block are used; mixing widths at a refill boundary silently discards
+//! up to 7 trailing bytes before refilling.
+//!
 //! # Seedlen rationale (SP 800-90A Table 2)
 //! For SHA-256 (outlen=256 bits, security_strength=256 bits):
 //!   seedlen = 440 bits = 55 bytes.

@@ -12,6 +12,10 @@
 //! - Implements the standard `HMAC_DRBG_Update` and `Generate` procedures
 //!   without additional input or explicit reseed (suitable for the test battery).
 //!
+//! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
+//! per block are used; mixing widths at a refill boundary silently discards
+//! up to 7 trailing bytes before refilling.
+//!
 //! # References
 //! NIST SP 800-90A Rev. 1, "Recommendation for Random Number Generation
 //! Using Deterministic Random Bit Generators", §10.1.2, 2015.

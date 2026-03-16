@@ -11,8 +11,11 @@
 //! - counts how many 26-bit words are missing from the 2^26 overlapping windows
 //! - compares the missing-word count to a normal approximation with
 //!   mean 24,687,971 and standard deviation 4,170
+//! - then runs a KS uniformity check on the resulting 32 per-bit p-values
+//!   to catch generators whose problem is collective non-uniformity across
+//!   bit positions rather than one spectacularly bad bit
 
-use crate::math::normal_cdf;
+use crate::math::{ks_test, normal_cdf};
 
 const GORILLA_WORD_BITS: usize = 26;
 const GORILLA_WINDOWS: usize = 1 << GORILLA_WORD_BITS;
@@ -88,6 +91,18 @@ pub fn gorilla_all(words: &[u32]) -> Vec<GorillaBitResult> {
             }
         })
         .collect()
+}
+
+/// Run a KS uniformity check on the 32 per-bit p-values from [`gorilla_all`].
+///
+/// Returns a single aggregate p-value.  A value near 0 means the per-bit
+/// p-values are not uniformly distributed on [0, 1], which indicates
+/// systematic non-randomness spread across bit positions rather than an
+/// isolated bad bit.  This is the second-stage aggregate check described in
+/// Marsaglia and Tsang (2002).
+pub fn gorilla_aggregate_ks(results: &[GorillaBitResult]) -> f64 {
+    let mut pvals: Vec<f64> = results.iter().map(|r| r.p_value).collect();
+    ks_test(&mut pvals)
 }
 
 #[cfg(test)]

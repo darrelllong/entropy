@@ -19,6 +19,7 @@ Usage:
 import argparse
 import math
 import re
+import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -159,13 +160,20 @@ def fmt_mw(mw_s):
     return f"{mw_s:.4g} MW/s"
 
 def load_machine_data(chart, stats_root, subdir):
-    """Return [(label, mw_s), ...] for this machine, or None if no bench files found."""
+    """Return [(label, mw_s), ...] for this machine, or None if no bench files found.
+
+    Prints a warning to stderr for each generator whose value falls back to the
+    hard-coded reference constant rather than a measured bench file.
+    """
     machine_dir = stats_root / subdir
     result, found_any = [], False
     for label, fallback, bench_file in chart["generators"]:
         measured = parse_bench(machine_dir / bench_file) if machine_dir.exists() else None
         if measured is not None:
             found_any = True
+        else:
+            print(f"  warning: {subdir}/{bench_file} missing — using reference fallback "
+                  f"({fallback:.4g} MW/s) for {label!r}", file=sys.stderr)
         result.append((label, measured if measured is not None else fallback))
     return result if found_any else None
 

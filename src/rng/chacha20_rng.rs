@@ -10,6 +10,10 @@
 //! block costs one ChaCha20 core invocation (20 rounds over a 4×4 word
 //! state), so throughput scales with the cipher's speed.
 //!
+//! For uniform-width access (all `next_u32` or all `next_u64`) all 512 bits
+//! per block are used; mixing widths at a refill boundary silently discards
+//! up to 7 trailing bytes before refilling.
+//!
 //! # Security
 //! Output is computationally indistinguishable from random under the
 //! assumption that ChaCha20 is a secure PRF.  The initial key and nonce are

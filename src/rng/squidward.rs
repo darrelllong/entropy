@@ -10,6 +10,10 @@
 //! Unlike SpongeBob (which uses a SHA3-512 chain and carries 512 bits of state
 //! per step), SHA-256 has no XOF mode.  The state here is kept inline at
 //! 32 bytes — the right size for the SHA-256 hardware path on aarch64.
+//!
+//! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
+//! are used; mixing widths at a refill boundary silently discards up to 7
+//! trailing bytes before refilling.
 
 use cryptography::Sha256;
 

@@ -161,7 +161,8 @@ Included now:
 
 - standards: `NIST-SP-800-22r1a.pdf`, `NIST-SP-800-90Ar1.pdf`, `NIST-SP-800-90B.pdf`, `NIST-SP-800-90C.pdf`, `NIST-FIPS-140-3.pdf`
 - classic source and docs: `Diehard.zip`, `diehard-doc.txt`, `diehard-tests.txt`, `dieharder-3.31.1.tgz`, `dieharder-manual.pdf`, `dieharder-tests.txt`
-- core survey and extension papers: `lecuyer-simard-2007-testu01.pdf`, `maurer-1992-universal-test.pdf`, `marsaglia-tsang-2002-difficult-tests.pdf`, `pincus-1991-approximate-entropy.pdf`, `webster-tavares-1985-sbox-design.pdf`, `hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf`
+- core survey and extension papers: `lecuyer-simard-2007-testu01.pdf`, `maurer-1992-universal-test.pdf`, `marsaglia-tsang-2002-difficult-tests.pdf`, `webster-tavares-1985-sbox-design.pdf`, `hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf`
+- note: `pincus-1991-approximate-entropy.pdf` is not currently available locally; the Pincus implementation was written from the paper's stated algorithm
 
 When the code claims fidelity to a published test, these are the documents the project is expected to match.
 
