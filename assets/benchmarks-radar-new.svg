@@ -24,8 +24,8 @@
 <line x1="450" y1="450" x2="300.0" y2="190.2"/>
 </g>
 <!-- data polygon: JSF64 SFC64 Xoshiro256** Xoroshiro128** PCG32 WyRand PCG64 Squidward ChaCha20 SpongeBob Hash_DRBG HMAC_DRBG -->
-<!-- radii (log-normalized same scale as original): 249.1 247.9 248.3 237.7 238.9 274.9 235.8 198.0 188.6 137.8 109.8 70.1 -->
-<polygon points="450.0,200.9 574.0,235.3 665.0,325.9 687.7,450.0 656.9,569.4 587.4,688.1 450.0,685.8 351.0,621.5 286.7,544.3 312.2,450.0 354.9,395.1 414.9,389.3" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="3"/>
+<!-- radii (log-normalized same scale as original): 249.1 247.9 248.3 237.7 238.9 274.9 235.8 198.4 188.6 159.8 109.8 70.1 -->
+<polygon points="450.0,200.9 574.0,235.3 665.0,325.9 687.7,450.0 656.9,569.4 587.4,688.1 450.0,685.8 350.8,621.8 286.7,544.3 290.2,450.0 354.9,395.1 414.9,389.3" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="3"/>
 <g fill="#1b4b9f">
 <circle cx="450.0" cy="200.9" r="4.5"/>
 <circle cx="574.0" cy="235.3" r="4.5"/>
@@ -34,9 +34,9 @@
 <circle cx="656.9" cy="569.4" r="4.5"/>
 <circle cx="587.4" cy="688.1" r="4.5"/>
 <circle cx="450.0" cy="685.8" r="4.5"/>
-<circle cx="351.0" cy="621.5" r="4.5"/>
+<circle cx="350.8" cy="621.8" r="4.5"/>
 <circle cx="286.7" cy="544.3" r="4.5"/>
-<circle cx="312.2" cy="450.0" r="4.5"/>
+<circle cx="290.2" cy="450.0" r="4.5"/>
 <circle cx="354.9" cy="395.1" r="4.5"/>
 <circle cx="414.9" cy="389.3" r="4.5"/>
 </g>
@@ -57,11 +57,11 @@
 <text x="450.0" y="770.0" text-anchor="middle">PCG64</text>
 <text x="450.0" y="788.0" text-anchor="middle" font-size="13" fill="#7a6850">843.4 MW/s</text>
 <text x="282.0" y="725.8" text-anchor="end">Squidward</text>
-<text x="282.0" y="743.8" text-anchor="end" font-size="13" fill="#7a6850">236.5 MW/s</text>
+<text x="282.0" y="743.8" text-anchor="end" font-size="13" fill="#7a6850">239.9 MW/s</text>
 <text x="168.2" y="607.0" text-anchor="end">ChaCha20</text>
 <text x="168.2" y="625.0" text-anchor="end" font-size="13" fill="#7a6850">172.2 MW/s</text>
 <text x="142.0" y="440.0" text-anchor="end">SpongeBob</text>
-<text x="142.0" y="458.0" text-anchor="end" font-size="13" fill="#7a6850">31.24 MW/s</text>
+<text x="142.0" y="458.0" text-anchor="end" font-size="13" fill="#7a6850">65.54 MW/s</text>
 <text x="168.2" y="280.0" text-anchor="end">Hash_DRBG</text>
 <text x="168.2" y="298.0" text-anchor="end" font-size="13" fill="#7a6850">12.21 MW/s</text>
 <text x="282.0" y="162.2" text-anchor="end">HMAC_DRBG</text>
