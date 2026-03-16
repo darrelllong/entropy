@@ -112,6 +112,18 @@ def extract_theory_section(tests_md: str) -> str:
     return "## Theory By Test\n\n_(see repository history)_\n"
 
 
+def extract_aux_section(tests_md: str) -> str:
+    """Return the '## Auxiliary Probes' section verbatim, or a placeholder."""
+    m = re.search(
+        r"(^## Auxiliary Probes\b.*?)(?=^## |\Z)",
+        tests_md,
+        re.MULTILINE | re.DOTALL,
+    )
+    if m:
+        return m.group(1).rstrip() + "\n"
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Markdown generators
 # ---------------------------------------------------------------------------
@@ -271,11 +283,14 @@ def main() -> None:
     if m:
         n_bits = int(m.group(1))
 
-    # Read existing TESTS.md for the stable Theory section
+    # Read existing TESTS.md for stable hand-written sections
     tests_path = Path(args.output)
     theory_section = ""
+    aux_section = ""
     if tests_path.exists():
-        theory_section = extract_theory_section(tests_path.read_text())
+        existing = tests_path.read_text()
+        theory_section = extract_theory_section(existing)
+        aux_section = extract_aux_section(existing)
 
     # Assemble new TESTS.md
     parts = [
@@ -285,6 +300,8 @@ def main() -> None:
         gen_failure_highlights(blocks),
         gen_bottom_line(blocks),
     ]
+    if aux_section:
+        parts.append(aux_section)
     output = "\n".join(parts)
 
     if args.dry_run:
