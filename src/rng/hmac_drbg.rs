@@ -83,24 +83,33 @@ impl HmacDrbg {
 
 // ── SP 800-90A §10.1.2.2 HMAC_DRBG_Update ─────────────────────────────────
 
+/// Stack scratch buffer capacity: V (32 B) + separator (1 B) + provided_data.
+/// The SP 800-90A instantiation in this file passes at most 48 bytes of seed
+/// material, giving a maximum message of 81 bytes; 128 B gives ample margin.
+const SCRATCH: usize = 128;
+
 fn drbg_update(k: &mut [u8; OUT], v: &mut [u8; OUT], provided_data: Option<&[u8]>) {
+    let pd = provided_data.unwrap_or(&[]);
+    debug_assert!(OUT + 1 + pd.len() <= SCRATCH, "drbg_update: provided_data too long");
+
     // K = HMAC(K, V || 0x00 [|| provided_data])
-    let mut data: Vec<u8> = v.to_vec();
-    data.push(0x00);
-    if let Some(pd) = provided_data { data.extend_from_slice(pd); }
-    let mac = hmac_sha256(k, &data);
+    let mut msg = [0u8; SCRATCH];
+    msg[..OUT].copy_from_slice(v);
+    msg[OUT] = 0x00;
+    msg[OUT + 1..OUT + 1 + pd.len()].copy_from_slice(pd);
+    let mac = hmac_sha256(k, &msg[..OUT + 1 + pd.len()]);
     k.copy_from_slice(&mac);
 
     // V = HMAC(K, V)
     let mac = hmac_sha256(k, v);
     v.copy_from_slice(&mac);
 
-    if let Some(pd) = provided_data {
+    if provided_data.is_some() {
         // K = HMAC(K, V || 0x01 || provided_data)
-        let mut data: Vec<u8> = v.to_vec();
-        data.push(0x01);
-        data.extend_from_slice(pd);
-        let mac = hmac_sha256(k, &data);
+        msg[..OUT].copy_from_slice(v);
+        msg[OUT] = 0x01;
+        // pd slice and length unchanged — reuse msg[OUT+1..] already written
+        let mac = hmac_sha256(k, &msg[..OUT + 1 + pd.len()]);
         k.copy_from_slice(&mac);
 
         // V = HMAC(K, V)

@@ -5,6 +5,7 @@ use entropy::rng::{
     AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
     SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
 };
+use entropy::seed::seed_material;
 
 struct Args {
     replications: usize,
@@ -97,27 +98,6 @@ fn print_usage() {
            cargo run --release --bin testu01_lz -- --rng AES\n\
            cargo run --release --bin testu01_lz -- --rng MT19937 --k 27"
     );
-}
-
-fn splitmix64(state: &mut u64) -> u64 {
-    *state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-    let mut z = *state;
-    z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    z ^ (z >> 31)
-}
-
-fn seed_material<const N: usize>(seed: u64) -> [u8; N] {
-    let mut state = seed ^ 0xa076_1d64_78bd_642f;
-    let mut out = [0u8; N];
-    let mut pos = 0usize;
-    while pos < N {
-        let word = splitmix64(&mut state).to_be_bytes();
-        let take = (N - pos).min(8);
-        out[pos..pos + take].copy_from_slice(&word[..take]);
-        pos += take;
-    }
-    out
 }
 
 fn run_case(label: &str, mut rng: impl Rng, args: &Args) {

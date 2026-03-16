@@ -52,11 +52,31 @@ pub use xoshiro::{Xoroshiro128StarStar, Xoshiro256StarStar};
 ///
 /// All tests consume bits or 32-bit words; the trait methods below are the
 /// only ones needed.  Blanket impls fill in the derived methods.
+///
+/// ## Byte and word ordering contract
+///
+/// * **`next_u64` default** — assembles two `next_u32` calls with the *first*
+///   call becoming the **high** 32 bits: `(hi << 32) | lo`.  Generators that
+///   override this (e.g. byte-backed DRBG adapters) may emit a different
+///   interleaving; those overrides are documented on the concrete type.
+///
+/// * **`collect_bits`** — extracts bits **LSB-first** from each 32-bit word:
+///   bit 0 of word 0 is the first element of the returned slice.
+///
+/// * **Byte-backed generators** (HMAC_DRBG, Hash_DRBG, ChaCha20, Squidward)
+///   expose a little-endian byte stream: `next_u32` reads 4 bytes in LE order,
+///   `next_u64` reads 8 bytes in LE order, independently of the default
+///   `next_u64` above.  Mixing `next_u32` and `next_u64` at a buffer refill
+///   boundary silently discards up to 7 trailing bytes; see the individual
+///   adapter doc comments for the full caveat.
 pub trait Rng {
     /// Return the next 32-bit pseudo-random word.
     fn next_u32(&mut self) -> u32;
 
-    /// Return the next 64-bit pseudo-random word (default: two `next_u32` calls).
+    /// Return the next 64-bit pseudo-random word.
+    ///
+    /// Default: two `next_u32` calls, first call → high 32 bits.
+    /// Byte-backed generators override this to read 8 LE bytes directly.
     fn next_u64(&mut self) -> u64 {
         ((self.next_u32() as u64) << 32) | (self.next_u32() as u64)
     }

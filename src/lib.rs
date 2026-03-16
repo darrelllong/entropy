@@ -13,6 +13,7 @@
 pub mod math;
 pub mod result;
 pub mod rng;
+pub mod seed;
 
 pub mod nist;
 pub mod diehard;

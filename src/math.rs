@@ -72,10 +72,12 @@ pub fn lgamma(x: f64) -> f64 {
 /// Algorithm from W. H. Press et al., *Numerical Recipes* (3rd ed.), §6.2:
 /// series expansion for x < a + 1, Lentz continued-fraction otherwise.
 ///
-/// # Panics
-/// Panics if `a ≤ 0` or `x < 0`.
+/// Returns `f64::NAN` if `a ≤ 0` or `x < 0`; callers treat `NAN` as an
+/// insufficient-data result rather than a statistical verdict.
 pub fn igamc(a: f64, x: f64) -> f64 {
-    assert!(a > 0.0 && x >= 0.0, "igamc: invalid arguments a={a}, x={x}");
+    if !(a > 0.0 && x >= 0.0) {
+        return f64::NAN;
+    }
     if x == 0.0 {
         return 1.0;
     }
@@ -142,7 +144,10 @@ fn gammcf(a: f64, x: f64) -> f64 {
 /// Uses the exact/speedup hybrid from Dieharder's `kstest.c`, which in turn
 /// ports G. Marsaglia, W. W. Tsang, J. Wang, "Evaluating Kolmogorov's
 /// Distribution", *Journal of Statistical Software* 8(18), 2003.
-pub fn ks_test(samples: &mut Vec<f64>) -> f64 {
+///
+/// # Preconditions
+/// All elements must be finite and non-NaN.  The slice is sorted in place.
+pub fn ks_test(samples: &mut [f64]) -> f64 {
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = samples.len();
     let nf = n as f64;

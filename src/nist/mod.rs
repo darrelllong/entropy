@@ -31,7 +31,15 @@ use crate::{result::TestResult, rng::Rng};
 /// the minimum for most tests.
 pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
     let bits = rng.collect_bits(n);
-    let mut results = vec![
+    // Capacity: 12 fixed-result tests
+    //         + 148 non-overlapping 9-bit templates (SP 800-22 Appendix E)
+    //         +   2 serial sub-tests
+    //         +  11 Maurer parametric settings (L = 6..=16)
+    //         +   8 random_excursions states
+    //         +  18 random_excursions_variant states
+    //         = 199 total NIST slots
+    let mut results = Vec::with_capacity(199);
+    results.extend([
         frequency::frequency(&bits),
         block_frequency::block_frequency(&bits, 128),
         runs::runs(&bits),
@@ -44,7 +52,7 @@ pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
         approximate_entropy::approximate_entropy(&bits, 10),
         cumulative_sums::cumulative_sums_forward(&bits),
         cumulative_sums::cumulative_sums_backward(&bits),
-    ];
+    ]);
     // Non-overlapping template: all 148 aperiodic 9-bit templates (SP 800-22 §2.7, Appendix E).
     results.extend(non_overlapping_template::non_overlapping_all(&bits));
     // Serial has two p-values; emit both rather than collapsing to min.
