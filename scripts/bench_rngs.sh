@@ -106,7 +106,7 @@ measure lcg_minstd    "LCG MINSTD (seed=1)"                           10000000
 measure bbs           "BBS (p=2^31-1, q=4294967291)"                  10000000
 measure blum_micali   "Blum-Micali (p=2^31-1, g=7)"                       50000
 measure aes_ctr       "AES-128-CTR (NIST key)"                        10000000
-measure spongebob     "SpongeBob (SHAKE256 pool, seed=00..3f)"         5000000
+measure spongebob     "SpongeBob (SHA3-512 chain, seed=00..3f)"        5000000
 measure squidward     "Squidward (SHA-256 chain, seed=00..1f)"        10000000
 measure pcg32         "PCG32 (seed=42, seq=54)"                       50000000
 measure pcg64         "PCG64 (state=1, seq=1)"                        25000000

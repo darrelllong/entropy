@@ -49,7 +49,7 @@ GENERATORS = [
     ("PCG64",           843.4, "pcg64.bench"),
     ("Squidward",       239.9, "squidward.bench"),
     ("ChaCha20",        171.8, "chacha20.bench"),
-    ("SpongeBob",        65.54, "spongebob.bench"),
+    ("SpongeBob",        32.09, "spongebob.bench"),
     ("Hash_DRBG",        12.35, "hash_drbg.bench"),
     ("HMAC_DRBG",         3.203, "hmac_drbg.bench"),
 ]

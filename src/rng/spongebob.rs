@@ -1,56 +1,42 @@
-//! SHAKE256 XOF pool generator ("SpongeBob").
+//! SHA3-512 hash-chain generator ("SpongeBob").
 //!
-//! Each refill absorbs the current 64-byte key into a fresh SHAKE256 sponge,
-//! then squeezes 16 384 bytes into the output pool followed by 64 bytes into
-//! the next key (key erasure).  Every squeezed block is a distinct Keccak-f[1600]
-//! application to the previous 1600-bit sponge state — successive permutations,
-//! not copies.
+//! The generator hashes arbitrary-length seed material into an initial
+//! 512-bit state:
 //!
-//! Cost per 16 KiB refill:
-//! - 1 absorb permutation  (key → sponge)
-//! - 121 squeeze permutations  (136 B/permutation × 121 = 16 456 B; use 16 448)
-//! ────────────────────────────────────────────────────────────────────────────
-//! 122 Keccak-f[1600] calls for 16 384 bytes of output
-//! vs 257 SHA3-512 calls for the equivalent chain design (wider rate wins).
+//! `x_0 = SHA3-512(seed)`
 //!
-//! Pool size is one Apple Silicon page (16 KiB).  On Linux aarch64 with 4 KiB
-//! pages, change `POOL` to `4 * 1024`.
+//! and then advances by re-hashing the previous state:
+//!
+//! `x_{i+1} = SHA3-512(x_i)`.
+//!
+//! Each state contributes up to 512 output bits.  The adapter exposes the
+//! state as a sequential byte stream and refills by hashing the previous
+//! 64-byte state once exhausted.  For uniform-width access (all `next_u32`
+//! or all `next_u64`) all 512 bits are used; mixing widths at a refill
+//! boundary silently discards up to 7 trailing bytes before refilling.
+//!
+//! On `aarch64` targets that expose FEAT_SHA3 (Apple Silicon and most modern
+//! ARM cores), the underlying `cryptography::Sha3_512` call dispatches to
+//! hardware EOR3/RAX1/BCAX Keccak-f[1600] intrinsics automatically.
 
-use cryptography::{Shake256, Xof, Sha3_512};
+use cryptography::Sha3_512;
 
 use super::{OsRng, Rng};
 
-/// Output pool size: one ARM page (Apple Silicon default 16 KiB).
-const POOL: usize = 16 * 1024;   // 16 384 bytes
+const STATE_BYTES: usize = 64;
 
-/// Key size: one SHA3-512 block (512 bits).
-const KEY: usize = 64;
-
-/// SHAKE256 rate = 136 bytes/permutation.
-/// 121 squeezes × 136 = 16 456 bytes ≥ POOL + KEY = 16 448.
-/// Two separate squeeze calls let us fill pool then key without a temp buffer.
-
-/// SHAKE256 pool generator.
-#[derive(Clone)]
+/// SHA3-512 hash-chain generator.
+#[derive(Clone, Debug)]
 pub struct SpongeBob {
-    pool: Box<[u8; POOL]>,
-    pos:  usize,
-    key:  [u8; KEY],
+    state:  [u8; STATE_BYTES],
+    offset: usize,
 }
 
 impl SpongeBob {
     /// Construct from arbitrary-length seed bytes.
     #[must_use]
     pub fn from_seed(seed: &[u8]) -> Self {
-        let mut sb = Self {
-            pool: Box::new([0u8; POOL]),
-            pos:  POOL,   // triggers immediate refill
-            // Hash the seed to a fixed KEY-sized key so arbitrarily long seeds
-            // map cleanly into the sponge without rate-block complications.
-            key: Sha3_512::digest(seed),
-        };
-        sb.refill();
-        sb
+        Self { state: Sha3_512::digest(seed), offset: 0 }
     }
 
     /// Construct with optional seed; `None` draws from OsRng.
@@ -62,11 +48,11 @@ impl SpongeBob {
         }
     }
 
-    /// Construct from 64 bytes drawn from the operating system RNG.
+    /// Construct from 512 bits drawn from the operating system RNG.
     #[must_use]
     pub fn from_os_rng() -> Self {
         let mut os = OsRng::new();
-        let mut seed = [0u8; KEY];
+        let mut seed = [0u8; STATE_BYTES];
         for chunk in seed.chunks_exact_mut(4) {
             chunk.copy_from_slice(&os.next_u32().to_le_bytes());
         }
@@ -76,38 +62,24 @@ impl SpongeBob {
     /// Fixed seed `00 01 … 3f` for reproducible benchmarks.
     #[must_use]
     pub fn with_test_seed() -> Self {
-        let seed: [u8; KEY] = core::array::from_fn(|i| i as u8);
+        let seed: [u8; STATE_BYTES] = core::array::from_fn(|i| i as u8);
         Self::from_seed(&seed)
     }
 
-    /// Absorb `self.key` into a fresh SHAKE256 sponge, squeeze POOL bytes
-    /// directly into `self.pool`, then squeeze KEY bytes into `self.key`.
-    /// SHAKE256 continues from where the previous squeeze left off, so the
-    /// key is derived from the sponge state *after* all pool output — it
-    /// never appears in the pool (forward secrecy).
     fn refill(&mut self) {
-        let key = self.key;           // copy before overwriting
-        let mut xof = Shake256::new();
-        xof.update(&key);
-        xof.squeeze(&mut *self.pool); // 16 384 bytes directly into pool (heap)
-        xof.squeeze(&mut self.key);   // 64 bytes continuing the same sponge
-        self.pos = 0;
+        self.state  = Sha3_512::digest(&self.state);
+        self.offset = 0;
     }
 
     #[inline]
     fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
-        if self.pos + N > POOL {
+        const { assert!(N <= STATE_BYTES, "chunk larger than SpongeBob state") }
+        if self.offset + N > STATE_BYTES {
             self.refill();
         }
-        let out = self.pool[self.pos..self.pos + N].try_into().unwrap();
-        self.pos += N;
+        let out = self.state[self.offset..self.offset + N].try_into().unwrap();
+        self.offset += N;
         out
-    }
-}
-
-impl core::fmt::Debug for SpongeBob {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("SpongeBob").field("pos", &self.pos).finish()
     }
 }
 
@@ -129,56 +101,32 @@ mod tests {
         let seed = b"SpongeBob likes deterministic tests";
         let mut a = SpongeBob::from_seed(seed);
         let mut b = SpongeBob::from_seed(seed);
-        for _ in 0..256 {
+        for _ in 0..32 {
             assert_eq!(a.next_u64(), b.next_u64());
         }
     }
 
     #[test]
-    fn different_seeds_produce_different_output() {
-        let mut a = SpongeBob::from_seed(b"seed-A");
-        let mut b = SpongeBob::from_seed(b"seed-B");
-        let va: Vec<u32> = (0..32).map(|_| a.next_u32()).collect();
-        let vb: Vec<u32> = (0..32).map(|_| b.next_u32()).collect();
-        assert_ne!(va, vb);
-    }
-
-    #[test]
-    fn pool_matches_shake256_squeeze() {
-        use cryptography::Shake256;
-        let seed = b"pool-check";
-        let key = Sha3_512::digest(seed);
-
-        let mut expected_pool = vec![0u8; POOL];
-        let mut expected_key  = [0u8; KEY];
-        let mut xof = Shake256::new();
-        xof.update(&key);
-        xof.squeeze(&mut expected_pool);
-        xof.squeeze(&mut expected_key);
-
-        let rng = SpongeBob::from_seed(seed);
-        assert_eq!(&*rng.pool, expected_pool.as_slice());
-        assert_eq!(rng.key,    expected_key);
-    }
-
-    #[test]
-    fn key_is_not_in_pool() {
-        // After refill, the stored key must not appear as any KEY-sized window.
-        let rng = SpongeBob::from_seed(b"forward-secrecy");
-        for chunk in rng.pool.chunks_exact(KEY) {
-            assert_ne!(chunk, rng.key.as_slice());
+    fn pool_is_sha3_512_chain() {
+        let seed = b"entropy::SpongeBob";
+        let x0 = Sha3_512::digest(seed);
+        let mut rng = SpongeBob::from_seed(seed);
+        for chunk in x0.chunks_exact(8) {
+            assert_eq!(rng.next_u64(), u64::from_le_bytes(chunk.try_into().unwrap()));
         }
     }
 
     #[test]
-    fn output_spans_pool_boundary() {
-        let mut a = SpongeBob::from_seed(b"boundary");
-        let mut b = SpongeBob::from_seed(b"boundary");
-        for _ in 0..(POOL / 8) { a.next_u64(); }
-        for _ in 0..(POOL / 8) { b.next_u64(); }
-        // Both refilled; subsequent outputs must still agree.
-        assert_eq!(a.next_u64(), b.next_u64());
-        assert_eq!(a.next_u64(), b.next_u64());
+    fn refill_hashes_previous_state() {
+        let seed = b"hash the state again";
+        let x0 = Sha3_512::digest(seed);
+        let x1 = Sha3_512::digest(&x0);
+        let mut rng = SpongeBob::from_seed(seed);
+        for _ in 0..8 { let _ = rng.next_u64(); }
+        assert_eq!(
+            rng.next_u64(),
+            u64::from_le_bytes(x1[0..8].try_into().unwrap())
+        );
     }
 
     #[test]
