@@ -2,90 +2,68 @@
 
 Throughput measured with `pilot-bench` `run_program --preset normal`.
 
-The historical-generator table below was collected on `darby.local` (`Linux aarch64`).
-New generators (PCG, xoshiro family, ChaCha20, SpongeBob, Squidward, and DRBG variants)
-were benchmarked on `Dyson` (`macOS aarch64`, Apple Silicon M-series) with FEAT_SHA2
-and FEAT_SHA3 hardware acceleration active; those results are in the
-[Dyson section](#dyson-results-apple-silicon) and are the source for the radar chart.
+All results are in millions of 32-bit words per second (`MW/s`); 95% CI shown.
+The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`) with FEAT_SHA2 and
+FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
+(`Linux x86_64`); those numbers will be filled in once the suite is run there.
 
-The historical pass intentionally excludes `OsRng`, `BBS`, and `Blum-Micali`, per the
-pilot brief. It does include the historical Unix and Windows generators:
+To benchmark on a new machine:
 
-- System V `rand()` and `mrand48()`
-- BSD `random()`
-- Linux glibc `rand()/random()`
-- FreeBSD `rand_r()` compatibility
-- Windows CRT `rand()`
-- VB6/VBA `Rnd()`
-- classic `.NET Random(seed)` compatibility
+```
+scripts/bench_rngs.sh --preset normal --machine <name>
+```
 
-Source log: `darby-pilot.log` (kept locally)
+Results land in `stats/<name>/` and are picked up automatically by the radar
+chart and this table on the next regeneration.
 
 ## Results
 
-Throughput is reported in millions of 32-bit words per second (`MW/s`). `Runs` is the number of Pilot samples used to hit the normal-preset confidence target.
+| Generator | Dyson MW/s | ±CI | dmz MW/s | ±CI |
+|---|---:|---:|---:|---:|
+| `OsRng (/dev/urandom)` | 1.191 | ±0.008 | — | — |
+| `MT19937 (seed=19650218)` | 641.2 | ±16.28 | — | — |
+| `Xorshift64 (seed=1)` | 646.1 | ±2.962 | — | — |
+| `Xorshift32 (seed=1)` | 647.7 | ±12.44 | — | — |
+| `BAD Unix System V rand() (seed=1)` | 441.4 | ±1.419 | — | — |
+| `BAD Unix System V mrand48() (seed=1)` | 973 | ±2.591 | — | — |
+| `BAD Unix BSD random() TYPE_3 (seed=1)` | 405.8 | ±1.471 | — | — |
+| `BAD Unix Linux glibc rand()/random() (seed=1)` | 405.8 | ±1.736 | — | — |
+| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 189.1 | ±0.519 | — | — |
+| `BAD Windows CRT rand() (seed=1)` | 438.5 | ±12.51 | — | — |
+| `BAD Windows VB6/VBA Rnd() (seed=1)` | 379.5 | ±7.133 | — | — |
+| `BAD Windows .NET Random(seed=1) compat` | 428.4 | ±14.1 | — | — |
+| `ANSI C sample LCG (seed=1)` | 186.7 | ±2.666 | — | — |
+| `LCG MINSTD (seed=1)` | 171.6 | ±0.408 | — | — |
+| `BBS (p=2^31-1, q=4294967291)` | 61.29 | ±0.312 | — | — |
+| `Blum-Micali (p=2^31-1, g=7)` | 0.462 | ±0.002 | — | — |
+| `AES-128-CTR (NIST key)` | 137.8 | ±1.404 | — | — |
+| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.22 | ±0.099 | — | — |
+| `Squidward (SHA-256 chain, seed=00..1f)` | 239.6 | ±0.574 | — | — |
+| `PCG32 (seed=42, seq=54)` | 934.1 | ±6.738 | — | — |
+| `PCG64 (state=1, seq=1)` | 843.8 | ±2.893 | — | — |
+| `Xoshiro256** (seeds=1,2,3,4)` | 1287 | ±4.56 | — | — |
+| `Xoroshiro128** (seeds=1,2)` | 902.8 | ±9.123 | — | — |
+| `WyRand (seed=42)` | 3120 | ±14.32 | — | — |
+| `SFC64 (seeds=1,2,3)` | 1262 | ±15.58 | — | — |
+| `JSF64 (seed=0xdeadbeef)` | 1314 | ±23.22 | — | — |
+| `ChaCha20 CSPRNG (OsRng key)` | 170.7 | ±1.076 | — | — |
+| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.218 | ±0.026 | — | — |
+| `Hash_DRBG SHA-256 (OsRng seed)` | 12.37 | ±0.425 | — | — |
+| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.893 | ±0.010 | — | — |
+| `Constant (0xDEAD_DEAD)` | 31560 | ±108.7 | — | — |
+| `Counter (0,1,2,...)` | 26300 | ±77.3 | — | — |
 
-| Generator | MW/s | 95% CI | Runs |
-|---|---:|---:|---:|
-| `MT19937 (seed=19650218)` | 208.8 | ±6.117 | 50 |
-| `Xorshift64 (seed=1)` | 643.9 | ±31.97 | 320 |
-| `Xorshift32 (seed=1)` | 678.4 | ±36.32 | 201 |
-| `BAD Unix System V rand() (seed=1)` | 277.2 | ±17.89 | 111 |
-| `BAD Unix System V mrand48() (seed=1)` | 522.9 | ±36.15 | 54 |
-| `BAD Unix BSD random() TYPE_3 (seed=1)` | 171.9 | ±8.179 | 58 |
-| `BAD Unix Linux glibc rand()/random() (seed=1)` | 172.0 | ±8.611 | 88 |
-| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 115.1 | ±6.15 | 110 |
-| `BAD Windows CRT rand() (seed=1)` | 285.7 | ±16.64 | 290 |
-| `BAD Windows VB6/VBA Rnd() (seed=1)` | 251.9 | ±14.94 | 50 |
-| `BAD Windows .NET Random(seed=1) compat` | 136.1 | ±8.692 | 50 |
-| `ANSI C sample LCG (seed=1)` | 125.6 | ±6.222 | 57 |
-| `LCG MINSTD (seed=1)` | 110.9 | ±4.837 | 57 |
-| `AES-128-CTR (NIST key)` | 52.16 | ±1.268 | 384 |
-| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 0.7516 | ±0.007658 | 50 |
-| `Constant (0xDEAD_DEAD)` | 6310 | ±161.8 | 50 |
-| `Counter (0,1,2,...)` | 6297 | ±151.2 | 50 |
+The synthetic ceiling generators dominate raw throughput, so the visual uses
+normalized `log10(MW/s)` rather than a linear scale.  The radar chart shows
+one polygon per machine in separate colours; run the suite on `dmz.lan` to
+add the second polygon.
 
-The synthetic ceiling generators dominate raw throughput, so the visual uses normalized `log10(MW/s)` rather than a linear scale.
-
-![Radar chart: original generator sweep](assets/benchmarks-radar.svg)
-
-## Dyson Results (Apple Silicon)
-
-All twelve new-generator radar entries were measured on `Dyson` (`macOS aarch64`, Apple Silicon M-series) using `pilot-bench normal` with FEAT_SHA2 and FEAT_SHA3 hardware acceleration active. The radar chart is generated from these numbers via `scripts/make_radar.py`.
-
-| Generator | MW/s | 95% CI | Runs |
-|---|---:|---:|---:|
-| `JSF64 (seed=0xdeadbeef)` | 1317 | ±5.333 | 80 |
-| `SFC64 (seeds=1,2,3)` | 1266 | ±4.537 | 50 |
-| `Xoshiro256** (seeds=1,2,3,4)` | 1282 | ±4.386 | 209 |
-| `Xoroshiro128** (seeds=1,2)` | 898.1 | ±17.34 | 110 |
-| `PCG32 (seed=42, seq=54)` | 934.3 | ±5.057 | 50 |
-| `WyRand (seed=42)` | 3134 | ±10.87 | 110 |
-| `PCG64 (state=1, seq=1)` | 843.4 | ±10.25 | 118 |
-| `Squidward (SHA-256 chain, seed=00..1f)` | 239.9 | ±0.880 | 50 |
-| `ChaCha20 CSPRNG (OsRng key)` | 172.2 | ±0.598 | 140 |
-| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.09 | ±0.230 | 50 |
-| `Hash_DRBG SHA-256 (OsRng seed)` | 12.21 | ±0.224 | 80 |
-| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.214 | ±0.04382 | 50 |
-
-`ChaCha20`, `HMAC_DRBG`, and `Hash_DRBG` use `from_os_rng()` for the key; throughput
-is key-agnostic so the numbers are seed-independent. The `from_os_rng()` seeding call
-happens before the timed loop, so it does not inflate the measured throughput.
-
-WyRand's exceptional 3134 MW/s on Dyson reflects Apple Silicon's high-throughput
-64×64→128-bit multiply pipeline; the `wyhash` mixer reduces to two multiply-accumulate
-operations per word, which the M-series handles in one or two cycles.
-
-SpongeBob (SHA3-512 chain) benefits from FEAT_SHA3 hardware Keccak-f[1600] (EOR3,
-RAX1, BCAX), reaching 32.09 MW/s versus 10.97 MW/s on Darby (2.9× speedup).
-
-![Radar chart: new generators (PCG, xoshiro, WyRand, SFC, JSF, ChaCha20, DRBG)](assets/benchmarks-radar-new.svg)
+![Radar chart: all generators](assets/benchmarks-radar.svg)
 
 ## Generator Notes
 
-Historical-generator throughputs are from Darby; new-generator throughputs are from
-Dyson. Neither set **certifies quality or safety**. For that, see the current
-full-battery results in [TESTS.md](TESTS.md).
+Neither throughput column **certifies quality or safety**. For that, see the
+current full-battery results in [TESTS.md](TESTS.md).
 
 ### `MT19937 (seed=19650218)`
 
@@ -234,9 +212,9 @@ in counter mode under a fixed 128-bit AES key, then slices each 128-bit block
 into four 32-bit words. As a construction, AES-CTR is cryptographically strong
 when the key is secret and the counter/nonce discipline is correct. In this
 repository it is used as a deterministic benchmark fixture, so the key is fixed
-for reproducibility, not secrecy. Its slower throughput is the cost of doing
-real block-cipher work; its test behavior in [TESTS.md](TESTS.md) is the right
-place to judge whether this fixture looks statistically healthy.
+for reproducibility, not secrecy. On Dyson (Apple M4) the 137.8 MW/s reflects
+hardware AES acceleration (ARMv8 `FEAT_AES`); the throughput will differ on
+x86 depending on AES-NI availability.
 
 ### `SpongeBob (SHA3-512 chain, seed=00..3f)`
 
@@ -248,19 +226,31 @@ The adapter exposes that state as a sequential stream of 32-bit words, with a
 fresh 64-byte digest every time the previous one is exhausted. This is a very
 simple hash-chain CSPRNG design: no linear recurrence, no tiny hidden state,
 and no claim that raw speed is the point. On Dyson, FEAT_SHA3 hardware
-Keccak-f[1600] (EOR3, RAX1, BCAX intrinsics) lifts throughput to 32.09 MW/s,
-a 2.9× improvement over Darby's software-only 10.97 MW/s. The first full
-battery in [TESTS.md](TESTS.md) looks promising but not spotless, so the right
-read is “plausible modern generator, worth more runs,” not “already proved perfect.”
+Keccak-f[1600] (EOR3, RAX1, BCAX intrinsics) is used automatically through
+`cryptography::Sha3_512`. The first full battery in [TESTS.md](TESTS.md) looks
+promising but not spotless, so the right read is "plausible modern generator,
+worth more runs," not "already proved perfect."
+
+### `Squidward (SHA-256 chain, seed=00..1f)`
+
+Squidward is a SHA-256 hash chain, the same design as SpongeBob but with
+SHA-256 replacing SHA3-512.  The state is a single 32-byte digest; each step
+advances by
+$x_{i+1} = \mathrm{SHA\text{-}256}(x_i)$,
+and output is consumed as a sequential byte stream.  On ARM targets that expose
+FEAT_SHA2 hardware acceleration, the implementation detects and uses the
+`vsha256*` NEON intrinsics via the `aarch64-alt` crate, falling back to the
+portable `cryptography::Sha256` path otherwise.  On Dyson (Apple M4) the
+hardware path reaches 239.6 MW/s.
 
 ### `cryptography::CtrDrbgAes256 (seed=00..2f)`
 
 This is the sibling `cryptography` crate's `CtrDrbgAes256`, i.e. an
 AES-256-based CTR_DRBG in the NIST SP 800-90A style, seeded here with a fixed
 48-byte test vector for repeatability. Unlike the historical libc generators,
-this is meant to represent a real cryptographic design. It is by far the
-slowest entry in the table because it is doing full DRBG machinery rather than
-just a toy recurrence, but that is the price of a serious generator. The
+this is meant to represent a real cryptographic design. It is among the
+slowest entries in the table because it is doing full DRBG machinery rather
+than just a toy recurrence, but that is the price of a serious generator. The
 full-battery behavior in [TESTS.md](TESTS.md) is the relevant safety evidence.
 
 ### `Constant (0xDEAD_DEAD)`
@@ -283,21 +273,6 @@ It is almost as fast as the constant generator and almost maximally unsuitable
 for any use that actually requires randomness; [TESTS.md](TESTS.md) shows that
 plainly.
 
-### `Squidward (SHA-256 chain, test seed)`
-
-Squidward is a SHA-256 hash chain, the same design as SpongeBob but with
-SHA-256 replacing SHA3-512.  The state is a single 32-byte digest; each step
-advances by
-$x_{i+1} = \mathrm{SHA\text{-}256}(x_i)$,
-and output is consumed as a sequential byte stream.  On ARM targets that expose
-FEAT_SHA2 hardware acceleration, the implementation detects and uses the
-`vsha256*` NEON intrinsics via the `aarch64-alt` crate, falling back to the
-portable `cryptography::Sha256` path otherwise.  On Dyson (Apple Silicon
-M-series) the hardware path reaches 239.9 MW/s.  Darby (Cortex-A76, FEAT_SHA2)
-measured 85 MW/s in an earlier run; the larger gap relative to SpongeBob's
-2.8× FEAT_SHA3 uplift reflects both the faster M-series SHA-256 pipeline and
-the relatively lower Darby SHA-256 throughput.
-
 ### `PCG32 (seed=42, seq=54)`
 
 PCG32 is Melissa O'Neill's 32-bit Permuted Congruential Generator (O'Neill
@@ -317,7 +292,8 @@ $\mathtt{47026247687942121848144207491837523525}$
 with an XSL-RR output permutation: xor the two 64-bit halves, then rotate right
 by the top 6 bits of the old state.  The 128-bit arithmetic is more expensive
 on a 64-bit machine than the 64-bit LCG used by PCG32, which is why PCG64 reads
-as slower (843.4 MW/s vs PCG32's 934.3 MW/s) despite producing 64 bits per step.  Period: $2^{128}$.
+as slower (843.8 MW/s vs PCG32's 934.1 MW/s) despite producing 64 bits per step.
+Period: $2^{128}$.
 
 ### `Xoshiro256** (seeds=1,2,3,4)`
 
@@ -349,7 +325,10 @@ then passes the result through the wyhash 128-bit multiply-xorfold mixer:
 $\mathrm{wymix}(a,b) = \bigl((a\cdot b \bmod 2^{128}) \gg 64\bigr) \oplus (a\cdot b \bmod 2^{64})$.
 The multiplication provides strong avalanche in a single instruction on
 architectures with 64×64→128-bit multiply support.  Period: $2^{64}$.  Not
-cryptographic; the state is trivially invertible from the output.
+cryptographic; the state is trivially invertible from the output.  WyRand's
+3120 MW/s on Dyson reflects Apple Silicon's high-throughput 64×64→128-bit
+multiply pipeline; the `wyhash` mixer reduces to two multiply-accumulate
+operations per word, which the M4 handles in one or two cycles.
 
 ### `SFC64 (seeds=1,2,3)`
 
@@ -362,8 +341,8 @@ $c' = \mathrm{rotl}(c,24) + t$,
 with the counter incremented by one each step to guarantee a period of at least
 $2^{64}$.  Eighteen warm-up steps are applied after seeding per Doty-Humphrey's
 recommendation.  The chaotic recurrence passes BigCrush and PractRand, and its
-1266 MW/s throughput on Dyson makes it one of the fastest generators in the suite
-after WyRand and the trivial ceiling fixtures.
+1262 MW/s throughput on Dyson makes it one of the fastest generators in the
+suite after WyRand and the trivial ceiling fixtures.
 
 ### `JSF64 (seed=0xdeadbeef)`
 
@@ -374,9 +353,9 @@ $b' = c + \mathrm{rotl}(d, 37)$,
 $c' = d + e$,
 $d' = e + a'$.
 The initial word is fixed at $a = \mathtt{f1ea5eed}_{16}$ and twenty warm-up
-steps scatter the seed through the full four-word state.  JSF64 reaches 1317 MW/s
-on Dyson, just above SFC64 (1266 MW/s); their battery counts (12 vs 10 FAILs)
-are within one run's statistical noise.  Not cryptographic.
+steps scatter the seed through the full four-word state.  JSF64 reaches 1314 MW/s
+on Dyson, just above SFC64 (1262 MW/s); their battery counts are within one
+run's statistical noise.  Not cryptographic.
 
 ### `ChaCha20 CSPRNG (OsRng key)`
 
@@ -388,8 +367,8 @@ blocks, each costing one ChaCha20 core invocation (20 rounds over a
 `/dev/urandom` and macOS `arc4random` work internally.  Output is
 computationally indistinguishable from uniform under the PRF assumption; no
 reseed is implemented here because the scope is the test battery, not a
-long-running daemon.  At 172.2 MW/s on Dyson it is the fastest crypto-grade generator in the
-suite, about 54× faster than HMAC_DRBG.
+long-running daemon.  At 170.7 MW/s on Dyson it is the fastest crypto-grade
+generator in the suite, about 53× faster than HMAC_DRBG.
 
 ### `HMAC_DRBG SHA-256 (OsRng seed)`
 
@@ -400,8 +379,8 @@ $V \leftarrow \mathrm{HMAC}(K,\ V)$,
 followed by a second round with byte $0\mathrm{x01}$ to mix in the old output
 $V$.  Initial seeding uses 48 bytes of `OsRng` entropy (32 bytes entropy_input
 + 16 bytes nonce).  Security rests on the pseudorandomness of HMAC-SHA-256.
-The 3.214 MW/s throughput on Dyson reflects the cost of two HMAC invocations per
-32-byte output block.
+The 3.218 MW/s throughput on Dyson reflects the cost of two HMAC invocations
+per 32-byte output block.
 
 ### `Hash_DRBG SHA-256 (OsRng seed)`
 
@@ -411,7 +390,7 @@ constant $C$ derived from $V$ at instantiation time.  Hashgen produces output
 by hashing an incrementing counter concatenated with $V$, and after each
 generate call the state is updated as
 $V \leftarrow (V + \mathrm{SHA\text{-}256}(0\mathrm{x03} \mathbin\| V) + C + \mathtt{reseed\_counter}) \bmod 2^{440}$
-using big-endian carry arithmetic.  At 12.21 MW/s on Dyson it is about 3.8× faster than
-HMAC_DRBG because it replaces the two keyed-MAC steps with a single hash per
-output block, and it achieved the best FAIL count of any non-trivial generator
-in the battery (2 FAILs / 734 tests).
+using big-endian carry arithmetic.  At 12.37 MW/s on Dyson it is about 3.8×
+faster than HMAC_DRBG because it replaces the two keyed-MAC steps with a
+single hash per output block, and it achieved the best FAIL count of any
+non-trivial generator in the battery (2 FAILs / 734 tests).
