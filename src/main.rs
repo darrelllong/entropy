@@ -43,8 +43,8 @@ use std::thread;
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 // 16 M bits: enough for all Maurer L=6..16 parametric slots and for the
-// signed-random-walk in random_excursions to complete ~2 256 zero-crossing
-// cycles (J >> 500 minimum) for any non-degenerate generator.
+// signed-random-walk in random_excursions to complete ~3 191 zero-crossing
+// cycles (J = √(2n/π) >> 500 minimum) for any non-degenerate generator.
 const NIST_N:    usize = 16_000_000;
 const DIEHARD_N: usize = 16_000_000;
 

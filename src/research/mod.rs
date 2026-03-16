@@ -2,7 +2,6 @@
 
 pub mod knuth;
 pub mod marsaglia_tsang;
-pub mod pincus;
 pub mod practrand_fpf;
 pub mod testu01_hamming;
 pub mod testu01_lz;

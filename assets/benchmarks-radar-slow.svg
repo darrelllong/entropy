@@ -22,34 +22,34 @@
 <line x1="450" y1="450" x2="300.0" y2="190.2"/>
 </g>
 <polygon points="450.0,180.2 581.1,222.9 674.3,320.5 711.9,450.0 668.4,576.1 552.8,628.1 450.0,676.3 362.5,601.6 335.6,516.0 334.9,450.0 363.1,399.9 415.0,389.4" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="3"/>
-<g fill="#1b4b9f">
-<circle cx="450.0" cy="180.2" r="4.5"/>
-<circle cx="581.1" cy="222.9" r="4.5"/>
-<circle cx="674.3" cy="320.5" r="4.5"/>
-<circle cx="711.9" cy="450.0" r="4.5"/>
-<circle cx="668.4" cy="576.1" r="4.5"/>
-<circle cx="552.8" cy="628.1" r="4.5"/>
-<circle cx="450.0" cy="676.3" r="4.5"/>
-<circle cx="362.5" cy="601.6" r="4.5"/>
-<circle cx="335.6" cy="516.0" r="4.5"/>
-<circle cx="334.9" cy="450.0" r="4.5"/>
-<circle cx="363.1" cy="399.9" r="4.5"/>
-<circle cx="415.0" cy="389.4" r="4.5"/>
+<g>
+<circle cx="450.0" cy="180.2" r="4.5" fill="#1b4b9f"/>
+<circle cx="581.1" cy="222.9" r="4.5" fill="#1b4b9f"/>
+<circle cx="674.3" cy="320.5" r="4.5" fill="#1b4b9f"/>
+<circle cx="711.9" cy="450.0" r="4.5" fill="#1b4b9f"/>
+<circle cx="668.4" cy="576.1" r="4.5" fill="#1b4b9f"/>
+<circle cx="552.8" cy="628.1" r="4.5" fill="#1b4b9f"/>
+<circle cx="450.0" cy="676.3" r="4.5" fill="#1b4b9f"/>
+<circle cx="362.5" cy="601.6" r="4.5" fill="#1b4b9f"/>
+<circle cx="335.6" cy="516.0" r="4.5" fill="#1b4b9f"/>
+<circle cx="334.9" cy="450.0" r="4.5" fill="#1b4b9f"/>
+<circle cx="363.1" cy="399.9" r="4.5" fill="#1b4b9f"/>
+<circle cx="415.0" cy="389.4" r="4.5" fill="#1b4b9f"/>
 </g>
 <polygon points="450.0,251.6 579.7,225.4 655.9,331.1 689.8,450.0 646.9,563.7 548.3,620.2 450.0,661.4 370.7,587.3 349.2,508.2 351.6,450.0 362.5,399.5 428.6,412.9" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3"/>
-<g fill="#9f1b1b">
-<circle cx="450.0" cy="251.6" r="4.5"/>
-<circle cx="579.7" cy="225.4" r="4.5"/>
-<circle cx="655.9" cy="331.1" r="4.5"/>
-<circle cx="689.8" cy="450.0" r="4.5"/>
-<circle cx="646.9" cy="563.7" r="4.5"/>
-<circle cx="548.3" cy="620.2" r="4.5"/>
-<circle cx="450.0" cy="661.4" r="4.5"/>
-<circle cx="370.7" cy="587.3" r="4.5"/>
-<circle cx="349.2" cy="508.2" r="4.5"/>
-<circle cx="351.6" cy="450.0" r="4.5"/>
-<circle cx="362.5" cy="399.5" r="4.5"/>
-<circle cx="428.6" cy="412.9" r="4.5"/>
+<g>
+<circle cx="450.0" cy="251.6" r="4.5" fill="#9f1b1b"/>
+<circle cx="579.7" cy="225.4" r="4.5" fill="#9f1b1b"/>
+<circle cx="655.9" cy="331.1" r="4.5" fill="#9f1b1b"/>
+<circle cx="689.8" cy="450.0" r="4.5" fill="#9f1b1b"/>
+<circle cx="646.9" cy="563.7" r="4.5" fill="#9f1b1b"/>
+<circle cx="548.3" cy="620.2" r="4.5" fill="#9f1b1b"/>
+<circle cx="450.0" cy="661.4" r="4.5" fill="#9f1b1b"/>
+<circle cx="370.7" cy="587.3" r="4.5" fill="#9f1b1b"/>
+<circle cx="349.2" cy="508.2" r="4.5" fill="#9f1b1b"/>
+<circle cx="351.6" cy="450.0" r="4.5" fill="#9f1b1b"/>
+<circle cx="362.5" cy="399.5" r="4.5" fill="#9f1b1b"/>
+<circle cx="428.6" cy="412.9" r="4.5" fill="#9f1b1b"/>
 </g>
 <g font-family="Georgia, serif" font-size="17" fill="#3f3426">
 <text x="450.0" y="108.0" text-anchor="middle">Squidward</text>

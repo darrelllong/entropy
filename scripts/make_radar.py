@@ -160,10 +160,11 @@ def fmt_mw(mw_s):
     return f"{mw_s:.4g} MW/s"
 
 def load_machine_data(chart, stats_root, subdir):
-    """Return [(label, mw_s), ...] for this machine, or None if no bench files found.
+    """Return [(label, mw_s, is_measured), ...] for this machine, or None if no bench files found.
 
-    Prints a warning to stderr for each generator whose value falls back to the
-    hard-coded reference constant rather than a measured bench file.
+    is_measured is True when the value came from a bench file, False when the
+    hard-coded reference fallback was substituted.  Prints a warning to stderr
+    for each fallback substitution.
     """
     machine_dir = stats_root / subdir
     result, found_any = [], False
@@ -171,10 +172,11 @@ def load_machine_data(chart, stats_root, subdir):
         measured = parse_bench(machine_dir / bench_file) if machine_dir.exists() else None
         if measured is not None:
             found_any = True
+            result.append((label, measured, True))
         else:
             print(f"  warning: {subdir}/{bench_file} missing — using reference fallback "
                   f"({fallback:.4g} MW/s) for {label!r}", file=sys.stderr)
-        result.append((label, measured if measured is not None else fallback))
+            result.append((label, fallback, False))
     return result if found_any else None
 
 # ---------------------------------------------------------------------------
@@ -203,6 +205,8 @@ def generate_svg(chart, stats_root):
     w('</g>')
 
     # One polygon + dots per machine
+    # Fallback (unmeaasured) points are rendered with a dashed polygon stroke
+    # and hollow circles so the viewer can distinguish them from measured data.
     legend_entries = []
     label_data = None
     for subdir, fill, stroke, dot_fill, legend_label in MACHINES:
@@ -212,42 +216,57 @@ def generate_svg(chart, stats_root):
         if label_data is None:
             label_data = data
 
-        radii  = [log_r(mw_s, A, B) for _, mw_s in data]
+        radii  = [log_r(mw_s, A, B) for _, mw_s, _ in data]
         pts_xy = [spoke_xy(r, k * 360 / N_SPOKES) for k, r in enumerate(radii)]
         pts_str = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts_xy)
+        has_fallback = any(not m for _, _, m in data)
+        dash_attr = ' stroke-dasharray="8 4"' if has_fallback else ''
 
-        w(f'<polygon points="{pts_str}" fill="{fill}" stroke="{stroke}" stroke-width="3"/>')
-        w(f'<g fill="{dot_fill}">')
-        for x, y in pts_xy:
-            w(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5"/>')
+        w(f'<polygon points="{pts_str}" fill="{fill}" stroke="{stroke}" stroke-width="3"{dash_attr}/>')
+        w('<g>')
+        for (_, _, is_measured), (x, y) in zip(data, pts_xy):
+            if is_measured:
+                w(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="{dot_fill}"/>')
+            else:
+                # Hollow circle marks a fallback (reference) value.
+                w(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="#f6f1e8" stroke="{dot_fill}" stroke-width="2"/>')
         w('</g>')
-        legend_entries.append((fill, stroke, legend_label))
+        legend_entries.append((fill, stroke, legend_label, has_fallback))
 
-    # Labels (from first machine with data, Dyson fallback values shown)
+    # Labels (from first machine with data).
+    # Fallback throughput values are annotated with † to indicate they are
+    # reference constants, not measurements from this machine.
     if label_data:
         w('<g font-family="Georgia, serif" font-size="17" fill="#3f3426">')
-        for k, ((label, mw_s), (anchor, dx, dy, dy2)) in enumerate(zip(label_data, chart["labels"])):
+        for k, ((label, mw_s, is_measured), (anchor, dx, dy, dy2)) in enumerate(
+                zip(label_data, chart["labels"])):
             tx, ty = spoke_xy(SPOKE_R, k * 360 / N_SPOKES)
             lx, ly1 = tx + dx, ty + dy
             w(f'<text x="{lx:.1f}" y="{ly1:.1f}" text-anchor="{anchor}">{label}</text>')
-            w(f'<text x="{lx:.1f}" y="{ly1 + dy2:.1f}" text-anchor="{anchor}" font-size="13" fill="#7a6850">{fmt_mw(mw_s)}</text>')
+            annotation = fmt_mw(mw_s) + ("†" if not is_measured else "")
+            w(f'<text x="{lx:.1f}" y="{ly1 + dy2:.1f}" text-anchor="{anchor}" font-size="13" fill="#7a6850">{annotation}</text>')
         w('</g>')
 
     # Legend (only when more than one machine is plotted)
     if len(legend_entries) > 1:
         lx, ly = 30, CANVAS - 30 - len(legend_entries) * 22
         w('<g font-family="Georgia, serif" font-size="14" fill="#3f3426">')
-        for i, (fill, stroke, lbl) in enumerate(legend_entries):
+        for i, (fill, stroke, lbl, has_fallback) in enumerate(legend_entries):
             y = ly + i * 22
-            w(f'<rect x="{lx}" y="{y - 12}" width="18" height="14" fill="{fill}" stroke="{stroke}" stroke-width="2"/>')
-            w(f'<text x="{lx + 24}" y="{y}">{lbl}</text>')
+            dash_attr = ' stroke-dasharray="4 2"' if has_fallback else ''
+            w(f'<rect x="{lx}" y="{y - 12}" width="18" height="14" fill="{fill}" stroke="{stroke}" stroke-width="2"{dash_attr}/>')
+            suffix = " (partial data†)" if has_fallback else ""
+            w(f'<text x="{lx + 24}" y="{y}">{lbl}{suffix}</text>')
         w('</g>')
 
     # Title / subtitle
     machines_present = [m[0] for m in MACHINES if load_machine_data(chart, stats_root, m[0]) is not None]
     subtitle = " · ".join(machines_present) + " · pilot-bench normal preset"
+    any_fallback = any(has_fb for *_, has_fb in legend_entries)
     w(f'<text x="{CX:.0f}" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#2f2418">{chart["title"]}</text>')
     w(f'<text x="{CX:.0f}" y="76" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#6f5d46">{subtitle}</text>')
+    if any_fallback:
+        w(f'<text x="{CX:.0f}" y="{CANVAS - 12}" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#9a7a5a">† reference value — not measured on this machine</text>')
     w('</svg>')
 
     return "\n".join(lines) + "\n"
@@ -275,8 +294,9 @@ def main():
                 print(f"  {subdir}: no bench files, skipped")
                 continue
             print(f"  {subdir}:")
-            for label, mw_s in data:
-                print(f"    {label:18s}  {mw_s:8.3g} MW/s  r={log_r(mw_s, chart['A'], chart['B']):.1f}")
+            for label, mw_s, is_measured in data:
+                flag = "" if is_measured else "†"
+                print(f"    {label:18s}  {mw_s:8.3g} MW/s  r={log_r(mw_s, chart['A'], chart['B']):.1f}{flag}")
 
 if __name__ == "__main__":
     main()

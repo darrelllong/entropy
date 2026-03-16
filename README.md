@@ -115,7 +115,6 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | Several geometric / higher-level Dieharder-style tests | Plausible and useful, but still best treated as implementation-reviewed rather than externally validated |
 | Webster–Tavares (1985): strict avalanche / bit-independence probe over seeded RNG families | Implemented as a research binary (`webster_tavares`); computes the dependence matrix and avalanche-variable correlations from the paper |
 | Knuth TAOCP Vol. 2 §3.3.2: permutation, gap, and Wald-Wolfowitz runs-above/below-median tests | Implemented as a research binary (`bib_tests`) over uniform `[0,1)` streams |
-| Pincus (1991): approximate-entropy profile `ApEn(m)` over multiple embedding dimensions | Implemented as a research binary (`bib_tests`) to complement the single fixed NIST setting |
 | TestU01 (2009): `scomp_LempelZiv` core statistic and official empirical calibration table | Implemented as a research binary (`testu01_lz`); exact per-replication `LZ78` phrase count and TestU01 `μ/σ` normalization, but not yet the full TestU01 goodness-of-fit reporting stack |
 | TestU01 (2009): `sstring_HammingCorr` and `sstring_HammingIndep` core statistics | Implemented as part of `upstream_tests`; faithful TestU01 bit extraction, asymptotic normal `HammingCorr`, and TestU01-style `gofs_MinExpected=10` lumping for the main `HammingIndep` chi-square |
 | PractRand pre-0.95: `FPF(4,14,6)` core statistic | Implemented as part of `upstream_tests`; faithful stride-spaced windowing and exponent/significand bucket counts, but without PractRand's empirical calibration tables/suspicion scores |
@@ -162,7 +161,6 @@ Included now:
 - standards: `NIST-SP-800-22r1a.pdf`, `NIST-SP-800-90Ar1.pdf`, `NIST-SP-800-90B.pdf`, `NIST-SP-800-90C.pdf`, `NIST-FIPS-140-3.pdf`
 - classic source and docs: `Diehard.zip`, `diehard-doc.txt`, `diehard-tests.txt`, `dieharder-3.31.1.tgz`, `dieharder-manual.pdf`, `dieharder-tests.txt`
 - core survey and extension papers: `lecuyer-simard-2007-testu01.pdf`, `maurer-1992-universal-test.pdf`, `marsaglia-tsang-2002-difficult-tests.pdf`, `webster-tavares-1985-sbox-design.pdf`, `hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf`
-- note: `pincus-1991-approximate-entropy.pdf` is not currently available locally; the Pincus implementation was written from the paper's stated algorithm
 
 When the code claims fidelity to a published test, these are the documents the project is expected to match.
 
@@ -181,7 +179,6 @@ Additional suites and tests surveyed (candidates for future implementation):
 - Chris Doty-Humphrey (Crow), *PractRand* 0.95, 2018 — streaming suite; BCFN, DC6, FPF, and TMFn tests are designed specifically for small-state generators (xorshift*, PCG) that pass all classic batteries.
 - Knuth, *The Art of Computer Programming* Vol. 2 §3.3.2 — classical tests not in NIST/Diehard: Gap, Poker (hand-type), Permutation, Wald-Wolfowitz runs above/below median, and the Serial Correlation Coefficient with exact variance.
 - Maurer, "A Universal Statistical Test for Random Bit Generators," *Journal of Cryptology* 5(2), 1992 — the full parametric form (L=10–16) is substantially more sensitive than the fixed NIST implementation.
-- Pincus, "Approximate Entropy as a Measure of System Complexity," *PNAS* 88, 1991 — multi-scale ApEn(m) vs. m profile catches correlation length; NIST uses only a single scale.
 - Hellekalek and Wegenkittl, "Empirical Evidence Concerning AES," *ACM Trans. Modeling and Computer Simulation* 13(4), 2003 — Walsh-Hadamard spectral test; sensitive to nonlinear Boolean structure in keystream generators.
 - Golić, "On the Linear Complexity and Multidimensional Distribution of Decimated m-Sequences," *IEEE Trans. Inf. Theory* 43(3), 1997 — decimated linear complexity; directly relevant to stream ciphers and LFSR-based generators.
 - Doganaksoy and Göloglu, "On the Weakness of Non-Dual Bent Functions," *SAC 2005*, LNCS 3897 — L1-norm DFT variant; catches diffuse periodic structure missed by NIST's peak-count statistic.
