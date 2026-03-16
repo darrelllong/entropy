@@ -117,7 +117,7 @@ generators.
 This is the classic 15-bit libc LCG
 $x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{32}}$,
 with output
-$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
+$y_n = (x_n \gg 16) \mathbin{\text{\&}} \mathtt{0x7fff}$.
 It is historically important precisely because it is bad: tiny effective
 output width, linear structure, and easy predictability. It remains useful here
 as a negative control and compatibility target. The benchmark shows it is fast;
@@ -169,7 +169,7 @@ fails more often than the BSD/glibc additive family.
 This is the old MSVCRT/UCRT generator
 $x_{n+1} = 214013\times x_n + 2531011 \pmod{2^{32}}$,
 with output
-$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
+$y_n = (x_n \gg 16) \mathbin{\text{\&}} \mathtt{0x7fff}$.
 It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
 linearity, and trivial predictability. It is in the benchmark because it was
 widely deployed in real code, not because it deserves respect. See
@@ -384,7 +384,7 @@ generator in the suite, about 53× faster than HMAC_DRBG.
 
 HMAC_DRBG (NIST SP 800-90A §10.1.2) is a deterministic RBG whose state is a
 pair $(K, V)$ of 32-byte values updated after every generate call by
-$K \leftarrow \mathrm{HMAC}(K,\ V \mathbin\| 0\mathrm{x00})$,
+$K \leftarrow \mathrm{HMAC}(K,\ V \mathbin{\|} 0\mathrm{x00})$,
 $V \leftarrow \mathrm{HMAC}(K,\ V)$,
 followed by a second round with byte $0\mathrm{x01}$ to mix in the old output
 $V$.  Initial seeding uses 48 bytes of `OsRng` entropy (32 bytes entropy_input
@@ -399,7 +399,7 @@ single 440-bit value $V$ (the NIST seedlen for SHA-256, Table 2) plus a
 constant $C$ derived from $V$ at instantiation time.  Hashgen produces output
 by hashing an incrementing counter concatenated with $V$, and after each
 generate call the state is updated as
-$V \leftarrow (V + \mathrm{SHA\text{-}256}(0\mathrm{x03} \mathbin\| V) + C + \mathtt{reseed\_counter}) \bmod 2^{440}$
+$V \leftarrow (V + \mathrm{SHA\text{-}256}(0\mathrm{x03} \mathbin{\|} V) + C + \mathtt{reseed\_counter}) \bmod 2^{440}$
 using big-endian carry arithmetic.  At 12.37 MW/s on Dyson it is about 3.8×
 faster than HMAC_DRBG because it replaces the two keyed-MAC steps with a
 single hash per output block, and it achieved the best FAIL count of any
