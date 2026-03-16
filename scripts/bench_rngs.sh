@@ -2,25 +2,28 @@
 # RNG throughput benchmark using pilot-bench.
 #
 # For each generator, measures throughput (MW/s) with 95% CI using pilot-bench
-# and writes a result file to stats/<name>.bench.  If the file already exists,
-# that RNG is skipped unless --force is given.
+# and writes a result file to stats/<machine>/<name>.bench.  If the file already
+# exists, that RNG is skipped unless --force is given.
 #
 # Usage:
-#   scripts/bench_rngs.sh [--preset quick|normal|strict] [--force] [name ...]
+#   scripts/bench_rngs.sh [--preset quick|normal|strict] [--machine <name>] \
+#                         [--force] [name ...]
 #
-#   name ...  optional whitelist; if given, only measure those generators.
+#   --machine <name>  subdirectory under stats/ for this machine (default: dyson)
+#   name ...          optional whitelist; if given, only measure those generators.
 #
 # Environment:
 #   PILOT_BENCH_CLI   path to the pilot bench CLI  (default: ~/pilot-bench/build/cli/bench)
 #   PILOT_RNG_BIN     path to pilot_rng binary      (default: target/release/pilot_rng)
 #   PILOT_PRESET      quick | normal | strict       (default: quick)
+#   PILOT_MACHINE     machine subdirectory name     (default: dyson)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BENCH="${PILOT_BENCH_CLI:-$HOME/pilot-bench/build/cli/bench}"
 RNG_BIN="${PILOT_RNG_BIN:-$ROOT_DIR/target/release/pilot_rng}"
-STATS_DIR="$ROOT_DIR/stats"
 PRESET="${PILOT_PRESET:-quick}"
+MACHINE="${PILOT_MACHINE:-dyson}"
 FORCE=0
 WHITELIST=()
 
@@ -28,16 +31,19 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --preset=*) PRESET="${1#--preset=}" ;;
         --preset)   shift; PRESET="$1" ;;
+        --machine=*) MACHINE="${1#--machine=}" ;;
+        --machine)  shift; MACHINE="$1" ;;
         --force)    FORCE=1 ;;
         *)          WHITELIST+=("$1") ;;
     esac
     shift
 done
 
+STATS_DIR="$ROOT_DIR/stats/$MACHINE"
 mkdir -p "$STATS_DIR"
 
 # measure <rng_name> <display_name> <words_per_probe>
-# Writes result to stats/<rng_name>.bench and prints a Markdown table row.
+# Writes result to stats/<machine>/<rng_name>.bench and prints a Markdown table row.
 # Skips if stats file exists and --force not given.
 # NOTE: no numeric underscores in <words_per_probe> — bash passes them literally.
 measure() {
@@ -78,7 +84,7 @@ measure() {
 }
 
 echo ""
-echo "## RNG throughput benchmark (pilot-bench, preset=$PRESET)"
+echo "## RNG throughput benchmark (pilot-bench, preset=$PRESET, machine=$MACHINE)"
 echo ""
 echo "Throughput in MW/s (10⁶ u32 words/s).  CI is 95%."
 echo ""
