@@ -53,12 +53,22 @@ chart and this table on the next regeneration.
 | `Constant (0xDEAD_DEAD)` | 31560 | ±108.7 | 23470 | ±394.4 |
 | `Counter (0,1,2,...)` | 26300 | ±77.3 | 17630 | ±64.38 |
 
-The synthetic ceiling generators dominate raw throughput, so the visual uses
-normalized `log10(MW/s)` rather than a linear scale.  The radar chart shows
-one polygon per machine in separate colours; run the suite on `dmz.lan` to
-add the second polygon.
+The synthetic ceiling generators dominate raw throughput, so the visuals use
+normalized `log10(MW/s)` rather than a linear scale.  Each radar chart shows
+one polygon per machine (blue = Dyson, red = dmz.lan), with scales calibrated
+independently for each chart's throughput range.
 
-![Radar chart: all generators](assets/benchmarks-radar.svg)
+**Fast / simulation generators** — scale anchored at sysv\_rand (441 MW/s) → r=70
+and WyRand (3120 MW/s) → r=270.  `mrand48` and `sysv_rand` are included as the
+fastest of the "BAD" generators; being fast does not make them good.
+
+![Radar chart: fast/simulation generators](assets/benchmarks-radar-fast.svg)
+
+**Cryptographic / slow generators** — scale anchored at Blum-Micali (0.462 MW/s) → r=70
+and Squidward (240 MW/s) → r=270.  `FreeBSD rand_r` and `ANSI C LCG` land near
+ChaCha20 in throughput — nearly identical speed, opposite security.
+
+![Radar chart: cryptographic/slow generators](assets/benchmarks-radar-slow.svg)
 
 ## Generator Notes
 
