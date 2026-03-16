@@ -54,18 +54,18 @@ chart and this table on the next regeneration.
 | `Counter (0,1,2,...)` | 26300 | ±77.3 | 17630 | ±64.38 |
 
 The synthetic ceiling generators dominate raw throughput, so the visuals use
-normalized `log10(MW/s)` rather than a linear scale.  Each radar chart shows
+normalized $\log_{10}(\text{MW/s})$ rather than a linear scale.  Each radar chart shows
 one polygon per machine (blue = Dyson, red = dmz.lan), with scales calibrated
 independently for each chart's throughput range.
 
-**Fast / simulation generators** — scale anchored at sysv\_rand (441 MW/s) → r=70
-and WyRand (3120 MW/s) → r=270.  `mrand48` and `sysv_rand` are included as the
+**Fast / simulation generators** — scale anchored at sysv\_rand (441 MW/s) → $r=70$
+and WyRand (3120 MW/s) → $r=270$.  `mrand48` and `sysv_rand` are included as the
 fastest of the "BAD" generators; being fast does not make them good.
 
 ![Radar chart: fast/simulation generators](assets/benchmarks-radar-fast.svg)
 
-**Slow generators** — scale anchored at Blum-Micali (0.462 MW/s) → r=70
-and Squidward (240 MW/s) → r=270.  `FreeBSD rand_r` and `ANSI C LCG` land near
+**Slow generators** — scale anchored at Blum-Micali (0.462 MW/s) → $r=70$
+and Squidward (240 MW/s) → $r=270$.  `FreeBSD rand_r` and `ANSI C LCG` land near
 ChaCha20 in throughput — nearly identical speed, opposite security.
 
 ![Radar chart: slow generators](assets/benchmarks-radar-slow.svg)
@@ -117,7 +117,7 @@ generators.
 This is the classic 15-bit libc LCG
 $x_{n+1} = 1103515245\,x_n + 12345 \pmod{2^{32}}$,
 with output
-`y[n] = (x[n] >> 16) & 0x7fff`.
+$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
 It is historically important precisely because it is bad: tiny effective
 output width, linear structure, and easy predictability. It remains useful here
 as a negative control and compatibility target. The benchmark shows it is fast;
@@ -169,7 +169,7 @@ fails more often than the BSD/glibc additive family.
 This is the old MSVCRT/UCRT generator
 $x_{n+1} = 214013\,x_n + 2531011 \pmod{2^{32}}$,
 with output
-`y[n] = (x[n] >> 16) & 0x7fff`.
+$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
 It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
 linearity, and trivial predictability. It is in the benchmark because it was
 widely deployed in real code, not because it deserves respect. See
