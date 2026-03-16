@@ -167,19 +167,6 @@ The point of keeping these files in-tree is auditability: readers should be able
                these are in NIST/DIEHARD/DIEHARDER.}
 }
 
-@article{pincus1991approximate,
-  author  = {Pincus, Steven M.},
-  title   = {Approximate Entropy as a Measure of System Complexity},
-  journal = {Proceedings of the National Academy of Sciences},
-  volume  = {88},
-  pages   = {2297--2301},
-  year    = {1991},
-  doi     = {10.1073/pnas.88.6.2297},
-  note    = {Multi-scale ApEn(m) vs. m profile detects correlation length.
-             NIST uses only a single scale; the full sweep is more sensitive.
-             Local copy not available; implementation follows the stated algorithm.}
-}
-
 @article{golic1997linear,
   author  = {Goli\'{c}, Jovan Dj.},
   title   = {On the Linear Complexity and Multidimensional Distribution of Decimated $m$-Sequences},
@@ -221,9 +208,10 @@ The point of keeping these files in-tree is auditability: readers should be able
   year      = {2006},
   pages     = {50--64},
   doi       = {10.1007/11693383_4},
-  note      = {[pubs/doganaksoy-gologlu-2006-bent-functions.pdf] L1-norm DFT variant: sum of all |DFT coefficients| rather
+  note      = {L1-norm DFT variant: sum of all |DFT coefficients| rather
                than peak count. Catches diffuse periodic structure across many frequencies
-               that NIST's threshold-exceedance statistic misses.}
+               that NIST's threshold-exceedance statistic misses.
+               Local copy not available.}
 }
 
 @inproceedings{webster1985sboxes,
@@ -256,6 +244,5 @@ The point of keeping these files in-tree is auditability: readers should be able
 | 4 | `knuth1997taocp2` | Poker, Permutation, Wald-Wolfowitz, Serial Correlation |
 | 5 | `golic1997linear` | Decimated linear complexity — relevant to Dual_EC analysis |
 | 6 | `hellekalek2004aes` | Walsh-Hadamard spectral — validates AesCtr / CryptoCtrDrbg |
-| 7 | `pincus1991approximate` | Multi-scale ApEn |
-| 8 | `doganaksoy2006bent` | L1-norm DFT variant |
-| 9 | `webster1985sboxes` | SAC / bit independence |
+| 7 | `doganaksoy2006bent` | L1-norm DFT variant |
+| 8 | `webster1985sboxes` | SAC / bit independence |
