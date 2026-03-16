@@ -58,11 +58,11 @@
 <text x="618.0" y="184.2" text-anchor="start" font-size="13" fill="#7a6850">1314 MW/s</text>
 <text x="731.8" y="280.0" text-anchor="start">SFC64</text>
 <text x="731.8" y="298.0" text-anchor="start" font-size="13" fill="#7a6850">1262 MW/s</text>
-<text x="758.0" y="440.0" text-anchor="start">Xoshiro256ss</text>
+<text x="758.0" y="440.0" text-anchor="start">Xoshiro256</text>
 <text x="758.0" y="458.0" text-anchor="start" font-size="13" fill="#7a6850">1287 MW/s</text>
 <text x="731.8" y="614.0" text-anchor="start">PCG32</text>
 <text x="731.8" y="632.0" text-anchor="start" font-size="13" fill="#7a6850">934.1 MW/s</text>
-<text x="618.0" y="725.8" text-anchor="start">Xoroshiro128ss</text>
+<text x="618.0" y="725.8" text-anchor="start">Xoroshiro128</text>
 <text x="618.0" y="743.8" text-anchor="start" font-size="13" fill="#7a6850">902.8 MW/s</text>
 <text x="450.0" y="778.0" text-anchor="middle">mrand48</text>
 <text x="450.0" y="796.0" text-anchor="middle" font-size="13" fill="#7a6850">973 MW/s</text>
