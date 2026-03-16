@@ -42,8 +42,11 @@ use std::thread;
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
-const NIST_N:     usize = 1_000_000;
-const DIEHARD_N:  usize = 16_000_000;
+// 16 M bits: enough for all Maurer L=6..16 parametric slots and for the
+// signed-random-walk in random_excursions to complete ~2 256 zero-crossing
+// cycles (J >> 500 minimum) for any non-degenerate generator.
+const NIST_N:    usize = 16_000_000;
+const DIEHARD_N: usize = 16_000_000;
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -174,6 +177,7 @@ fn die(msg: &str) -> ! {
 
 struct RngResults {
     name:      &'static str,
+    nist_n:    usize,
     nist:      Vec<TestResult>,
     diehard:   Vec<TestResult>,
     dieharder: Vec<TestResult>,
@@ -261,7 +265,7 @@ fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
     } else {
         vec![]
     };
-    RngResults { name, nist, diehard, dieharder }
+    RngResults { name, nist_n: NIST_N, nist, diehard, dieharder }
 }
 
 /// Run only NIST SP 800-22 — for RNGs too slow for DIEHARD/DIEHARDER.
@@ -271,7 +275,7 @@ fn run_nist_only<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResu
     } else {
         vec![]
     };
-    RngResults { name, nist, diehard: vec![], dieharder: vec![] }
+    RngResults { name, nist_n: NIST_N, nist, diehard: vec![], dieharder: vec![] }
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -352,7 +356,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) {
     if !r.nist.is_empty() {
         let shown: Vec<&TestResult> = r.nist.iter().filter(|t| args.matches(t.name)).collect();
         if !shown.is_empty() {
-            println!("\n  ── NIST SP 800-22 ({NIST_N} bits) ──");
+            println!("\n  ── NIST SP 800-22 ({} bits) ──", r.nist_n);
             for t in shown { println!("  {t}"); }
         }
     }

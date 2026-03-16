@@ -7,8 +7,8 @@
 //! SHA-256 call is dispatched to the hardware `vsha256*` NEON intrinsics via
 //! the `aarch64-alt` crate; other targets fall back to `cryptography::Sha256`.
 //!
-//! Unlike SpongeBob (which uses SHAKE256 XOF and gets algorithmic benefit from
-//! a large pool), SHA-256 has no XOF mode.  The state here is kept inline at
+//! Unlike SpongeBob (which uses a SHA3-512 chain and carries 512 bits of state
+//! per step), SHA-256 has no XOF mode.  The state here is kept inline at
 //! 32 bytes — the right size for the SHA-256 hardware path on aarch64.
 
 use cryptography::Sha256;
