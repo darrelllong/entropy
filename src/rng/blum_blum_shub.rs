@@ -76,8 +76,9 @@ impl Rng for BlumBlumShub {
 mod tests {
     use super::*;
 
-    // Small-example check from the Wikipedia BBS article (n=11·23=253, seed=3).
-    // x₀ = 3² mod 253 = 9.  Subsequent states: 81, 236, 82, 36, 31, 202, 64, 159, 1.
+    // Small-example check (n=11·23=253, seed=3).
+    // x₀ = 3² mod 253 = 9.
+    // Subsequent states (computed): 81, 236, 36, 31, 202, 71, 234, 108, 26.
     #[test]
     fn small_example_states() {
         let mut bbs = BlumBlumShub::new(11, 23, 3);
