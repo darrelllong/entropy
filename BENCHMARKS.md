@@ -62,9 +62,9 @@ All twelve new-generator radar entries were measured on `Dyson` (`macOS aarch64`
 | `PCG32 (seed=42, seq=54)` | 934.3 | ±5.057 | 50 |
 | `WyRand (seed=42)` | 3134 | ±10.87 | 110 |
 | `PCG64 (state=1, seq=1)` | 843.4 | ±10.25 | 118 |
-| `Squidward (SHA-256 chain, seed=00..1f)` | 236.5 | ±1.543 | 110 |
+| `Squidward (SHA-256 chain, seed=00..1f)` | 239.9 | ±0.880 | 50 |
 | `ChaCha20 CSPRNG (OsRng key)` | 172.2 | ±0.598 | 140 |
-| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 31.24 | ±0.6371 | 110 |
+| `SpongeBob (SHAKE256 pool, seed=00..3f)` | 65.54 | ±0.601 | 50 |
 | `Hash_DRBG SHA-256 (OsRng seed)` | 12.21 | ±0.224 | 80 |
 | `HMAC_DRBG SHA-256 (OsRng seed)` | 3.214 | ±0.04382 | 50 |
 
@@ -76,8 +76,13 @@ WyRand's exceptional 3134 MW/s on Dyson reflects Apple Silicon's high-throughput
 64×64→128-bit multiply pipeline; the `wyhash` mixer reduces to two multiply-accumulate
 operations per word, which the M-series handles in one or two cycles.
 
-SpongeBob (SHA3-512 chain) benefits from FEAT_SHA3 hardware Keccak-f[1600] (EOR3,
-RAX1, BCAX), reaching 31.24 MW/s versus 10.97 MW/s on Darby (2.8× speedup).
+SpongeBob uses a SHAKE256 XOF pool (16 KiB, one ARM page) with key erasure.
+On each refill it absorbs a 64-byte key into a fresh SHAKE256 sponge, squeezes
+16 384 bytes directly into the pool, then squeezes 64 more bytes into the next key
+(forward secrecy).  SHAKE256's 136-byte rate gives 122 Keccak-f[1600] calls per
+16 KiB versus 256 for an equivalent SHA3-512 chain, roughly halving hash overhead.
+The Dyson measurement of 65.54 MW/s reflects both FEAT_SHA3 hardware acceleration
+and the reduced permutation count from the wider XOF rate.
 
 ![Radar chart: new generators (PCG, xoshiro, WyRand, SFC, JSF, ChaCha20, DRBG)](assets/benchmarks-radar-new.svg)
 
@@ -238,20 +243,23 @@ for reproducibility, not secrecy. Its slower throughput is the cost of doing
 real block-cipher work; its test behavior in [TESTS.md](TESTS.md) is the right
 place to judge whether this fixture looks statistically healthy.
 
-### `SpongeBob (SHA3-512 chain, seed=00..3f)`
+### `SpongeBob (SHAKE256 pool, seed=00..3f)`
 
-`SpongeBob` hashes a variable-length seed into a 512-bit state
-$x_0 = \text{SHA3-512}(\text{seed})$,
-then advances by repeated hashing
-$x_{i+1} = \text{SHA3-512}(x_i)$.
-The adapter exposes that state as a sequential stream of 32-bit words, with a
-fresh 64-byte digest every time the previous one is exhausted. This is a very
-simple hash-chain CSPRNG design: no linear recurrence, no tiny hidden state,
-and no claim that raw speed is the point. On Dyson, FEAT_SHA3 hardware
-Keccak-f[1600] (EOR3, RAX1, BCAX intrinsics) lifts throughput to 31.24 MW/s,
-a 2.8× improvement over Darby's software-only 10.97 MW/s. The first full
-battery in [TESTS.md](TESTS.md) looks promising but not spotless, so the right
-read is “plausible modern generator, worth more runs,” not “already proved perfect.”
+`SpongeBob` is a SHAKE256 XOF pool generator with forward secrecy.  On each
+refill it absorbs a 64-byte key into a fresh SHAKE256 sponge, squeezes 16 384
+bytes (one Apple Silicon ARM page) directly into a heap-allocated pool, then
+continues the same sponge to squeeze 64 bytes into the next key.  Because the
+key is derived from the sponge state *after* all pool output, the stored key
+never appears in the pool — past output cannot be recovered from the current
+key (forward secrecy).
+
+The cost model is favourable: SHAKE256's rate is 136 bytes per Keccak-f[1600]
+permutation, so a 16 KiB refill costs 1 absorb + 121 squeeze permutations
+(122 total) versus 256 Keccak calls for an equivalent SHA3-512 chain.  On
+Dyson, FEAT_SHA3 hardware acceleration (EOR3, RAX1, BCAX intrinsics) and the
+wide XOF rate combine to reach 65.54 MW/s.  The first full battery in
+[TESTS.md](TESTS.md) looks promising but not spotless, so the right read is
+“plausible modern generator, worth more runs,” not “already proved perfect.”
 
 ### `cryptography::CtrDrbgAes256 (seed=00..2f)`
 
@@ -293,7 +301,7 @@ and output is consumed as a sequential byte stream.  On ARM targets that expose
 FEAT_SHA2 hardware acceleration, the implementation detects and uses the
 `vsha256*` NEON intrinsics via the `aarch64-alt` crate, falling back to the
 portable `cryptography::Sha256` path otherwise.  On Dyson (Apple Silicon
-M-series) the hardware path reaches 236.5 MW/s.  Darby (Cortex-A76, FEAT_SHA2)
+M-series) the hardware path reaches 239.9 MW/s.  Darby (Cortex-A76, FEAT_SHA2)
 measured 85 MW/s in an earlier run; the larger gap relative to SpongeBob's
 2.8× FEAT_SHA3 uplift reflects both the faster M-series SHA-256 pipeline and
 the relatively lower Darby SHA-256 throughput.

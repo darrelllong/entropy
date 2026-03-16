@@ -1,84 +1,72 @@
 //! SHA-256 hash-chain generator ("Squidward").
 //!
-//! Identical in design to SpongeBob but uses SHA-256 (256-bit / 32-byte state)
-//! instead of SHA3-512.  On `aarch64` targets with FEAT_SHA2 (Apple Silicon
-//! and most modern ARM cores) the inner compression step is offloaded to the
-//! hardware `vsha256*` instructions via the `aarch64-alt` crate, making
-//! Squidward substantially faster than SpongeBob on those machines.  On every
-//! other target the pure-Rust `cryptography::Sha256` baseline is used
-//! transparently.
+//! `x_0 = SHA-256(seed)`, `x_{i+1} = SHA-256(x_i)`.
 //!
-//! `x_0 = SHA-256(seed)`
-//! `x_{i+1} = SHA-256(x_i)`
+//! Each 256-bit state is consumed as a sequential byte stream.  On `aarch64`
+//! targets with FEAT_SHA2 (Apple Silicon and most modern ARM cores), every
+//! SHA-256 call is dispatched to the hardware `vsha256*` NEON intrinsics via
+//! the `aarch64-alt` crate; other targets fall back to `cryptography::Sha256`.
 //!
-//! Each 256-bit state block is exposed as a sequential byte stream.  For
-//! uniform-width access (all `next_u32` or all `next_u64`) every bit of each
-//! block is used.  Mixing widths at a refill boundary silently discards up to
-//! 7 trailing bytes before refilling; see the same note in SpongeBob.
+//! Unlike SpongeBob (which uses SHAKE256 XOF and gets algorithmic benefit from
+//! a large pool), SHA-256 has no XOF mode.  The state here is kept inline at
+//! 32 bytes — the right size for the SHA-256 hardware path on aarch64.
 
 use cryptography::Sha256;
 
 use super::{OsRng, Rng};
 
-const STATE_BYTES: usize = 32;
+const BLOCK: usize = 32;
 
 /// SHA-256 hash-chain generator.
 #[derive(Clone, Debug)]
 pub struct Squidward {
-    state: [u8; STATE_BYTES],
+    state:  [u8; BLOCK],
     offset: usize,
 }
 
 impl Squidward {
-    /// Construct from optional variable-length seed bytes.
-    ///
-    /// When `seed` is `None`, a fresh 256-bit seed is drawn from `OsRng`.
+    /// Construct from arbitrary-length seed bytes.
+    #[must_use]
+    pub fn from_seed(seed: &[u8]) -> Self {
+        Self { state: sha256(seed), offset: 0 }
+    }
+
+    /// Construct with optional seed; `None` draws from OsRng.
     #[must_use]
     pub fn new(seed: Option<&[u8]>) -> Self {
         match seed {
             Some(s) => Self::from_seed(s),
-            None => Self::from_os_rng(),
+            None    => Self::from_os_rng(),
         }
     }
 
-    /// Construct deterministically from caller-supplied seed bytes.
-    #[must_use]
-    pub fn from_seed(seed: &[u8]) -> Self {
-        Self {
-            state: sha256(seed),
-            offset: 0,
-        }
-    }
-
-    /// Construct from 256 bits drawn from the operating system RNG.
+    /// Construct from 32 bytes drawn from the operating system RNG.
     #[must_use]
     pub fn from_os_rng() -> Self {
         let mut os = OsRng::new();
-        let mut seed = [0u8; STATE_BYTES];
+        let mut seed = [0u8; BLOCK];
         for chunk in seed.chunks_exact_mut(4) {
             chunk.copy_from_slice(&os.next_u32().to_le_bytes());
         }
         Self::from_seed(&seed)
     }
 
-    /// Fixed 32-byte seed so benchmarks and test runs are reproducible.
+    /// Fixed seed `00 01 … 1f` for reproducible benchmarks.
     #[must_use]
     pub fn with_test_seed() -> Self {
-        let seed: [u8; STATE_BYTES] = core::array::from_fn(|i| i as u8);
+        let seed: [u8; BLOCK] = core::array::from_fn(|i| i as u8);
         Self::from_seed(&seed)
     }
 
     fn refill(&mut self) {
-        self.state = sha256(&self.state);
+        self.state  = sha256(&self.state);
         self.offset = 0;
     }
 
+    #[inline]
     fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
-        const { assert!(N <= STATE_BYTES, "chunk larger than Squidward state") }
-        if self.offset == STATE_BYTES {
-            self.refill();
-        }
-        if self.offset + N > STATE_BYTES {
+        const { assert!(N <= BLOCK, "chunk larger than Squidward state") }
+        if self.offset + N > BLOCK {
             self.refill();
         }
         let out = self.state[self.offset..self.offset + N].try_into().unwrap();
@@ -88,31 +76,20 @@ impl Squidward {
 }
 
 impl Default for Squidward {
-    fn default() -> Self {
-        Self::from_os_rng()
-    }
+    fn default() -> Self { Self::from_os_rng() }
 }
 
 impl Rng for Squidward {
-    fn next_u32(&mut self) -> u32 {
-        u32::from_be_bytes(self.take_bytes::<4>())
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        u64::from_be_bytes(self.take_bytes::<8>())
-    }
+    fn next_u32(&mut self) -> u32 { u32::from_le_bytes(self.take_bytes::<4>()) }
+    fn next_u64(&mut self) -> u64 { u64::from_le_bytes(self.take_bytes::<8>()) }
 }
 
-/// Compute SHA-256, preferring hardware acceleration on AArch64.
-///
-/// On `aarch64` targets the ARM FEAT_SHA2 path (`vsha256*` instructions) is
-/// tried first via a runtime capability check; any other target falls through
-/// to the pure-Rust `cryptography::Sha256` implementation.
+/// Compute SHA-256, preferring FEAT_SHA2 hardware on AArch64.
 #[inline]
-fn sha256(data: &[u8]) -> [u8; 32] {
+fn sha256(data: &[u8]) -> [u8; BLOCK] {
     #[cfg(target_arch = "aarch64")]
-    if let Ok(digest) = aarch64_alt::sha256_armv8::Sha256Armv8::digest(data) {
-        return digest;
+    if let Ok(d) = aarch64_alt::sha256_armv8::Sha256Armv8::digest(data) {
+        return d;
     }
     Sha256::digest(data)
 }
@@ -133,13 +110,12 @@ mod tests {
     }
 
     #[test]
-    fn next_u64_reads_digest_chunks_in_order() {
+    fn pool_is_sha256_chain() {
         let seed = b"entropy::Squidward";
-        let digest = sha256(seed);
+        let x0 = sha256(seed);
         let mut rng = Squidward::from_seed(seed);
-        for chunk in digest.chunks_exact(8) {
-            let expected = u64::from_be_bytes(chunk.try_into().unwrap());
-            assert_eq!(rng.next_u64(), expected);
+        for chunk in x0.chunks_exact(8) {
+            assert_eq!(rng.next_u64(), u64::from_le_bytes(chunk.try_into().unwrap()));
         }
     }
 
@@ -149,38 +125,32 @@ mod tests {
         let x0 = sha256(seed);
         let x1 = sha256(&x0);
         let mut rng = Squidward::from_seed(seed);
-        // Exhaust the first 32-byte block (4 × u64).
-        for _ in 0..4 {
-            let _ = rng.next_u64();
-        }
-        // Next read must come from x1.
+        for _ in 0..4 { let _ = rng.next_u64(); }
         assert_eq!(
             rng.next_u64(),
-            u64::from_be_bytes(x1[0..8].try_into().unwrap())
+            u64::from_le_bytes(x1[0..8].try_into().unwrap())
         );
     }
 
     #[test]
-    fn next_u32_splits_the_same_byte_stream() {
-        let seed = b"u32 stream";
-        let digest = sha256(seed);
-        let mut rng = Squidward::from_seed(seed);
-        for chunk in digest.chunks_exact(4) {
-            let expected = u32::from_be_bytes(chunk.try_into().unwrap());
-            assert_eq!(rng.next_u32(), expected);
+    fn u32_and_u64_share_byte_stream() {
+        let mut a = Squidward::from_seed(b"stream");
+        let mut b = Squidward::from_seed(b"stream");
+        for _ in 0..64 {
+            let lo = a.next_u32() as u64;
+            let hi = a.next_u32() as u64;
+            assert_eq!(hi << 32 | lo, b.next_u64());
         }
     }
 
     #[test]
     fn hw_and_sw_paths_agree() {
-        // On aarch64 with FEAT_SHA2, verify the hardware path matches pure Rust.
         let data = b"consistency check across implementations";
         let sw = Sha256::digest(data);
         #[cfg(target_arch = "aarch64")]
         if let Ok(hw) = aarch64_alt::sha256_armv8::Sha256Armv8::digest(data) {
             assert_eq!(hw, sw);
         }
-        // On non-aarch64 the test passes trivially (hw path unavailable).
         let _ = sw;
     }
 }
