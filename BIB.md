@@ -175,8 +175,9 @@ The point of keeping these files in-tree is auditability: readers should be able
   pages   = {2297--2301},
   year    = {1991},
   doi     = {10.1073/pnas.88.6.2297},
-  note    = {[pubs/pincus-1991-approximate-entropy.pdf] Multi-scale ApEn(m) vs. m profile detects correlation length.
-             NIST uses only a single scale; the full sweep is more sensitive.}
+  note    = {Multi-scale ApEn(m) vs. m profile detects correlation length.
+             NIST uses only a single scale; the full sweep is more sensitive.
+             Local copy not available; implementation follows the stated algorithm.}
 }
 
 @article{golic1997linear,

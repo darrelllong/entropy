@@ -130,28 +130,32 @@ fn next_u64_of(mut rng: impl Rng) -> u64 {
 
 fn main() {
     let args = Args::parse();
-    let cases: Vec<(&str, Box<dyn Fn(u64) -> u64>)> = vec![
-        ("MT19937", Box::new(|seed| next_u64_of(Mt19937::new(seed as u32)))),
-        ("Xorshift32", Box::new(|seed| next_u64_of(Xorshift32::new(nonzero_u32(seed))))),
-        ("Xorshift64", Box::new(|seed| next_u64_of(Xorshift64::new(nonzero_u64(seed))))),
-        ("BAD Unix System V rand()", Box::new(|seed| next_u64_of(SystemVRand::new(seed as u32)))),
-        ("BAD Unix System V mrand48()", Box::new(|seed| next_u64_of(Rand48::new(seed)))),
-        ("BAD Unix BSD random()", Box::new(|seed| next_u64_of(BsdRandom::new(seed as u32)))),
-        ("BAD Unix Linux glibc rand()/random()", Box::new(|seed| next_u64_of(LinuxLibcRandom::new(seed as u32)))),
-        ("BAD Windows CRT rand()", Box::new(|seed| next_u64_of(WindowsMsvcRand::new(seed as u32)))),
-        ("BAD Windows VB6/VBA Rnd()", Box::new(|seed| next_u64_of(WindowsVb6Rnd::new(seed as u32)))),
-        ("BAD Windows .NET Random(seed)", Box::new(|seed| next_u64_of(WindowsDotNetRandom::new(seed as i32)))),
-        ("ANSI C sample LCG", Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::AnsiC, seed)))),
-        ("LCG MINSTD", Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::Minstd, seed)))),
+    // (label, seed_bits, closure)
+    // seed_bits: effective seed width consumed by the RNG constructor.
+    // If args.input_bits > seed_bits the upper input bits are silently truncated
+    // by the cast inside the closure, so the avalanche analysis is misleading.
+    let cases: Vec<(&str, usize, Box<dyn Fn(u64) -> u64>)> = vec![
+        ("MT19937",                           32, Box::new(|seed| next_u64_of(Mt19937::new(seed as u32)))),
+        ("Xorshift32",                        32, Box::new(|seed| next_u64_of(Xorshift32::new(nonzero_u32(seed))))),
+        ("Xorshift64",                        64, Box::new(|seed| next_u64_of(Xorshift64::new(nonzero_u64(seed))))),
+        ("BAD Unix System V rand()",          32, Box::new(|seed| next_u64_of(SystemVRand::new(seed as u32)))),
+        ("BAD Unix System V mrand48()",       48, Box::new(|seed| next_u64_of(Rand48::new(seed)))),
+        ("BAD Unix BSD random()",             32, Box::new(|seed| next_u64_of(BsdRandom::new(seed as u32)))),
+        ("BAD Unix Linux glibc rand()/random()", 32, Box::new(|seed| next_u64_of(LinuxLibcRandom::new(seed as u32)))),
+        ("BAD Windows CRT rand()",            32, Box::new(|seed| next_u64_of(WindowsMsvcRand::new(seed as u32)))),
+        ("BAD Windows VB6/VBA Rnd()",         32, Box::new(|seed| next_u64_of(WindowsVb6Rnd::new(seed as u32)))),
+        ("BAD Windows .NET Random(seed)",     32, Box::new(|seed| next_u64_of(WindowsDotNetRandom::new(seed as i32)))),
+        ("ANSI C sample LCG",                 32, Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::AnsiC, seed)))),
+        ("LCG MINSTD",                        32, Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::Minstd, seed)))),
         (
-            "AES-128-CTR",
+            "AES-128-CTR", 128,
             Box::new(|seed| {
                 let key = seed_material::<16>(seed);
                 next_u64_of(AesCtr::new(&key, 0))
             }),
         ),
         (
-            "cryptography::CtrDrbgAes256",
+            "cryptography::CtrDrbgAes256", 384,
             Box::new(|seed| {
                 let seed_bytes = seed_material::<48>(seed);
                 next_u64_of(CryptoCtrDrbg::new(&seed_bytes))
@@ -166,9 +170,16 @@ fn main() {
     println!("{}", "-".repeat(88));
 
     let mut matched = 0usize;
-    for (label, case) in cases {
+    for (label, seed_bits, case) in cases {
         if !args.matches_rng(label) {
             continue;
+        }
+        if args.input_bits > seed_bits {
+            eprintln!(
+                "warning: {label}: --input-bits {input} exceeds RNG seed width ({seed_bits} bits); \
+                 bits {seed_bits}..{input} are silently truncated — results are misleading",
+                input = args.input_bits,
+            );
         }
         matched += 1;
         let report = evaluate_u64(args.input_bits, args.output_bits, args.samples, case);

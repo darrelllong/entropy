@@ -17,17 +17,19 @@ Notes:
 The battery total differs from run to run because several test families are
 conditionally skipped based on properties of the sample, not the generator.
 
-The battery registers 742 test slots across all suites:
+The battery has **738 test slots** at this sample size:
 
 - **738 results** — the "full active battery" outcome: the signed-random-walk
   tests (`random_excursions` and `random_excursions_variant`) completed
   successfully (J ≥ 500 zero-crossing cycles).  At 16 Mbit the expected
-  cycle count is J ≈ 2256, comfortably above the
-  threshold for well-behaved generators.
+  cycle count is J ≈ 3191 (= √(2n/π)),
+  comfortably above the threshold for well-behaved generators.
 
-- **714 results** — 24 additional SKIPs.  Both excursion families (8 + 16
-  per-state results) are skipped when the signed random walk produces fewer
-  than J = 500 complete zero-crossing cycles.  Degenerate generators (Constant,
+- **714 results** — 24 fewer slots than the full battery.  The excursion
+  families normally emit 8 + 18 = 26 individual per-state results; when the
+  signed random walk produces fewer than J = 500 complete zero-crossing cycles
+  both families are each collapsed to a single family-level SKIP entry,
+  yielding 26 − 2 = 24 fewer slots.  Degenerate generators (Constant,
   Counter, ANSI C LCG, MINSTD) always land here; a handful of non-degenerate
   generators can too, depending on their random seed.
 

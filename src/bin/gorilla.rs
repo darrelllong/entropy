@@ -1,4 +1,4 @@
-use entropy::research::marsaglia_tsang::{gorilla_all, GorillaBitResult};
+use entropy::research::marsaglia_tsang::{gorilla_aggregate_ks, gorilla_all, GorillaBitResult};
 use entropy::rng::{
     AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
     SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
@@ -128,10 +128,10 @@ fn main() {
     ];
 
     println!(
-        "{:<40} {:>9} {:>9} {:>9} {:>10}",
-        "RNG", "min_p", "max_p", "worst_bit", "worst_|z|"
+        "{:<40} {:>9} {:>9} {:>9} {:>10} {:>10}",
+        "RNG", "min_p", "max_p", "worst_bit", "worst_|z|", "agg_ks_p"
     );
-    println!("{}", "-".repeat(84));
+    println!("{}", "-".repeat(95));
 
     let mut matched = 0usize;
     for (label, results) in cases {
@@ -140,9 +140,10 @@ fn main() {
         }
         matched += 1;
         let (min_p, max_p, worst_bit, worst_abs_z) = summarize(&results);
+        let agg_ks_p = gorilla_aggregate_ks(&results);
         println!(
-            "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3}",
-            label, min_p, max_p, worst_bit, worst_abs_z
+            "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3} {:>10.6}",
+            label, min_p, max_p, worst_bit, worst_abs_z, agg_ks_p
         );
     }
     if matched == 0 {
