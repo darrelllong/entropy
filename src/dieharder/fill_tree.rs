@@ -86,9 +86,10 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
     }
     start_idx += 1; // as in C: `start++`
 
-    // Observed fill counts and position counts.
-    let mut fill_counts = vec![0u32; TARGET_LEN];
-    let mut position_counts = vec![0u32; SIZE / 2];
+    // Observed fill counts and position counts.  Sizes are compile-time
+    // constants (TARGET_LEN=20, SIZE/2=16) so we can use stack arrays.
+    let mut fill_counts = [0u32; TARGET_LEN];
+    let mut position_counts = [0u32; SIZE / 2];
 
     let mut word_idx = 0usize;
 

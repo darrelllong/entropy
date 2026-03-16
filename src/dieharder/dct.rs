@@ -44,6 +44,15 @@ pub fn dct(words: &[u32]) -> TestResult {
     // positionCounts[k] counts how many blocks had position k as the |DCT| argmax.
     let mut position_counts = vec![0u64; NTUPLE];
 
+    // Precompute the DCT-II basis: cos_table[k * NTUPLE + j] = cos(π(j+½)k/N).
+    // NTUPLE is fixed at 256 (65 536 entries, 512 KiB) so computing this once
+    // and reusing it across all TSAMPLES blocks avoids 5 000 × 256² = 328 M
+    // cosine evaluations.
+    let scale = PI / NTUPLE as f64;
+    let cos_table: Vec<f64> = (0..NTUPLE)
+        .flat_map(|k| (0..NTUPLE).map(move |j| ((j as f64 + 0.5) * k as f64 * scale).cos()))
+        .collect();
+
     for j in 0..TSAMPLES {
         // rotAmount increases by rmax_bits/4 every TSAMPLES/4 blocks,
         // matching `if j != 0 && j % (tsamples/4) == 0 { rotAmount += rmax_bits/4; }`.
@@ -51,8 +60,8 @@ pub fn dct(words: &[u32]) -> TestResult {
 
         let block = &words[j * NTUPLE..(j + 1) * NTUPLE];
 
-        // Compute DCT-II of the rotated raw words (as unsigned integers).
-        let mut dct_vals = dct_ii_u32(block, rot_amount);
+        // Compute DCT-II of the rotated raw words using the precomputed basis.
+        let mut dct_vals = dct_ii_u32(block, rot_amount, &cos_table);
 
         // Adjust DC component: subtract block mean, then divide by √2.
         dct_vals[0] -= mean_dc;
@@ -92,9 +101,11 @@ pub fn dct(words: &[u32]) -> TestResult {
 /// X[k] = Σ_{j=0}^{N-1} x[j] · cos(π(j+½)k/N)
 ///
 /// where x[j] is the rotated word cast to f64.  Matches `fDCT2` in dab_dct.c.
-fn dct_ii_u32(words: &[u32], rot_amount: u32) -> Vec<f64> {
+///
+/// `cos_table` must be a flat array of N×N cosine values where entry
+/// `cos_table[k * N + j]` = cos(π(j+½)k/N), precomputed by the caller.
+fn dct_ii_u32(words: &[u32], rot_amount: u32, cos_table: &[f64]) -> Vec<f64> {
     let n = words.len();
-    let scale = PI / n as f64;
 
     let x: Vec<f64> = words
         .iter()
@@ -106,10 +117,8 @@ fn dct_ii_u32(words: &[u32], rot_amount: u32) -> Vec<f64> {
 
     (0..n)
         .map(|k| {
-            x.iter()
-                .enumerate()
-                .map(|(j, &xj)| xj * ((j as f64 + 0.5) * k as f64 * scale).cos())
-                .sum()
+            let row = &cos_table[k * n..(k + 1) * n];
+            x.iter().zip(row).map(|(&xj, &c)| xj * c).sum()
         })
         .collect()
 }

@@ -115,10 +115,14 @@ fn rank_test(words: &[u32], rows: usize, cols: usize, n_matrices: usize, name: &
 
     let mut f = [0usize; 4]; // f[3]=rank=full, f[2]=full-1, f[1]=full-2, f[0]=≤full-3
 
+    // Mask is the same for every matrix; pre-allocate the row buffer once.
+    let mask = if cols < 32 { (1u32 << cols) - 1 } else { u32::MAX };
+    let mut matrix = Vec::with_capacity(rows);
+
     for m_idx in 0..n_matrices {
         let slice = &words[m_idx * rows..(m_idx + 1) * rows];
-        let mask = if cols < 32 { (1u32 << cols) - 1 } else { u32::MAX };
-        let matrix: Vec<u32> = slice.iter().map(|&w| w & mask).collect();
+        matrix.clear();
+        matrix.extend(slice.iter().map(|&w| w & mask));
         let rank = gf2_rank_generic(&matrix, rows, cols);
         let full = rows.min(cols);
         if rank == full         { f[3] += 1; }
