@@ -5,7 +5,7 @@ Throughput measured with `pilot-bench` `run_program --preset normal`.
 All results are in millions of 32-bit words per second (`MW/s`); 95% CI shown.
 The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`) with FEAT_SHA2 and
 FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
-(`Linux x86_64`); those numbers will be filled in once the suite is run there.
+(`Linux x86_64`).
 
 To benchmark on a new machine:
 
@@ -20,38 +20,38 @@ chart and this table on the next regeneration.
 
 | Generator | Dyson MW/s | ±CI | dmz MW/s | ±CI |
 |---|---:|---:|---:|---:|
-| `OsRng (/dev/urandom)` | 1.191 | ±0.008 | — | — |
-| `MT19937 (seed=19650218)` | 641.2 | ±16.28 | — | — |
-| `Xorshift64 (seed=1)` | 646.1 | ±2.962 | — | — |
-| `Xorshift32 (seed=1)` | 647.7 | ±12.44 | — | — |
-| `BAD Unix System V rand() (seed=1)` | 441.4 | ±1.419 | — | — |
-| `BAD Unix System V mrand48() (seed=1)` | 973 | ±2.591 | — | — |
-| `BAD Unix BSD random() TYPE_3 (seed=1)` | 405.8 | ±1.471 | — | — |
-| `BAD Unix Linux glibc rand()/random() (seed=1)` | 405.8 | ±1.736 | — | — |
-| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 189.1 | ±0.519 | — | — |
-| `BAD Windows CRT rand() (seed=1)` | 438.5 | ±12.51 | — | — |
-| `BAD Windows VB6/VBA Rnd() (seed=1)` | 379.5 | ±7.133 | — | — |
-| `BAD Windows .NET Random(seed=1) compat` | 428.4 | ±14.1 | — | — |
-| `ANSI C sample LCG (seed=1)` | 186.7 | ±2.666 | — | — |
-| `LCG MINSTD (seed=1)` | 171.6 | ±0.408 | — | — |
-| `BBS (p=2^31-1, q=4294967291)` | 61.29 | ±0.312 | — | — |
-| `Blum-Micali (p=2^31-1, g=7)` | 0.462 | ±0.002 | — | — |
-| `AES-128-CTR (NIST key)` | 137.8 | ±1.404 | — | — |
-| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.22 | ±0.099 | — | — |
-| `Squidward (SHA-256 chain, seed=00..1f)` | 239.6 | ±0.574 | — | — |
-| `PCG32 (seed=42, seq=54)` | 934.1 | ±6.738 | — | — |
-| `PCG64 (state=1, seq=1)` | 843.8 | ±2.893 | — | — |
-| `Xoshiro256** (seeds=1,2,3,4)` | 1287 | ±4.56 | — | — |
-| `Xoroshiro128** (seeds=1,2)` | 902.8 | ±9.123 | — | — |
-| `WyRand (seed=42)` | 3120 | ±14.32 | — | — |
-| `SFC64 (seeds=1,2,3)` | 1262 | ±15.58 | — | — |
-| `JSF64 (seed=0xdeadbeef)` | 1314 | ±23.22 | — | — |
-| `ChaCha20 CSPRNG (OsRng key)` | 170.7 | ±1.076 | — | — |
-| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.218 | ±0.026 | — | — |
-| `Hash_DRBG SHA-256 (OsRng seed)` | 12.37 | ±0.425 | — | — |
-| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.893 | ±0.010 | — | — |
-| `Constant (0xDEAD_DEAD)` | 31560 | ±108.7 | — | — |
-| `Counter (0,1,2,...)` | 26300 | ±77.3 | — | — |
+| `OsRng (/dev/urandom)` | 1.191 | ±0.008 | 1.220 | ±0.004 |
+| `MT19937 (seed=19650218)` | 641.2 | ±16.28 | 315.4 | ±0.624 |
+| `Xorshift64 (seed=1)` | 646.1 | ±2.962 | 566.8 | ±1.900 |
+| `Xorshift32 (seed=1)` | 647.7 | ±12.44 | 606.2 | ±2.084 |
+| `BAD Unix System V rand() (seed=1)` | 441.4 | ±1.419 | 357.3 | ±1.626 |
+| `BAD Unix System V mrand48() (seed=1)` | 973 | ±2.591 | 903.8 | ±5.002 |
+| `BAD Unix BSD random() TYPE_3 (seed=1)` | 405.8 | ±1.471 | 306.0 | ±1.558 |
+| `BAD Unix Linux glibc rand()/random() (seed=1)` | 405.8 | ±1.736 | 234.0 | ±0.737 |
+| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 189.1 | ±0.519 | 172.6 | ±0.361 |
+| `BAD Windows CRT rand() (seed=1)` | 438.5 | ±12.51 | 358.8 | ±1.625 |
+| `BAD Windows VB6/VBA Rnd() (seed=1)` | 379.5 | ±7.133 | 512.8 | ±2.109 |
+| `BAD Windows .NET Random(seed=1) compat` | 428.4 | ±14.1 | 279.3 | ±1.142 |
+| `ANSI C sample LCG (seed=1)` | 186.7 | ±2.666 | 93.70 | ±0.124 |
+| `LCG MINSTD (seed=1)` | 171.6 | ±0.408 | 93.73 | ±0.169 |
+| `BBS (p=2^31-1, q=4294967291)` | 61.29 | ±0.312 | 38.53 | ±0.476 |
+| `Blum-Micali (p=2^31-1, g=7)` | 0.462 | ±0.002 | 0.197 | ±0.002 |
+| `AES-128-CTR (NIST key)` | 137.8 | ±1.404 | 63.55 | ±0.595 |
+| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.22 | ±0.099 | 24.17 | ±0.201 |
+| `Squidward (SHA-256 chain, seed=00..1f)` | 239.6 | ±0.574 | 25.68 | ±0.419 |
+| `PCG32 (seed=42, seq=54)` | 934.1 | ±6.738 | 817.1 | ±2.848 |
+| `PCG64 (state=1, seq=1)` | 843.8 | ±2.893 | 580.3 | ±2.532 |
+| `Xoshiro256** (seeds=1,2,3,4)` | 1287 | ±4.56 | 927.5 | ±2.207 |
+| `Xoroshiro128** (seeds=1,2)` | 902.8 | ±9.123 | 730.4 | ±1.964 |
+| `WyRand (seed=42)` | 3120 | ±14.32 | 940.7 | ±3.277 |
+| `SFC64 (seeds=1,2,3)` | 1262 | ±15.58 | 1001 | ±2.452 |
+| `JSF64 (seed=0xdeadbeef)` | 1314 | ±23.22 | 870.6 | ±2.447 |
+| `ChaCha20 CSPRNG (OsRng key)` | 170.7 | ±1.076 | 87.78 | ±1.530 |
+| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.218 | ±0.026 | 1.969 | ±0.026 |
+| `Hash_DRBG SHA-256 (OsRng seed)` | 12.37 | ±0.425 | 7.376 | ±0.029 |
+| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.893 | ±0.010 | 1.123 | ±0.005 |
+| `Constant (0xDEAD_DEAD)` | 31560 | ±108.7 | 23470 | ±394.4 |
+| `Counter (0,1,2,...)` | 26300 | ±77.3 | 17630 | ±64.38 |
 
 The synthetic ceiling generators dominate raw throughput, so the visual uses
 normalized `log10(MW/s)` rather than a linear scale.  The radar chart shows
