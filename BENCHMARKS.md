@@ -317,7 +317,7 @@ $\mathtt{47026247687942121848144207491837523525}$
 with an XSL-RR output permutation: xor the two 64-bit halves, then rotate right
 by the top 6 bits of the old state.  The 128-bit arithmetic is more expensive
 on a 64-bit machine than the 64-bit LCG used by PCG32, which is why PCG64 reads
-as slower (130 MW/s) despite producing 64 bits per step.  Period: $2^{128}$.
+as slower (843.4 MW/s vs PCG32's 934.3 MW/s) despite producing 64 bits per step.  Period: $2^{128}$.
 
 ### `Xoshiro256** (seeds=1,2,3,4)`
 
