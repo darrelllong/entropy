@@ -64,11 +64,11 @@ fastest of the "BAD" generators; being fast does not make them good.
 
 ![Radar chart: fast/simulation generators](assets/benchmarks-radar-fast.svg)
 
-**Cryptographic / slow generators** — scale anchored at Blum-Micali (0.462 MW/s) → r=70
+**Slow generators** — scale anchored at Blum-Micali (0.462 MW/s) → r=70
 and Squidward (240 MW/s) → r=270.  `FreeBSD rand_r` and `ANSI C LCG` land near
 ChaCha20 in throughput — nearly identical speed, opposite security.
 
-![Radar chart: cryptographic/slow generators](assets/benchmarks-radar-slow.svg)
+![Radar chart: slow generators](assets/benchmarks-radar-slow.svg)
 
 ## Generator Notes
 

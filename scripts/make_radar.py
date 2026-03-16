@@ -93,7 +93,7 @@ CHARTS = [
         ],
     },
     {
-        "title":    "Throughput — Cryptographic Generators (log-normalized)",
+        "title":    "Throughput — Slow Generators (log-normalized)",
         "out":      "benchmarks-radar-slow.svg",
         # Blum-Micali(0.462) → r=70, Squidward(240) → r=270
         "A": 73.6, "B": 94.7,
