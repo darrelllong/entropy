@@ -44,37 +44,48 @@ The current external audit is in [PEERREVIEW.md](PEERREVIEW.md).
 
 ## Running
 
-Full runner:
+### Full audit (canonical)
 
 ```sh
-cargo run --release --bin run_tests
+tests/run_all.sh
 ```
 
-Useful variants:
+Runs the complete audit path — NIST/DIEHARD/DIEHARDER battery plus all five
+auxiliary probes — and saves a timestamped log to `/tmp/run_all-<date>.log`.
+Feed that log to `scripts/parse_battery.py` to regenerate `TESTS.md`.
+
+### Main battery only
 
 ```sh
-cargo run --release --bin run_tests -- --suite nist
-cargo run --release --bin run_tests -- --suite diehard --quick
-cargo run --release --bin run_tests -- --test nist::spectral
+tests/run_battery.sh
+# or with options:
+tests/run_battery.sh --suite nist
+tests/run_battery.sh --suite diehard --quick
+tests/run_battery.sh --test nist::spectral
 ```
 
-Benchmark harness:
+### Auxiliary probes only
 
 ```sh
-cargo run --release --bin bench_rngs
+tests/run_aux.sh
 ```
 
-Webster-Tavares seed-avalanche probe:
+Runs the five standalone research probes (Knuth + ApEn, TestU01 Hamming,
+TestU01 Lempel-Ziv, Webster-Tavares, Gorilla) with their default parameters.
+Use the individual binaries for filtered or resized runs:
 
 ```sh
-cargo run --release --bin webster_tavares -- --samples 1024
+cargo run --release --bin bib_tests    -- --rng AES
+cargo run --release --bin upstream_tests -- --rng AES
+cargo run --release --bin testu01_lz   -- --rng AES --k 27
+cargo run --release --bin webster_tavares -- --samples 2048
+cargo run --release --bin gorilla      -- --rng AES
 ```
 
-Additional BIB-backed research probes:
+### Benchmarks
 
 ```sh
-cargo run --release --bin bib_tests -- --rng AES
-cargo run --release --bin testu01_lz -- --rng AES
+tests/run_benchmarks.sh
 ```
 
 ## What The Runner Exercises
