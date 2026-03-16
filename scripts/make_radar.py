@@ -183,7 +183,14 @@ def load_machine_data(chart, stats_root, subdir):
 # SVG generation
 # ---------------------------------------------------------------------------
 
-def generate_svg(chart, stats_root):
+def generate_svg(chart, stats_root, machine_cache):
+    """Render one radar chart SVG.
+
+    machine_cache maps subdir → load_machine_data() result (or None).
+    The caller populates it once per chart so that the polygon loop, the
+    title/subtitle block, and any external reporting loop all share the same
+    loaded data without re-reading bench files or re-emitting warnings.
+    """
     A, B = chart["A"], chart["B"]
     lines = []
     w = lines.append
@@ -204,13 +211,13 @@ def generate_svg(chart, stats_root):
         w(f'<line x1="{CX:.0f}" y1="{CY:.0f}" x2="{x2:.1f}" y2="{y2:.1f}"/>')
     w('</g>')
 
-    # One polygon + dots per machine
-    # Fallback (unmeaasured) points are rendered with a dashed polygon stroke
+    # One polygon + dots per machine.
+    # Fallback (unmeasured) points are rendered with a dashed polygon stroke
     # and hollow circles so the viewer can distinguish them from measured data.
     legend_entries = []
     label_data = None
     for subdir, fill, stroke, dot_fill, legend_label in MACHINES:
-        data = load_machine_data(chart, stats_root, subdir)
+        data = machine_cache.get(subdir)
         if data is None:
             continue
         if label_data is None:
@@ -260,7 +267,7 @@ def generate_svg(chart, stats_root):
         w('</g>')
 
     # Title / subtitle
-    machines_present = [m[0] for m in MACHINES if load_machine_data(chart, stats_root, m[0]) is not None]
+    machines_present = [m[0] for m in MACHINES if machine_cache.get(m[0]) is not None]
     subtitle = " · ".join(machines_present) + " · pilot-bench normal preset"
     any_fallback = any(has_fb for *_, has_fb in legend_entries)
     w(f'<text x="{CX:.0f}" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#2f2418">{chart["title"]}</text>')
@@ -284,12 +291,19 @@ def main():
 
     stats_root = Path(args.stats)
     for chart in CHARTS:
-        svg  = generate_svg(chart, stats_root)
+        # Load bench data once per (chart, machine) pair; reuse for SVG
+        # rendering, title/subtitle, and the CLI summary below.
+        machine_cache = {
+            subdir: load_machine_data(chart, stats_root, subdir)
+            for subdir, *_ in MACHINES
+        }
+
+        svg  = generate_svg(chart, stats_root, machine_cache)
         out  = REPO / "assets" / chart["out"]
         out.write_text(svg)
         print(f"Wrote {out}")
         for subdir, *_ in MACHINES:
-            data = load_machine_data(chart, stats_root, subdir)
+            data = machine_cache.get(subdir)
             if data is None:
                 print(f"  {subdir}: no bench files, skipped")
                 continue

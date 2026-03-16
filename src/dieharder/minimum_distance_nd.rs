@@ -41,13 +41,15 @@ pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestRes
     let n_points = if quick { 500 } else { 8_000 };
     let repeats  = if quick {  20 } else {   100 };
 
+    // Flat point storage: coords[i * d + k] is coordinate k of point i.
+    // One contiguous allocation per repeat avoids n_points small heap objects
+    // and improves cache locality in the O(n²) distance scan.
+    let mut coords = vec![0.0f64; n_points * d];
     let mut p_values = Vec::with_capacity(repeats);
     for _ in 0..repeats {
-        let points: Vec<Vec<f64>> = (0..n_points)
-            .map(|_| (0..d).map(|_| rng.next_f64()).collect())
-            .collect();
+        for v in coords.iter_mut() { *v = rng.next_f64(); }
 
-        let mindist = min_dist_nd(&points, d);
+        let mindist = min_dist_nd(&coords, n_points, d);
 
         // Volume of a d-ball of radius mindist.
         let dvolume = ball_volume(mindist, d);
@@ -95,14 +97,17 @@ fn ball_volume(r: f64, d: usize) -> f64 {
 }
 
 /// Minimum Euclidean distance among all pairs of d-dimensional points.
-fn min_dist_nd(points: &[Vec<f64>], d: usize) -> f64 {
+///
+/// `coords` is a flat array with stride `d`: `coords[i*d + k]` is coordinate
+/// `k` of point `i`.  Contiguous layout keeps the O(n²) scan cache-friendly.
+fn min_dist_nd(coords: &[f64], n: usize, d: usize) -> f64 {
     let mut min_dist = f64::MAX;
-    for i in 0..points.len() {
-        for j in i + 1..points.len() {
-            let dist: f64 = (0..d)
-                .map(|k| (points[i][k] - points[j][k]).powi(2))
-                .sum::<f64>()
-                .sqrt();
+    for i in 0..n {
+        for j in i + 1..n {
+            let pi = &coords[i * d..(i + 1) * d];
+            let pj = &coords[j * d..(j + 1) * d];
+            let dist_sq: f64 = pi.iter().zip(pj).map(|(a, b)| (a - b).powi(2)).sum();
+            let dist = dist_sq.sqrt();
             if dist < min_dist { min_dist = dist; }
         }
     }
