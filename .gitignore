@@ -16,6 +16,9 @@ target
 # pilot-bench raw result directories
 pilot_result_*/
 
+# Local benchmark logs (kept locally, not committed)
+*.log
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
