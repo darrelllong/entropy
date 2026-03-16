@@ -148,15 +148,19 @@ impl DualEcDrbg {
 impl Rng for DualEcDrbg {
     /// Return the next 32-bit word, generating a new block when needed.
     fn next_u32(&mut self) -> u32 {
-        // Ensure at least 4 bytes are available.
-        while self.buf.len() - self.pos < 4 {
-            // Carry over any partial bytes into the next block's prefix.
-            let leftover: Vec<u8> = self.buf[self.pos..].to_vec();
-            self.generate_block();
-            // Prepend leftover before the new block.
-            let new_buf = [leftover, self.buf.clone()].concat();
-            self.buf = new_buf;
-            self.pos = 0;
+        let remaining = self.buf.len() - self.pos;
+        if remaining < 4 {
+            // Save the tail bytes (at most 3) without allocating, then
+            // generate a new block and assemble the output word across
+            // the old/new boundary.
+            let mut spill = [0u8; 3];
+            spill[..remaining].copy_from_slice(&self.buf[self.pos..]);
+            self.generate_block(); // resets self.buf and self.pos
+            let mut bytes = [0u8; 4];
+            bytes[..remaining].copy_from_slice(&spill[..remaining]);
+            bytes[remaining..].copy_from_slice(&self.buf[..4 - remaining]);
+            self.pos = 4 - remaining;
+            return u32::from_be_bytes(bytes);
         }
         let word = u32::from_be_bytes([
             self.buf[self.pos],
