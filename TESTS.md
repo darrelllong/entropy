@@ -122,7 +122,7 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 - **`spectral`.** Map bits to $\pm1$, take the DFT, and count how many Fourier
   magnitudes fall below the threshold $T=\sqrt{n\ln 20}$. With
-  $N_1=|\{k:|F_k|<T\}|$ and null expectation $N_0=0.95\,n/2$, the test forms a
+  $N_1=\lvert\{k:\lvert F_k\rvert<T\}\rvert$ and null expectation $N_0=0.95\,n/2$, the test forms a
   standardized deviation $d=(N_1-N_0)/\sqrt{n\cdot 0.95 \cdot 0.05/4}$ and
   reports $p=\mathrm{erfc}(|d|/\sqrt{2})$.
 
