@@ -29,11 +29,16 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
+use cryptography::{
+    Camellia128, Cast128, Grasshopper, Rabbit, Salsa20, Seed as SeedCipher,
+    Serpent128, Sm4, Snow3g, Twofish128, Zuc128,
+};
+use entropy::seed::sequential_bytes;
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
+    AesCtr, BlockCtrRng, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
     ConstantRng, CounterRng, CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg,
     Jsf64, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng,
-    Sfc64, SpongeBob, Squidward, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
     WindowsVb6Rnd, WyRand, Xoroshiro128StarStar, Xorshift32, Xorshift64,
     Xoshiro256StarStar,
 };
@@ -47,6 +52,12 @@ use std::thread;
 // cycles (J = √(2n/π) >> 500 minimum) for any non-degenerate generator.
 const NIST_N:    usize = 16_000_000;
 const DIEHARD_N: usize = 16_000_000;
+
+// Fixed test keys for cipher-based RNGs — sequential bytes, defined once.
+const K16: [u8; 16] = sequential_bytes();
+const K32: [u8; 32] = sequential_bytes();
+const IV8: [u8;  8] = sequential_bytes();
+const IV16:[u8; 16] = sequential_bytes();
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -222,6 +233,19 @@ fn make_runs(args: Args) -> Vec<RunFn> {
     run!("BBS (p=2³¹−1, q=4294967291)",  BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567));
     run!("Blum-Micali (p=2³¹−1, g=7)",   BlumMicali::new(2_147_483_647, 7, 42));
     run!("AES-128-CTR (NIST key)",        AesCtr::with_nist_key());
+    // Block-cipher CTR-mode RNGs (NIST SP 800-38A).  Keys are K16/K32.
+    run!("Camellia-128-CTR (key=00..0f)", BlockCtrRng::new(Camellia128::new(&K16), 0));
+    run!("Twofish-128-CTR (key=00..0f)",  BlockCtrRng::new(Twofish128::new(&K16), 0));
+    run!("Serpent-128-CTR (key=00..0f)",  BlockCtrRng::new(Serpent128::new(&K16), 0));
+    run!("SM4-CTR (key=00..0f)",          BlockCtrRng::new(Sm4::new(&K16), 0));
+    run!("Grasshopper-CTR (key=00..1f)",  BlockCtrRng::new(Grasshopper::new(&K32), 0));
+    run!("CAST-128-CTR (key=00..0f)",     BlockCtrRng::new(Cast128::new(&K16), 0));
+    run!("SEED-CTR (key=00..0f)",         BlockCtrRng::new(SeedCipher::new(&K16), 0));
+    // Stream-cipher RNGs.
+    run!("Rabbit (key=00..0f, iv=00..07)",   StreamRng::new(Rabbit::new(&K16, &IV8)));
+    run!("Salsa20 (key=00..1f, nonce=00..07)", StreamRng::new(Salsa20::new(&K32, &IV8)));
+    run!("Snow3G (key=00..0f, iv=00..0f)",   StreamRng::new(Snow3g::new(&K16, &IV16)));
+    run!("ZUC-128 (key=00..0f, iv=00..0f)", StreamRng::new(Zuc128::new(&K16, &IV16)));
     run!("SpongeBob (SHA3-512 chain, OsRng seed)",  SpongeBob::from_os_rng());
     run!("Squidward (SHA-256 chain, OsRng seed)",   Squidward::from_os_rng());
     run!("PCG32 (OsRng seed)",                      Pcg32::from_os_rng());

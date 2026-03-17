@@ -24,14 +24,25 @@
 use std::hint::black_box;
 use std::time::Instant;
 
+use cryptography::{
+    Camellia128, Cast128, Grasshopper, Rabbit, Salsa20, Seed as SeedCipher,
+    Serpent128, Sm4, Snow3g, Twofish128, Zuc128,
+};
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
+    AesCtr, BlockCtrRng, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
     ConstantRng, CounterRng, CryptoCtrDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32,
     LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64,
-    SpongeBob, Squidward, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
     WindowsVb6Rnd, WyRand, Xoroshiro128StarStar, Xorshift32, Xorshift64,
     Xoshiro256StarStar,
 };
+use entropy::seed::sequential_bytes;
+
+// Fixed test keys for cipher-based RNGs — sequential bytes, defined once.
+const K16: [u8; 16] = sequential_bytes();
+const K32: [u8; 32] = sequential_bytes();
+const IV8: [u8;  8] = sequential_bytes();
+const IV16:[u8; 16] = sequential_bytes();
 
 fn workload_words() -> u64 {
     std::env::var("PILOT_RNG_WORDS")
@@ -95,6 +106,28 @@ fn main() {
             measure(BlumMicali::new(2_147_483_647, 7, 42), n),
         "aes_ctr" =>
             measure(AesCtr::with_nist_key(), n),
+        "camellia_ctr" =>
+            measure(BlockCtrRng::new(Camellia128::new(&K16), 0), n),
+        "twofish_ctr" =>
+            measure(BlockCtrRng::new(Twofish128::new(&K16), 0), n),
+        "serpent_ctr" =>
+            measure(BlockCtrRng::new(Serpent128::new(&K16), 0), n),
+        "sm4_ctr" =>
+            measure(BlockCtrRng::new(Sm4::new(&K16), 0), n),
+        "grasshopper_ctr" =>
+            measure(BlockCtrRng::new(Grasshopper::new(&K32), 0), n),
+        "cast128_ctr" =>
+            measure(BlockCtrRng::new(Cast128::new(&K16), 0), n),
+        "seed_ctr" =>
+            measure(BlockCtrRng::new(SeedCipher::new(&K16), 0), n),
+        "rabbit" =>
+            measure(StreamRng::new(Rabbit::new(&K16, &IV8)), n),
+        "salsa20" =>
+            measure(StreamRng::new(Salsa20::new(&K32, &IV8)), n),
+        "snow3g" =>
+            measure(StreamRng::new(Snow3g::new(&K16, &IV16)), n),
+        "zuc128" =>
+            measure(StreamRng::new(Zuc128::new(&K16, &IV16)), n),
         "spongebob" =>
             measure(SpongeBob::with_test_seed(), n),
         "squidward" =>

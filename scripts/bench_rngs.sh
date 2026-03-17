@@ -112,6 +112,17 @@ measure lcg_minstd    "LCG MINSTD (seed=1)"                           10000000
 measure bbs           "BBS (p=2^31-1, q=4294967291)"                  10000000
 measure blum_micali   "Blum-Micali (p=2^31-1, g=7)"                       50000
 measure aes_ctr       "AES-128-CTR (NIST key)"                        10000000
+measure camellia_ctr  "Camellia-128-CTR (key=00..0f)"                 10000000
+measure twofish_ctr   "Twofish-128-CTR (key=00..0f)"                  10000000
+measure serpent_ctr   "Serpent-128-CTR (key=00..0f)"                  10000000
+measure sm4_ctr       "SM4-CTR (key=00..0f)"                          10000000
+measure grasshopper_ctr "Grasshopper-CTR (key=00..1f)"                10000000
+measure cast128_ctr   "CAST-128-CTR (key=00..0f)"                     10000000
+measure seed_ctr      "SEED-CTR (key=00..0f)"                         10000000
+measure rabbit        "Rabbit (key=00..0f, iv=00..07)"                10000000
+measure salsa20       "Salsa20 (key=00..1f, nonce=00..07)"            50000000
+measure snow3g        "Snow3G (key=00..0f, iv=00..0f)"                10000000
+measure zuc128        "ZUC-128 (key=00..0f, iv=00..0f)"               10000000
 measure spongebob     "SpongeBob (SHA3-512 chain, seed=00..3f)"        5000000
 measure squidward     "Squidward (SHA-256 chain, seed=00..1f)"        10000000
 measure pcg32         "PCG32 (seed=42, seq=54)"                       50000000

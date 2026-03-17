@@ -2,6 +2,8 @@
 
 pub mod aes_ctr;
 pub mod bad;
+pub mod block_ctr;
+pub mod stream_rng;
 pub mod blum_blum_shub;
 pub mod blum_micali;
 pub mod c_stdlib;
@@ -24,6 +26,8 @@ pub mod xoshiro;
 
 pub use aes_ctr::AesCtr;
 pub use bad::{ConstantRng, CounterRng};
+pub use block_ctr::BlockCtrRng;
+pub use stream_rng::StreamRng;
 pub use blum_blum_shub::BlumBlumShub;
 pub use blum_micali::BlumMicali;
 pub use c_stdlib::{
