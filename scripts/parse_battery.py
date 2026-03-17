@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Parse a run_tests battery log and regenerate TESTS.md.
+"""Parse a run_tests or run_all log and regenerate TESTS.md.
 
-Reads a log file produced by `run_tests` and rewrites the variable sections of
-TESTS.md — the header, summary table, and failure highlights — while preserving
-the hand-written "Theory By Test" section from the existing TESTS.md.
+Reads a log file produced by `run_tests` or `tests/run_all.sh` and rewrites the
+main-battery sections of TESTS.md — the header, summary table, and failure
+highlights — while preserving the hand-written "Theory By Test" section and
+refreshing "Auxiliary Probes" when that content is present in the log.
 
 Usage:
     python scripts/parse_battery.py LOG [--date DATE] [--host HOST]
                                         [--output PATH] [--dry-run]
 
 Arguments:
-    LOG             Path to the battery log file (e.g. /tmp/battery-16m.log).
+    LOG             Path to the battery log file (e.g. logs/run_all-darby.log).
 
 Options:
     --date DATE     Run date in YYYY-MM-DD form (default: today).
@@ -19,7 +20,9 @@ Options:
     --dry-run       Print the generated TESTS.md to stdout instead of writing.
 
 The "Theory By Test" section (## Theory By Test … ## Failure Highlights) is
-copied verbatim from the existing TESTS.md.  Everything else is regenerated.
+copied verbatim from the existing TESTS.md.  The auxiliary-probe section is
+regenerated from the input log when possible and otherwise preserved from the
+existing TESTS.md.  Everything else is regenerated.
 """
 
 import argparse
@@ -104,6 +107,9 @@ def parse_log(text: str) -> list[dict]:
             if m:
                 n_pass, n_fail, n_skip = int(m.group(1)), int(m.group(2)), int(m.group(3))
 
+        if summary is None:
+            continue
+
         blocks.append({
             "name":       name,
             "pass":       n_pass,
@@ -146,6 +152,37 @@ def extract_aux_section(tests_md: str) -> str:
     return ""
 
 
+def extract_aux_from_log(log_text: str, run_date: str, host: str) -> str:
+    """Return a regenerated auxiliary-probe section from a run_all or run_aux log."""
+    m = re.search(
+        r"(^={72}\n(?:bib_tests|upstream_tests|testu01_lz|webster_tavares|gorilla)\b.*?)(?=^Log saved to |\Z)",
+        log_text,
+        re.MULTILINE | re.DOTALL,
+    )
+    if not m:
+        return ""
+
+    probe_text = m.group(1).rstrip()
+    source = "tests/run_all.sh" if "run_tests  (NIST SP 800-22" in log_text else "tests/run_aux.sh"
+    intro = (
+        f"These probes are not part of `run_tests`; they are recorded separately here\n"
+        f"from `{source}` on `{host}` ({run_date})."
+    )
+    if source == "tests/run_aux.sh":
+        intro += "  `tests/run_all.sh` runs the main battery and these probes together."
+
+    return (
+        "## Auxiliary Probes\n\n"
+        f"{intro}\n\n"
+        "These probes exercise statistical properties not covered by the NIST/DIEHARD/DIEHARDER\n"
+        "battery.  They run with their default parameters; use the individual binaries for\n"
+        "filtered or resized runs.  All probes exit 0 (no crashes or panics).\n\n"
+        "```\n"
+        f"{probe_text}\n"
+        "```\n"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Markdown generators
 # ---------------------------------------------------------------------------
@@ -165,6 +202,13 @@ Command:
 ./target/release/run_tests
 ```
 
+Scope:
+
+This top section covers the standard `run_tests` battery only.  The Knuth,
+TestU01, PractRand, Webster-Tavares, and Gorilla probes are reported
+separately in `## Auxiliary Probes`; use `tests/run_all.sh` for the combined
+audit path or `tests/run_aux.sh` for the auxiliary suite alone.
+
 Notes:
 
 **Why result counts vary across generators.**
@@ -178,7 +222,7 @@ The battery has **{FULL_SLOTS} test slots** at this sample size:
   tests (`random_excursions` and `random_excursions_variant`) completed
   successfully (J ≥ {EXCURSION_J_MIN} zero-crossing cycles).  At {mbits} Mbit the expected
   cycle count is J ≈ {int(math.sqrt(2 * n_bits / math.pi))} (= √(2n/π)),
-  comfortably above the threshold for well-behaved generators.
+  which is comfortably above the threshold for well-behaved generators.
 
 - **{SKIPPED_SLOTS} results** — {EXCURSION_SKIP_SAVINGS} fewer slots than the full battery.  The excursion
   families normally emit {RE_STATES} + {REV_STATES} = {EXCURSION_TOTAL} individual per-state results; when the
@@ -308,11 +352,12 @@ def main() -> None:
     # Read existing TESTS.md for stable hand-written sections
     tests_path = Path(args.output)
     theory_section = ""
-    aux_section = ""
+    aux_section = extract_aux_from_log(log_text, args.date, args.host)
     if tests_path.exists():
         existing = tests_path.read_text()
         theory_section = extract_theory_section(existing)
-        aux_section = extract_aux_section(existing)
+        if not aux_section:
+            aux_section = extract_aux_section(existing)
 
     # Assemble new TESTS.md
     parts = [

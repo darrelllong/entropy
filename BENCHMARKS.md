@@ -13,8 +13,9 @@ To benchmark on a new machine:
 scripts/bench_rngs.sh --preset normal --machine <name>
 ```
 
-Results land in `stats/<name>/` and are picked up automatically by the radar
-chart and this table on the next regeneration.
+Results land in `stats/<name>/`.  On the next regeneration, this table uses
+any measured files it finds there, and the radar chart annotates fallback
+points if some benchmark files are still missing.
 
 ## Results
 
@@ -54,9 +55,9 @@ chart and this table on the next regeneration.
 | `Counter (0,1,2,...)` | 26300 | ±77.3 | 17630 | ±64.38 |
 
 The synthetic ceiling generators dominate raw throughput, so the visuals use
-normalized $\log_{10}(\text{MW/s})$ rather than a linear scale.  Each radar chart shows
-one polygon per machine (blue = Dyson, red = dmz.lan), with scales calibrated
-independently for each chart's throughput range.
+normalized $\log_{10}(\text{MW/s})$ rather than a linear scale.  Each radar
+chart shows one polygon per machine (blue for Dyson, red for dmz.lan).  The
+scales are calibrated independently for each chart's throughput range.
 
 **Fast / simulation generators** — scale anchored at sysv\_rand (441 MW/s) → $r=70$
 and WyRand (3120 MW/s) → $r=270$.  `mrand48` and `sysv_rand` are included as the
@@ -66,7 +67,7 @@ fastest of the "BAD" generators; being fast does not make them good.
 
 **Slow generators** — scale anchored at Blum-Micali (0.462 MW/s) → $r=70$
 and Squidward (240 MW/s) → $r=270$.  `FreeBSD rand_r` and `ANSI C LCG` land near
-ChaCha20 in throughput — nearly identical speed, opposite security.
+ChaCha20 in throughput: nearly identical speed, opposite security posture.
 
 ![Radar chart: slow generators](assets/benchmarks-radar-slow.svg)
 
