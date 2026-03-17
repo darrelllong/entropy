@@ -14,10 +14,7 @@
 use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 const ATTEMPTS: usize = 12_000;
-// NOTE: MEAN=3523 and SIGMA=21.9 are Marsaglia's published values for circular cars.
-// This implementation uses the L∞ (square car) collision criterion per Dieharder's
-// diehard_parking_lot.c. The compatibility of these constants with the square-car
-// geometry is assumed but not analytically verified.
+// Marsaglia's published values for circular unit-radius cars (Rényi, 1958).
 const MEAN: f64 = 3_523.0;
 const SIGMA: f64 = 21.9;
 
@@ -55,10 +52,12 @@ fn simulate(rng: &mut impl Rng) -> usize {
     for _ in 0..ATTEMPTS {
         let x = rng.next_f64() * 100.0;
         let y = rng.next_f64() * 100.0;
-        // DIEHARD uses square cars of side 1: no overlap iff max(|dx|,|dy|) ≥ 1 (L∞ ≥ 1).
-        let fits = cars
-            .iter()
-            .all(|&(cx, cy)| (cx - x).abs() >= 1.0 || (cy - y).abs() >= 1.0);
+        // Unit-radius circular cars: no overlap iff Euclidean distance ≥ 2.
+        let fits = cars.iter().all(|&(cx, cy)| {
+            let dx = cx - x;
+            let dy = cy - y;
+            dx * dx + dy * dy >= 4.0
+        });
         if fits {
             cars.push((x, y));
             parked += 1;

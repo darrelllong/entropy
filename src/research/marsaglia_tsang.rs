@@ -90,6 +90,9 @@ pub fn gorilla_all(words: &[u32]) -> Vec<GorillaBitResult> {
                 bit_position,
                 missing_words,
                 z_score,
+                // Upper-tail (one-sided) p-value per Marsaglia & Tsang (2002):
+                // the test targets generators with too many missing words (sparse
+                // coverage).  Over-uniform generators (z << 0) pass silently.
                 p_value: 1.0 - normal_cdf(z_score),
             }
         })
