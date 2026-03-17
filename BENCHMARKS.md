@@ -35,8 +35,6 @@ points if some benchmark files are still missing.
 | `BAD Windows .NET Random(seed=1) compat` | 428.4 | ±14.1 | 279.3 | ±1.142 |
 | `ANSI C sample LCG (seed=1)` | 186.7 | ±2.666 | 93.70 | ±0.124 |
 | `LCG MINSTD (seed=1)` | 171.6 | ±0.408 | 93.73 | ±0.169 |
-| `BBS (p=2^31-1, q=4294967291)` | 61.29 | ±0.312 | 38.53 | ±0.476 |
-| `Blum-Micali (p=2^31-1, g=7)` | 0.462 | ±0.002 | 0.197 | ±0.002 |
 | `AES-128-CTR (NIST key)` | 137.8 | ±1.404 | 63.55 | ±0.595 |
 | `Camellia-128-CTR (key=00..0f)` | 36.21 | ±0.077 | 23.58 | ±0.194 |
 | `Twofish-128-CTR (key=00..0f)` | 3.512 | ±0.030 | 1.328 | ±0.004 |
@@ -76,7 +74,7 @@ fastest of the "BAD" generators; being fast does not make them good.
 
 ![Radar chart: fast/simulation generators](assets/benchmarks-radar-fast.svg)
 
-**Slow generators** — scale anchored at Blum-Micali (0.462 MW/s) → $r=70$
+**Slow generators** — scale anchored at OsRng (1.191 MW/s) → $r=70$
 and Squidward (240 MW/s) → $r=270$.  `FreeBSD rand_r` and `ANSI C LCG` land near
 ChaCha20 in throughput: nearly identical speed, opposite security posture.
 

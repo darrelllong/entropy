@@ -101,8 +101,6 @@ The default runner compares several built-in generators, including:
 - historical weak Microsoft/Windows-family generators:
   CRT `rand()`, VB6/VBA `Rnd()`, and classic `.NET Random(seed)` compatibility
 - classic standalone LCG-style generators
-- Blum Blum Shub
-- Blum-Micali
 - AES-128-CTR as a deterministic keystream source
 - intentionally bad generators like a constant stream and a counter
 
