@@ -18,7 +18,7 @@
 //! # References
 //! * National Institute of Standards and Technology, "Secure Hash Standard
 //!   (SHS)," *FIPS PUB 180-4*, August 2015.
-//!   [SHA-256 specification]
+//!   [pubs/NIST-FIPS-180-4.pdf]
 //!
 //! # Author
 //! NIST (SHA-256 specification); Darrell Long (Rust implementation).

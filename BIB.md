@@ -220,9 +220,9 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   author      = {{National Institute of Standards and Technology}},
   title       = {Advanced Encryption Standard ({AES})},
   institution = {NIST},
-  number      = {FIPS PUB 197},
-  year        = {2001},
-  note        = {[TODO: local copy not in pubs/] AES block cipher specification.
+  number      = {FIPS PUB 197, Update 1},
+  year        = {2023},
+  note        = {[pubs/NIST-FIPS-197.pdf] AES block cipher specification.
                  Underlying cipher for AesCtr, BlockCtrRng<Aes>, and CryptoCtrDrbg.}
 }
 
@@ -232,7 +232,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   institution = {NIST},
   number      = {SP 800-38A},
   year        = {2001},
-  note        = {[TODO: local copy not in pubs/] §6.5 defines CTR mode used by
+  note        = {[pubs/NIST-SP-800-38A.pdf] §6.5 defines CTR mode used by
                  AesCtr and BlockCtrRng.}
 }
 
@@ -242,7 +242,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   institution = {NIST},
   number      = {FIPS PUB 180-4},
   year        = {2015},
-  note        = {[TODO: local copy not in pubs/] SHA-256 specification.
+  note        = {[pubs/NIST-FIPS-180-4.pdf] SHA-256 specification.
                  Used by Squidward hash-chain generator and Hash_DRBG.}
 }
 
@@ -253,7 +253,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   institution = {NIST},
   number      = {FIPS PUB 202},
   year        = {2015},
-  note        = {[TODO: local copy not in pubs/] SHA3-512 specification.
+  note        = {[pubs/NIST-FIPS-202.pdf] SHA3-512 specification.
                  Used by SpongeBob hash-chain generator.}
 }
 ```

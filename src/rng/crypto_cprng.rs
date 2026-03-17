@@ -11,8 +11,8 @@
 //!   *NIST SP 800-90A Rev. 1*, June 2015, §10.2 (CTR_DRBG).
 //!   [pubs/NIST-SP-800-90Ar1.pdf]
 //! * National Institute of Standards and Technology, "Advanced Encryption
-//!   Standard (AES)," *FIPS PUB 197*, November 2001.
-//!   [Block cipher used by CTR_DRBG]
+//!   Standard (AES)," *FIPS PUB 197 Update 1*, 2023.
+//!   [pubs/NIST-FIPS-197.pdf]
 //!
 //! # Author
 //! NIST (CTR_DRBG specification); Darrell Long (Rust adapter).
