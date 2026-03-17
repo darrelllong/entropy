@@ -2,10 +2,17 @@
 
 Throughput measured with `pilot-bench` `run_program --preset normal`.
 
-All results are in millions of 32-bit words per second (`MW/s`); 95% CI shown.
+All results are in millions of 32-bit words per second (`MW/s`); 90% CI shown.
 The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`) with FEAT_SHA2 and
 FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
-(`Linux x86_64`).
+(`Linux x86_64`).  The `moore` column is an AMD EPYC 7452 32-core (`Linux x86_64`,
+`moore.soe.ucsc.edu`).
+
+> **Note — Serpent-128-CTR on dmz:** Serpent is the only generator measured at
+> 80% CI on `dmz.lan` rather than 90%.  Its unrolled software AES-finalists
+> implementation is slow enough on that Core i5 that the normal-preset 90% CI
+> requires an impractical number of rounds; 80% CI is used as a pragmatic
+> compromise.  All other generators on all machines use 90% CI.
 
 To benchmark on a new machine:
 
