@@ -12,6 +12,18 @@
 //! - Implements the standard `HMAC_DRBG_Update` and `Generate` procedures
 //!   without additional input or explicit reseed (suitable for the test battery).
 //!
+//! # Reseed interval
+//! SP 800-90A §10.1.2 Table 2 specifies a reseed interval of 2⁴⁸ generate
+//! calls for 256-bit security strength.  This implementation tracks the call
+//! count and panics if the limit is reached; no automatic reseed is provided.
+//! In practice the test battery never approaches 2⁴⁸ calls.
+//!
+//! # Backtracking resistance
+//! This implementation provides **no backtracking resistance**.  Compromising
+//! the process memory at any point reveals K and V and allows full recovery of
+//! all past and future output since instantiation.  This is correct for a test
+//! harness; do not copy this design into applications requiring forward secrecy.
+//!
 //! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
 //! per block are used; mixing widths at a refill boundary silently discards
 //! up to 7 trailing bytes before refilling.
@@ -36,6 +48,8 @@ pub struct HmacDrbg {
     v: [u8; OUT],
     buf: [u8; OUT],
     offset: usize,
+    /// Generate-call counter; panics at 2⁴⁸ per SP 800-90A §10.1.2 Table 2.
+    reseed_counter: u64,
 }
 
 impl HmacDrbg {
@@ -53,17 +67,24 @@ impl HmacDrbg {
             v: [0x01u8; OUT],
             buf: [0u8; OUT],
             offset: OUT, // force refill on first use
+            reseed_counter: 1,
         };
         drbg_update(&mut drbg.k, &mut drbg.v, Some(&seed));
         drbg
     }
 
     fn refill(&mut self) {
+        // SP 800-90A §10.1.2.4 step 1: enforce reseed interval.
+        assert!(
+            self.reseed_counter < (1u64 << 48),
+            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.2 Table 2)"
+        );
         // Generate step: advance V, buffer it, then re-key per §10.1.2.4.
         let mac = hmac_sha256(&self.k, &self.v);
         self.v.copy_from_slice(&mac);
         self.buf = self.v;
         drbg_update(&mut self.k, &mut self.v, None);
+        self.reseed_counter += 1;
         self.offset = 0;
     }
 

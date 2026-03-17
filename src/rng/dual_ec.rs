@@ -107,6 +107,13 @@ impl DualEcDrbg {
 
     /// P-384 (secp384r1) with NIST SP 800-90 standard Q point.  outlen = 368 bits.
     ///
+    /// **BACKDOORED.** The P-384 Q point in SP 800-90 Appendix A.1 Table A-2
+    /// is from the same NSA-generated table as the P-256 Q point and is equally
+    /// suspect.  An adversary holding the discrete-log trapdoor scalar e where
+    /// Q = e·P can recover the full internal state from one output block.
+    /// Use this constructor only as a negative control.  Never use for key
+    /// material or any security-sensitive purpose.
+    ///
     /// Q coordinates from NIST SP 800-90 (June 2006), Appendix A.1, Table A-2.
     pub fn p384(seed: &[u8]) -> Self {
         let curve = cryptography::vt::p384();
@@ -121,6 +128,13 @@ impl DualEcDrbg {
     }
 
     /// P-521 (secp521r1) with NIST SP 800-90 standard Q point.  outlen = 504 bits.
+    ///
+    /// **BACKDOORED.** The P-521 Q point in SP 800-90 Appendix A.1 Table A-3
+    /// is from the same NSA-generated table as P-256 and P-384 and carries the
+    /// same discrete-log trapdoor risk.  An adversary holding the trapdoor can
+    /// recover the full internal state from one output block.
+    /// Use this constructor only as a negative control.  Never use for key
+    /// material or any security-sensitive purpose.
     ///
     /// Q coordinates from NIST SP 800-90 (June 2006), Appendix A.1, Table A-3.
     pub fn p521(seed: &[u8]) -> Self {

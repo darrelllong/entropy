@@ -52,6 +52,20 @@ pub use xoshiro::{Xoroshiro128, Xoshiro256};
 /// All tests consume bits or 32-bit words; the trait methods below are the
 /// only ones needed.  Blanket impls fill in the derived methods.
 ///
+/// ## Design note — no CSPRNG marker type
+///
+/// This trait is intentionally flat: every generator from `ConstantRng` to
+/// `ChaCha20Rng` implements the same `Rng`.  This is correct for a test
+/// harness whose job is to compare generators uniformly, but it means the
+/// **type system provides no barrier** against substituting a weak generator
+/// where a strong one is required.  Any function that accepts `impl Rng` will
+/// silently compile with `ConstantRng` or `SystemVRand`.
+///
+/// **Do not copy this design into production code.**  In an application,
+/// define a separate `CsprngRng: Rng` marker subtrait (or a newtype) and
+/// restrict security-sensitive functions to `impl CsprngRng` so that weak
+/// generators are rejected at compile time.
+///
 /// ## Byte and word ordering contract
 ///
 /// * **`next_u64` default** — assembles two `next_u32` calls with the *first*
@@ -80,7 +94,15 @@ pub trait Rng {
         ((self.next_u32() as u64) << 32) | (self.next_u32() as u64)
     }
 
-    /// Uniform float in \[0, 1) built from 32 bits.
+    /// Uniform float in \[0, 1) built from **32 bits** of the generator's output.
+    ///
+    /// This default always calls `next_u32`, even for generators that natively
+    /// produce 64-bit output (PCG64, Xoshiro256, ChaCha20Rng, etc.).  Those
+    /// generators' upper 32 bits are discarded, so `next_f64` never delivers
+    /// more than 2³² distinct values regardless of the underlying generator.
+    /// For the statistical tests in this crate (which use floats only for
+    /// p-value lookup) this is fine.  Do not use `next_f64` to sample
+    /// high-precision distributions from a 64-bit generator.
     fn next_f64(&mut self) -> f64 {
         self.next_u32() as f64 * (1.0 / 4_294_967_296.0)
     }
