@@ -82,6 +82,13 @@ ChaCha20 in throughput: nearly identical speed, opposite security posture.
 
 ![Radar chart: slow generators](assets/benchmarks-radar-slow.svg)
 
+**Cipher-based generators** — scale anchored at Serpent-CTR (2.86 MW/s) → $r=70$
+and Rabbit (352.6 MW/s) → $r=270$.  Includes both stream ciphers (Rabbit, Salsa20,
+Snow3G, ZUC-128) and block-CTR modes (AES through Serpent), showing the wide
+throughput spread across the cipher family.
+
+![Radar chart: cipher-based generators](assets/benchmarks-radar-cipher.svg)
+
 ## Generator Notes
 
 Neither throughput column **certifies quality or safety**. For that, see the
@@ -128,8 +135,7 @@ generators.
 
 This is the classic 15-bit libc LCG
 $x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{32}}$,
-with output
-$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
+with output `y = (x >> 16) & 0x7FFF`.
 It is historically important precisely because it is bad: tiny effective
 output width, linear structure, and easy predictability. It remains useful here
 as a negative control and compatibility target. The benchmark shows it is fast;
@@ -180,8 +186,7 @@ fails more often than the BSD/glibc additive family.
 
 This is the old MSVCRT/UCRT generator
 $x_{n+1} = 214013\times x_n + 2531011 \pmod{2^{32}}$,
-with output
-$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
+with output `y = (x >> 16) & 0x7FFF`.
 It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
 linearity, and trivial predictability. It is in the benchmark because it was
 widely deployed in real code, not because it deserves respect. See
@@ -237,6 +242,119 @@ repository it is used as a deterministic benchmark fixture, so the key is fixed
 for reproducibility, not secrecy. On Dyson (Apple M4) the 137.8 MW/s reflects
 hardware AES acceleration (ARMv8 `FEAT_AES`); the throughput will differ on
 x86 depending on AES-NI availability.
+
+### `Camellia-128-CTR (key=00..0f)`
+
+Camellia (NTT and Mitsubishi Electric, 2000) is a 128-bit block cipher with
+the same key sizes, block size, and security margin as AES.  It was a finalist
+in the NESSIE project and is specified in RFC 3713.  The structure is a
+Feistel network with 18 rounds for 128-bit keys plus six key-whitening
+operations (FL/FL$^{-1}$ layers every six rounds).  Without dedicated hardware
+acceleration, Camellia-128 runs at about 36 MW/s on Dyson — roughly one-quarter
+of AES-CTR speed — because the M4's `FEAT_AES` engine does not accelerate it.
+
+### `Twofish-128-CTR (key=00..0f)`
+
+Twofish (Schneier, Kelsey, Whiting, Wagner, Hall, Ferguson, 1998) is a 128-bit
+block cipher that was one of five AES finalists.  Its defining feature is
+key-dependent S-boxes: two of the four S-boxes are derived from the key
+material at setup, so encryption throughput is tightly coupled to how well
+those S-boxes fit in cache.  On Dyson the result is 3.5 MW/s — one of the
+slowest in the cipher suite — and on dmz (i5 with a smaller L1) it drops
+further to 1.3 MW/s.  Twofish's security margin is considered strong; its
+software speed is simply the price of its key schedule design.
+
+### `Serpent-128-CTR (key=00..0f)`
+
+Serpent (Anderson, Biham, and Knudsen, 1998) was the AES finalist with the
+widest security margin: 32 rounds versus AES's 10.  Each round is a simple
+SP-network over eight 4-bit S-boxes, which is fast in hardware but expensive
+in software because it requires 32 iterations of bitsliced operations.  At
+2.9 MW/s on Dyson and 1.1 MW/s on dmz it is the slowest block cipher in
+the suite; the benchmark reflects the deliberate design choice to prioritise
+safety margin over speed.
+
+### `SM4-CTR (key=00..0f)`
+
+SM4 (Chinese national standard GB/T 32907-2016) is a 128-bit block cipher
+mandated for use in Chinese government and financial systems and standardised
+for WLAN security under the WAPI amendment to 802.11.  It uses a 32-round
+Feistel structure with a single 8-bit S-box and 32-bit linear diffusion,
+closely paralleling AES in structure though with different design constants.
+The 47 MW/s on Dyson reflects pure software execution; there is no ARMv8
+extension for SM4 acceleration on the M4 at time of measurement.
+
+### `Grasshopper-CTR (key=00..1f)`
+
+Grasshopper (Russian: Кузнечик, "Kuznyechik", GOST R 34.12-2015) is the
+Russian national 128-bit block cipher, adopted in 2015 as part of the GOST
+standard family.  It uses a 256-bit key, ten rounds of an SP-network with a
+single 8-bit S-box and a linear transform over GF(2)$^{128}$, and was designed
+as a replacement for GOST 28147-89 (Magma).  The 6.7 MW/s on Dyson and
+3.9 MW/s on dmz reflect a pure software implementation; like SM4, there is
+no hardware acceleration path available on current ARMv8 or x86 platforms.
+
+### `CAST-128-CTR (key=00..0f)`
+
+CAST-128 (Carlisle Adams and Stafford Tavares, 1996) is a 64-bit block cipher
+with key sizes from 40 to 128 bits, specified in RFC 2144.  It is the cipher
+used by default in PGP 2.x and GnuPG, and it was included in early versions of
+SSH and many other widely deployed protocols.  The structure is a 16-round
+Feistel network with three rotating S-box types.  At 59.5 MW/s on Dyson it is
+the fastest block-CTR cipher in the suite after AES — its 64-bit block means
+twice as many encryptions per megaword, but each encryption is cheap.
+
+### `SEED-CTR (key=00..0f)`
+
+SEED (Korean Information Security Agency / TTAS.KO-12.0004, 1998) is the South
+Korean national 128-bit block cipher, developed after the Korean government
+declined to license RC5 for domestic deployment.  It is a 16-round Feistel
+cipher with a 128-bit block and 128-bit key; it has been mandated in Korean
+banking and e-government applications since 1999.  The 18.5 MW/s on Dyson
+reflects its software implementation; like CAST-128, no hardware acceleration
+path exists for it on current platforms.
+
+### `Rabbit (key=00..0f, iv=00..07)`
+
+Rabbit (Boesgaard, Vesterager, Pedersen, Christiansen, and Scavenius, 2003)
+is a stream cipher submitted to eSTREAM and selected for the software portfolio
+in Phase 3.  The state is eight 32-bit counters driven by a coupled iteration
+$x_{j,i+1} = (x_{j,i} + \phi_j(g_{j,i})) \bmod 2^{32}$, where the
+$g$-function provides nonlinearity and $\phi_j$ are precomputed rotation
+constants.  Output is 16 bytes per round by XOR'ing paired state words.  At
+352.6 MW/s on Dyson it is the fastest cipher in the suite by a wide margin
+because its 128-bit integer operations map directly onto SIMD lanes.
+
+### `Salsa20 (key=00..1f, nonce=00..07)`
+
+Salsa20 (Bernstein, 2007) is an eSTREAM winner and the predecessor of ChaCha20.
+The core is a 20-round ARX (add-rotate-XOR) hash of a 512-bit state consisting
+of four constant words, eight key words, two counter words, and two nonce
+words.  Unlike ChaCha20, Salsa20 indexes its input words in a diagonal rather
+than columnar pattern.  At 201 MW/s on Dyson it runs faster than ChaCha20
+(171 MW/s) in this harness because the harness wraps it as a `StreamRng`
+(buffered byte stream) rather than as a DRBG with nonce management overhead.
+
+### `Snow3G (key=00..0f, iv=00..0f)`
+
+Snow3G (ETSI SAGE, 3GPP TS 35.216, 2006) is the stream cipher underlying the
+3GPP f8 (confidentiality) and f9 (integrity) algorithms used in UMTS and the
+GSMA's Milenage suite.  The generator combines a 32-stage linear feedback
+shift register over GF(2$^{32}$) with a finite state machine whose output
+function uses two 8-bit S-boxes derived from AES.  Key and IV are both 128 bits.
+At 136 MW/s on Dyson it runs at roughly AES-CTR speed, reflecting its single
+pass of finite-field arithmetic per 32-bit output word.
+
+### `ZUC-128 (key=00..0f, iv=00..0f)`
+
+ZUC ("Zu Chongzhi", 3GPP TS 35.221, 2011) is the Chinese stream cipher that
+underlies the 3GPP 128-EEA3 (confidentiality) and 128-EIA3 (integrity)
+algorithms used in LTE and 5G.  It drives a 16-stage LFSR over
+GF(2$^{31}$−1), feeds the output through a bit-reorganisation layer and a
+nonlinear function F with two 32-bit internal registers and four 8-bit S-boxes,
+and produces 32 output bits per clock.  At 142 MW/s on Dyson and 71.6 MW/s on
+dmz it is close to Snow3G, consistent with the similar LFSR-plus-NLF
+architecture.
 
 ### `SpongeBob (SHA3-512 chain, seed=00..3f)`
 
