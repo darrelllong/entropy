@@ -252,37 +252,31 @@ def gen_summary_table(blocks: list[dict]) -> str:
     return "\n".join(rows) + "\n"
 
 
-def _fail_section(b: dict) -> str:
-    name = b["name"]
-    n_fail = b["fail"]
-    n_total = b["total"]
-    lines = [f"### {name}\n",
-             f"- `{n_fail}` failure{'s' if n_fail != 1 else ''} out of `{n_total}` tests:"]
-    for fl in b["fail_lines"]:
-        # Extract test name and p-value for a tidy bullet
-        m = re.match(r"(\S+)\s+p\s*=\s*([\d.e+-]+)\s+\((.*)\)", fl)
-        if m:
-            tname, pval, detail = m.group(1), m.group(2), m.group(3)
-            lines.append(f"  - `{tname}`: p = {pval}  ({detail})")
-        else:
-            lines.append(f"  - {fl}")
-    return "\n".join(lines) + "\n"
-
-
 def gen_failure_highlights(blocks: list[dict]) -> str:
-    parts = ["## Failure Highlights\n"]
-    # Degenerate generators (Constant, Counter) — note briefly
+    """One bullet per failing generator: FAIL/TOTAL and collapsed test-family counts."""
+    lines = ["## Failure Highlights\n",
+             "One line per generator.  Test-family repetition counts in parentheses.\n"]
     degenerate_keywords = {"Constant", "Counter"}
     for b in blocks:
         if b["fail"] == 0:
             continue
         first_word = b["name"].split()[0]
         if first_word in degenerate_keywords:
-            parts.append(f"### {b['name']}\n\n"
-                         f"- `{b['fail']}/{b['total']}` failures — expected for a degenerate generator.\n")
-        else:
-            parts.append(_fail_section(b))
-    return "\n".join(parts)
+            lines.append(f"- **{b['name']}**: {b['fail']}/{b['total']}"
+                         " — expected for degenerate generator.")
+            continue
+        # Collapse repeated test names into counts.
+        name_counts: dict[str, int] = {}
+        for fl in b["fail_lines"]:
+            m = re.match(r"(\S+)\s+p\s*=", fl)
+            tname = m.group(1) if m else fl.split()[0]
+            name_counts[tname] = name_counts.get(tname, 0) + 1
+        detail = ", ".join(
+            f"`{t}` (×{n})" if n > 1 else f"`{t}`"
+            for t, n in sorted(name_counts.items())
+        )
+        lines.append(f"- **{b['name']}**: {b['fail']}/{b['total']} — {detail}")
+    return "\n".join(lines) + "\n"
 
 
 def gen_bottom_line(blocks: list[dict]) -> str:
