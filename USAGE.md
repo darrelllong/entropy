@@ -103,11 +103,9 @@ non-random sequences. They must fail every test. Use them as negative controls.
 | `Lcg32::new(LcgVariant::Borland, seed)` | Borland C++ `rand()`: a=22695477, c=1, m=2³²; returns `(state >> 16) & 0x7FFF` (15 bits) |
 | `SystemVRand`, `Rand48`, `BsdRandom`, `LinuxLibcRandom`, `BsdRandCompat` | Historical Unix libc variants; various short periods and low-bit weaknesses |
 | `WindowsMsvcRand`, `WindowsVb6Rnd`, `WindowsDotNetRandom` | Historical Windows-family generators; included as negative controls |
-| `Mt19937` | Matsumoto–Nishimura 1998; 624-word state, period 2¹⁹⁹³⁷−1; passes DIEHARD but fails linear-complexity tests. **The full state is recoverable from 624 consecutive 32-bit outputs.** |
-
-**Seeding note.** The internal state of every LCG variant and MT19937 is
-trivially recoverable from a short output window. Never use any of these for
-key derivation, nonce generation, or any purpose where an adversary may observe
+**Seeding note.** The internal state of every LCG variant is trivially
+recoverable from a short output window. Never use any of these for key
+derivation, nonce generation, or any purpose where an adversary may observe
 output.
 
 ---
@@ -128,6 +126,7 @@ experiment assignments in adversarial environments.
 
 | Type | Construction | State |
 |------|-------------|-------|
+| `Mt19937`             | `Mt19937::new(seed)`              | 19968 bits |
 | `WyRand`              | `WyRand::from_os_rng()`           | 64 bits |
 | `Sfc64`               | `Sfc64::from_os_rng()`            | 256 bits |
 | `Jsf64`               | `Jsf64::from_os_rng()`            | 256 bits |
@@ -141,6 +140,13 @@ The `from_os_rng()` constructors draw seed bytes from `/dev/urandom` via
 `OsRng`. All small-state generators (≤128 bits) are vulnerable to
 birthday-bound state collisions for very long outputs; prefer Xoshiro256 or
 SFC64 when output lengths exceed a few billion words.
+
+`Mt19937` has a period of 2¹⁹⁹³⁷−1 and passes DIEHARD; it is the default
+generator in NumPy, MATLAB, and R and is well-suited for scientific simulation.
+Its one limitation is a security property unrelated to simulation quality:
+**the full 624-word state is recoverable from 624 consecutive 32-bit outputs**,
+so it must not be used in any context where an adversary can observe output and
+benefit from predicting future values.
 
 ---
 
