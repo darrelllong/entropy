@@ -92,7 +92,7 @@ Full log: [logs/run_all-darby-20260316-192756.log](logs/run_all-darby-20260316-1
 | JSF64 (OsRng seed) | 738 | 733 | 5 | 0 |
 | ChaCha20 CSPRNG (OsRng key) | 738 | 728 | 10 | 0 |
 | HMAC_DRBG SHA-256 (OsRng seed) | 738 | 735 | 3 | 0 |
-| Hash_DRBG SHA-256 (OsRng seed) | 738 | 730 | 8 | 0 |
+| Hash_DRBG SHA-256 (OsRng seed) | 738 | 733 | 5 | 0 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 714 | 704 | 8 | 2 |
 | Constant (0xDEAD_DEAD) | 714 | 1 | 711 | 2 |
 | Counter (0,1,2,…) | 714 | 2 | 710 | 2 |
@@ -522,7 +522,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **JSF64 (OsRng seed)**: 5/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
 - **ChaCha20 CSPRNG (OsRng key)**: 10/738 — `dieharder::bit_distribution` (×4), `dieharder::gcd_step_counts`, `nist::non_overlapping_template` (×5)
 - **HMAC_DRBG SHA-256 (OsRng seed)**: 3/738 — `dieharder::bit_distribution` (×2), `maurer::universal_l07`
-- **Hash_DRBG SHA-256 (OsRng seed)**: 8/738 — `diehard::craps_wins`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×5)
+- **Hash_DRBG SHA-256 (OsRng seed)**: 5/738 — `nist::non_overlapping_template` (×1), `nist::random_excursions_variant` (×1), `dieharder::bit_distribution` (×3)
 - **cryptography::CtrDrbgAes256 (seed=00..2f)**: 8/714 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5)
 - **Constant (0xDEAD_DEAD)**: 711/714 — expected for degenerate generator.
 - **Counter (0,1,2,…)**: 710/714 — expected for degenerate generator.

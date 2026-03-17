@@ -1,9 +1,9 @@
 //! DIEHARD Test 10 — Parking Lot Test.
 //!
-//! Tries to park 12 000 unit-radius "cars" (circles) in a 100×100 square.
+//! Tries to park 12 000 unit-side "cars" (squares, L∞ criterion) in a 100×100 square.
 //! A new car is placed at a random (x,y) location; it is rejected if it
-//! overlaps any previously parked car.  The number of cars successfully
-//! parked should be approximately normal with mean = 3 523, σ = 21.9.
+//! overlaps any previously parked car (max(|Δx|,|Δy|) < 1).  The number of
+//! cars successfully parked is approximately normal with mean = 3 523, σ = 21.9.
 //!
 //! The test repeats 10 times; the 10 resulting z-scores are converted to
 //! p-values and tested with a Kolmogorov-Smirnov test.
@@ -14,7 +14,10 @@
 use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 const ATTEMPTS: usize = 12_000;
-// Marsaglia's published values for circular unit-radius cars (Rényi, 1958).
+// Marsaglia's empirically derived constants for the L∞ square-car criterion
+// used in Dieharder's diehard_parking_lot.c.  The doc comment "unit-radius"
+// is Marsaglia's informal description; the actual collision test is L∞ ≥ 1
+// (square cars of side 1), not Euclidean distance ≥ 2.
 const MEAN: f64 = 3_523.0;
 const SIGMA: f64 = 21.9;
 
@@ -52,12 +55,10 @@ fn simulate(rng: &mut impl Rng) -> usize {
     for _ in 0..ATTEMPTS {
         let x = rng.next_f64() * 100.0;
         let y = rng.next_f64() * 100.0;
-        // Unit-radius circular cars: no overlap iff Euclidean distance ≥ 2.
-        let fits = cars.iter().all(|&(cx, cy)| {
-            let dx = cx - x;
-            let dy = cy - y;
-            dx * dx + dy * dy >= 4.0
-        });
+        // L∞ collision criterion: no overlap iff max(|dx|, |dy|) ≥ 1 (square cars of side 1).
+        let fits = cars
+            .iter()
+            .all(|&(cx, cy)| (cx - x).abs() >= 1.0 || (cy - y).abs() >= 1.0);
         if fits {
             cars.push((x, y));
             parked += 1;
