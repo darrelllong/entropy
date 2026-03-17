@@ -27,15 +27,19 @@ const CHUNK: usize = 64;
 /// advances automatically as chunks are consumed.
 pub struct StreamRng<C: StreamCipher> {
     cipher: C,
-    buf:    [u8; CHUNK],
-    pos:    usize,
+    buf: [u8; CHUNK],
+    pos: usize,
 }
 
 impl<C: StreamCipher> StreamRng<C> {
     /// Wrap an already-initialised stream cipher.
     pub fn new(cipher: C) -> Self {
         // pos == CHUNK forces a refill on the first next_u32() call.
-        Self { cipher, buf: [0u8; CHUNK], pos: CHUNK }
+        Self {
+            cipher,
+            buf: [0u8; CHUNK],
+            pos: CHUNK,
+        }
     }
 
     fn refill(&mut self) {
@@ -51,9 +55,7 @@ impl<C: StreamCipher> Rng for StreamRng<C> {
         if self.pos + 4 > CHUNK {
             self.refill();
         }
-        let w = u32::from_le_bytes(
-            self.buf[self.pos..self.pos + 4].try_into().unwrap(),
-        );
+        let w = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into().unwrap());
         self.pos += 4;
         w
     }
@@ -62,9 +64,7 @@ impl<C: StreamCipher> Rng for StreamRng<C> {
         if self.pos + 8 > CHUNK {
             self.refill();
         }
-        let w = u64::from_le_bytes(
-            self.buf[self.pos..self.pos + 8].try_into().unwrap(),
-        );
+        let w = u64::from_le_bytes(self.buf[self.pos..self.pos + 8].try_into().unwrap());
         self.pos += 8;
         w
     }
@@ -77,8 +77,8 @@ mod tests {
 
     #[test]
     fn stream_rng_non_constant() {
-        let key  = [0u8; 16];
-        let iv   = [0u8; 8];
+        let key = [0u8; 16];
+        let iv = [0u8; 8];
         let mut rng = StreamRng::new(Rabbit::new(&key, &iv));
         let v: u64 = (0..8).map(|_| rng.next_u64()).fold(0, |a, b| a | b);
         assert_ne!(v, 0, "Rabbit keystream should be non-zero");
@@ -86,8 +86,8 @@ mod tests {
 
     #[test]
     fn stream_rng_advances() {
-        let key  = [0u8; 16];
-        let iv   = [0u8; 8];
+        let key = [0u8; 16];
+        let iv = [0u8; 8];
         let mut rng = StreamRng::new(Rabbit::new(&key, &iv));
         let a = rng.next_u64();
         let b = rng.next_u64();
@@ -96,11 +96,13 @@ mod tests {
 
     #[test]
     fn stream_rng_crosses_chunk_boundary() {
-        let key  = [0u8; 16];
-        let iv   = [0u8; 8];
+        let key = [0u8; 16];
+        let iv = [0u8; 8];
         let mut rng = StreamRng::new(Rabbit::new(&key, &iv));
         // Drain 15 u32s (60 bytes) then read a u32 that spans the boundary.
-        for _ in 0..15 { let _ = rng.next_u32(); }
+        for _ in 0..15 {
+            let _ = rng.next_u32();
+        }
         let _ = rng.next_u32(); // triggers refill
     }
 }

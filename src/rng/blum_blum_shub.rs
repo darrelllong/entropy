@@ -24,11 +24,14 @@
 //! # Author
 //! Darrell Long (UC Santa Cruz).
 
-use super::{primes::{is_probable_prime, mul_mod}, Rng};
+use super::{
+    primes::{is_probable_prime, mul_mod},
+    Rng,
+};
 
 /// Blum-Blum-Shub over a 64-bit modulus (32-bit Blum prime factors).
 pub struct BlumBlumShub {
-    n:     u64,
+    n: u64,
     state: u64,
 }
 
@@ -53,7 +56,10 @@ impl BlumBlumShub {
         let n = p64.checked_mul(q64).expect("modulus overflow");
         assert!(seed > 1 && seed < n, "seed must be in (1, n)");
         // gcd check: seed is coprime to n iff not divisible by p or q.
-        assert!(seed % p64 != 0 && seed % q64 != 0, "seed must be coprime to n");
+        assert!(
+            !seed.is_multiple_of(p64) && !seed.is_multiple_of(q64),
+            "seed must be coprime to n"
+        );
         // Initial state: x₀ = seed² mod n.
         let state = mul_mod(seed, seed, n);
         Self { n, state }
@@ -61,7 +67,9 @@ impl BlumBlumShub {
 
     /// Current state xᵢ.
     #[must_use]
-    pub fn state(&self) -> u64 { self.state }
+    pub fn state(&self) -> u64 {
+        self.state
+    }
 }
 
 impl Rng for BlumBlumShub {

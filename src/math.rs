@@ -29,7 +29,11 @@ pub fn erfc(x: f64) -> f64 {
         + t * (-0.82215223
         + t * 0.17087294))))))))
     ).exp() * t;
-    if x >= 0.0 { y } else { 2.0 - y }
+    if x >= 0.0 {
+        y
+    } else {
+        2.0 - y
+    }
 }
 
 /// Standard normal CDF, Φ(x) = P(Z ≤ x) for Z ~ N(0,1).
@@ -341,10 +345,13 @@ pub fn dft_magnitudes(x: &[f64]) -> Vec<f64> {
     let two_pi_over_n = 2.0 * PI / n as f64;
     (0..n)
         .map(|k| {
-            let (re, im) = x.iter().enumerate().fold((0.0_f64, 0.0_f64), |(re, im), (j, &xj)| {
-                let angle = two_pi_over_n * (k * j) as f64;
-                (re + xj * angle.cos(), im - xj * angle.sin())
-            });
+            let (re, im) = x
+                .iter()
+                .enumerate()
+                .fold((0.0_f64, 0.0_f64), |(re, im), (j, &xj)| {
+                    let angle = two_pi_over_n * (k * j) as f64;
+                    (re + xj * angle.cos(), im - xj * angle.sin())
+                });
             (re * re + im * im).sqrt()
         })
         .collect()
@@ -371,9 +378,9 @@ pub fn gf2_rank(matrix: &[u32], rows: usize, cols: usize) -> usize {
             m.swap(pivot_row, r);
             rank += 1;
             let pivot = m[pivot_row];
-            for r in 0..rows {
-                if r != pivot_row && (m[r] >> col) & 1 == 1 {
-                    m[r] ^= pivot;
+            for (r, row) in m.iter_mut().enumerate().take(rows) {
+                if r != pivot_row && (*row >> col) & 1 == 1 {
+                    *row ^= pivot;
                 }
             }
             pivot_row += 1;

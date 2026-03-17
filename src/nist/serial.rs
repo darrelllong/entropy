@@ -57,7 +57,7 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
         ];
     }
 
-    let psi_m  = psi_sq(bits, m,     n);
+    let psi_m = psi_sq(bits, m, n);
     let psi_m1 = psi_sq(bits, m - 1, n);
     let psi_m2 = if m >= 2 { psi_sq(bits, m - 2, n) } else { 0.0 };
 

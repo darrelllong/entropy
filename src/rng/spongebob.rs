@@ -28,7 +28,7 @@ const STATE_BYTES: usize = 64;
 /// SHA3-512 hash-chain generator.
 #[derive(Clone, Debug)]
 pub struct SpongeBob {
-    state:  [u8; STATE_BYTES],
+    state: [u8; STATE_BYTES],
     offset: usize,
 }
 
@@ -36,7 +36,10 @@ impl SpongeBob {
     /// Construct from arbitrary-length seed bytes.
     #[must_use]
     pub fn from_seed(seed: &[u8]) -> Self {
-        Self { state: Sha3_512::digest(seed), offset: 0 }
+        Self {
+            state: Sha3_512::digest(seed),
+            offset: 0,
+        }
     }
 
     /// Construct with optional seed; `None` draws from OsRng.
@@ -44,7 +47,7 @@ impl SpongeBob {
     pub fn new(seed: Option<&[u8]>) -> Self {
         match seed {
             Some(s) => Self::from_seed(s),
-            None    => Self::from_os_rng(),
+            None => Self::from_os_rng(),
         }
     }
 
@@ -67,7 +70,7 @@ impl SpongeBob {
     }
 
     fn refill(&mut self) {
-        self.state  = Sha3_512::digest(&self.state);
+        self.state = Sha3_512::digest(&self.state);
         self.offset = 0;
     }
 
@@ -84,12 +87,18 @@ impl SpongeBob {
 }
 
 impl Default for SpongeBob {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for SpongeBob {
-    fn next_u32(&mut self) -> u32 { u32::from_le_bytes(self.take_bytes::<4>()) }
-    fn next_u64(&mut self) -> u64 { u64::from_le_bytes(self.take_bytes::<8>()) }
+    fn next_u32(&mut self) -> u32 {
+        u32::from_le_bytes(self.take_bytes::<4>())
+    }
+    fn next_u64(&mut self) -> u64 {
+        u64::from_le_bytes(self.take_bytes::<8>())
+    }
 }
 
 #[cfg(test)]
@@ -112,7 +121,10 @@ mod tests {
         let x0 = Sha3_512::digest(seed);
         let mut rng = SpongeBob::from_seed(seed);
         for chunk in x0.chunks_exact(8) {
-            assert_eq!(rng.next_u64(), u64::from_le_bytes(chunk.try_into().unwrap()));
+            assert_eq!(
+                rng.next_u64(),
+                u64::from_le_bytes(chunk.try_into().unwrap())
+            );
         }
     }
 
@@ -122,7 +134,9 @@ mod tests {
         let x0 = Sha3_512::digest(seed);
         let x1 = Sha3_512::digest(&x0);
         let mut rng = SpongeBob::from_seed(seed);
-        for _ in 0..8 { let _ = rng.next_u64(); }
+        for _ in 0..8 {
+            let _ = rng.next_u64();
+        }
         assert_eq!(
             rng.next_u64(),
             u64::from_le_bytes(x1[0..8].try_into().unwrap())

@@ -29,7 +29,7 @@ const PCG32_MULT: u64 = 6_364_136_223_846_793_005;
 /// Period: 2⁶⁴.  Two independent streams via the `seq` parameter.
 pub struct Pcg32 {
     state: u64,
-    inc:   u64,   // must be odd; encodes stream selection
+    inc: u64, // must be odd; encodes stream selection
 }
 
 impl Pcg32 {
@@ -69,11 +69,15 @@ impl Pcg32 {
 }
 
 impl Default for Pcg32 {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for Pcg32 {
-    fn next_u32(&mut self) -> u32 { self.step() }
+    fn next_u32(&mut self) -> u32 {
+        self.step()
+    }
 }
 
 // ── PCG64 (128-bit LCG, XSL-RR output → 64 bits) ────────────────────────────
@@ -86,7 +90,7 @@ const PCG64_MULT: u128 = 47_026_247_687_942_121_848_144_207_491_837_523_525;
 /// Period: 2¹²⁸.  Two independent streams via the `seq` parameter.
 pub struct Pcg64 {
     state: u128,
-    inc:   u128,
+    inc: u128,
 }
 
 impl Pcg64 {
@@ -122,12 +126,18 @@ impl Pcg64 {
 }
 
 impl Default for Pcg64 {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for Pcg64 {
-    fn next_u32(&mut self) -> u32 { (self.step() >> 32) as u32 }
-    fn next_u64(&mut self) -> u64 { self.step() }
+    fn next_u32(&mut self) -> u32 {
+        (self.step() >> 32) as u32
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.step()
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

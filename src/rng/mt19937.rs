@@ -18,7 +18,7 @@ const LOWER_MASK: u32 = 0x7FFF_FFFF;
 
 /// MT19937 32-bit Mersenne Twister.
 pub struct Mt19937 {
-    mt:  [u32; N],
+    mt: [u32; N],
     idx: usize,
 }
 
@@ -33,14 +33,18 @@ impl Mt19937 {
                 .wrapping_add(i as u32);
         }
         let mut rng = Self { mt, idx: N };
-        rng.generate();   // pre-twist so the first output is fully conditioned
+        rng.generate(); // pre-twist so the first output is fully conditioned
         rng
     }
 
     fn generate(&mut self) {
         for i in 0..N {
             let x = (self.mt[i] & UPPER_MASK) | (self.mt[(i + 1) % N] & LOWER_MASK);
-            let xa = if x & 1 == 0 { x >> 1 } else { (x >> 1) ^ MATRIX_A };
+            let xa = if x & 1 == 0 {
+                x >> 1
+            } else {
+                (x >> 1) ^ MATRIX_A
+            };
             self.mt[i] = self.mt[(i + M) % N] ^ xa;
         }
         self.idx = 0;
@@ -56,7 +60,7 @@ impl Rng for Mt19937 {
         self.idx += 1;
         // Tempering
         y ^= y >> 11;
-        y ^= (y << 7)  & 0x9D2C_5680;
+        y ^= (y << 7) & 0x9D2C_5680;
         y ^= (y << 15) & 0xEFC6_0000;
         y ^= y >> 18;
         y

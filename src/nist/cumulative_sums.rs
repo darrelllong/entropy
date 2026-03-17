@@ -31,7 +31,10 @@ fn cusum(bits: &[u8], reverse: bool, name: &'static str) -> TestResult {
     }
 
     let seq: Vec<i64> = if reverse {
-        bits.iter().rev().map(|&b| if b == 1 { 1 } else { -1 }).collect()
+        bits.iter()
+            .rev()
+            .map(|&b| if b == 1 { 1 } else { -1 })
+            .collect()
     } else {
         bits.iter().map(|&b| if b == 1 { 1 } else { -1 }).collect()
     };
@@ -64,8 +67,7 @@ fn cusum_pvalue(z: f64, n: usize) -> f64 {
     let sum1: f64 = (k1_lo..=k1_hi)
         .map(|k| {
             let kf = k as f64;
-            normal_cdf((4.0 * kf + 1.0) * z / sqrt_n)
-                - normal_cdf((4.0 * kf - 1.0) * z / sqrt_n)
+            normal_cdf((4.0 * kf + 1.0) * z / sqrt_n) - normal_cdf((4.0 * kf - 1.0) * z / sqrt_n)
         })
         .sum();
 
@@ -76,8 +78,7 @@ fn cusum_pvalue(z: f64, n: usize) -> f64 {
     let sum2: f64 = (k2_lo..=k2_hi)
         .map(|k| {
             let kf = k as f64;
-            normal_cdf((4.0 * kf + 3.0) * z / sqrt_n)
-                - normal_cdf((4.0 * kf + 1.0) * z / sqrt_n)
+            normal_cdf((4.0 * kf + 3.0) * z / sqrt_n) - normal_cdf((4.0 * kf + 1.0) * z / sqrt_n)
         })
         .sum();
 

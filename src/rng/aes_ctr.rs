@@ -47,16 +47,28 @@ const SBOX: [u8; 256] = [
 
 /// Key schedule round constants — FIPS 197, § 5.2.
 const RCON: [u32; 10] = [
-    0x0100_0000, 0x0200_0000, 0x0400_0000, 0x0800_0000, 0x1000_0000,
-    0x2000_0000, 0x4000_0000, 0x8000_0000, 0x1b00_0000, 0x3600_0000,
+    0x0100_0000,
+    0x0200_0000,
+    0x0400_0000,
+    0x0800_0000,
+    0x1000_0000,
+    0x2000_0000,
+    0x4000_0000,
+    0x8000_0000,
+    0x1b00_0000,
+    0x3600_0000,
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GF(2⁸) arithmetic helpers — used only at compile time to build T-tables.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const fn xtime(a: u8) -> u8 { (a << 1) ^ (0x1b & 0u8.wrapping_sub(a >> 7)) }
-const fn mul3(a: u8) -> u8  { xtime(a) ^ a }
+const fn xtime(a: u8) -> u8 {
+    (a << 1) ^ (0x1b & 0u8.wrapping_sub(a >> 7))
+}
+const fn mul3(a: u8) -> u8 {
+    xtime(a) ^ a
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Encryption T-tables — computed at compile time from SBOX.
@@ -70,26 +82,39 @@ const TE0: [u32; 256] = {
     let mut i = 0usize;
     while i < 256 {
         let s = SBOX[i];
-        t[i] = ((xtime(s) as u32) << 24)
-             | ((s as u32) << 16)
-             | ((s as u32) << 8)
-             | (mul3(s) as u32);
+        t[i] =
+            ((xtime(s) as u32) << 24) | ((s as u32) << 16) | ((s as u32) << 8) | (mul3(s) as u32);
         i += 1;
     }
     t
 };
 
 const TE1: [u32; 256] = {
-    let mut t = [0u32; 256]; let mut i = 0;
-    while i < 256 { t[i] = TE0[i].rotate_right(8);  i += 1; } t
+    let mut t = [0u32; 256];
+    let mut i = 0;
+    while i < 256 {
+        t[i] = TE0[i].rotate_right(8);
+        i += 1;
+    }
+    t
 };
 const TE2: [u32; 256] = {
-    let mut t = [0u32; 256]; let mut i = 0;
-    while i < 256 { t[i] = TE0[i].rotate_right(16); i += 1; } t
+    let mut t = [0u32; 256];
+    let mut i = 0;
+    while i < 256 {
+        t[i] = TE0[i].rotate_right(16);
+        i += 1;
+    }
+    t
 };
 const TE3: [u32; 256] = {
-    let mut t = [0u32; 256]; let mut i = 0;
-    while i < 256 { t[i] = TE0[i].rotate_right(24); i += 1; } t
+    let mut t = [0u32; 256];
+    let mut i = 0;
+    while i < 256 {
+        t[i] = TE0[i].rotate_right(24);
+        i += 1;
+    }
+    t
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -99,14 +124,14 @@ const TE3: [u32; 256] = {
 fn sub_word(w: u32) -> u32 {
     u32::from(SBOX[(w >> 24) as usize]) << 24
         | u32::from(SBOX[((w >> 16) & 0xff) as usize]) << 16
-        | u32::from(SBOX[((w >>  8) & 0xff) as usize]) <<  8
+        | u32::from(SBOX[((w >> 8) & 0xff) as usize]) << 8
         | u32::from(SBOX[(w & 0xff) as usize])
 }
 
 fn expand_128(key: &[u8; 16]) -> [u32; 44] {
     let mut w = [0u32; 44];
     for i in 0..4 {
-        w[i] = u32::from_be_bytes(key[4*i..4*i+4].try_into().unwrap());
+        w[i] = u32::from_be_bytes(key[4 * i..4 * i + 4].try_into().unwrap());
     }
     for i in 4..44 {
         let mut t = w[i - 1];
@@ -123,47 +148,62 @@ fn expand_128(key: &[u8; 16]) -> [u32; 44] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
-    let mut s0 = u32::from_be_bytes(block[ 0.. 4].try_into().unwrap()) ^ rk[0];
-    let mut s1 = u32::from_be_bytes(block[ 4.. 8].try_into().unwrap()) ^ rk[1];
-    let mut s2 = u32::from_be_bytes(block[ 8..12].try_into().unwrap()) ^ rk[2];
+    let mut s0 = u32::from_be_bytes(block[0..4].try_into().unwrap()) ^ rk[0];
+    let mut s1 = u32::from_be_bytes(block[4..8].try_into().unwrap()) ^ rk[1];
+    let mut s2 = u32::from_be_bytes(block[8..12].try_into().unwrap()) ^ rk[2];
     let mut s3 = u32::from_be_bytes(block[12..16].try_into().unwrap()) ^ rk[3];
 
     for r in 1..10 {
         let k = 4 * r;
-        let t0 = TE0[(s0 >> 24) as usize] ^ TE1[((s1 >> 16) & 0xff) as usize]
-               ^ TE2[((s2 >>  8) & 0xff) as usize] ^ TE3[(s3 & 0xff) as usize] ^ rk[k];
-        let t1 = TE0[(s1 >> 24) as usize] ^ TE1[((s2 >> 16) & 0xff) as usize]
-               ^ TE2[((s3 >>  8) & 0xff) as usize] ^ TE3[(s0 & 0xff) as usize] ^ rk[k+1];
-        let t2 = TE0[(s2 >> 24) as usize] ^ TE1[((s3 >> 16) & 0xff) as usize]
-               ^ TE2[((s0 >>  8) & 0xff) as usize] ^ TE3[(s1 & 0xff) as usize] ^ rk[k+2];
-        let t3 = TE0[(s3 >> 24) as usize] ^ TE1[((s0 >> 16) & 0xff) as usize]
-               ^ TE2[((s1 >>  8) & 0xff) as usize] ^ TE3[(s2 & 0xff) as usize] ^ rk[k+3];
-        s0 = t0; s1 = t1; s2 = t2; s3 = t3;
+        let t0 = TE0[(s0 >> 24) as usize]
+            ^ TE1[((s1 >> 16) & 0xff) as usize]
+            ^ TE2[((s2 >> 8) & 0xff) as usize]
+            ^ TE3[(s3 & 0xff) as usize]
+            ^ rk[k];
+        let t1 = TE0[(s1 >> 24) as usize]
+            ^ TE1[((s2 >> 16) & 0xff) as usize]
+            ^ TE2[((s3 >> 8) & 0xff) as usize]
+            ^ TE3[(s0 & 0xff) as usize]
+            ^ rk[k + 1];
+        let t2 = TE0[(s2 >> 24) as usize]
+            ^ TE1[((s3 >> 16) & 0xff) as usize]
+            ^ TE2[((s0 >> 8) & 0xff) as usize]
+            ^ TE3[(s1 & 0xff) as usize]
+            ^ rk[k + 2];
+        let t3 = TE0[(s3 >> 24) as usize]
+            ^ TE1[((s0 >> 16) & 0xff) as usize]
+            ^ TE2[((s1 >> 8) & 0xff) as usize]
+            ^ TE3[(s2 & 0xff) as usize]
+            ^ rk[k + 3];
+        s0 = t0;
+        s1 = t1;
+        s2 = t2;
+        s3 = t3;
     }
 
     let k = 40;
     let c0 = u32::from(SBOX[(s0 >> 24) as usize]) << 24
-           | u32::from(SBOX[((s1 >> 16) & 0xff) as usize]) << 16
-           | u32::from(SBOX[((s2 >>  8) & 0xff) as usize]) <<  8
-           | u32::from(SBOX[(s3 & 0xff) as usize]);
+        | u32::from(SBOX[((s1 >> 16) & 0xff) as usize]) << 16
+        | u32::from(SBOX[((s2 >> 8) & 0xff) as usize]) << 8
+        | u32::from(SBOX[(s3 & 0xff) as usize]);
     let c1 = u32::from(SBOX[(s1 >> 24) as usize]) << 24
-           | u32::from(SBOX[((s2 >> 16) & 0xff) as usize]) << 16
-           | u32::from(SBOX[((s3 >>  8) & 0xff) as usize]) <<  8
-           | u32::from(SBOX[(s0 & 0xff) as usize]);
+        | u32::from(SBOX[((s2 >> 16) & 0xff) as usize]) << 16
+        | u32::from(SBOX[((s3 >> 8) & 0xff) as usize]) << 8
+        | u32::from(SBOX[(s0 & 0xff) as usize]);
     let c2 = u32::from(SBOX[(s2 >> 24) as usize]) << 24
-           | u32::from(SBOX[((s3 >> 16) & 0xff) as usize]) << 16
-           | u32::from(SBOX[((s0 >>  8) & 0xff) as usize]) <<  8
-           | u32::from(SBOX[(s1 & 0xff) as usize]);
+        | u32::from(SBOX[((s3 >> 16) & 0xff) as usize]) << 16
+        | u32::from(SBOX[((s0 >> 8) & 0xff) as usize]) << 8
+        | u32::from(SBOX[(s1 & 0xff) as usize]);
     let c3 = u32::from(SBOX[(s3 >> 24) as usize]) << 24
-           | u32::from(SBOX[((s0 >> 16) & 0xff) as usize]) << 16
-           | u32::from(SBOX[((s1 >>  8) & 0xff) as usize]) <<  8
-           | u32::from(SBOX[(s2 & 0xff) as usize]);
+        | u32::from(SBOX[((s0 >> 16) & 0xff) as usize]) << 16
+        | u32::from(SBOX[((s1 >> 8) & 0xff) as usize]) << 8
+        | u32::from(SBOX[(s2 & 0xff) as usize]);
 
     let mut out = [0u8; 16];
-    out[ 0.. 4].copy_from_slice(&(c0 ^ rk[k  ]).to_be_bytes());
-    out[ 4.. 8].copy_from_slice(&(c1 ^ rk[k+1]).to_be_bytes());
-    out[ 8..12].copy_from_slice(&(c2 ^ rk[k+2]).to_be_bytes());
-    out[12..16].copy_from_slice(&(c3 ^ rk[k+3]).to_be_bytes());
+    out[0..4].copy_from_slice(&(c0 ^ rk[k]).to_be_bytes());
+    out[4..8].copy_from_slice(&(c1 ^ rk[k + 1]).to_be_bytes());
+    out[8..12].copy_from_slice(&(c2 ^ rk[k + 2]).to_be_bytes());
+    out[12..16].copy_from_slice(&(c3 ^ rk[k + 3]).to_be_bytes());
     out
 }
 
@@ -181,10 +221,10 @@ fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
 /// `2b7e1516 28aed2a6 abf71588 09cf4f3c`.
 /// Default counter: all zeros.
 pub struct AesCtr {
-    rk:      [u32; 44],
-    counter: u128,       // 128-bit counter, incremented after each block
-    buf:     [u32; 4],   // current keystream block, as four big-endian u32s
-    pos:     usize,      // index of next word to return (0..4); 4 = exhausted
+    rk: [u32; 44],
+    counter: u128, // 128-bit counter, incremented after each block
+    buf: [u32; 4], // current keystream block, as four big-endian u32s
+    pos: usize,    // index of next word to return (0..4); 4 = exhausted
 }
 
 impl AesCtr {
@@ -195,10 +235,10 @@ impl AesCtr {
     #[must_use]
     pub fn new(key: &[u8; 16], counter: u128) -> Self {
         Self {
-            rk:      expand_128(key),
+            rk: expand_128(key),
             counter,
-            buf:     [0u32; 4],
-            pos:     4,   // force refill on first next_u32()
+            buf: [0u32; 4],
+            pos: 4, // force refill on first next_u32()
         }
     }
 
@@ -209,8 +249,8 @@ impl AesCtr {
     #[must_use]
     pub fn with_nist_key() -> Self {
         let key: [u8; 16] = [
-            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-            0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
+            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
+            0x4f, 0x3c,
         ];
         Self::new(&key, 0)
     }
@@ -219,9 +259,9 @@ impl AesCtr {
     fn refill(&mut self) {
         let block = self.counter.to_be_bytes();
         let ct = aes_encrypt(&block, &self.rk);
-        self.buf[0] = u32::from_be_bytes(ct[ 0.. 4].try_into().unwrap());
-        self.buf[1] = u32::from_be_bytes(ct[ 4.. 8].try_into().unwrap());
-        self.buf[2] = u32::from_be_bytes(ct[ 8..12].try_into().unwrap());
+        self.buf[0] = u32::from_be_bytes(ct[0..4].try_into().unwrap());
+        self.buf[1] = u32::from_be_bytes(ct[4..8].try_into().unwrap());
+        self.buf[2] = u32::from_be_bytes(ct[8..12].try_into().unwrap());
         self.buf[3] = u32::from_be_bytes(ct[12..16].try_into().unwrap());
         self.counter = self.counter.wrapping_add(1);
         self.pos = 0;
@@ -261,8 +301,8 @@ mod tests {
     #[test]
     fn nist_sp_800_38a_ctr_f5() {
         let key: [u8; 16] = [
-            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-            0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
+            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
+            0x4f, 0x3c,
         ];
         let ctr0: u128 = 0xf0f1f2f3_f4f5f6f7_f8f9fafb_fcfdfeff_u128;
         let mut rng = AesCtr::new(&key, ctr0);
@@ -271,8 +311,8 @@ mod tests {
         // keystream_1 = ec8cdf73 98607cb0 f2d21675 ea9ea1e4
         // keystream_2 = 362b7c3c 67735163 18a077d7 fc5073ae
         let expected: [u32; 8] = [
-            0xec8cdf73, 0x98607cb0, 0xf2d21675, 0xea9ea1e4,
-            0x362b7c3c, 0x67735163, 0x18a077d7, 0xfc5073ae,
+            0xec8cdf73, 0x98607cb0, 0xf2d21675, 0xea9ea1e4, 0x362b7c3c, 0x67735163, 0x18a077d7,
+            0xfc5073ae,
         ];
         for &exp in &expected {
             assert_eq!(rng.next_u32(), exp, "AES-CTR NIST vector mismatch");

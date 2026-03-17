@@ -20,7 +20,7 @@
 //! <https://doi.org/10.18637/jss.v007.i03>
 //! Source: `dieharder-3.31.1/libdieharder/marsaglia_tsang_gcd.c`
 
-use crate::{math::igamc, rng::Rng, result::TestResult};
+use crate::{math::igamc, result::TestResult, rng::Rng};
 use std::f64::consts::PI;
 
 const N_PAIRS: usize = 100_000;
@@ -61,7 +61,9 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
     for _ in 0..N_PAIRS {
         let u = rng.next_u32();
         let v = rng.next_u32();
-        if u == 0 || v == 0 { continue; }
+        if u == 0 || v == 0 {
+            continue;
+        }
         actual_pairs += 1;
         let (g, k) = euclid_gcd_with_steps(u, v);
 
@@ -86,18 +88,24 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
                 0.0
             } else if i == gtblsize - 1 {
                 // Tail: accumulate 6/(π²j²) for j from gtblsize-1 to 100000.
-                (i..=100_000).map(|j| n * gnorm / (j as f64 * j as f64)).sum()
+                (i..=100_000)
+                    .map(|j| n * gnorm / (j as f64 * j as f64))
+                    .sum()
             } else {
                 n * gnorm / (i as f64 * i as f64)
             }
         })
         .collect();
 
-    let gcd_chi_sq: f64 = gcd_counts.iter().zip(gcd_expected.iter())
+    let gcd_chi_sq: f64 = gcd_counts
+        .iter()
+        .zip(gcd_expected.iter())
         .filter(|(_, &exp)| exp >= 5.0)
         .map(|(&obs, &exp)| (obs as f64 - exp).powi(2) / exp)
         .sum();
-    let gcd_df = gcd_counts.iter().zip(gcd_expected.iter())
+    let gcd_df = gcd_counts
+        .iter()
+        .zip(gcd_expected.iter())
         .filter(|(_, &exp)| exp >= 5.0)
         .count()
         .saturating_sub(1);
@@ -105,11 +113,18 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
 
     // --- Step-count chi-square ---
     // Uses KPROB[] table from published C source; bins with expected < 5.0 excluded.
-    let step_chi_sq: f64 = step_counts.iter().zip(KPROB.iter())
+    let step_chi_sq: f64 = step_counts
+        .iter()
+        .zip(KPROB.iter())
         .filter(|(_, &p)| p * n >= 5.0)
-        .map(|(&obs, &p)| { let exp = p * n; (obs as f64 - exp).powi(2) / exp })
+        .map(|(&obs, &p)| {
+            let exp = p * n;
+            (obs as f64 - exp).powi(2) / exp
+        })
         .sum();
-    let step_df = step_counts.iter().zip(KPROB.iter())
+    let step_df = step_counts
+        .iter()
+        .zip(KPROB.iter())
         .filter(|(_, &p)| p * n >= 5.0)
         .count()
         .saturating_sub(1);

@@ -32,9 +32,9 @@ const OUT: usize = 32; // HMAC-SHA-256 output length (bytes)
 
 /// HMAC_DRBG instantiated with HMAC-SHA-256 per NIST SP 800-90A §10.1.2.
 pub struct HmacDrbg {
-    k:      [u8; OUT],
-    v:      [u8; OUT],
-    buf:    [u8; OUT],
+    k: [u8; OUT],
+    v: [u8; OUT],
+    buf: [u8; OUT],
     offset: usize,
 }
 
@@ -49,9 +49,9 @@ impl HmacDrbg {
         }
         // Initial K=0x00…, V=0x01…, then Update(seed_material).
         let mut drbg = Self {
-            k:      [0x00u8; OUT],
-            v:      [0x01u8; OUT],
-            buf:    [0u8; OUT],
+            k: [0x00u8; OUT],
+            v: [0x01u8; OUT],
+            buf: [0u8; OUT],
             offset: OUT, // force refill on first use
         };
         drbg_update(&mut drbg.k, &mut drbg.v, Some(&seed));
@@ -90,7 +90,10 @@ const SCRATCH: usize = 128;
 
 fn drbg_update(k: &mut [u8; OUT], v: &mut [u8; OUT], provided_data: Option<&[u8]>) {
     let pd = provided_data.unwrap_or(&[]);
-    debug_assert!(OUT + 1 + pd.len() <= SCRATCH, "drbg_update: provided_data too long");
+    debug_assert!(
+        OUT + 1 + pd.len() <= SCRATCH,
+        "drbg_update: provided_data too long"
+    );
 
     // K = HMAC(K, V || 0x00 [|| provided_data])
     let mut msg = [0u8; SCRATCH];
@@ -121,11 +124,14 @@ fn drbg_update(k: &mut [u8; OUT], v: &mut [u8; OUT], provided_data: Option<&[u8]
 #[inline]
 fn hmac_sha256(key: &[u8], data: &[u8]) -> [u8; OUT] {
     let mac = Hmac::<Sha256>::compute(key, data);
-    mac.try_into().expect("HMAC-SHA-256 output is always 32 bytes")
+    mac.try_into()
+        .expect("HMAC-SHA-256 output is always 32 bytes")
 }
 
 impl Default for HmacDrbg {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for HmacDrbg {

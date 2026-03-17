@@ -9,7 +9,7 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::ks_test, rng::Rng, result::TestResult};
+use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 const CUBE_SIDE: f64 = 1_000.0;
 const MEAN_R3: f64 = 30.0;
@@ -23,7 +23,7 @@ const MEAN_R3: f64 = 30.0;
 /// George Marsaglia, DIEHARD (1995).
 pub fn spheres_3d(rng: &mut impl Rng, quick: bool) -> TestResult {
     let n_points = if quick { 500 } else { 4_000 };
-    let repeats  = if quick {  10 } else {    20 };
+    let repeats = if quick { 10 } else { 20 };
     // λ = n(n−1)/2 × (4π/3)/L³, so mean r³ = 1/λ ∝ 1/(n²).
     let mean_r3 = MEAN_R3 * (4_000.0 / n_points as f64).powi(2);
     let mut p_values = Vec::with_capacity(repeats);

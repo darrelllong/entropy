@@ -7,15 +7,15 @@
 //! Each function cites its original author.
 
 pub mod bit_distribution;
-pub mod minimum_distance_nd;
-pub mod permutations;
-pub mod lagged_sums;
-pub mod ks_uniform;
 pub mod byte_distribution;
 pub mod dct;
 pub mod fill_tree;
-pub mod monobit2;
 pub mod gcd;
+pub mod ks_uniform;
+pub mod lagged_sums;
+pub mod minimum_distance_nd;
+pub mod monobit2;
+pub mod permutations;
 
 use crate::{result::TestResult, rng::Rng};
 

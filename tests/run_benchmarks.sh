@@ -14,7 +14,7 @@ Examples:
   tests/run_benchmarks.sh
   tests/run_benchmarks.sh --preset normal
   tests/run_benchmarks.sh --preset normal aes_ctr mt19937 spongebob squidward
-  PILOT_BENCH_CLI=~/pilot-bench/build/cli/bench tests/run_benchmarks.sh --force
+  PILOT_BENCH_CLI=$HOME/pilot-bench/build/cli/bench tests/run_benchmarks.sh --force
 
 Notes:
   - Results are written to stats/<name>.bench.

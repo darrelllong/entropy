@@ -17,21 +17,14 @@ use crate::{
 use std::f64::consts::SQRT_2;
 
 const LZ_MU: [f64; 29] = [
-    0.0, 0.0, 0.0, 4.44, 7.64,
-    12.5, 20.8, 34.8, 58.9, 101.1,
-    176.0, 310.0, 551.9, 992.3, 1799.0,
-    3286.2, 6041.5, 11171.5, 20761.8, 38760.4,
-    72654.0, 136677.0, 257949.0, 488257.0, 926658.0,
+    0.0, 0.0, 0.0, 4.44, 7.64, 12.5, 20.8, 34.8, 58.9, 101.1, 176.0, 310.0, 551.9, 992.3, 1799.0,
+    3286.2, 6041.5, 11171.5, 20761.8, 38760.4, 72654.0, 136677.0, 257949.0, 488257.0, 926658.0,
     1762965.0, 3361490.0, 6422497.0, 12293930.0,
 ];
 
 const LZ_SIGMA: [f64; 29] = [
-    0.0, 0.0, 0.0, 0.49, 0.51,
-    0.62, 0.75, 0.78, 0.86, 0.94,
-    1.03, 1.19, 1.43, 1.68, 2.09,
-    2.46, 3.36, 4.2, 5.4, 6.8,
-    9.1, 10.9, 14.7, 19.1, 25.2,
-    33.5, 44.546, 58.194, 75.513,
+    0.0, 0.0, 0.0, 0.49, 0.51, 0.62, 0.75, 0.78, 0.86, 0.94, 1.03, 1.19, 1.43, 1.68, 2.09, 2.46,
+    3.36, 4.2, 5.4, 6.8, 9.1, 10.9, 14.7, 19.1, 25.2, 33.5, 44.546, 58.194, 75.513,
 ];
 
 #[derive(Debug, Clone)]
@@ -73,7 +66,10 @@ fn strip_b(word: u32, r: usize, s: usize) -> u32 {
 fn lz78_count_blocks(blocks: &[u32], n_bits: usize, s: usize) -> usize {
     let k_max = 1u32 << (s - 1);
     let mut nodes = Vec::with_capacity(n_bits / 4 + 1);
-    nodes.push(TrieNode { left: None, right: None });
+    nodes.push(TrieNode {
+        left: None,
+        right: None,
+    });
 
     let mut block_index = 0usize;
     let mut y = blocks[block_index];
@@ -103,7 +99,10 @@ fn lz78_count_blocks(blocks: &[u32], n_bits: usize, s: usize) -> usize {
                     } else {
                         nodes[node].right = Some(next);
                     }
-                    nodes.push(TrieNode { left: None, right: None });
+                    nodes.push(TrieNode {
+                        left: None,
+                        right: None,
+                    });
                     node = next;
                     true
                 }

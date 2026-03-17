@@ -12,7 +12,7 @@ use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
 
 const WINDOW: usize = 20;
-const STREAM_LEN: usize = 1 << 21;  // 2^21 overlapping words
+const STREAM_LEN: usize = 1 << 21; // 2^21 overlapping words
 const TOTAL_WORDS: usize = 1 << 20; // 2^20 possible 20-bit words
 const EXPECTED_MISSING: f64 = 141_909.0;
 const SIGMA: f64 = 428.0;
@@ -25,7 +25,7 @@ const REPEATS: usize = 20;
 pub fn bitstream(words: &[u32]) -> TestResult {
     // Each run needs STREAM_LEN/32 words of input to get STREAM_LEN bits.
     let bits_needed = STREAM_LEN + WINDOW - 1; // 2^21 windows over 2^21+19 bits
-    let words_needed = (bits_needed + 31) / 32;
+    let words_needed = bits_needed.div_ceil(32);
 
     if words.len() < REPEATS * words_needed {
         return TestResult::insufficient("diehard::bitstream", "not enough words");
@@ -92,7 +92,10 @@ mod tests {
         // All other 2^20 - 1 patterns are missing.
         let bits_needed = WINDOW + 50;
         let words = vec![0u32; (bits_needed + 31) / 32];
-        assert_eq!(TOTAL_WORDS - 1, count_missing_20bit_words_streaming(&words, bits_needed));
+        assert_eq!(
+            TOTAL_WORDS - 1,
+            count_missing_20bit_words_streaming(&words, bits_needed)
+        );
     }
 
     #[test]

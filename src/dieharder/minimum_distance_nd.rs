@@ -18,7 +18,7 @@
 //! Robert G. Brown, *Dieharder* (2006), test `rgb_minimum_distance`.
 //! Source: `dieharder-3.31.1/libdieharder/rgb_minimum_distance.c`
 
-use crate::{math::ks_test, rng::Rng, result::TestResult};
+use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 /// Fischler Q correction values indexed by dimension d (Q[d] for d=2..=5).
 /// Source: `static double rgb_md_Q[] = {0.0,0.0,0.4135,0.5312,0.6202,1.3789}`.
@@ -31,7 +31,7 @@ const Q_CORRECTION: [f64; 6] = [0.0, 0.0, 0.4135, 0.5312, 0.6202, 1.3789];
 /// # Author
 /// Robert G. Brown, Dieharder (2006), `rgb_minimum_distance`.
 pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestResult {
-    if d < 2 || d > 5 {
+    if !(2..=5).contains(&d) {
         return TestResult::insufficient(
             "dieharder::minimum_distance_nd",
             "d must be 2..=5 (Fischler Q table only covers these dimensions)",
@@ -39,7 +39,7 @@ pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestRes
     }
 
     let n_points = if quick { 500 } else { 8_000 };
-    let repeats  = if quick {  20 } else {   100 };
+    let repeats = if quick { 20 } else { 100 };
 
     // Flat point storage: coords[i * d + k] is coordinate k of point i.
     // One contiguous allocation per repeat avoids n_points small heap objects
@@ -47,7 +47,9 @@ pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestRes
     let mut coords = vec![0.0f64; n_points * d];
     let mut p_values = Vec::with_capacity(repeats);
     for _ in 0..repeats {
-        for v in coords.iter_mut() { *v = rng.next_f64(); }
+        for v in coords.iter_mut() {
+            *v = rng.next_f64();
+        }
 
         let mindist = min_dist_nd(&coords, n_points, d);
 
@@ -81,7 +83,7 @@ pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestRes
 /// Matches `dvolume` in `rgb_minimum_distance.c` (even/odd dimension cases).
 fn ball_volume(r: f64, d: usize) -> f64 {
     use std::f64::consts::PI;
-    if d % 2 == 0 {
+    if d.is_multiple_of(2) {
         // Even d: Γ(d/2+1) = (d/2)!
         let half_d = d / 2;
         let factorial: f64 = (1..=half_d).map(|k| k as f64).product();
@@ -108,7 +110,9 @@ fn min_dist_nd(coords: &[f64], n: usize, d: usize) -> f64 {
             let pj = &coords[j * d..(j + 1) * d];
             let dist_sq: f64 = pi.iter().zip(pj).map(|(a, b)| (a - b).powi(2)).sum();
             let dist = dist_sq.sqrt();
-            if dist < min_dist { min_dist = dist; }
+            if dist < min_dist {
+                min_dist = dist;
+            }
         }
     }
     min_dist

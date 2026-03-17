@@ -35,8 +35,13 @@ impl Xoshiro256StarStar {
     /// Construct from four 64-bit seeds (must not all be zero).
     #[must_use]
     pub fn new(s0: u64, s1: u64, s2: u64, s3: u64) -> Self {
-        assert!(s0 | s1 | s2 | s3 != 0, "xoshiro256**: all-zero seed forbidden");
-        Self { s: [s0, s1, s2, s3] }
+        assert!(
+            s0 | s1 | s2 | s3 != 0,
+            "xoshiro256**: all-zero seed forbidden"
+        );
+        Self {
+            s: [s0, s1, s2, s3],
+        }
     }
 
     /// Construct from 256 bits drawn from the operating system RNG.
@@ -66,13 +71,19 @@ impl Xoshiro256StarStar {
 }
 
 impl Default for Xoshiro256StarStar {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for Xoshiro256StarStar {
     // Return the upper 32 bits (marginally higher avalanche quality).
-    fn next_u32(&mut self) -> u32 { (self.step() >> 32) as u32 }
-    fn next_u64(&mut self) -> u64 { self.step() }
+    fn next_u32(&mut self) -> u32 {
+        (self.step() >> 32) as u32
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.step()
+    }
 }
 
 // ── Xoroshiro128** ────────────────────────────────────────────────────────────
@@ -112,18 +123,24 @@ impl Xoroshiro128StarStar {
         let result = s0.wrapping_mul(5).rotate_left(7).wrapping_mul(9);
         let s1x = s1 ^ s0;
         self.s[0] = s0.rotate_left(24) ^ s1x ^ (s1x << 16); // a=24, b=16
-        self.s[1] = s1x.rotate_left(37);                     // c=37
+        self.s[1] = s1x.rotate_left(37); // c=37
         result
     }
 }
 
 impl Default for Xoroshiro128StarStar {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for Xoroshiro128StarStar {
-    fn next_u32(&mut self) -> u32 { (self.step() >> 32) as u32 }
-    fn next_u64(&mut self) -> u64 { self.step() }
+    fn next_u32(&mut self) -> u32 {
+        (self.step() >> 32) as u32
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.step()
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

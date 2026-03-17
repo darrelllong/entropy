@@ -123,8 +123,14 @@ pub fn evaluate_u64<F>(
 where
     F: FnMut(u64) -> u64,
 {
-    assert!((1..=64).contains(&input_bits), "input_bits must be in 1..=64");
-    assert!((1..=64).contains(&output_bits), "output_bits must be in 1..=64");
+    assert!(
+        (1..=64).contains(&input_bits),
+        "input_bits must be in 1..=64"
+    );
+    assert!(
+        (1..=64).contains(&output_bits),
+        "output_bits must be in 1..=64"
+    );
     assert!(samples > 0, "samples must be positive");
 
     let input_mask = if input_bits == 64 {
@@ -162,10 +168,9 @@ where
         for j in 0..input_bits {
             let xj = x ^ (1u64 << j);
             let avalanche = (y ^ (f(xj & input_mask) & output_mask)) & output_mask;
-            for i in 0..output_bits {
-                let bit_i = ((avalanche >> i) & 1) != 0;
-                if bit_i {
-                    ones[i][j] += 1;
+            for (i, col) in ones.iter_mut().enumerate().take(output_bits) {
+                if ((avalanche >> i) & 1) != 0 {
+                    col[j] += 1;
                 }
             }
             for a in 0..output_bits {

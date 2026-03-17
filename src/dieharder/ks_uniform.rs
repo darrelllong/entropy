@@ -24,10 +24,7 @@ pub fn ks_uniform(words: &[u32]) -> TestResult {
         return TestResult::insufficient("dieharder::ks_uniform", "not enough words");
     }
 
-    let mut sample: Vec<f64> = words
-        .iter()
-        .map(|&w| w as f64 / 4_294_967_296.0)
-        .collect();
+    let mut sample: Vec<f64> = words.iter().map(|&w| w as f64 / 4_294_967_296.0).collect();
     let p_value = ks_test(&mut sample);
 
     TestResult::with_note(

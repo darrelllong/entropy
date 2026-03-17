@@ -5,17 +5,17 @@
 //!
 //! Every function in this module cites Marsaglia as the original author.
 
-pub mod birthday_spacings;
 pub mod binary_rank;
+pub mod birthday_spacings;
 pub mod bitstream;
-pub mod monkey;
 pub mod count_ones;
-pub mod parking_lot;
+pub mod craps;
 pub mod minimum_distance;
+pub mod monkey;
+pub mod parking_lot;
+pub mod runs_float;
 pub mod spheres_3d;
 pub mod squeeze;
-pub mod runs_float;
-pub mod craps;
 
 use crate::{result::TestResult, rng::Rng};
 

@@ -77,10 +77,7 @@ impl SystemVRand {
     }
 
     pub fn next_raw(&mut self) -> u32 {
-        self.state = self
-            .state
-            .wrapping_mul(1_103_515_245)
-            .wrapping_add(12_345);
+        self.state = self.state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
         (self.state >> 16) & 0x7fff
     }
 }
@@ -458,11 +455,11 @@ impl Rng for Rand48 {
 
 #[cfg(test)]
 mod tests {
-    use crate::rng::Rng;
     use super::{
-        BsdRandCompat, BsdRandom, LinuxLibcRandom, Rand48, SystemVRand,
-        WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
+        BsdRandCompat, BsdRandom, LinuxLibcRandom, Rand48, SystemVRand, WindowsDotNetRandom,
+        WindowsMsvcRand, WindowsVb6Rnd,
     };
+    use crate::rng::Rng;
 
     #[test]
     fn system_v_rand_raw_matches_posix_sample() {
@@ -535,7 +532,13 @@ mod tests {
     #[test]
     fn windows_dotnet_random_matches_seed_1_prefix() {
         let mut rng = WindowsDotNetRandom::new(1);
-        let expected = [534_011_718, 237_820_880, 1_002_897_798, 1_657_007_234, 1_412_011_072];
+        let expected = [
+            534_011_718,
+            237_820_880,
+            1_002_897_798,
+            1_657_007_234,
+            1_412_011_072,
+        ];
         for want in expected {
             assert_eq!(rng.next_raw(), want);
         }

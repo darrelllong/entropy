@@ -43,8 +43,12 @@ pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
 
     // Count cycles: runs between consecutive zeros in the walk.
     // A "cycle" is the subsequence between two successive zero-crossings.
-    let zero_positions: Vec<usize> =
-        walk.iter().enumerate().filter(|(_, &v)| v == 0).map(|(i, _)| i).collect();
+    let zero_positions: Vec<usize> = walk
+        .iter()
+        .enumerate()
+        .filter(|(_, &v)| v == 0)
+        .map(|(i, _)| i)
+        .collect();
 
     let j = zero_positions.len() - 1; // number of complete cycles
 

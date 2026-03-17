@@ -68,9 +68,14 @@ pub fn approx_entropy_profile(bits: &[u8], m_values: &[usize]) -> Vec<ApproxEntr
         .copied()
         .filter(|&m| m > 0 && m < 30 && (1usize << m) <= n / 10)
         .map(|m| {
-            let phi_m  = phi(bits, m);
+            let phi_m = phi(bits, m);
             let phi_m1 = phi(bits, m + 1);
-            ApproxEntropyPoint { m, phi_m, phi_m1, ap_en: phi_m - phi_m1 }
+            ApproxEntropyPoint {
+                m,
+                phi_m,
+                phi_m1,
+                ap_en: phi_m - phi_m1,
+            }
         })
         .collect()
 }

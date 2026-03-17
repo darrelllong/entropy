@@ -51,13 +51,13 @@ use super::Rng;
 
 /// Dual_EC_DRBG with pluggable elliptic curve and P/Q points.
 pub struct DualEcDrbg {
-    curve:   CurveParams,
-    p:       AffinePoint,   // generator point  (P = G for NIST standard)
-    q:       AffinePoint,   // secondary point  (Q from SP 800-90 Appendix A.1)
-    s:       BigUint,       // current state scalar
-    outlen:  usize,         // output bits per block (multiple of 8)
-    buf:     Vec<u8>,       // buffered output bytes
-    pos:     usize,         // index of next unread byte in buf
+    curve: CurveParams,
+    p: AffinePoint, // generator point  (P = G for NIST standard)
+    q: AffinePoint, // secondary point  (Q from SP 800-90 Appendix A.1)
+    s: BigUint,     // current state scalar
+    outlen: usize,  // output bits per block (multiple of 8)
+    buf: Vec<u8>,   // buffered output bytes
+    pos: usize,     // index of next unread byte in buf
 }
 
 impl DualEcDrbg {
@@ -67,18 +67,29 @@ impl DualEcDrbg {
     /// * `p`      — generator point (typically `curve.base_point()`).
     /// * `q`      — secondary point; determines output.  NIST values may be backdoored.
     /// * `seed`   — initial state, interpreted as a big-endian integer.  Should be
-    ///              at least `⌈seqlen/8⌉` bytes of high-entropy material.
+    ///   at least `⌈seqlen/8⌉` bytes of high-entropy material.
     /// * `outlen` — output bits per block; must be a positive multiple of 8.
     pub fn new(
-        curve:  CurveParams,
-        p:      AffinePoint,
-        q:      AffinePoint,
-        seed:   &[u8],
+        curve: CurveParams,
+        p: AffinePoint,
+        q: AffinePoint,
+        seed: &[u8],
         outlen: usize,
     ) -> Self {
-        assert!(outlen > 0 && outlen % 8 == 0, "outlen must be a positive multiple of 8");
+        assert!(
+            outlen > 0 && outlen.is_multiple_of(8),
+            "outlen must be a positive multiple of 8"
+        );
         let s = BigUint::from_be_bytes(seed);
-        Self { curve, p, q, s, outlen, buf: Vec::new(), pos: 0 }
+        Self {
+            curve,
+            p,
+            q,
+            s,
+            outlen,
+            buf: Vec::new(),
+            pos: 0,
+        }
     }
 
     /// P-256 (secp256r1) with NIST SP 800-90 standard Q point.  outlen = 240 bits.
@@ -199,7 +210,10 @@ fn point_from_hex(x_hex: &str, y_hex: &str) -> AffinePoint {
 /// to a `Vec<u8>`.  Strips whitespace; panics on invalid hex.
 fn decode_hex(s: &str) -> Vec<u8> {
     let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-    assert!(cleaned.len() % 2 == 0, "hex string must have even length");
+    assert!(
+        cleaned.len().is_multiple_of(2),
+        "hex string must have even length"
+    );
     (0..cleaned.len())
         .step_by(2)
         .map(|i| u8::from_str_radix(&cleaned[i..i + 2], 16).expect("valid hex digit"))

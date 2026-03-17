@@ -20,7 +20,7 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::ks_test, rng::Rng, result::TestResult};
+use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 const SQUARE_SIDE: f64 = 10_000.0;
 const LAMBDA: f64 = 0.995; // expected mean of d²
@@ -38,7 +38,7 @@ const LAMBDA: f64 = 0.995; // expected mean of d²
 /// George Marsaglia, DIEHARD (1995).
 pub fn minimum_distance_2d(rng: &mut impl Rng, quick: bool) -> TestResult {
     let n_points = if quick { 500 } else { 8_000 };
-    let repeats  = if quick {  20 } else {   100 };
+    let repeats = if quick { 20 } else { 100 };
     // With fewer points the nearest pair is farther apart, so λ scales as (n_ref/n)².
     // For n=8000, side=10000: λ ≈ 0.995.  Reference: LAMBDA × (8000/n)².
     let lambda = LAMBDA * (8_000.0 / n_points as f64).powi(2);

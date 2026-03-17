@@ -191,7 +191,7 @@ pub fn runs_above_below_median_stats(samples: &[f64]) -> Option<RunsMedianStats>
     let mut sorted = samples.to_vec();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = sorted.len();
-    let median = if n % 2 == 0 {
+    let median = if n.is_multiple_of(2) {
         0.5 * (sorted[n / 2 - 1] + sorted[n / 2])
     } else {
         sorted[n / 2]
@@ -263,9 +263,7 @@ pub fn runs_above_below_median_test(samples: &[f64]) -> TestResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        gap_stats, permutation_rank, permutation_stats, runs_above_below_median_stats,
-    };
+    use super::{gap_stats, permutation_rank, permutation_stats, runs_above_below_median_stats};
 
     #[test]
     fn permutation_rank_orders_three_values_lexicographically() {
@@ -277,13 +275,8 @@ mod tests {
     #[test]
     fn permutation_stats_count_non_overlapping_blocks() {
         let samples = vec![
-            0.1, 0.2, 0.3,
-            0.3, 0.2, 0.1,
-            0.2, 0.1, 0.3,
-            0.1, 0.3, 0.2,
-            0.2, 0.3, 0.1,
-            0.3, 0.1, 0.2,
-            0.1, 0.2, 0.3,
+            0.1, 0.2, 0.3, 0.3, 0.2, 0.1, 0.2, 0.1, 0.3, 0.1, 0.3, 0.2, 0.2, 0.3, 0.1, 0.3, 0.1,
+            0.2, 0.1, 0.2, 0.3,
         ];
         let stats = permutation_stats(&samples, 3).unwrap();
         assert_eq!(7, stats.blocks);
@@ -292,12 +285,7 @@ mod tests {
     #[test]
     fn gap_stats_ignore_prefix_before_first_hit() {
         let samples = vec![
-            0.9, 0.8, 0.1,
-            0.7, 0.1,
-            0.6, 0.1,
-            0.5, 0.1,
-            0.4, 0.1,
-            0.3, 0.1,
+            0.9, 0.8, 0.1, 0.7, 0.1, 0.6, 0.1, 0.5, 0.1, 0.4, 0.1, 0.3, 0.1,
         ];
         let stats = gap_stats(&samples, 0.0, 0.2, 3).unwrap();
         assert_eq!(5, stats.gaps);

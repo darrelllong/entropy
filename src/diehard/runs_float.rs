@@ -16,7 +16,11 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::{igamc, ks_test}, rng::Rng, result::TestResult};
+use crate::{
+    math::{igamc, ks_test},
+    result::TestResult,
+    rng::Rng,
+};
 
 const SEQ_LEN: usize = 10_000;
 const REPEATS: usize = 10;
@@ -26,12 +30,12 @@ const RUN_MAX: usize = 6;
 /// by n.  Source: Grafton 1981 (AS 157), Knuth TAOCP Vol 2, as reproduced in
 /// Dieharder 3.31.1 diehard_runs.c.
 const A: [[f64; RUN_MAX]; RUN_MAX] = [
-    [ 4529.4,   9044.9,  13568.0,  18091.0,  22615.0,  27892.0],
-    [ 9044.9,  18097.0,  27139.0,  36187.0,  45234.0,  55789.0],
-    [13568.0,  27139.0,  40721.0,  54281.0,  67852.0,  83685.0],
-    [18091.0,  36187.0,  54281.0,  72414.0,  90470.0, 111580.0],
-    [22615.0,  45234.0,  67852.0,  90470.0, 113262.0, 139476.0],
-    [27892.0,  55789.0,  83685.0, 111580.0, 139476.0, 172860.0],
+    [4529.4, 9044.9, 13568.0, 18091.0, 22615.0, 27892.0],
+    [9044.9, 18097.0, 27139.0, 36187.0, 45234.0, 55789.0],
+    [13568.0, 27139.0, 40721.0, 54281.0, 67852.0, 83685.0],
+    [18091.0, 36187.0, 54281.0, 72414.0, 90470.0, 111580.0],
+    [22615.0, 45234.0, 67852.0, 90470.0, 113262.0, 139476.0],
+    [27892.0, 55789.0, 83685.0, 111580.0, 139476.0, 172860.0],
 ];
 
 /// Expected proportion of runs of length i+1 (i=0..5, where i=5 means ≥6).
@@ -105,7 +109,7 @@ pub fn runs_float(words: &[u32]) -> TestResult {
 ///
 /// Returns (uv, dv) where p = igamc(3.0, v/2.0) for each direction.
 fn runs_quad_form(rng: &mut impl Rng, n: usize) -> (f64, f64) {
-    let mut upruns  = [0usize; RUN_MAX];
+    let mut upruns = [0usize; RUN_MAX];
     let mut downruns = [0usize; RUN_MAX];
     let mut ucount = 1usize;
     let mut dcount = 1usize;
@@ -117,12 +121,16 @@ fn runs_quad_form(rng: &mut impl Rng, n: usize) -> (f64, f64) {
         next = rng.next_u32();
         if next > last {
             ucount += 1;
-            if ucount > RUN_MAX { ucount = RUN_MAX; }
+            if ucount > RUN_MAX {
+                ucount = RUN_MAX;
+            }
             downruns[dcount - 1] += 1;
             dcount = 1;
         } else {
             dcount += 1;
-            if dcount > RUN_MAX { dcount = RUN_MAX; }
+            if dcount > RUN_MAX {
+                dcount = RUN_MAX;
+            }
             upruns[ucount - 1] += 1;
             ucount = 1;
         }
@@ -141,7 +149,7 @@ fn runs_quad_form(rng: &mut impl Rng, n: usize) -> (f64, f64) {
 /// Same as `runs_quad_form` but operates on a pre-collected word slice.
 fn runs_quad_form_slice(words: &[u32]) -> (f64, f64) {
     let n = words.len();
-    let mut upruns   = [0usize; RUN_MAX];
+    let mut upruns = [0usize; RUN_MAX];
     let mut downruns = [0usize; RUN_MAX];
     let mut ucount = 1usize;
     let mut dcount = 1usize;
@@ -152,12 +160,16 @@ fn runs_quad_form_slice(words: &[u32]) -> (f64, f64) {
         next = words[i];
         if next > words[i - 1] {
             ucount += 1;
-            if ucount > RUN_MAX { ucount = RUN_MAX; }
+            if ucount > RUN_MAX {
+                ucount = RUN_MAX;
+            }
             downruns[dcount - 1] += 1;
             dcount = 1;
         } else {
             dcount += 1;
-            if dcount > RUN_MAX { dcount = RUN_MAX; }
+            if dcount > RUN_MAX {
+                dcount = RUN_MAX;
+            }
             upruns[ucount - 1] += 1;
             ucount = 1;
         }
@@ -178,9 +190,7 @@ fn quadratic_form(counts: &[usize; RUN_MAX], n: usize) -> f64 {
     let mut v = 0.0f64;
     for i in 0..RUN_MAX {
         for j in 0..RUN_MAX {
-            v += (counts[i] as f64 - nf * B[i])
-                * (counts[j] as f64 - nf * B[j])
-                * A[i][j];
+            v += (counts[i] as f64 - nf * B[i]) * (counts[j] as f64 - nf * B[j]) * A[i][j];
         }
     }
     v / nf

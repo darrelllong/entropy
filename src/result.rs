@@ -22,17 +22,32 @@ pub struct TestResult {
 impl TestResult {
     /// Construct a result with the default significance level.
     pub fn new(name: &'static str, p_value: f64) -> Self {
-        Self { name, p_value, alpha: ALPHA, note: None }
+        Self {
+            name,
+            p_value,
+            alpha: ALPHA,
+            note: None,
+        }
     }
 
     /// Construct a result with an explanatory note.
     pub fn with_note(name: &'static str, p_value: f64, note: impl Into<String>) -> Self {
-        Self { name, p_value, alpha: ALPHA, note: Some(note.into()) }
+        Self {
+            name,
+            p_value,
+            alpha: ALPHA,
+            note: Some(note.into()),
+        }
     }
 
     /// A result whose preconditions were not met (n too small, etc.).
     pub fn insufficient(name: &'static str, reason: &str) -> Self {
-        Self { name, p_value: f64::NAN, alpha: ALPHA, note: Some(reason.to_owned()) }
+        Self {
+            name,
+            p_value: f64::NAN,
+            alpha: ALPHA,
+            note: Some(reason.to_owned()),
+        }
     }
 
     /// `true` if p_value ≥ alpha (the sequence is not rejected at this level).

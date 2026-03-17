@@ -24,7 +24,7 @@ const BLOCK: usize = 32;
 /// SHA-256 hash-chain generator.
 #[derive(Clone, Debug)]
 pub struct Squidward {
-    state:  [u8; BLOCK],
+    state: [u8; BLOCK],
     offset: usize,
 }
 
@@ -32,7 +32,10 @@ impl Squidward {
     /// Construct from arbitrary-length seed bytes.
     #[must_use]
     pub fn from_seed(seed: &[u8]) -> Self {
-        Self { state: sha256(seed), offset: 0 }
+        Self {
+            state: sha256(seed),
+            offset: 0,
+        }
     }
 
     /// Construct with optional seed; `None` draws from OsRng.
@@ -40,7 +43,7 @@ impl Squidward {
     pub fn new(seed: Option<&[u8]>) -> Self {
         match seed {
             Some(s) => Self::from_seed(s),
-            None    => Self::from_os_rng(),
+            None => Self::from_os_rng(),
         }
     }
 
@@ -63,7 +66,7 @@ impl Squidward {
     }
 
     fn refill(&mut self) {
-        self.state  = sha256(&self.state);
+        self.state = sha256(&self.state);
         self.offset = 0;
     }
 
@@ -80,12 +83,18 @@ impl Squidward {
 }
 
 impl Default for Squidward {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for Squidward {
-    fn next_u32(&mut self) -> u32 { u32::from_le_bytes(self.take_bytes::<4>()) }
-    fn next_u64(&mut self) -> u64 { u64::from_le_bytes(self.take_bytes::<8>()) }
+    fn next_u32(&mut self) -> u32 {
+        u32::from_le_bytes(self.take_bytes::<4>())
+    }
+    fn next_u64(&mut self) -> u64 {
+        u64::from_le_bytes(self.take_bytes::<8>())
+    }
 }
 
 /// Compute SHA-256, preferring FEAT_SHA2 hardware on AArch64.
@@ -119,7 +128,10 @@ mod tests {
         let x0 = sha256(seed);
         let mut rng = Squidward::from_seed(seed);
         for chunk in x0.chunks_exact(8) {
-            assert_eq!(rng.next_u64(), u64::from_le_bytes(chunk.try_into().unwrap()));
+            assert_eq!(
+                rng.next_u64(),
+                u64::from_le_bytes(chunk.try_into().unwrap())
+            );
         }
     }
 
@@ -129,7 +141,9 @@ mod tests {
         let x0 = sha256(seed);
         let x1 = sha256(&x0);
         let mut rng = Squidward::from_seed(seed);
-        for _ in 0..4 { let _ = rng.next_u64(); }
+        for _ in 0..4 {
+            let _ = rng.next_u64();
+        }
         assert_eq!(
             rng.next_u64(),
             u64::from_le_bytes(x1[0..8].try_into().unwrap())

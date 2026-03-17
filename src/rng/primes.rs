@@ -32,25 +32,44 @@ pub fn mod_pow(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
 /// Deterministic Miller-Rabin primality test for n < 2^63.
 #[must_use]
 pub fn is_probable_prime(n: u64) -> bool {
-    if n < 2 { return false; }
-    if n == 2 { return true; }
-    if n % 2 == 0 { return false; }
+    if n < 2 {
+        return false;
+    }
+    if n == 2 {
+        return true;
+    }
+    if n.is_multiple_of(2) {
+        return false;
+    }
     for &w in &WITNESSES {
-        if n == w { return true; }
-        if n % w == 0 { return false; }
+        if n == w {
+            return true;
+        }
+        if n.is_multiple_of(w) {
+            return false;
+        }
     }
     // Write n − 1 = d · 2^s with d odd.
     let mut d = n - 1;
     let mut s = 0u32;
-    while d % 2 == 0 { d >>= 1; s += 1; }
+    while d.is_multiple_of(2) {
+        d >>= 1;
+        s += 1;
+    }
 
     'outer: for &a in &WITNESSES {
-        if a >= n { continue; }
+        if a >= n {
+            continue;
+        }
         let mut x = mod_pow(a, d, n);
-        if x == 1 || x == n - 1 { continue; }
+        if x == 1 || x == n - 1 {
+            continue;
+        }
         for _ in 1..s {
             x = mul_mod(x, x, n);
-            if x == n - 1 { continue 'outer; }
+            if x == n - 1 {
+                continue 'outer;
+            }
         }
         return false;
     }

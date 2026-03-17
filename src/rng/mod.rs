@@ -3,7 +3,6 @@
 pub mod aes_ctr;
 pub mod bad;
 pub mod block_ctr;
-pub mod stream_rng;
 pub mod blum_blum_shub;
 pub mod blum_micali;
 pub mod c_stdlib;
@@ -20,6 +19,7 @@ pub mod primes;
 pub mod sfc;
 pub mod spongebob;
 pub mod squidward;
+pub mod stream_rng;
 pub mod wyrand;
 pub mod xorshift;
 pub mod xoshiro;
@@ -27,12 +27,11 @@ pub mod xoshiro;
 pub use aes_ctr::AesCtr;
 pub use bad::{ConstantRng, CounterRng};
 pub use block_ctr::BlockCtrRng;
-pub use stream_rng::StreamRng;
 pub use blum_blum_shub::BlumBlumShub;
 pub use blum_micali::BlumMicali;
 pub use c_stdlib::{
-    BsdRandCompat, BsdRandom, CRand, LinuxLibcRandom, Rand48, SystemVRand,
-    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
+    BsdRandCompat, BsdRandom, CRand, LinuxLibcRandom, Rand48, SystemVRand, WindowsDotNetRandom,
+    WindowsMsvcRand, WindowsVb6Rnd,
 };
 pub use chacha20_rng::ChaCha20Rng;
 pub use crypto_cprng::CryptoCtrDrbg;
@@ -46,6 +45,7 @@ pub use pcg::{Pcg32, Pcg64};
 pub use sfc::{Jsf64, Sfc64};
 pub use spongebob::SpongeBob;
 pub use squidward::Squidward;
+pub use stream_rng::StreamRng;
 pub use wyrand::WyRand;
 pub use xorshift::{Xorshift32, Xorshift64};
 pub use xoshiro::{Xoroshiro128StarStar, Xoshiro256StarStar};

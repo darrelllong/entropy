@@ -1,3 +1,5 @@
+type Case<'a> = (&'a str, usize, Box<dyn Fn(u64) -> u64 + 'a>);
+
 use entropy::research::webster_tavares::evaluate_u64;
 use entropy::rng::{
     AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
@@ -97,11 +99,19 @@ fn print_usage() {
 
 fn nonzero_u32(seed: u64) -> u32 {
     let x = seed as u32;
-    if x == 0 { 1 } else { x }
+    if x == 0 {
+        1
+    } else {
+        x
+    }
 }
 
 fn nonzero_u64(seed: u64) -> u64 {
-    if seed == 0 { 1 } else { seed }
+    if seed == 0 {
+        1
+    } else {
+        seed
+    }
 }
 
 fn next_u64_of(mut rng: impl Rng) -> u64 {
@@ -114,28 +124,78 @@ fn main() {
     // seed_bits: effective seed width consumed by the RNG constructor.
     // If args.input_bits > seed_bits the upper input bits are silently truncated
     // by the cast inside the closure, so the avalanche analysis is misleading.
-    let cases: Vec<(&str, usize, Box<dyn Fn(u64) -> u64>)> = vec![
-        ("MT19937",                           32, Box::new(|seed| next_u64_of(Mt19937::new(seed as u32)))),
-        ("Xorshift32",                        32, Box::new(|seed| next_u64_of(Xorshift32::new(nonzero_u32(seed))))),
-        ("Xorshift64",                        64, Box::new(|seed| next_u64_of(Xorshift64::new(nonzero_u64(seed))))),
-        ("BAD Unix System V rand()",          32, Box::new(|seed| next_u64_of(SystemVRand::new(seed as u32)))),
-        ("BAD Unix System V mrand48()",       48, Box::new(|seed| next_u64_of(Rand48::new(seed)))),
-        ("BAD Unix BSD random()",             32, Box::new(|seed| next_u64_of(BsdRandom::new(seed as u32)))),
-        ("BAD Unix Linux glibc rand()/random()", 32, Box::new(|seed| next_u64_of(LinuxLibcRandom::new(seed as u32)))),
-        ("BAD Windows CRT rand()",            32, Box::new(|seed| next_u64_of(WindowsMsvcRand::new(seed as u32)))),
-        ("BAD Windows VB6/VBA Rnd()",         32, Box::new(|seed| next_u64_of(WindowsVb6Rnd::new(seed as u32)))),
-        ("BAD Windows .NET Random(seed)",     32, Box::new(|seed| next_u64_of(WindowsDotNetRandom::new(seed as i32)))),
-        ("ANSI C sample LCG",                 32, Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::AnsiC, seed)))),
-        ("LCG MINSTD",                        32, Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::Minstd, seed)))),
+    let cases: Vec<Case<'_>> = vec![
         (
-            "AES-128-CTR", 128,
+            "MT19937",
+            32,
+            Box::new(|seed| next_u64_of(Mt19937::new(seed as u32))),
+        ),
+        (
+            "Xorshift32",
+            32,
+            Box::new(|seed| next_u64_of(Xorshift32::new(nonzero_u32(seed)))),
+        ),
+        (
+            "Xorshift64",
+            64,
+            Box::new(|seed| next_u64_of(Xorshift64::new(nonzero_u64(seed)))),
+        ),
+        (
+            "BAD Unix System V rand()",
+            32,
+            Box::new(|seed| next_u64_of(SystemVRand::new(seed as u32))),
+        ),
+        (
+            "BAD Unix System V mrand48()",
+            48,
+            Box::new(|seed| next_u64_of(Rand48::new(seed))),
+        ),
+        (
+            "BAD Unix BSD random()",
+            32,
+            Box::new(|seed| next_u64_of(BsdRandom::new(seed as u32))),
+        ),
+        (
+            "BAD Unix Linux glibc rand()/random()",
+            32,
+            Box::new(|seed| next_u64_of(LinuxLibcRandom::new(seed as u32))),
+        ),
+        (
+            "BAD Windows CRT rand()",
+            32,
+            Box::new(|seed| next_u64_of(WindowsMsvcRand::new(seed as u32))),
+        ),
+        (
+            "BAD Windows VB6/VBA Rnd()",
+            32,
+            Box::new(|seed| next_u64_of(WindowsVb6Rnd::new(seed as u32))),
+        ),
+        (
+            "BAD Windows .NET Random(seed)",
+            32,
+            Box::new(|seed| next_u64_of(WindowsDotNetRandom::new(seed as i32))),
+        ),
+        (
+            "ANSI C sample LCG",
+            32,
+            Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::AnsiC, seed))),
+        ),
+        (
+            "LCG MINSTD",
+            32,
+            Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::Minstd, seed))),
+        ),
+        (
+            "AES-128-CTR",
+            128,
             Box::new(|seed| {
                 let key = seed_material::<16>(seed);
                 next_u64_of(AesCtr::new(&key, 0))
             }),
         ),
         (
-            "cryptography::CtrDrbgAes256", 384,
+            "cryptography::CtrDrbgAes256",
+            384,
             Box::new(|seed| {
                 let seed_bytes = seed_material::<48>(seed);
                 next_u64_of(CryptoCtrDrbg::new(&seed_bytes))

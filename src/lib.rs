@@ -15,7 +15,7 @@ pub mod result;
 pub mod rng;
 pub mod seed;
 
-pub mod nist;
 pub mod diehard;
 pub mod dieharder;
+pub mod nist;
 pub mod research;

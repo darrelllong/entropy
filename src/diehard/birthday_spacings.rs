@@ -17,12 +17,15 @@
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 //! Source: `dieharder-3.31.1/libdieharder/diehard_birthdays.c`
 
-use crate::{math::{igamc, ks_test}, result::TestResult};
+use crate::{
+    math::{igamc, ks_test},
+    result::TestResult,
+};
 
-const M: usize = 512;       // birthdays per trial (nms)
-const YEAR: u32 = 1 << 24;  // year size = 2^24 (nbits = 24)
+const M: usize = 512; // birthdays per trial (nms)
+const YEAR: u32 = 1 << 24; // year size = 2^24 (nbits = 24)
 const SAMPLES: usize = 500; // trials per bit-offset (tsamples)
-const LAMBDA: f64 = 2.0;    // m³/(4n) = 512³/(4×2^24) = 2
+const LAMBDA: f64 = 2.0; // m³/(4n) = 512³/(4×2^24) = 2
 
 /// Run the birthday spacings test.
 ///
@@ -30,10 +33,7 @@ const LAMBDA: f64 = 2.0;    // m³/(4n) = 512³/(4×2^24) = 2
 /// George Marsaglia, DIEHARD (1995).
 pub fn birthday_spacings(words: &[u32]) -> TestResult {
     if words.len() < 9 * SAMPLES * M {
-        return TestResult::insufficient(
-            "diehard::birthday_spacings",
-            "not enough words",
-        );
+        return TestResult::insufficient("diehard::birthday_spacings", "not enough words");
     }
 
     // kmax: find the first k where expected count < 5, then add one extra slot.
@@ -74,7 +74,9 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
             let mut m = 0usize;
             while m + 1 < sorted_intervals.len() {
                 let mut mnext = m + 1;
-                while mnext < sorted_intervals.len() && sorted_intervals[m] == sorted_intervals[mnext] {
+                while mnext < sorted_intervals.len()
+                    && sorted_intervals[m] == sorted_intervals[mnext]
+                {
                     if mnext == m + 1 {
                         k += 1;
                     }

@@ -30,8 +30,7 @@ fn binomial_pmf(n: usize, k: usize, p: f64) -> f64 {
         return if k == n { 1.0 } else { 0.0 };
     }
     let q = 1.0 - p;
-    let log_comb =
-        lgamma((n + 1) as f64) - lgamma((k + 1) as f64) - lgamma((n - k + 1) as f64);
+    let log_comb = lgamma((n + 1) as f64) - lgamma((k + 1) as f64) - lgamma((n - k + 1) as f64);
     (log_comb + (k as f64) * p.ln() + ((n - k) as f64) * q.ln()).exp()
 }
 
@@ -131,9 +130,8 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
     }
 
     let mut results = Vec::with_capacity(value_max);
-    for pattern in 0..value_max {
-        if let Some((p, df, chi_sq)) = vtest_pvalue(&histograms[pattern], &expected_hist, VTEST_CUTOFF)
-        {
+    for (pattern, histogram) in histograms.iter().enumerate().take(value_max) {
+        if let Some((p, df, chi_sq)) = vtest_pvalue(histogram, &expected_hist, VTEST_CUTOFF) {
             results.push(TestResult::with_note(
                 "dieharder::bit_distribution",
                 p,

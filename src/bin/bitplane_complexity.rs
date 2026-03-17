@@ -1,3 +1,5 @@
+type Case<'a> = (&'a str, Box<dyn Fn() -> [usize; 64] + 'a>);
+
 use entropy::nist::linear_complexity::berlekamp_massey;
 use entropy::rng::{
     AesCtr, CryptoCtrDrbg, Lcg32, LcgVariant, Mt19937, Rng, Xorshift32, Xorshift64,
@@ -69,9 +71,9 @@ fn print_usage() {
 fn bitplane_complexities(mut rng: impl Rng, words: usize) -> [usize; 64] {
     let outputs: Vec<u64> = (0..words).map(|_| rng.next_u64()).collect();
     let mut out = [0usize; 64];
-    for bit in 0..64 {
+    for (bit, slot) in out.iter_mut().enumerate() {
         let seq: Vec<u8> = outputs.iter().map(|&w| ((w >> bit) & 1) as u8).collect();
-        out[bit] = berlekamp_massey(&seq);
+        *slot = berlekamp_massey(&seq);
     }
     out
 }
@@ -97,13 +99,33 @@ fn summarize(label: &str, complexities: &[usize; 64], words: usize) {
 
 fn main() {
     let args = Args::parse();
-    let cases: Vec<(&str, Box<dyn Fn() -> [usize; 64]>)> = vec![
-        ("Xorshift64", Box::new(|| bitplane_complexities(Xorshift64::new(1), args.words))),
-        ("Xorshift32", Box::new(|| bitplane_complexities(Xorshift32::new(1), args.words))),
-        ("MT19937", Box::new(|| bitplane_complexities(Mt19937::new(19650218), args.words))),
-        ("ANSI C sample LCG", Box::new(|| bitplane_complexities(Lcg32::new(LcgVariant::AnsiC, 1), args.words))),
-        ("AES-128-CTR", Box::new(|| bitplane_complexities(AesCtr::new(&seed_material::<16>(1), 0), args.words))),
-        ("cryptography::CtrDrbgAes256", Box::new(|| bitplane_complexities(CryptoCtrDrbg::new(&seed_material::<48>(1)), args.words))),
+    let cases: Vec<Case<'_>> = vec![
+        (
+            "Xorshift64",
+            Box::new(|| bitplane_complexities(Xorshift64::new(1), args.words)),
+        ),
+        (
+            "Xorshift32",
+            Box::new(|| bitplane_complexities(Xorshift32::new(1), args.words)),
+        ),
+        (
+            "MT19937",
+            Box::new(|| bitplane_complexities(Mt19937::new(19650218), args.words)),
+        ),
+        (
+            "ANSI C sample LCG",
+            Box::new(|| bitplane_complexities(Lcg32::new(LcgVariant::AnsiC, 1), args.words)),
+        ),
+        (
+            "AES-128-CTR",
+            Box::new(|| bitplane_complexities(AesCtr::new(&seed_material::<16>(1), 0), args.words)),
+        ),
+        (
+            "cryptography::CtrDrbgAes256",
+            Box::new(|| {
+                bitplane_complexities(CryptoCtrDrbg::new(&seed_material::<48>(1)), args.words)
+            }),
+        ),
     ];
 
     let mut matched = 0usize;

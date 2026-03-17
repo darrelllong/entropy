@@ -30,26 +30,26 @@ const START_VAL: usize = SIZE / 2 - 1; // = 15
 /// Empirical probability P(collision on word i) for i = 0..TARGET_LEN.
 /// Source: `dab_filltree.c` `targetData[]`.
 const TARGET_DATA: [f64; 20] = [
-    0.0,          // i=0: impossible
-    0.0,          // i=1: impossible (root always empty on first insert)
-    0.0,          // i=2
-    0.0,          // i=3
-    0.13333333,   // i=4
-    0.20000000,   // i=5
-    0.20634921,   // i=6
-    0.17857143,   // i=7
-    0.13007085,   // i=8
-    0.08183633,   // i=9
-    0.04338395,   // i=10
-    0.01851828,   // i=11
-    0.00617270,   // i=12
-    0.00151193,   // i=13
-    0.00023520,   // i=14
-    0.00001680,   // i=15
-    0.0,          // i=16
-    0.0,          // i=17
-    0.0,          // i=18
-    0.0,          // i=19
+    0.0,        // i=0: impossible
+    0.0,        // i=1: impossible (root always empty on first insert)
+    0.0,        // i=2
+    0.0,        // i=3
+    0.13333333, // i=4
+    0.20000000, // i=5
+    0.20634921, // i=6
+    0.17857143, // i=7
+    0.13007085, // i=8
+    0.08183633, // i=9
+    0.04338395, // i=10
+    0.01851828, // i=11
+    0.00617270, // i=12
+    0.00151193, // i=13
+    0.00023520, // i=14
+    0.00001680, // i=15
+    0.0,        // i=16
+    0.0,        // i=17
+    0.0,        // i=18
+    0.0,        // i=19
 ];
 const TARGET_LEN: usize = TARGET_DATA.len(); // 20
 
@@ -76,10 +76,12 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
     let mut start_idx = 0usize;
     let mut end_idx = 0usize;
     let mut found_end = false;
-    for i in 0..TARGET_LEN {
-        if expected_fill[i] < 4.0 {
-            if !found_end { start_idx = i; }
-        } else if expected_fill[i] > 4.0 {
+    for (i, &val) in expected_fill.iter().enumerate().take(TARGET_LEN) {
+        if val < 4.0 {
+            if !found_end {
+                start_idx = i;
+            }
+        } else if val > 4.0 {
             end_idx = i;
             found_end = true;
         }
@@ -110,7 +112,11 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
             word_count += 1;
 
             // Rotate and normalise to (0, 1).
-            let rotated = if rot_amount == 0 { v } else { v.rotate_left(rot_amount) };
+            let rotated = if rot_amount == 0 {
+                v
+            } else {
+                v.rotate_left(rot_amount)
+            };
             let x = rotated as f64 / u32::MAX as f64;
 
             if word_count > SIZE * 2 {
@@ -190,7 +196,7 @@ pub fn fill_tree(words: &[u32]) -> TestResult {
 ///   - If step reaches 0, return `Some(i)` (collision at position i).
 fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
     let mut i = START_VAL;
-    let mut d = (START_VAL + 1) / 2; // = 8
+    let mut d = START_VAL.div_ceil(2); // = 8
     while d > 0 {
         if array[i] == 0.0 {
             array[i] = x;

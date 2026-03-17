@@ -7,14 +7,14 @@
 //! # Author
 //! Robert G. Brown, *Dieharder* (2006), test `rgb_permutations`.
 
-use crate::{math::igamc, rng::Rng, result::TestResult};
+use crate::{math::igamc, result::TestResult, rng::Rng};
 
 /// Run the permutations test for windows of `t` consecutive floats.
 ///
 /// # Author
 /// Robert G. Brown, Dieharder (2006), `rgb_permutations`.
 pub fn permutations(rng: &mut impl Rng, t: usize) -> TestResult {
-    if t < 2 || t > 8 {
+    if !(2..=8).contains(&t) {
         return TestResult::insufficient("dieharder::permutations", "t must be 2..=8");
     }
 
@@ -26,13 +26,18 @@ pub fn permutations(rng: &mut impl Rng, t: usize) -> TestResult {
     let mut counts = vec![0u32; n_perms];
     let mut testv = vec![0.0f64; t];
     for _ in 0..n_samples {
-        for v in testv.iter_mut() { *v = rng.next_f64(); }
+        for v in testv.iter_mut() {
+            *v = rng.next_f64();
+        }
         let rank = perm_rank(&testv, t);
         counts[rank] += 1;
     }
 
     let expected = n_samples as f64 / n_perms as f64;
-    let chi_sq: f64 = counts.iter().map(|&c| (c as f64 - expected).powi(2) / expected).sum();
+    let chi_sq: f64 = counts
+        .iter()
+        .map(|&c| (c as f64 - expected).powi(2) / expected)
+        .sum();
     let df = n_perms - 1;
 
     let p_value = igamc(df as f64 / 2.0, chi_sq / 2.0);
@@ -52,8 +57,8 @@ fn perm_rank(window: &[f64], t: usize) -> usize {
     // Lehmer code → factorial number system rank.
     let mut rank = 0usize;
     let mut available: Vec<usize> = (0..t).collect();
-    for k in 0..t {
-        let pos = available.iter().position(|&v| v == order[k]).unwrap();
+    for (k, &ord) in order.iter().enumerate().take(t) {
+        let pos = available.iter().position(|&v| v == ord).unwrap();
         rank += pos * factorial(t - 1 - k);
         available.remove(pos);
     }
