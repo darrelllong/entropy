@@ -64,8 +64,9 @@ impl Lcg32 {
                 a: 22_695_477,
                 c: 1,
                 m: 1 << 32,
-                shift: 0,
-                output_mask: u32::MAX,
+                // Historical Borland rand() returns (state >> 16) & 0x7FFF (15 bits).
+                shift: 16,
+                output_mask: 0x7FFF,
             },
             LcgVariant::Msvc => Self {
                 state: seed & 0xFFFF_FFFF,

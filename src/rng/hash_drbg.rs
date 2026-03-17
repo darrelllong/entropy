@@ -31,18 +31,19 @@ use super::{OsRng, Rng};
 
 const SEEDLEN: usize = 55; // 440 bits — Table 2, SHA-256 row
 const OUTLEN: usize = 32; // SHA-256 output = 256 bits = 32 bytes
+// Number of Hashgen blocks per generate call.  SP 800-90A §10.1.1.4 says
+// all blocks are produced from a local data variable before the §10.1.1.5
+// update is applied; GENERATE_BLOCKS controls the batch size.
+const GENERATE_BLOCKS: usize = 8;
+const GENERATE_SIZE: usize = OUTLEN * GENERATE_BLOCKS; // 256 bytes
 
 /// Hash_DRBG instantiated with SHA-256 per NIST SP 800-90A §10.1.1.
 pub struct HashDrbg {
     v: [u8; SEEDLEN],
     c: [u8; SEEDLEN],
     reseed_counter: u64,
-    buf: [u8; OUTLEN], // buffered Hashgen output
+    buf: [u8; GENERATE_SIZE], // buffered Hashgen output (one full generate call)
     offset: usize,
-    // Incrementing counter for the current Hashgen sequence (§10.1.1.4
-    // "data").  Snapshotted from V at the start of each 32-byte block run
-    // and incremented by add1_mod2seedlen after each block.
-    gen_v: [u8; SEEDLEN],
 }
 
 impl HashDrbg {
@@ -63,36 +64,28 @@ impl HashDrbg {
             input[1..].copy_from_slice(&v);
             hash_df(&input, SEEDLEN)
         };
-        let mut drbg = Self {
+        let drbg = Self {
             v,
             c,
             reseed_counter: 1,
-            buf: [0u8; OUTLEN],
-            offset: OUTLEN,
-            gen_v: [0u8; SEEDLEN],
+            buf: [0u8; GENERATE_SIZE],
+            offset: GENERATE_SIZE, // force refill on first use
         };
-        // Prime the first generate block.
-        drbg.start_generate();
         drbg
     }
 
-    /// Begin a new Hashgen sequence: snapshot V into the working counter.
-    fn start_generate(&mut self) {
-        self.gen_v = self.v;
-    }
-
-    /// Produce the next 32-byte Hashgen block (§10.1.1.4) then update V
-    /// per §10.1.1.5 so the next call begins a fresh generate sequence.
+    /// Produce GENERATE_BLOCKS Hashgen blocks (§10.1.1.4) into buf, then
+    /// update V once per §10.1.1.5.  The local data counter is snapshotted
+    /// from V and incremented only within this call, not stored in the struct.
     fn refill(&mut self) {
-        // w_i = Hash(data); data = (data + 1) mod 2^seedlen
-        let block = Sha256::digest(&self.gen_v);
-        self.buf.copy_from_slice(&block);
-        add1_mod2seedlen(&mut self.gen_v);
+        let mut data = self.v;
+        for i in 0..GENERATE_BLOCKS {
+            let block = Sha256::digest(&data);
+            self.buf[i * OUTLEN..(i + 1) * OUTLEN].copy_from_slice(&block);
+            add1_mod2seedlen(&mut data);
+        }
         self.offset = 0;
-
-        // Update V after the generate call, then arm gen_v for the next one.
         self.finalise_generate();
-        self.start_generate();
     }
 
     /// §10.1.1.5: update V after a generate call.
@@ -115,7 +108,7 @@ impl HashDrbg {
 
     fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
         const { assert!(N <= OUTLEN, "chunk larger than SHA-256 output") }
-        if self.offset + N > OUTLEN {
+        if self.offset + N > GENERATE_SIZE {
             self.refill();
         }
         let out = self.buf[self.offset..self.offset + N].try_into().unwrap();

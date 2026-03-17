@@ -60,6 +60,10 @@ pub fn runs_float_both(rng: &mut impl Rng) -> Vec<TestResult> {
 
     for _ in 0..REPEATS {
         let (uv, dv) = runs_quad_form(rng, SEQ_LEN);
+        // igamc(3, v/2) = p-value for χ²(6).  df=6 for 6 bins is correct per
+        // Grafton (1981) AS 157 §3: the covariance matrix has rank 6 because
+        // the constraint Σcounts=n is absorbed into the pseudoinverse, not
+        // subtracted as the usual -1 degree of freedom.
         up_pvals.push(igamc(3.0, uv / 2.0));
         dn_pvals.push(igamc(3.0, dv / 2.0));
     }

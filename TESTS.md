@@ -292,7 +292,7 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   exponential under a homogeneous Poisson cloud. The code transforms with
   $U = 1-\exp(-r_{\min}^3/30)$ and then applies an outer KS across repeats.
 
-- **`squeeze`.** Start from $k_0 = 2^{31}-1$ and iterate
+- **`squeeze`.** Start from $k_0 = 2^{31}$ and iterate
   $k_{t+1}=\lceil k_t U_t\rceil$ until $k_t=1$ or a cap is reached. The test
   compares the empirical distribution of the stopping time $J$ to Marsaglia's
   tabulated cell probabilities by a chi-square
@@ -531,7 +531,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **2** (`ZUC-128 (key=00..0f, iv=00..0f)`) and the highest is **12** (`Xorshift32 (seed=1)`).
+- Among non-trivial generators, the lowest FAIL count is **2** (`ZUC-128 (key=00..0f, iv=00..0f)`) and the highest is **12** (tied: `Xorshift32 (seed=1)`, `BAD Unix System V rand()`, `SpongeBob (SHA3-512 chain, OsRng seed)`, `PCG64 (OsRng seed)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 
 ## Auxiliary Probes
