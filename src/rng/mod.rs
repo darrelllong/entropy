@@ -48,7 +48,7 @@ pub use squidward::Squidward;
 pub use stream_rng::StreamRng;
 pub use wyrand::WyRand;
 pub use xorshift::{Xorshift32, Xorshift64};
-pub use xoshiro::{Xoroshiro128StarStar, Xoshiro256StarStar};
+pub use xoshiro::{Xoroshiro128, Xoshiro256};
 
 // ── Rng trait ─────────────────────────────────────────────────────────────────
 

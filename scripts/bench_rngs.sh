@@ -135,8 +135,8 @@ measure spongebob     "SpongeBob (SHA3-512 chain, seed=00..3f)"        5000000
 measure squidward     "Squidward (SHA-256 chain, seed=00..1f)"        10000000
 measure pcg32         "PCG32 (seed=42, seq=54)"                       50000000
 measure pcg64         "PCG64 (state=1, seq=1)"                        25000000
-measure xoshiro256ss  "Xoshiro256** (seeds=1,2,3,4)"                  50000000
-measure xoroshiro128ss "Xoroshiro128** (seeds=1,2)"                   50000000
+measure xoshiro256    "Xoshiro256 (seeds=1,2,3,4)"                    50000000
+measure xoroshiro128  "Xoroshiro128 (seeds=1,2)"                      50000000
 measure wyrand        "WyRand (seed=42)"                               50000000
 measure sfc64         "SFC64 (seeds=1,2,3)"                           50000000
 measure jsf64         "JSF64 (seed=0xdeadbeef)"                       50000000

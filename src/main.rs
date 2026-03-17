@@ -38,7 +38,7 @@ use entropy::rng::{
     ConstantRng, CounterRng, CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32,
     LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward,
     StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand,
-    Xoroshiro128StarStar, Xorshift32, Xorshift64, Xoshiro256StarStar,
+    Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
 };
 use entropy::seed::{IV16, IV8, K16, K32};
 use entropy::{diehard, dieharder, nist, result::TestResult};
@@ -322,14 +322,8 @@ fn make_runs(args: Args) -> Vec<RunFn> {
     );
     run!("PCG32 (OsRng seed)", Pcg32::from_os_rng());
     run!("PCG64 (OsRng seed)", Pcg64::from_os_rng());
-    run!(
-        "Xoshiro256** (OsRng seed)",
-        Xoshiro256StarStar::from_os_rng()
-    );
-    run!(
-        "Xoroshiro128** (OsRng seed)",
-        Xoroshiro128StarStar::from_os_rng()
-    );
+    run!("Xoshiro256 (OsRng seed)", Xoshiro256::from_os_rng());
+    run!("Xoroshiro128 (OsRng seed)", Xoroshiro128::from_os_rng());
     run!("WyRand (OsRng seed)", WyRand::from_os_rng());
     run!("SFC64 (OsRng seed)", Sfc64::from_os_rng());
     run!("JSF64 (OsRng seed)", Jsf64::from_os_rng());

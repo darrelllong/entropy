@@ -85,8 +85,8 @@ Full log: [logs/run_all-darby-20260316-192756.log](logs/run_all-darby-20260316-1
 | Squidward (SHA-256 chain, OsRng seed) | 738 | 731 | 7 | 0 |
 | PCG32 (OsRng seed) | 738 | 729 | 9 | 0 |
 | PCG64 (OsRng seed) | 738 | 726 | 12 | 0 |
-| Xoshiro256** (OsRng seed) | 738 | 731 | 7 | 0 |
-| Xoroshiro128** (OsRng seed) | 738 | 732 | 6 | 0 |
+| Xoshiro256 (OsRng seed) | 738 | 731 | 7 | 0 |
+| Xoroshiro128 (OsRng seed) | 738 | 732 | 6 | 0 |
 | WyRand (OsRng seed) | 714 | 706 | 6 | 2 |
 | SFC64 (OsRng seed) | 738 | 728 | 10 | 0 |
 | JSF64 (OsRng seed) | 738 | 733 | 5 | 0 |
@@ -515,8 +515,8 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **Squidward (SHA-256 chain, OsRng seed)**: 7/738 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
 - **PCG32 (OsRng seed)**: 9/738 — `dieharder::bit_distribution` (×7), `dieharder::ks_uniform`, `nist::random_excursions_variant`
 - **PCG64 (OsRng seed)**: 12/738 — `dieharder::bit_distribution` (×7), `dieharder::byte_distribution`, `nist::non_overlapping_template` (×4)
-- **Xoshiro256** (OsRng seed)**: 7/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
-- **Xoroshiro128** (OsRng seed)**: 6/738 — `dieharder::bit_distribution` (×5), `dieharder::fill_tree_count`
+- **Xoshiro256 (OsRng seed)**: 7/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
+- **Xoroshiro128 (OsRng seed)**: 6/738 — `dieharder::bit_distribution` (×5), `dieharder::fill_tree_count`
 - **WyRand (OsRng seed)**: 6/714 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
 - **SFC64 (OsRng seed)**: 10/738 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template` (×2)
 - **JSF64 (OsRng seed)**: 5/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`

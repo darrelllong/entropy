@@ -107,13 +107,13 @@ batteries and are appropriate for Monte Carlo simulation and statistical testing
 | `Jsf64`               | `Jsf64::from_os_rng()`            | 256 bits |
 | `Pcg32`               | `Pcg32::from_os_rng()`            | 128 bits |
 | `Pcg64`               | `Pcg64::from_os_rng()`            | 128 bits |
-| `Xoshiro256StarStar`  | `Xoshiro256StarStar::from_os_rng()` | 256 bits |
-| `Xoroshiro128StarStar`| `Xoroshiro128StarStar::from_os_rng()` | 128 bits |
+| `Xoshiro256`  | `Xoshiro256::from_os_rng()` | 256 bits |
+| `Xoroshiro128`| `Xoroshiro128::from_os_rng()` | 128 bits |
 | `Xorshift32/64`       | `Xorshift32::new(seed)` — seed must be nonzero | 32/64 bits |
 
 The `from_os_rng()` constructors draw seed bytes from `/dev/urandom` via
 `OsRng`. All small-state generators (≤128 bits) are vulnerable to
-birthday-bound state collisions for very long outputs; prefer Xoshiro256** or
+birthday-bound state collisions for very long outputs; prefer Xoshiro256 or
 SFC64 when output lengths exceed a few billion words.
 
 ---
@@ -185,7 +185,7 @@ must not be used outside the test harness.
 
 ---
 
-### Theoretical weaklings
+### Backdoored and compromised generators
 
 | Type | Construction | Hazard |
 |------|-------------|--------|
@@ -235,7 +235,7 @@ DIEHARDER runs prohibitively slow.
 | Goal | Generator | Notes |
 |------|-----------|-------|
 | Fast simulation, no reproducibility requirement | `WyRand` or `Sfc64` | Fastest generators in the suite |
-| Reproducible statistical testing | `Pcg64` or `Xoshiro256**` | Seed with `seed_material(n)`; deterministic across runs |
+| Reproducible statistical testing | `Pcg64` or `Xoshiro256` | Seed with `seed_material(n)`; deterministic across runs |
 | Cryptographic-quality output | `ChaCha20Rng` or `CryptoCtrDrbg` (AES-256) | Seed from `OsRng`; reseed periodically |
 | OS entropy directly | `OsRng` | Wraps `/dev/urandom`; not buffered |
 | Negative control — must fail all tests | `ConstantRng` or `CounterRng` | Sanity check that batteries are working |
