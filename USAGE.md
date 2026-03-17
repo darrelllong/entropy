@@ -84,6 +84,7 @@ non-random sequences. They must fail every test. Use them as negative controls.
 |------|-------|
 | `Lcg32::ansi_c()` | ANSI C sample LCG (multiplier 1103515245, addend 12345); 15 usable bits per word |
 | `Lcg32::minstd()` | MINSTD (Park–Miller); full 31-bit period but trivially invertible |
+| `Lcg32::new(LcgVariant::Borland, seed)` | Borland C++ `rand()`: a=22695477, c=1, m=2³²; returns `(state >> 16) & 0x7FFF` (15 bits) |
 | `SystemVRand`, `Rand48`, `BsdRandom`, `LinuxLibcRandom`, `BsdRandCompat` | Historical Unix libc variants; various short periods and low-bit weaknesses |
 | `WindowsMsvcRand`, `WindowsVb6Rnd`, `WindowsDotNetRandom` | Historical Windows-family generators; included as negative controls |
 | `Mt19937` | Matsumoto–Nishimura 1998; 624-word state, period 2¹⁹⁹³⁷−1; passes DIEHARD but fails linear-complexity tests. **The full state is recoverable from 624 consecutive 32-bit outputs.** |
