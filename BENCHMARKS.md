@@ -51,8 +51,8 @@ points if some benchmark files are still missing.
 | `Squidward (SHA-256 chain, seed=00..1f)` | 239.6 | ±0.574 | 25.68 | ±0.419 |
 | `PCG32 (seed=42, seq=54)` | 934.1 | ±6.738 | 817.1 | ±2.848 |
 | `PCG64 (state=1, seq=1)` | 843.8 | ±2.893 | 580.3 | ±2.532 |
-| `Xoshiro256** (seeds=1,2,3,4)` | 1287 | ±4.56 | 927.5 | ±2.207 |
-| `Xoroshiro128** (seeds=1,2)` | 902.8 | ±9.123 | 730.4 | ±1.964 |
+| `Xoshiro256 (seeds=1,2,3,4)` | 1287 | ±4.56 | 927.5 | ±2.207 |
+| `Xoroshiro128 (seeds=1,2)` | 902.8 | ±9.123 | 730.4 | ±1.964 |
 | `WyRand (seed=42)` | 3120 | ±14.32 | 940.7 | ±3.277 |
 | `SFC64 (seeds=1,2,3)` | 1262 | ±15.58 | 1001 | ±2.452 |
 | `JSF64 (seed=0xdeadbeef)` | 1314 | ±23.22 | 870.6 | ±2.447 |
@@ -286,7 +286,7 @@ on a 64-bit machine than the 64-bit LCG used by PCG32, which is why PCG64 reads
 as slower (843.8 MW/s vs PCG32's 934.1 MW/s) despite producing 64 bits per step.
 Period: $2^{128}$.
 
-#### `Xoshiro256** (seeds=1,2,3,4)`
+#### `Xoshiro256 (seeds=1,2,3,4)`
 
 Xoshiro256\*\* (Blackman and Vigna 2021) is a 256-bit linear generator over
 $\mathbb{F}_2$ with a starstar scrambler on output.  The linear engine is
@@ -297,7 +297,7 @@ linear-complexity tests.  The generator passes BigCrush and PractRand beyond
 32 TiB; it is not cryptographic.  Period: $2^{256}-1$; the all-zero seed is
 forbidden and rejected at construction.
 
-#### `Xoroshiro128** (seeds=1,2)`
+#### `Xoroshiro128 (seeds=1,2)`
 
 Xoroshiro128\*\* is the 128-bit sibling of Xoshiro256\*\* using the same starstar
 scrambler but a two-word xoroshiro recurrence

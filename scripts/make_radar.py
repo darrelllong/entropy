@@ -68,9 +68,9 @@ CHARTS = [
             ("WyRand",         3120.0, "wyrand.bench"),
             ("JSF64",          1314.0, "jsf64.bench"),
             ("SFC64",          1262.0, "sfc64.bench"),
-            ("Xoshiro256",     1287.0, "xoshiro256ss.bench"),
+            ("Xoshiro256",     1287.0, "xoshiro256.bench"),
             ("PCG32",           934.1, "pcg32.bench"),
-            ("Xoroshiro128",    902.8, "xoroshiro128ss.bench"),
+            ("Xoroshiro128",    902.8, "xoroshiro128.bench"),
             ("mrand48",         973.0, "rand48.bench"),
             ("PCG64",           843.8, "pcg64.bench"),
             ("MT19937",         641.2, "mt19937.bench"),
@@ -82,9 +82,9 @@ CHARTS = [
             ("middle",  0, -42),  #0°   WyRand
             ("start",  18, -24),  #30°  JSF64
             ("start",  22, -20),  #60°  SFC64
-            ("start",   8, -10),  #90°  Xoshiro256**
+            ("start",   8, -10),  #90°  Xoshiro256
             ("start",  22,  14),  #120° PCG32
-            ("start",  18,  16),  #150° Xoroshiro128**
+            ("start",  18,  16),  #150° Xoroshiro128
             ("middle",  0,  28),  #180° mrand48
             ("end",   -18,  16),  #210° PCG64
             ("end",   -22,   7),  #240° MT19937

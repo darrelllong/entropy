@@ -14,9 +14,9 @@
 //! Names: osrng  mt19937  xorshift64  xorshift32  sysv_rand  rand48
 //!        bsd_random  linux_glibc_random  bsd_rand_compat
 //!        windows_msvc_rand  windows_vb6_rnd  windows_dotnet_random
-//!        ansi_c_lcg  lcg_minstd  bbs  blum_micali  aes_ctr
+//!        ansi_c_lcg  lcg_minstd  aes_ctr
 //!        spongebob  squidward
-//!        pcg32  pcg64  xoshiro256ss  xoroshiro128ss
+//!        pcg32  pcg64  xoshiro256  xoroshiro128
 //!        wyrand  sfc64  jsf64
 //!        chacha20  hmac_drbg  hash_drbg
 //!        crypto_ctr_drbg  constant  counter
@@ -32,11 +32,10 @@ use cryptography::{
     Snow3g, Twofish128, Zuc128,
 };
 use entropy::rng::{
-    AesCtr, BlockCtrRng, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
-    ConstantRng, CounterRng, CryptoCtrDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LinuxLibcRandom,
-    Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
-    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128StarStar, Xorshift32,
-    Xorshift64, Xoshiro256StarStar,
+    AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
+    CryptoCtrDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Pcg32,
+    Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom,
+    WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
 };
 use entropy::seed::{IV16, IV8, K16, K32};
 
@@ -82,11 +81,6 @@ fn main() {
         "windows_dotnet_random" => measure(WindowsDotNetRandom::new(1), n),
         "ansi_c_lcg" => measure(Lcg32::ansi_c(), n),
         "lcg_minstd" => measure(Lcg32::minstd(), n),
-        "bbs" => measure(
-            BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567),
-            n,
-        ),
-        "blum_micali" => measure(BlumMicali::new(2_147_483_647, 7, 42), n),
         "aes_ctr" => measure(AesCtr::with_nist_key(), n),
         "camellia_ctr" => measure(BlockCtrRng::new(Camellia128::new(&K16), 0), n),
         "twofish_ctr" => measure(BlockCtrRng::new(Twofish128::new(&K16), 0), n),
@@ -103,8 +97,8 @@ fn main() {
         "squidward" => measure(Squidward::with_test_seed(), n),
         "pcg32" => measure(Pcg32::new(42, 54), n),
         "pcg64" => measure(Pcg64::new(1, 1), n),
-        "xoshiro256ss" => measure(Xoshiro256StarStar::new(1, 2, 3, 4), n),
-        "xoroshiro128ss" => measure(Xoroshiro128StarStar::new(1, 2), n),
+        "xoshiro256" => measure(Xoshiro256::new(1, 2, 3, 4), n),
+        "xoroshiro128" => measure(Xoroshiro128::new(1, 2), n),
         "wyrand" => measure(WyRand::new(42), n),
         "sfc64" => measure(Sfc64::new(1, 2, 3), n),
         "jsf64" => measure(Jsf64::new(0xdead_beef), n),

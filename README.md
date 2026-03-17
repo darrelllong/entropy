@@ -12,7 +12,12 @@ This is a serious audit tool, but it is not a magical oracle. Some tests are ful
 
 ## Dependency Note
 
-This repository depends on Darrell Long's [`cryptography`](https://github.com/darrelllong/cryptography) repository via a local Cargo path dependency. It is currently used for elliptic-curve support and related primitives needed by some of the bundled RNG implementations, and may also supply other low-level cryptographic building blocks over time.
+This repository depends on Darrell Long's [`cryptography`](https://github.com/darrelllong/cryptography) repository via a local Cargo path dependency. It supplies:
+
+- **Block ciphers** used by the CTR-mode RNGs: Camellia-128, Twofish-128, Serpent-128, SM4, Grasshopper-256, CAST-128, SEED.
+- **Stream ciphers**: Rabbit, Salsa20, Snow3G, ZUC-128.
+- **Elliptic-curve primitives**: P-256 scalar multiplication used by Dual_EC_DRBG.
+- **DRBG**: AES-256-CTR DRBG (`CtrDrbgAes256`).
 
 ## What This Repository Is For
 
@@ -83,30 +88,58 @@ cargo run --release --bin webster_tavares -- --samples 2048
 cargo run --release --bin gorilla      -- --rng AES
 ```
 
-### Benchmarks
+### Throughput benchmarks
+
+Throughput is measured with [pilot-bench](https://github.com/darrelllong/pilot-bench),
+a statistical benchmarking harness that reports MW/s (10⁶ u32 words/second) with
+confidence intervals. Build `pilot_rng` and run the benchmark script:
 
 ```sh
-tests/run_benchmarks.sh
+tests/run_benchmarks.sh                        # quick preset, skip already-measured
+tests/run_benchmarks.sh --preset normal        # tighter CIs (takes longer)
+tests/run_benchmarks.sh --force aes_ctr rabbit # re-measure specific generators
 ```
+
+Results land in `stats/<machine>/*.bench`. After measuring, regenerate the
+radar charts with:
+
+```sh
+python3 scripts/make_radar.py
+```
+
+See [BENCHMARKS.md](BENCHMARKS.md) for the full results table and radar charts.
 
 ## What The Runner Exercises
 
-The default runner compares several built-in generators, including:
+The default runner compares 44 built-in generators across six categories:
 
-- `/dev/urandom`
-- MT19937
-- Xorshift32 and Xorshift64
-- historical weak Unix libc generators:
-  System V `rand()` and `mrand48()`, BSD `random()`, Linux glibc `rand()/random()`, and the old FreeBSD `rand_r()` compatibility path
-- historical weak Microsoft/Windows-family generators:
-  CRT `rand()`, VB6/VBA `Rnd()`, and classic `.NET Random(seed)` compatibility
-- classic standalone LCG-style generators
-- AES-128-CTR as a deterministic keystream source
-- intentionally bad generators like a constant stream and a counter
+**OS entropy**
+- `OsRng` (`/dev/urandom`)
 
-That makes the output useful both for regression testing and for sanity-checking that the batteries still punish obviously bad constructions.
+**Degenerate (must fail everything)**
+- `ConstantRng`, `CounterRng`
 
-Those Unix libc APIs are included precisely because they are bad historical RNGs. They are useful as negative controls, not as designs to copy.
+**Historical broken generators (negative controls)**
+- Unix libc: System V `rand()`, `mrand48()`, BSD `random()`, Linux glibc `rand()/random()`, FreeBSD `rand_r()` compat
+- Windows: CRT `rand()`, VB6/VBA `Rnd()`, `.NET Random` compat
+- Classic LCGs: ANSI C, MINSTD
+
+**Quality simulation generators**
+- `MT19937`, `Xorshift32`, `Xorshift64`
+- `PCG32`, `PCG64`, `Xoshiro256`, `Xoroshiro128`
+- `WyRand`, `SFC64`, `JSF64`
+
+**Cipher-based CSPRNGs** (block-CTR mode, from the `cryptography` crate)
+- AES-128-CTR, Camellia-128-CTR, Twofish-128-CTR, Serpent-128-CTR
+- SM4-CTR, Grasshopper-CTR, CAST-128-CTR, SEED-CTR
+- Stream ciphers: Rabbit, Salsa20, Snow3G, ZUC-128
+
+**Cryptographic DRBGs**
+- `ChaCha20`, `SpongeBob` (SHA3-512), `Squidward` (SHA-256)
+- `HmacDrbg`, `HashDrbg`, `CtrDrbgAes256` (AES-256-CTR DRBG)
+- `DualEcDrbg` (P-256, known-backdoored — negative control)
+
+That mix makes output useful both for regression testing and for verifying that the batteries correctly punish weak and broken constructions while passing strong ones.
 
 ## Implementation Status
 
