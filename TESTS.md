@@ -396,6 +396,91 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   chi-square over the $41$ pooled bins, which makes this a structural probe of
   fine arithmetic correlations rather than simple one-dimensional uniformity.
 
+### Research Probes
+
+These seven tests live in `src/research/` and are run via `cargo test -- --include-ignored`.
+They probe structural properties that the standard batteries underweight.
+
+- **Knuth permutation test** (TAOCP §3.3.2).  Draw non-overlapping windows of
+  $t$ successive output words ($t = 3$ and $t = 4$ in the crate), rank each
+  window to obtain its permutation ordinal in $S_t$, and accumulate counts over
+  the $t!$ orderings.  The null distribution is uniform, so the test statistic
+  is $\chi^2 = \sum_{i=0}^{t!-1} (O_i - N/t!)^2/(N/t!)$ on $t!-1$ degrees of
+  freedom.  Sensitive to short-range ordering biases that survive frequency tests.
+
+- **Knuth gap test** (TAOCP §3.3.2).  Fix an interval $[\alpha,\beta)$ and
+  record the lengths $L$ of the gaps (runs of words outside the interval)
+  between successive hits.  Under the null, $L$ follows a geometric distribution
+  with success probability $p = \beta - \alpha$.  The observed gap-length
+  histogram (pooled at an upper cutoff) is compared to this geometric law by
+  chi-square.  Tests uniformity of the real-valued projection and independence
+  of successive words.
+
+- **Knuth runs test** (Wald–Wolfowitz).  Scan the output sequence and count runs
+  of consecutive ascending values.  For a truly uniform i.i.d. sequence of $n$
+  words, the number of runs $R$ has mean $\mu = (2n-1)/3$ and variance
+  $\sigma^2 = (16n-29)/90$.  The crate reports $z = (R - \mu)/\sigma$ and the
+  two-tailed p-value $p = \mathrm{erfc}(|z|/\sqrt{2})$.  Detects serial
+  monotonicity biases (too many or too few direction reversals).
+
+- **PractRand FPF** (float-point-frequency).  Convert 32-bit words to IEEE 754
+  single-precision floats and partition them by their 8-bit biased exponent into
+  256 buckets.  Within each exponent bucket the significand bits form an
+  independent bit stream; the test applies a G-test (log-likelihood ratio
+  chi-square) to the per-bucket bit-frequency histogram and separately to the
+  cross-exponent marginal.  Detects carry and alignment artifacts that are
+  invisible to integer-domain frequency tests.
+
+- **TestU01 Lempel–Ziv** (`smultin_Lempel_Ziv`).  Parse the bit stream as an
+  LZ78 dictionary: each new phrase extends the longest previously seen prefix by
+  one bit.  Let $C_n$ be the number of distinct phrases after reading $n$ bits.
+  Asymptotically, $C_n / (n / \log_2 n) \to 1$ for a fair coin.  The crate uses
+  empirical tables of $(\mu, \sigma)$ for $n = 2^k$ taken from the TestU01
+  source to compute a z-score and derives the p-value from the normal
+  approximation.  An outer KS over multiple replications converts per-replication
+  z-scores to a single battery p-value.  Low complexity (few phrases) flags
+  repetitive structure; high complexity flags over-dispersion.
+
+- **TestU01 Hamming** (`sstring_HammingCorr` / `sstring_HammingIndep`).
+  `HammingCorr`: Extract $L$-bit blocks from the bit stream, compute the
+  Hamming weight $W = \sum b_i$ of each block, and compare the weight histogram
+  to $\mathrm{Bin}(L, \tfrac12)$ by chi-square.  $L = 32$ and $L = 64$ are both
+  tested.
+  `HammingIndep`: For successive pairs of $L$-bit blocks $(X, Y)$, compute the
+  joint weight histogram $(W_X, W_Y)$ and compare to the product distribution
+  $\mathrm{Bin}(L,\tfrac12)\times\mathrm{Bin}(L,\tfrac12)$.  The chi-square
+  statistic measures whether Hamming weights of consecutive blocks are
+  correlated.  Detects linear dependencies across block boundaries.
+
+- **Webster–Tavares strict avalanche criterion (SAC)**.  For each bit position
+  $i$ in a $k$-word window, flip bit $i$ in the input seed and measure the
+  fraction of output bits that change.  Under the SAC, every output bit should
+  flip with probability exactly $\tfrac12$ when any single input bit is flipped.
+  The crate computes the pairwise correlation coefficient $\rho_{ij}$ between the
+  flip indicators for input bit $i$ and output bit $j$, and reports a chi-square
+  on the full $k \times k$ correlation matrix.  Cryptographic generators should
+  pass; LCGs and short-state generators fail badly because their internal
+  diffusion is limited.
+
+- **Gorilla** (Marsaglia–Tsang).  For each of the 32 bit positions, extract that
+  bit from $2^{26}+25$ successive words to form a stream of $2^{26}+25$ bits.
+  Count the number of distinct 26-bit patterns that never appear (missing words).
+  Under the null, the number of missing words follows approximately
+  $N(24{,}687{,}971,\ 4170^2)$ (Marsaglia's analytic result).  The crate
+  collects one p-value per bit position and applies a KS test over the 32
+  p-values, detecting positional asymmetries and bit-plane correlations invisible
+  to the standard birthday-problem tests.
+
+- **Multi-scale approximate entropy (ApEn)**.  For template lengths
+  $m = 1, 2, \dots, M$ (default $M = 8$), compute Pincus's
+  $\mathrm{ApEn}(m, r, N)$ on the output sequence, where $r$ is set to
+  $0.2\,\sigma$ of the data.  Each ApEn value measures the log-likelihood that
+  runs of $m$ consecutive samples that are close together remain close for $m+1$
+  samples.  The crate reports the ApEn profile across scales; a random sequence
+  should sustain near-maximal entropy at every scale, while structured generators
+  show a characteristic drop-off at the scale where their internal period or
+  dependency length becomes apparent.
+
 ## Failure Highlights
 
 One line per generator.  Test-family repetition counts in parentheses.
