@@ -14,6 +14,10 @@
 use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 const ATTEMPTS: usize = 12_000;
+// NOTE: MEAN=3523 and SIGMA=21.9 are Marsaglia's published values for circular cars.
+// This implementation uses the L∞ (square car) collision criterion per Dieharder's
+// diehard_parking_lot.c. The compatibility of these constants with the square-car
+// geometry is assumed but not analytically verified.
 const MEAN: f64 = 3_523.0;
 const SIGMA: f64 = 21.9;
 

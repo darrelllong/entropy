@@ -85,7 +85,7 @@ impl HashDrbg {
     /// per §10.1.1.5 so the next call begins a fresh generate sequence.
     fn refill(&mut self) {
         // w_i = Hash(data); data = (data + 1) mod 2^seedlen
-        let block = sha256_bytes(&self.gen_v);
+        let block = Sha256::digest(&self.gen_v);
         self.buf.copy_from_slice(&block);
         add1_mod2seedlen(&mut self.gen_v);
         self.offset = 0;
@@ -102,7 +102,7 @@ impl HashDrbg {
             let mut input = [0u8; 1 + SEEDLEN];
             input[0] = 0x03;
             input[1..].copy_from_slice(&self.v);
-            sha256_bytes(&input)
+            Sha256::digest(&input)
         };
 
         // V = (V + H + C + reseed_counter) mod 2^seedlen
@@ -115,9 +115,6 @@ impl HashDrbg {
 
     fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
         const { assert!(N <= OUTLEN, "chunk larger than SHA-256 output") }
-        if self.offset == OUTLEN {
-            self.refill();
-        }
         if self.offset + N > OUTLEN {
             self.refill();
         }
@@ -184,11 +181,6 @@ fn add_bytes_mod(data: &mut [u8; SEEDLEN], addend: &[u8]) {
 fn add_u64_mod(data: &mut [u8; SEEDLEN], n: u64) {
     let bytes = n.to_be_bytes();
     add_bytes_mod(data, &bytes);
-}
-
-#[inline]
-fn sha256_bytes(input: &[u8]) -> [u8; OUTLEN] {
-    Sha256::digest(input)
 }
 
 impl Default for HashDrbg {

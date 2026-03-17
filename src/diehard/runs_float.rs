@@ -137,6 +137,8 @@ fn runs_quad_form(rng: &mut impl Rng, n: usize) -> (f64, f64) {
         last = next;
     }
 
+    // Closing convention from diehard_runs.c: the final partial run direction
+    // is determined by comparing the last output (next) with the first (first).
     if next > first {
         downruns[dcount - 1] += 1;
     } else {
@@ -175,6 +177,8 @@ fn runs_quad_form_slice(words: &[u32]) -> (f64, f64) {
         }
     }
 
+    // Closing convention from diehard_runs.c: the final partial run direction
+    // is determined by comparing the last output (next) with the first (first).
     if next > first {
         downruns[dcount - 1] += 1;
     } else {

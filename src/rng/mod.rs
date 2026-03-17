@@ -13,7 +13,6 @@ pub mod lcg;
 pub mod mt19937;
 pub mod os;
 pub mod pcg;
-pub mod primes;
 pub mod sfc;
 pub mod spongebob;
 pub mod squidward;

@@ -69,9 +69,6 @@ impl HmacDrbg {
 
     fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
         const { assert!(N <= OUT, "chunk larger than HMAC-SHA-256 output") }
-        if self.offset == OUT {
-            self.refill();
-        }
         if self.offset + N > OUT {
             self.refill();
         }

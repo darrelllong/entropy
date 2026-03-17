@@ -108,3 +108,13 @@ fn count_non_overlapping(block: &[u8], template: &[u8]) -> usize {
     }
     count
 }
+
+#[cfg(test)]
+mod tests {
+    use super::aperiodic_templates_9;
+
+    #[test]
+    fn aperiodic_9bit_template_count() {
+        assert_eq!(aperiodic_templates_9().len(), 148);
+    }
+}

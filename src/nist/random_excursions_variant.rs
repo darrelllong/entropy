@@ -25,7 +25,7 @@ pub fn random_excursions_variant(bits: &[u8]) -> TestResult {
     let results = random_excursions_variant_all(bits);
     results
         .into_iter()
-        .min_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap())
+        .min_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap_or(std::cmp::Ordering::Equal))
         .unwrap_or_else(|| TestResult::insufficient("nist::random_excursions_variant", "J < 500"))
 }
 

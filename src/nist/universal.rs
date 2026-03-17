@@ -79,7 +79,7 @@ pub fn universal(bits: &[u8]) -> TestResult {
     let n = bits.len();
     let l = choose_l(n);
     if l == 0 {
-        return TestResult::insufficient("nist::universal", "n too small (need ≥ 2560)");
+        return TestResult::insufficient("nist::universal", "n too small for all supported L values (need ≥ 165120)");
     }
 
     let q = 10 * (1usize << l); // initialisation blocks

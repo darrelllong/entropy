@@ -359,24 +359,7 @@ impl Rng for BsdRandom {
 /// glibc's `rand()` is just `random()` under the hood, so the Linux userspace
 /// generator many programs used before `/dev/random`, `/dev/urandom`, and
 /// `getrandom(2)` became the norm is this same Berkeley-derived TYPE_3 engine.
-#[derive(Debug, Clone)]
-pub struct LinuxLibcRandom {
-    inner: BsdRandom,
-}
-
-impl LinuxLibcRandom {
-    pub fn new(seed: u32) -> Self {
-        Self {
-            inner: BsdRandom::new(seed),
-        }
-    }
-}
-
-impl Rng for LinuxLibcRandom {
-    fn next_u32(&mut self) -> u32 {
-        self.inner.next_u32()
-    }
-}
+pub type LinuxLibcRandom = BsdRandom;
 
 // ── FreeBSD compatibility rand_r() ───────────────────────────────────────────
 

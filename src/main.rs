@@ -75,7 +75,6 @@ impl Args {
         let mut explicit_suites: HashSet<Suite> = HashSet::new();
         let mut test_filter: Option<String> = None;
         let mut rng_filters: Vec<String> = Vec::new();
-        let mut suite_explicit = false;
 
         let argv: Vec<String> = std::env::args().skip(1).collect();
         let mut i = 0;
@@ -103,7 +102,6 @@ impl Args {
                             "unknown suite '{other}' — use: nist, diehard, dieharder"
                         )),
                     }
-                    suite_explicit = true;
                 }
                 "--test" => {
                     i += 1;
@@ -128,7 +126,7 @@ impl Args {
 
         // If --suite was not given but --test has a suite prefix, infer the suite
         // so we don't generate unnecessary random data for other batteries.
-        let suites = if suite_explicit {
+        let suites = if !explicit_suites.is_empty() {
             explicit_suites
         } else if let Some(ref pat) = test_filter {
             let mut inferred = HashSet::new();
