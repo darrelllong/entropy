@@ -20,6 +20,9 @@
 //!        wyrand  sfc64  jsf64
 //!        chacha20  hmac_drbg  hash_drbg
 //!        crypto_ctr_drbg  constant  counter
+//!        camellia_ctr  twofish_ctr  serpent_ctr  sm4_ctr  grasshopper_ctr
+//!        cast128_ctr  seed_ctr
+//!        rabbit  salsa20  snow3g  zuc128
 
 use std::hint::black_box;
 use std::time::Instant;
@@ -35,13 +38,7 @@ use entropy::rng::{
     WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128StarStar, Xorshift32,
     Xorshift64, Xoshiro256StarStar,
 };
-use entropy::seed::sequential_bytes;
-
-// Fixed test keys for cipher-based RNGs — sequential bytes, defined once.
-const K16: [u8; 16] = sequential_bytes();
-const K32: [u8; 32] = sequential_bytes();
-const IV8: [u8; 8] = sequential_bytes();
-const IV16: [u8; 16] = sequential_bytes();
+use entropy::seed::{IV16, IV8, K16, K32};
 
 fn workload_words() -> u64 {
     std::env::var("PILOT_RNG_WORDS")

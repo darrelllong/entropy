@@ -29,9 +29,10 @@ from pathlib import Path
 REPO     = Path(__file__).parent.parent
 CX, CY   = 450.0, 450.0
 CANVAS   = 900
-N_SPOKES = 12
-SPOKE_R  = 300
-RINGS    = [105, 150, 195, 240, 285]
+N_SPOKES           = 12
+SPOKE_R            = 300
+RINGS              = [105, 150, 195, 240, 285]
+LABEL_LINE_SPACING = 18   # vertical gap between label name and MW/s annotation
 
 # Per-machine rendering: (stats subdir, fill, stroke, dot fill, legend label)
 MACHINES = [
@@ -48,7 +49,7 @@ MACHINES = [
 #   A, B       — log-normalisation: r = A * log10(MW/s) + B
 #   out        — output filename under assets/
 #   generators — list of (display label, Dyson fallback MW/s, bench file)
-#   labels     — list of (text-anchor, dx, dy, line-spacing) per spoke
+#   labels     — list of (text-anchor, dx, dy) per spoke
 #
 # Scale calibration (Dyson numbers):
 #   fast chart: sysv_rand (~441) → r=70, WyRand (~3120) → r=270
@@ -79,18 +80,18 @@ CHARTS = [
             ("sysv_rand",       441.4, "sysv_rand.bench"),
         ],
         "labels": [
-            ("middle",  0, -42, 18),  # 0°   WyRand
-            ("start",  18, -24, 18),  # 30°  JSF64
-            ("start",  22, -20, 18),  # 60°  SFC64
-            ("start",   8, -10, 18),  # 90°  Xoshiro256**
-            ("start",  22,  14, 18),  # 120° PCG32
-            ("start",  18,  16, 18),  # 150° Xoroshiro128**
-            ("middle",  0,  28, 18),  # 180° mrand48
-            ("end",   -18,  16, 18),  # 210° PCG64
-            ("end",   -22,   7, 18),  # 240° MT19937
-            ("end",    -8, -10, 18),  # 270° Xorshift64
-            ("end",   -22, -20, 18),  # 300° Xorshift32
-            ("end",   -18, -28, 18),  # 330° sysv_rand
+            ("middle",  0, -42),  #0°   WyRand
+            ("start",  18, -24),  #30°  JSF64
+            ("start",  22, -20),  #60°  SFC64
+            ("start",   8, -10),  #90°  Xoshiro256**
+            ("start",  22,  14),  #120° PCG32
+            ("start",  18,  16),  #150° Xoroshiro128**
+            ("middle",  0,  28),  #180° mrand48
+            ("end",   -18,  16),  #210° PCG64
+            ("end",   -22,   7),  #240° MT19937
+            ("end",    -8, -10),  #270° Xorshift64
+            ("end",   -22, -20),  #300° Xorshift32
+            ("end",   -18, -28),  #330° sysv_rand
         ],
     },
     {
@@ -115,18 +116,18 @@ CHARTS = [
             ("Blum-Micali",       0.462, "blum_micali.bench"),
         ],
         "labels": [
-            ("middle",  0, -42, 18),  # 0°   Squidward
-            ("start",  18, -24, 18),  # 30°  FreeBSD rand_r
-            ("start",  22, -20, 18),  # 60°  ChaCha20
-            ("start",   8, -10, 18),  # 90°  ANSI C LCG
-            ("start",  22,  14, 18),  # 120° AES-128-CTR
-            ("start",  18,  16, 18),  # 150° SpongeBob
-            ("middle",  0,  28, 18),  # 180° BBS
-            ("end",   -18,  16, 18),  # 210° Hash_DRBG
-            ("end",   -22,   7, 18),  # 240° HMAC_DRBG
-            ("end",    -8, -10, 18),  # 270° CtrDrbgAes256
-            ("end",   -22, -20, 18),  # 300° OsRng
-            ("end",   -18, -28, 18),  # 330° Blum-Micali
+            ("middle",  0, -42),  #0°   Squidward
+            ("start",  18, -24),  #30°  FreeBSD rand_r
+            ("start",  22, -20),  #60°  ChaCha20
+            ("start",   8, -10),  #90°  ANSI C LCG
+            ("start",  22,  14),  #120° AES-128-CTR
+            ("start",  18,  16),  #150° SpongeBob
+            ("middle",  0,  28),  #180° BBS
+            ("end",   -18,  16),  #210° Hash_DRBG
+            ("end",   -22,   7),  #240° HMAC_DRBG
+            ("end",    -8, -10),  #270° CtrDrbgAes256
+            ("end",   -22, -20),  #300° OsRng
+            ("end",   -18, -28),  #330° Blum-Micali
         ],
     },
     {
@@ -151,18 +152,18 @@ CHARTS = [
             ("Serpent-CTR",       2.859, "serpent_ctr.bench"),
         ],
         "labels": [
-            ("middle",  0, -42, 18),  # 0°   Rabbit
-            ("start",  18, -24, 18),  # 30°  Salsa20
-            ("start",  22, -20, 18),  # 60°  Snow3G
-            ("start",   8, -10, 18),  # 90°  ZUC-128
-            ("start",  22,  14, 18),  # 120° AES-128-CTR
-            ("start",  18,  16, 18),  # 150° Camellia-CTR
-            ("middle",  0,  28, 18),  # 180° SM4-CTR
-            ("end",   -18,  16, 18),  # 210° CAST-128-CTR
-            ("end",   -22,   7, 18),  # 240° SEED-CTR
-            ("end",    -8, -10, 18),  # 270° Grasshopper-CTR
-            ("end",   -22, -20, 18),  # 300° Twofish-CTR
-            ("end",   -18, -28, 18),  # 330° Serpent-CTR
+            ("middle",  0, -42),  #0°   Rabbit
+            ("start",  18, -24),  #30°  Salsa20
+            ("start",  22, -20),  #60°  Snow3G
+            ("start",   8, -10),  #90°  ZUC-128
+            ("start",  22,  14),  #120° AES-128-CTR
+            ("start",  18,  16),  #150° Camellia-CTR
+            ("middle",  0,  28),  #180° SM4-CTR
+            ("end",   -18,  16),  #210° CAST-128-CTR
+            ("end",   -22,   7),  #240° SEED-CTR
+            ("end",    -8, -10),  #270° Grasshopper-CTR
+            ("end",   -22, -20),  #300° Twofish-CTR
+            ("end",   -18, -28),  #330° Serpent-CTR
         ],
     },
 ]
@@ -219,7 +220,7 @@ def load_machine_data(chart, stats_root, subdir):
 # SVG generation
 # ---------------------------------------------------------------------------
 
-def generate_svg(chart, stats_root, machine_cache):
+def generate_svg(chart, machine_cache):
     """Render one radar chart SVG.
 
     machine_cache maps subdir → load_machine_data() result (or None).
@@ -229,23 +230,30 @@ def generate_svg(chart, stats_root, machine_cache):
     """
     A, B = chart["A"], chart["B"]
     lines = []
-    w = lines.append
+    emit = lines.append
 
-    w(f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS}" height="{CANVAS}" viewBox="0 0 {CANVAS} {CANVAS}">')
-    w(f'<rect width="100%" height="100%" fill="#f6f1e8"/>')
+    emit(f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS}" height="{CANVAS}" viewBox="0 0 {CANVAS} {CANVAS}">')
+    emit(f'<rect width="100%" height="100%" fill="#f6f1e8"/>')
 
-    # Grid rings
-    w('<g stroke="#d8cdb8" fill="none">')
+    # Grid rings with speed annotations along the top spoke (0°).
+    emit('<g stroke="#d8cdb8" fill="none">')
     for r in RINGS:
-        w(f'<polygon points="{ring_polygon(r)}" stroke-width="1"/>')
-    w('</g>')
+        emit(f'<polygon points="{ring_polygon(r)}" stroke-width="1"/>')
+    emit('</g>')
+    emit('<g font-family="Georgia, serif" font-size="11" fill="#9a8470" text-anchor="middle">')
+    for r in RINGS:
+        mw = 10 ** ((r - B) / A)
+        label = fmt_mw(mw)
+        rx, ry = spoke_xy(r, 0)   # top spoke
+        emit(f'<text x="{rx + 18:.1f}" y="{ry + 4:.1f}" text-anchor="start">{label}</text>')
+    emit('</g>')
 
     # Spokes
-    w('<g stroke="#b8aa90" stroke-width="1">')
+    emit('<g stroke="#b8aa90" stroke-width="1">')
     for k in range(N_SPOKES):
         x2, y2 = spoke_xy(SPOKE_R, k * 360 / N_SPOKES)
-        w(f'<line x1="{CX:.0f}" y1="{CY:.0f}" x2="{x2:.1f}" y2="{y2:.1f}"/>')
-    w('</g>')
+        emit(f'<line x1="{CX:.0f}" y1="{CY:.0f}" x2="{x2:.1f}" y2="{y2:.1f}"/>')
+    emit('</g>')
 
     # One polygon + dots per machine.
     # Fallback (unmeasured) points are rendered with a dashed polygon stroke
@@ -265,52 +273,52 @@ def generate_svg(chart, stats_root, machine_cache):
         has_fallback = any(not m for _, _, m in data)
         dash_attr = ' stroke-dasharray="8 4"' if has_fallback else ''
 
-        w(f'<polygon points="{pts_str}" fill="{fill}" stroke="{stroke}" stroke-width="3"{dash_attr}/>')
-        w('<g>')
+        emit(f'<polygon points="{pts_str}" fill="{fill}" stroke="{stroke}" stroke-width="3"{dash_attr}/>')
+        emit('<g>')
         for (_, _, is_measured), (x, y) in zip(data, pts_xy):
             if is_measured:
-                w(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="{dot_fill}"/>')
+                emit(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="{dot_fill}"/>')
             else:
                 # Hollow circle marks a fallback (reference) value.
-                w(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="#f6f1e8" stroke="{dot_fill}" stroke-width="2"/>')
-        w('</g>')
+                emit(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" fill="#f6f1e8" stroke="{dot_fill}" stroke-width="2"/>')
+        emit('</g>')
         legend_entries.append((fill, stroke, legend_label, has_fallback))
 
     # Labels (from first machine with data).
     # Fallback throughput values are annotated with † to indicate they are
     # reference constants, not measurements from this machine.
     if label_data:
-        w('<g font-family="Georgia, serif" font-size="17" fill="#3f3426">')
-        for k, ((label, mw_s, is_measured), (anchor, dx, dy, dy2)) in enumerate(
+        emit('<g font-family="Georgia, serif" font-size="17" fill="#3f3426">')
+        for k, ((label, mw_s, is_measured), (anchor, dx, dy)) in enumerate(
                 zip(label_data, chart["labels"])):
             tx, ty = spoke_xy(SPOKE_R, k * 360 / N_SPOKES)
             lx, ly1 = tx + dx, ty + dy
-            w(f'<text x="{lx:.1f}" y="{ly1:.1f}" text-anchor="{anchor}">{label}</text>')
+            emit(f'<text x="{lx:.1f}" y="{ly1:.1f}" text-anchor="{anchor}">{label}</text>')
             annotation = fmt_mw(mw_s) + ("†" if not is_measured else "")
-            w(f'<text x="{lx:.1f}" y="{ly1 + dy2:.1f}" text-anchor="{anchor}" font-size="13" fill="#7a6850">{annotation}</text>')
-        w('</g>')
+            emit(f'<text x="{lx:.1f}" y="{ly1 + LABEL_LINE_SPACING:.1f}" text-anchor="{anchor}" font-size="13" fill="#7a6850">{annotation}</text>')
+        emit('</g>')
 
     # Legend (only when more than one machine is plotted)
     if len(legend_entries) > 1:
         lx, ly = 30, CANVAS - 30 - len(legend_entries) * 22
-        w('<g font-family="Georgia, serif" font-size="14" fill="#3f3426">')
+        emit('<g font-family="Georgia, serif" font-size="14" fill="#3f3426">')
         for i, (fill, stroke, lbl, has_fallback) in enumerate(legend_entries):
             y = ly + i * 22
             dash_attr = ' stroke-dasharray="4 2"' if has_fallback else ''
-            w(f'<rect x="{lx}" y="{y - 12}" width="18" height="14" fill="{fill}" stroke="{stroke}" stroke-width="2"{dash_attr}/>')
+            emit(f'<rect x="{lx}" y="{y - 12}" width="18" height="14" fill="{fill}" stroke="{stroke}" stroke-width="2"{dash_attr}/>')
             suffix = " (partial data†)" if has_fallback else ""
-            w(f'<text x="{lx + 24}" y="{y}">{lbl}{suffix}</text>')
-        w('</g>')
+            emit(f'<text x="{lx + 24}" y="{y}">{lbl}{suffix}</text>')
+        emit('</g>')
 
     # Title / subtitle
     machines_present = [m[0] for m in MACHINES if machine_cache.get(m[0]) is not None]
     subtitle = " · ".join(machines_present) + " · pilot-bench normal preset"
     any_fallback = any(has_fb for *_, has_fb in legend_entries)
-    w(f'<text x="{CX:.0f}" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#2f2418">{chart["title"]}</text>')
-    w(f'<text x="{CX:.0f}" y="76" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#6f5d46">{subtitle}</text>')
+    emit(f'<text x="{CX:.0f}" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#2f2418">{chart["title"]}</text>')
+    emit(f'<text x="{CX:.0f}" y="76" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#6f5d46">{subtitle}</text>')
     if any_fallback:
-        w(f'<text x="{CX:.0f}" y="{CANVAS - 12}" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#9a7a5a">† reference value — not measured on this machine</text>')
-    w('</svg>')
+        emit(f'<text x="{CX:.0f}" y="{CANVAS - 12}" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#9a7a5a">† reference value — not measured on this machine</text>')
+    emit('</svg>')
 
     return "\n".join(lines) + "\n"
 
@@ -334,7 +342,7 @@ def main():
             for subdir, *_ in MACHINES
         }
 
-        svg  = generate_svg(chart, stats_root, machine_cache)
+        svg  = generate_svg(chart, machine_cache)
         out  = REPO / "assets" / chart["out"]
         out.write_text(svg)
         print(f"Wrote {out}")

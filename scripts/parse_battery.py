@@ -279,16 +279,25 @@ def gen_failure_highlights(blocks: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def gen_bottom_line(blocks: list[dict]) -> str:
-    # Separate degenerate from real generators
-    degenerate_starts = {"Constant", "Counter"}
-    bad_starts = {"BAD", "ANSI", "LCG", "MINSTD"}
+def _is_real_generator(name: str) -> bool:
+    """Return True for non-trivial generators; False for degenerate/legacy ones.
 
-    real = [b for b in blocks
-            if b["name"].split()[0] not in degenerate_starts
-            and not b["name"].startswith("BAD")
-            and not b["name"].startswith("ANSI")
-            and b["name"] != "LCG MINSTD (seed=1)"]
+    Degenerate: Constant, Counter (zero-entropy, expected to fail).
+    Legacy: BAD*, ANSI*, LCG MINSTD — historically broken, included as a
+    sanity check that the battery can distinguish garbage from structure.
+    """
+    first_word = name.split()[0]
+    if first_word in {"Constant", "Counter"}:
+        return False
+    if name.startswith("BAD") or name.startswith("ANSI"):
+        return False
+    if name == "LCG MINSTD (seed=1)":
+        return False
+    return True
+
+
+def gen_bottom_line(blocks: list[dict]) -> str:
+    real = [b for b in blocks if _is_real_generator(b["name"])]
 
     if not real:
         return "## Bottom Line\n\n_(no non-degenerate generators found)_\n"
