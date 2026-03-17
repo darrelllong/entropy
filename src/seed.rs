@@ -43,6 +43,21 @@ pub fn seed_material<const N: usize>(seed: u64) -> [u8; N] {
     out
 }
 
+/// Build an `N`-byte array whose elements are `0, 1, 2, …, N-1 (mod 256)`.
+///
+/// Used to construct fixed test keys for cipher-based RNGs so that the key
+/// bytes appear only once in the codebase rather than being repeated at each
+/// call site as an inline hex literal.
+pub const fn sequential_bytes<const N: usize>() -> [u8; N] {
+    let mut out = [0u8; N];
+    let mut i = 0;
+    while i < N {
+        out[i] = (i & 0xff) as u8;
+        i += 1;
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
