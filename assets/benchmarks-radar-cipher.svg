@@ -7,6 +7,13 @@
 <polygon points="450.0,210.0 570.0,242.2 657.8,330.0 690.0,450.0 657.8,570.0 570.0,657.8 450.0,690.0 330.0,657.8 242.2,570.0 210.0,450.0 242.2,330.0 330.0,242.2" stroke-width="1"/>
 <polygon points="450.0,165.0 592.5,203.2 696.8,307.5 735.0,450.0 696.8,592.5 592.5,696.8 450.0,735.0 307.5,696.8 203.2,592.5 165.0,450.0 203.2,307.5 307.5,203.2" stroke-width="1"/>
 </g>
+<g font-family="Georgia, serif" font-size="11" fill="#9a8470" text-anchor="middle">
+<text x="468.0" y="349.0" text-anchor="start">6.716 MW/s</text>
+<text x="468.0" y="304.0" text-anchor="start">19.76 MW/s</text>
+<text x="468.0" y="259.0" text-anchor="start">58.15 MW/s</text>
+<text x="468.0" y="214.0" text-anchor="start">171.1 MW/s</text>
+<text x="468.0" y="169.0" text-anchor="start">503.6 MW/s</text>
+</g>
 <g stroke="#b8aa90" stroke-width="1">
 <line x1="450" y1="450" x2="450.0" y2="150.0"/>
 <line x1="450" y1="450" x2="600.0" y2="190.2"/>
@@ -36,19 +43,19 @@
 <circle cx="382.5" cy="411.0" r="4.5" fill="#1b4b9f"/>
 <circle cx="415.3" cy="389.9" r="4.5" fill="#1b4b9f"/>
 </g>
-<polygon points="450.0,179.9 573.4,236.3 649.7,334.7 682.4,450.0 622.1,549.3 537.6,601.8 450.0,636.3 352.0,619.7 322.5,523.6 345.0,450.0 382.5,411.0 415.3,389.9" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3" stroke-dasharray="8 4"/>
+<polygon points="450.0,222.4 562.1,255.8 627.7,347.4 653.6,450.0 622.1,549.3 528.7,586.3 450.0,618.4 367.5,593.0 335.3,516.2 368.2,450.0 417.6,431.3 415.3,389.9" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3" stroke-dasharray="8 4"/>
 <g>
-<circle cx="450.0" cy="179.9" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="573.4" cy="236.3" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="649.7" cy="334.7" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="682.4" cy="450.0" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="450.0" cy="222.4" r="4.5" fill="#9f1b1b"/>
+<circle cx="562.1" cy="255.8" r="4.5" fill="#9f1b1b"/>
+<circle cx="627.7" cy="347.4" r="4.5" fill="#9f1b1b"/>
+<circle cx="653.6" cy="450.0" r="4.5" fill="#9f1b1b"/>
 <circle cx="622.1" cy="549.3" r="4.5" fill="#9f1b1b"/>
-<circle cx="537.6" cy="601.8" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="450.0" cy="636.3" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="352.0" cy="619.7" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="322.5" cy="523.6" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="345.0" cy="450.0" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
-<circle cx="382.5" cy="411.0" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="528.7" cy="586.3" r="4.5" fill="#9f1b1b"/>
+<circle cx="450.0" cy="618.4" r="4.5" fill="#9f1b1b"/>
+<circle cx="367.5" cy="593.0" r="4.5" fill="#9f1b1b"/>
+<circle cx="335.3" cy="516.2" r="4.5" fill="#9f1b1b"/>
+<circle cx="368.2" cy="450.0" r="4.5" fill="#9f1b1b"/>
+<circle cx="417.6" cy="431.3" r="4.5" fill="#9f1b1b"/>
 <circle cx="415.3" cy="389.9" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
 </g>
 <g font-family="Georgia, serif" font-size="17" fill="#3f3426">
