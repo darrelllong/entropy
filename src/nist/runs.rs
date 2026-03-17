@@ -26,11 +26,7 @@ pub fn runs(bits: &[u8]) -> TestResult {
 
     // Pre-test: if |π − 0.5| ≥ 2/√n the frequency prerequisite fails.
     if (pi - 0.5).abs() >= 2.0 / (n as f64).sqrt() {
-        return TestResult::with_note(
-            "nist::runs",
-            0.0,
-            format!("pre-test failed: π={pi:.4}"),
-        );
+        return TestResult::with_note("nist::runs", 0.0, format!("pre-test failed: π={pi:.4}"));
     }
 
     // Count runs: V_n = number of transitions + 1.

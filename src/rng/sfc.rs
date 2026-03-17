@@ -33,9 +33,9 @@ use super::{OsRng, Rng};
 ///
 /// Guaranteed period ≥ 2⁶⁴; typical period ≫ 2¹²⁸.
 pub struct Sfc64 {
-    a:       u64,
-    b:       u64,
-    c:       u64,
+    a: u64,
+    b: u64,
+    c: u64,
     counter: u64,
 }
 
@@ -46,8 +46,15 @@ impl Sfc64 {
     /// initial state away from any low-entropy seed.
     #[must_use]
     pub fn new(a: u64, b: u64, c: u64) -> Self {
-        let mut rng = Self { a, b, c, counter: 1 };
-        for _ in 0..18 { rng.step(); }
+        let mut rng = Self {
+            a,
+            b,
+            c,
+            counter: 1,
+        };
+        for _ in 0..18 {
+            rng.step();
+        }
         rng
     }
 
@@ -70,12 +77,18 @@ impl Sfc64 {
 }
 
 impl Default for Sfc64 {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for Sfc64 {
-    fn next_u32(&mut self) -> u32 { (self.step() >> 32) as u32 }
-    fn next_u64(&mut self) -> u64 { self.step() }
+    fn next_u32(&mut self) -> u32 {
+        (self.step() >> 32) as u32
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.step()
+    }
 }
 
 // ── JSF64 ────────────────────────────────────────────────────────────────────
@@ -102,7 +115,9 @@ impl Jsf64 {
             c: seed,
             d: seed,
         };
-        for _ in 0..20 { rng.step(); }
+        for _ in 0..20 {
+            rng.step();
+        }
         rng
     }
 
@@ -124,12 +139,18 @@ impl Jsf64 {
 }
 
 impl Default for Jsf64 {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for Jsf64 {
-    fn next_u32(&mut self) -> u32 { (self.step() >> 32) as u32 }
-    fn next_u64(&mut self) -> u64 { self.step() }
+    fn next_u32(&mut self) -> u32 {
+        (self.step() >> 32) as u32
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.step()
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

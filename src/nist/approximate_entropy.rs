@@ -20,7 +20,7 @@ pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
         return TestResult::insufficient("nist::approximate_entropy", "m too large for n");
     }
 
-    let phi_m  = phi(bits, m,     n);
+    let phi_m = phi(bits, m, n);
     let phi_m1 = phi(bits, m + 1, n);
 
     let ap_en = phi_m - phi_m1;

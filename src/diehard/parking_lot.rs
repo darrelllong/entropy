@@ -11,7 +11,7 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::ks_test, rng::Rng, result::TestResult};
+use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 const ATTEMPTS: usize = 12_000;
 const MEAN: f64 = 3_523.0;
@@ -52,9 +52,9 @@ fn simulate(rng: &mut impl Rng) -> usize {
         let x = rng.next_f64() * 100.0;
         let y = rng.next_f64() * 100.0;
         // DIEHARD uses square cars of side 1: no overlap iff max(|dx|,|dy|) ≥ 1 (L∞ ≥ 1).
-        let fits = cars.iter().all(|&(cx, cy)| {
-            (cx - x).abs() >= 1.0 || (cy - y).abs() >= 1.0
-        });
+        let fits = cars
+            .iter()
+            .all(|&(cx, cy)| (cx - x).abs() >= 1.0 || (cy - y).abs() >= 1.0);
         if fits {
             cars.push((x, y));
             parked += 1;

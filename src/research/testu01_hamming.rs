@@ -43,16 +43,17 @@ fn binomial_probs(l: usize) -> Vec<f64> {
     probs
 }
 
-fn next_block_weight(
-    blocks: &mut impl Iterator<Item = (u32, usize)>,
-    l: usize,
-) -> Option<usize> {
+fn next_block_weight(blocks: &mut impl Iterator<Item = (u32, usize)>, l: usize) -> Option<usize> {
     let mut remaining = l;
     let mut weight = 0usize;
     while remaining > 0 {
         let (chunk, width) = blocks.next()?;
         let take = remaining.min(width);
-        let mask = if take == 32 { u32::MAX } else { (1u32 << take) - 1 };
+        let mask = if take == 32 {
+            u32::MAX
+        } else {
+            (1u32 << take) - 1
+        };
         weight += (chunk & mask).count_ones() as usize;
         remaining -= take;
     }
@@ -115,7 +116,11 @@ fn lumped_chi_square(expected: &[f64], observed: &[u64], min_expected: f64) -> (
 
     let classes = kept_expected.len();
     let dof = classes.saturating_sub(1);
-    (chi_square(&kept_expected, &kept_observed), dof, lumped_cells)
+    (
+        chi_square(&kept_expected, &kept_observed),
+        dof,
+        lumped_cells,
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -200,8 +205,8 @@ pub fn hamming_indep(
     assert!(n as f64 >= 2.0 * GOFS_MIN_EXPECTED, "n must be >= 20");
     assert!(s > 0 && s <= 32, "s must be in 1..=32");
     assert!(r + s <= 32, "r + s must be <= 32");
-    assert!(d >= 1 && d <= 8, "d must be in 1..=8");
-    assert!(d <= (l + 1) / 2, "d must be <= (L + 1) / 2");
+    assert!((1..=8).contains(&d), "d must be in 1..=8");
+    assert!(d <= l.div_ceil(2), "d must be <= (L + 1) / 2");
 
     let probs = binomial_probs(l);
     let width = l + 1;

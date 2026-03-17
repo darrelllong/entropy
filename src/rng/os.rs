@@ -20,7 +20,9 @@ impl OsRng {
     /// # Panics
     /// Panics if `/dev/urandom` cannot be opened (non-Unix platform).
     pub fn new() -> Self {
-        Self { file: File::open("/dev/urandom").expect("cannot open /dev/urandom") }
+        Self {
+            file: File::open("/dev/urandom").expect("cannot open /dev/urandom"),
+        }
     }
 }
 
@@ -33,7 +35,9 @@ impl Default for OsRng {
 impl Rng for OsRng {
     fn next_u32(&mut self) -> u32 {
         let mut buf = [0u8; 4];
-        self.file.read_exact(&mut buf).expect("read from /dev/urandom failed");
+        self.file
+            .read_exact(&mut buf)
+            .expect("read from /dev/urandom failed");
         u32::from_le_bytes(buf)
     }
 }

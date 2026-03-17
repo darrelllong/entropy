@@ -12,7 +12,9 @@
 use crate::{math::erfc, result::TestResult};
 
 /// States tested: x ∈ {-9,-8,…,-1,+1,…,+9}.
-const STATES: [i32; 18] = [-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9];
+const STATES: [i32; 18] = [
+    -9, -8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+];
 
 /// Run all 18 random excursions variant sub-tests; return the one with the
 /// smallest p-value.

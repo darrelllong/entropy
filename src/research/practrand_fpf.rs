@@ -14,11 +14,7 @@
 //! calibration tables or suspicion scores; p-values are from the asymptotic
 //! chi-square law for the same core statistics.
 
-use crate::{
-    math::igamc,
-    result::TestResult,
-    rng::Rng,
-};
+use crate::{math::igamc, result::TestResult, rng::Rng};
 
 fn truncate_table_bits(counts: &mut [u64], probs: &mut [f64], old_bits: usize, new_bits: usize) {
     let ns = 1usize << new_bits;
@@ -156,9 +152,18 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
     let stride_bits = 1usize << config.stride_bits_l2;
     let max_exp = (1usize << config.exp_bits) - 1;
     let footprint = config.sig_bits + max_exp;
-    assert!(config.sig_bits > 0 && config.sig_bits <= 20, "sig_bits out of range");
-    assert!(footprint <= 128, "current FPF port supports footprints up to 128 bits");
-    assert!(total_bits >= footprint, "total_bits must cover at least one FPF footprint");
+    assert!(
+        config.sig_bits > 0 && config.sig_bits <= 20,
+        "sig_bits out of range"
+    );
+    assert!(
+        footprint <= 128,
+        "current FPF port supports footprints up to 128 bits"
+    );
+    assert!(
+        total_bits >= footprint,
+        "total_bits must cover at least one FPF footprint"
+    );
 
     let mut plateau_counts = vec![vec![0u64; 1usize << config.sig_bits]; max_exp + 1];
     let mut exp_counts = vec![0u64; max_exp + 1];
@@ -193,7 +198,8 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
     let mut platter_results = Vec::new();
     let intra_p = 1.0 / ((1usize << config.sig_bits) as f64);
     for e in 0..=max_exp {
-        let expected = 2f64.powi(-(e as i32 + 1 + if e == max_exp { -1 } else { 0 })) * samples as f64;
+        let expected =
+            2f64.powi(-(e as i32 + 1 + if e == max_exp { -1 } else { 0 })) * samples as f64;
         let ebits_float = expected.log2() - 4.0;
         let mut ebits = (ebits_float * 0.75 + 0.1).floor() as isize;
         if ebits < 1 {
@@ -290,6 +296,9 @@ mod tests {
     fn constant_stream_has_some_fpf_signal() {
         let mut rng = ConstantRng::new(0);
         let summary = fpf_test(&mut rng, 1 << 18, &FpfConfig::default());
-        assert!(summary.cross_p_value < 1e-6 || summary.platter_results.iter().any(|r| r.p_value < 1e-6));
+        assert!(
+            summary.cross_p_value < 1e-6
+                || summary.platter_results.iter().any(|r| r.p_value < 1e-6)
+        );
     }
 }

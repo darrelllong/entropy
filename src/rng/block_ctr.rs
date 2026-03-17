@@ -28,10 +28,10 @@ use super::Rng;
 /// Keystream bytes are consumed least-significant byte first (LE), consistent
 /// with `ChaCha20Rng` and other byte-backed generators in this crate.
 pub struct BlockCtrRng<C: BlockCipher> {
-    cipher:  C,
+    cipher: C,
     counter: u128,
-    buf:     Vec<u8>,   // one encrypted block = C::BLOCK_LEN bytes
-    pos:     usize,
+    buf: Vec<u8>, // one encrypted block = C::BLOCK_LEN bytes
+    pos: usize,
 }
 
 impl<C: BlockCipher> BlockCtrRng<C> {
@@ -41,18 +41,24 @@ impl<C: BlockCipher> BlockCtrRng<C> {
     pub fn new(cipher: C, counter: u128) -> Self {
         let block_len = C::BLOCK_LEN;
         // pos == block_len forces a refill on the first next_u32() call.
-        Self { cipher, counter, buf: vec![0u8; block_len], pos: block_len }
+        Self {
+            cipher,
+            counter,
+            buf: vec![0u8; block_len],
+            pos: block_len,
+        }
     }
 
     fn refill(&mut self) {
         let block_len = C::BLOCK_LEN;
         let ctr_bytes = self.counter.to_be_bytes(); // always 16 bytes
-        // Right-justify the counter into the block: copy the last `copy_len`
-        // bytes of ctr_bytes into the last `copy_len` bytes of the block.
+                                                    // Right-justify the counter into the block: copy the last `copy_len`
+                                                    // bytes of ctr_bytes into the last `copy_len` bytes of the block.
         let copy_len = block_len.min(16);
-        for b in &mut self.buf { *b = 0; }
-        self.buf[block_len - copy_len..]
-            .copy_from_slice(&ctr_bytes[16 - copy_len..]);
+        for b in &mut self.buf {
+            *b = 0;
+        }
+        self.buf[block_len - copy_len..].copy_from_slice(&ctr_bytes[16 - copy_len..]);
         self.cipher.encrypt(&mut self.buf);
         self.counter = self.counter.wrapping_add(1);
         self.pos = 0;
@@ -64,9 +70,7 @@ impl<C: BlockCipher> Rng for BlockCtrRng<C> {
         if self.pos + 4 > self.buf.len() {
             self.refill();
         }
-        let w = u32::from_le_bytes(
-            self.buf[self.pos..self.pos + 4].try_into().unwrap(),
-        );
+        let w = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into().unwrap());
         self.pos += 4;
         w
     }
@@ -81,8 +85,8 @@ mod tests {
     fn block_ctr_rng_non_constant() {
         // AES-128 with the SP 800-38A test vector key; counter starts at 0.
         let key: [u8; 16] = [
-            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-            0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
+            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
+            0x4f, 0x3c,
         ];
         let cipher = Aes128::new(&key);
         let mut rng = BlockCtrRng::new(cipher, 0);

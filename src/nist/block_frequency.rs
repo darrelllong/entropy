@@ -14,10 +14,7 @@ use crate::{math::igamc, result::TestResult};
 pub fn block_frequency(bits: &[u8], m: usize) -> TestResult {
     let n = bits.len();
     if n < 100 || m < 20 || m > n {
-        return TestResult::insufficient(
-            "nist::block_frequency",
-            "n < 100 or m out of range",
-        );
+        return TestResult::insufficient("nist::block_frequency", "n < 100 or m out of range");
     }
 
     let num_blocks = n / m; // N

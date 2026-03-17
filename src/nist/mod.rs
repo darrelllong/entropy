@@ -6,21 +6,21 @@
 //!
 //! Each sub-module corresponds to one section of the document.
 
-pub mod frequency;              // §2.1
-pub mod block_frequency;        // §2.2
-pub mod runs;                   // §2.3
-pub mod longest_run;            // §2.4
-pub mod matrix_rank;            // §2.5
-pub mod spectral;               // §2.6
+pub mod approximate_entropy; // §2.12
+pub mod block_frequency; // §2.2
+pub mod cumulative_sums; // §2.13
+pub mod frequency; // §2.1
+pub mod linear_complexity; // §2.10
+pub mod longest_run; // §2.4
+pub mod matrix_rank; // §2.5
 pub mod non_overlapping_template; // §2.7
-pub mod overlapping_template;   // §2.8
-pub mod universal;              // §2.9
-pub mod linear_complexity;      // §2.10
-pub mod serial;                 // §2.11
-pub mod approximate_entropy;    // §2.12
-pub mod cumulative_sums;        // §2.13
-pub mod random_excursions;      // §2.14
-pub mod random_excursions_variant; // §2.15
+pub mod overlapping_template; // §2.8
+pub mod random_excursions; // §2.14
+pub mod random_excursions_variant;
+pub mod runs; // §2.3
+pub mod serial; // §2.11
+pub mod spectral; // §2.6
+pub mod universal; // §2.9 // §2.15
 
 use crate::{result::TestResult, rng::Rng};
 
@@ -62,6 +62,8 @@ pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
     // Random excursions has 8 sub-tests; emit all.
     results.extend(random_excursions::random_excursions_all(&bits));
     // Random excursions variant has 18 sub-tests; emit all.
-    results.extend(random_excursions_variant::random_excursions_variant_all(&bits));
+    results.extend(random_excursions_variant::random_excursions_variant_all(
+        &bits,
+    ));
     results
 }

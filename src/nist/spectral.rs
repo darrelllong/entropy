@@ -8,7 +8,10 @@
 //!
 //! Minimum recommended sequence length: n ≥ 1 000.
 
-use crate::{math::{fft_magnitudes, erfc}, result::TestResult};
+use crate::{
+    math::{erfc, fft_magnitudes},
+    result::TestResult,
+};
 use std::f64::consts::SQRT_2;
 
 /// Run the spectral (DFT) test.
@@ -22,7 +25,10 @@ pub fn spectral(bits: &[u8]) -> TestResult {
     }
 
     // Convert bits to ±1.
-    let x: Vec<f64> = bits.iter().map(|&b| if b == 1 { 1.0 } else { -1.0 }).collect();
+    let x: Vec<f64> = bits
+        .iter()
+        .map(|&b| if b == 1 { 1.0 } else { -1.0 })
+        .collect();
 
     // FFT magnitudes; only the first n/2 are independent.
     let mags = fft_magnitudes(&x);

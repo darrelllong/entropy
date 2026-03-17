@@ -57,12 +57,18 @@ fn wymix(a: u64, b: u64) -> u64 {
 }
 
 impl Default for WyRand {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for WyRand {
-    fn next_u32(&mut self) -> u32 { (self.step() >> 32) as u32 }
-    fn next_u64(&mut self) -> u64 { self.step() }
+    fn next_u32(&mut self) -> u32 {
+        (self.step() >> 32) as u32
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.step()
+    }
 }
 
 #[cfg(test)]

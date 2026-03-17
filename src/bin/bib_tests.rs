@@ -1,12 +1,14 @@
+type Case<'a> = (&'a str, Box<dyn Fn() -> (Vec<f64>, Vec<u8>) + 'a>);
+
 use entropy::research::{
     approx_entropy::approx_entropy_profile,
     knuth::{gap_test, permutation_test, runs_above_below_median_test},
 };
-use entropy::seed::seed_material;
 use entropy::rng::{
     AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
     SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
 };
+use entropy::seed::seed_material;
 
 struct Args {
     float_samples: usize,
@@ -85,15 +87,19 @@ fn print_usage() {
     );
 }
 
-fn collect_case(mut rng: impl Rng, float_samples: usize, bit_samples: usize) -> (Vec<f64>, Vec<u8>) {
+fn collect_case(
+    mut rng: impl Rng,
+    float_samples: usize,
+    bit_samples: usize,
+) -> (Vec<f64>, Vec<u8>) {
     let floats = rng.collect_f64s(float_samples);
-    let bits   = rng.collect_bits(bit_samples);
+    let bits = rng.collect_bits(bit_samples);
     (floats, bits)
 }
 
 fn print_case(label: &str, floats: &[f64], bits: &[u8]) {
     let permutation = permutation_test(floats, 5);
-    let gap  = gap_test(floats, 0.25, 0.5, 15);
+    let gap = gap_test(floats, 0.25, 0.5, 15);
     let runs = runs_above_below_median_test(floats);
     let apen = approx_entropy_profile(bits, &[2, 3, 4, 5, 6]);
 
@@ -114,27 +120,103 @@ fn main() {
     let args = Args::parse();
     let mut matched = 0usize;
 
-    let cases: Vec<(&str, Box<dyn Fn() -> (Vec<f64>, Vec<u8>)>)> = vec![
-        ("MT19937",                           Box::new(|| collect_case(Mt19937::new(19650218), args.float_samples, args.bit_samples))),
-        ("Xorshift32",                        Box::new(|| collect_case(Xorshift32::new(1), args.float_samples, args.bit_samples))),
-        ("Xorshift64",                        Box::new(|| collect_case(Xorshift64::new(1), args.float_samples, args.bit_samples))),
-        ("BAD Unix System V rand()",          Box::new(|| collect_case(SystemVRand::new(1), args.float_samples, args.bit_samples))),
-        ("BAD Unix System V mrand48()",       Box::new(|| collect_case(Rand48::new(1), args.float_samples, args.bit_samples))),
-        ("BAD Unix BSD random()",             Box::new(|| collect_case(BsdRandom::new(1), args.float_samples, args.bit_samples))),
-        ("BAD Unix Linux glibc rand()/random()", Box::new(|| collect_case(LinuxLibcRandom::new(1), args.float_samples, args.bit_samples))),
-        ("BAD Windows CRT rand()",            Box::new(|| collect_case(WindowsMsvcRand::new(1), args.float_samples, args.bit_samples))),
-        ("BAD Windows VB6/VBA Rnd()",         Box::new(|| collect_case(WindowsVb6Rnd::new(1), args.float_samples, args.bit_samples))),
-        ("BAD Windows .NET Random(seed)",     Box::new(|| collect_case(WindowsDotNetRandom::new(1), args.float_samples, args.bit_samples))),
-        ("ANSI C sample LCG",                 Box::new(|| collect_case(Lcg32::new(LcgVariant::AnsiC, 1), args.float_samples, args.bit_samples))),
-        ("LCG MINSTD",                        Box::new(|| collect_case(Lcg32::new(LcgVariant::Minstd, 1), args.float_samples, args.bit_samples))),
-        ("AES-128-CTR", Box::new(|| {
-            let key = seed_material::<16>(1);
-            collect_case(AesCtr::new(&key, 0), args.float_samples, args.bit_samples)
-        })),
-        ("cryptography::CtrDrbgAes256", Box::new(|| {
-            let seed_bytes = seed_material::<48>(1);
-            collect_case(CryptoCtrDrbg::new(&seed_bytes), args.float_samples, args.bit_samples)
-        })),
+    let cases: Vec<Case<'_>> = vec![
+        (
+            "MT19937",
+            Box::new(|| collect_case(Mt19937::new(19650218), args.float_samples, args.bit_samples)),
+        ),
+        (
+            "Xorshift32",
+            Box::new(|| collect_case(Xorshift32::new(1), args.float_samples, args.bit_samples)),
+        ),
+        (
+            "Xorshift64",
+            Box::new(|| collect_case(Xorshift64::new(1), args.float_samples, args.bit_samples)),
+        ),
+        (
+            "BAD Unix System V rand()",
+            Box::new(|| collect_case(SystemVRand::new(1), args.float_samples, args.bit_samples)),
+        ),
+        (
+            "BAD Unix System V mrand48()",
+            Box::new(|| collect_case(Rand48::new(1), args.float_samples, args.bit_samples)),
+        ),
+        (
+            "BAD Unix BSD random()",
+            Box::new(|| collect_case(BsdRandom::new(1), args.float_samples, args.bit_samples)),
+        ),
+        (
+            "BAD Unix Linux glibc rand()/random()",
+            Box::new(|| {
+                collect_case(
+                    LinuxLibcRandom::new(1),
+                    args.float_samples,
+                    args.bit_samples,
+                )
+            }),
+        ),
+        (
+            "BAD Windows CRT rand()",
+            Box::new(|| {
+                collect_case(
+                    WindowsMsvcRand::new(1),
+                    args.float_samples,
+                    args.bit_samples,
+                )
+            }),
+        ),
+        (
+            "BAD Windows VB6/VBA Rnd()",
+            Box::new(|| collect_case(WindowsVb6Rnd::new(1), args.float_samples, args.bit_samples)),
+        ),
+        (
+            "BAD Windows .NET Random(seed)",
+            Box::new(|| {
+                collect_case(
+                    WindowsDotNetRandom::new(1),
+                    args.float_samples,
+                    args.bit_samples,
+                )
+            }),
+        ),
+        (
+            "ANSI C sample LCG",
+            Box::new(|| {
+                collect_case(
+                    Lcg32::new(LcgVariant::AnsiC, 1),
+                    args.float_samples,
+                    args.bit_samples,
+                )
+            }),
+        ),
+        (
+            "LCG MINSTD",
+            Box::new(|| {
+                collect_case(
+                    Lcg32::new(LcgVariant::Minstd, 1),
+                    args.float_samples,
+                    args.bit_samples,
+                )
+            }),
+        ),
+        (
+            "AES-128-CTR",
+            Box::new(|| {
+                let key = seed_material::<16>(1);
+                collect_case(AesCtr::new(&key, 0), args.float_samples, args.bit_samples)
+            }),
+        ),
+        (
+            "cryptography::CtrDrbgAes256",
+            Box::new(|| {
+                let seed_bytes = seed_material::<48>(1);
+                collect_case(
+                    CryptoCtrDrbg::new(&seed_bytes),
+                    args.float_samples,
+                    args.bit_samples,
+                )
+            }),
+        ),
     ];
 
     for (label, case) in cases {

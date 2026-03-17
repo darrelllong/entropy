@@ -14,7 +14,7 @@ use crate::{math::igamc, result::TestResult};
 /// # Reference
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.10.
 pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
-    if m < 500 || m > 5000 {
+    if !(500..=5000).contains(&m) {
         return TestResult::insufficient("nist::linear_complexity", "M must be in [500, 5000]");
     }
 
@@ -31,16 +31,23 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
     // Theoretical mean μ = M/2 + (9 + (−1)^M)/36 − (M/3 + 2/9)/2^M.
     // SP 800-22 §2.10.4 and NIST STS linear.c: the numerator is (9 + (−1)^M),
     // which is 10 for even M and 8 for odd M — NOT (9 + M%2).
-    let pow_neg1_m = if m % 2 == 0 { 1.0_f64 } else { -1.0_f64 };
-    let mu = m as f64 / 2.0 + (9.0 + pow_neg1_m) / 36.0 - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32);
+    let pow_neg1_m = if m.is_multiple_of(2) {
+        1.0_f64
+    } else {
+        -1.0_f64
+    };
+    let mu = m as f64 / 2.0 + (9.0 + pow_neg1_m) / 36.0
+        - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32);
 
     // Category boundaries for T = (−1)^M (L − μ) + 2/9.
     // Six categories: T ≤ −2.5, (−2.5,−1.5], (−1.5,−0.5], (−0.5,0.5],
     //                 (0.5,1.5], (1.5,2.5], T > 2.5  (7 categories total).
-    let pi = [0.010417, 0.031250, 0.125000, 0.500000, 0.250000, 0.062500, 0.020833];
+    let pi = [
+        0.010417, 0.031250, 0.125000, 0.500000, 0.250000, 0.062500, 0.020833,
+    ];
 
     let mut nu = [0usize; 7];
-    let sign = if m % 2 == 0 { 1.0 } else { -1.0 };
+    let sign = if m.is_multiple_of(2) { 1.0 } else { -1.0 };
 
     for block in bits.chunks_exact(m).take(num_blocks) {
         let l = berlekamp_massey(block) as f64;

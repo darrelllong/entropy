@@ -5,7 +5,10 @@
 //!
 //! Minimum recommended sequence length: n ≥ 38 912 (for at least 38 matrices).
 
-use crate::{math::{gf2_rank, igamc}, result::TestResult};
+use crate::{
+    math::{gf2_rank, igamc},
+    result::TestResult,
+};
 
 const ROWS: usize = 32;
 const COLS: usize = 32;

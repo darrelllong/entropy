@@ -10,6 +10,7 @@
 //!   2. DCT-II: X[k] = Σ x[j] cos(π(j+½)k/N)  (direct O(n²), n=256).
 //!   3. Adjust DC component: X[0] -= N·(2³¹−½); X[0] /= √2.
 //!   4. Record argmax |X[k]|.
+//!
 //!   Chi-square on position counts; expected = tsamples/ntuple per position.
 //!
 //! # Author
@@ -110,7 +111,11 @@ fn dct_ii_u32(words: &[u32], rot_amount: u32, cos_table: &[f64]) -> Vec<f64> {
     let x: Vec<f64> = words
         .iter()
         .map(|&w| {
-            let rotated = if rot_amount == 0 { w } else { w.rotate_left(rot_amount) };
+            let rotated = if rot_amount == 0 {
+                w
+            } else {
+                w.rotate_left(rot_amount)
+            };
             rotated as f64
         })
         .collect();

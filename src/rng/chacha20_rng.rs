@@ -39,7 +39,7 @@ const BLOCK_BYTES: usize = 64;
 /// Generates 64 bytes per ChaCha20 core invocation.
 pub struct ChaCha20Rng {
     cipher: ChaCha20,
-    buf:    [u8; BLOCK_BYTES],
+    buf: [u8; BLOCK_BYTES],
     offset: usize,
 }
 
@@ -48,7 +48,7 @@ impl ChaCha20Rng {
     #[must_use]
     pub fn from_os_rng() -> Self {
         let mut os = OsRng::new();
-        let mut key   = [0u8; 32];
+        let mut key = [0u8; 32];
         let mut nonce = [0u8; 12];
         for chunk in key.chunks_exact_mut(4) {
             chunk.copy_from_slice(&os.next_u32().to_le_bytes());
@@ -57,7 +57,11 @@ impl ChaCha20Rng {
             chunk.copy_from_slice(&os.next_u32().to_le_bytes());
         }
         let cipher = ChaCha20::new(&key, &nonce);
-        let mut rng = Self { cipher, buf: [0u8; BLOCK_BYTES], offset: BLOCK_BYTES };
+        let mut rng = Self {
+            cipher,
+            buf: [0u8; BLOCK_BYTES],
+            offset: BLOCK_BYTES,
+        };
         rng.refill();
         rng
     }
@@ -82,7 +86,9 @@ impl ChaCha20Rng {
 }
 
 impl Default for ChaCha20Rng {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for ChaCha20Rng {
@@ -117,7 +123,9 @@ mod tests {
     fn chacha20_rng_refills_across_block_boundary() {
         let mut rng = ChaCha20Rng::from_os_rng();
         // Drain one full 64-byte block via u32 (16 calls) then read across boundary.
-        for _ in 0..16 { let _ = rng.next_u32(); }
+        for _ in 0..16 {
+            let _ = rng.next_u32();
+        }
         let v = rng.next_u32(); // triggers refill
         assert_ne!(v, 0xffff_ffff); // trivially non-constant
     }

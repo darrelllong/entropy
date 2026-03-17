@@ -10,7 +10,11 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::{erfc, igamc}, rng::Rng, result::TestResult};
+use crate::{
+    math::{erfc, igamc},
+    result::TestResult,
+    rng::Rng,
+};
 use std::f64::consts::SQRT_2;
 
 const N_GAMES: usize = 200_000;
@@ -30,7 +34,9 @@ pub fn craps(rng: &mut impl Rng) -> TestResult {
 
     for _ in 0..N_GAMES {
         let (won, throws) = play_craps(rng);
-        if won { wins += 1; }
+        if won {
+            wins += 1;
+        }
         let idx = (throws - 1).min(21);
         throw_counts[idx] += 1;
     }
@@ -53,7 +59,12 @@ pub fn craps(rng: &mut impl Rng) -> TestResult {
             (c as f64 - exp).powi(2) / exp
         })
         .sum();
-    let df = throw_counts.iter().zip(expected.iter()).filter(|(_, &e)| e * N_GAMES as f64 >= 5.0).count() - 1;
+    let df = throw_counts
+        .iter()
+        .zip(expected.iter())
+        .filter(|(_, &e)| e * N_GAMES as f64 >= 5.0)
+        .count()
+        - 1;
     let p_throws = igamc(df as f64 / 2.0, chi_sq / 2.0);
 
     // Fisher's method: -2·(ln p₁ + ln p₂) ~ χ²(4); p = igamc(2, T/2).
@@ -78,7 +89,9 @@ pub fn craps_both(rng: &mut impl Rng) -> Vec<TestResult> {
 
     for _ in 0..N_GAMES {
         let (won, throws) = play_craps(rng);
-        if won { wins += 1; }
+        if won {
+            wins += 1;
+        }
         let idx = (throws - 1).min(21);
         throw_counts[idx] += 1;
     }
@@ -98,8 +111,12 @@ pub fn craps_both(rng: &mut impl Rng) -> Vec<TestResult> {
             (c as f64 - exp).powi(2) / exp
         })
         .sum();
-    let df = throw_counts.iter().zip(expected.iter())
-        .filter(|(_, &e)| e * N_GAMES as f64 >= 5.0).count() - 1;
+    let df = throw_counts
+        .iter()
+        .zip(expected.iter())
+        .filter(|(_, &e)| e * N_GAMES as f64 >= 5.0)
+        .count()
+        - 1;
     let p_throws = igamc(df as f64 / 2.0, chi_sq / 2.0);
 
     vec![
@@ -121,13 +138,17 @@ fn play_craps(rng: &mut impl Rng) -> (bool, usize) {
     let first = roll_dice(rng);
     let mut throws = 1;
     match first {
-        7 | 11 => return (true, throws),
-        2 | 3 | 12 => return (false, throws),
+        7 | 11 => (true, throws),
+        2 | 3 | 12 => (false, throws),
         point => loop {
             let r = roll_dice(rng);
             throws += 1;
-            if r == point { return (true, throws); }
-            if r == 7     { return (false, throws); }
+            if r == point {
+                return (true, throws);
+            }
+            if r == 7 {
+                return (false, throws);
+            }
         },
     }
 }
@@ -167,8 +188,14 @@ fn expected_throw_probs() -> [f64; 22] {
     // where p_x = P(roll = x), p_7 = 6/36.
     //
     // Summing over all point values x:
-    let points = [(4u32, 3.0/36.0), (5, 4.0/36.0), (6, 5.0/36.0),
-                  (8, 5.0/36.0), (9, 4.0/36.0), (10, 3.0/36.0)];
+    let points = [
+        (4u32, 3.0 / 36.0),
+        (5, 4.0 / 36.0),
+        (6, 5.0 / 36.0),
+        (8, 5.0 / 36.0),
+        (9, 4.0 / 36.0),
+        (10, 3.0 / 36.0),
+    ];
     let p7 = 6.0 / 36.0;
 
     // Extend to k=200 so that P(≥22 throws) is fully accumulated into index 21.

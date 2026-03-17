@@ -27,7 +27,7 @@ use std::f64::consts::SQRT_2;
 const WORD_LEN: usize = 5;
 const ALPHA_SIZE: usize = 5;
 const N_CATEGORIES5: usize = 3125; // 5^5
-const N_CATEGORIES4: usize = 625;  // 5^4
+const N_CATEGORIES4: usize = 625; // 5^4
 const N_SAMPLES: usize = 256_000;
 
 // Reference statistic parameters (Marsaglia, diehard_count_1s_stream.c).
@@ -42,7 +42,7 @@ const QDIFF_STDDEV: f64 = 70.710_678; // √5000
 /// George Marsaglia, DIEHARD (1995).
 pub fn count_ones_stream(words: &[u32]) -> TestResult {
     let bytes_needed = N_SAMPLES + WORD_LEN - 1;
-    let words_needed = (bytes_needed + 3) / 4;
+    let words_needed = bytes_needed.div_ceil(4);
     if words.len() < words_needed {
         return TestResult::insufficient("diehard::count_ones_stream", "not enough words");
     }
@@ -59,11 +59,11 @@ pub fn count_ones_stream(words: &[u32]) -> TestResult {
 
 fn hamming_letter(b: u8) -> usize {
     match b.count_ones() {
-        0 | 1 | 2 => 0, // A
-        3          => 1, // B
-        4          => 2, // C
-        5          => 3, // D
-        _          => 4, // E  (6, 7, or 8)
+        0..=2 => 0, // A
+        3 => 1,     // B
+        4 => 2,     // C
+        5 => 3,     // D
+        _ => 4,     // E  (6, 7, or 8)
     }
 }
 
@@ -76,7 +76,13 @@ fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str)
 
     // Letter marginal probabilities (binomial weights for 8 trials, p=0.5).
     // P(A)=P(E)=37/256, P(B)=P(D)=56/256, P(C)=70/256.
-    let lp = [37.0_f64/256.0, 56.0/256.0, 70.0/256.0, 56.0/256.0, 37.0/256.0];
+    let lp = [
+        37.0_f64 / 256.0,
+        56.0 / 256.0,
+        70.0 / 256.0,
+        56.0 / 256.0,
+        37.0 / 256.0,
+    ];
     let nf = n as f64;
 
     let mut counts5 = [0u32; N_CATEGORIES5];
@@ -97,20 +103,32 @@ fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str)
     }
 
     // Q5: Vtest chi-square on 5-letter words.
-    let q5: f64 = counts5.iter().enumerate().map(|(w, &c)| {
-        let l = [w/625, (w/125)%5, (w/25)%5, (w/5)%5, w%5];
-        let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]] * lp[l[4]];
-        if exp < 5.0 { return 0.0; }
-        (c as f64 - exp).powi(2) / exp
-    }).sum();
+    let q5: f64 = counts5
+        .iter()
+        .enumerate()
+        .map(|(w, &c)| {
+            let l = [w / 625, (w / 125) % 5, (w / 25) % 5, (w / 5) % 5, w % 5];
+            let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]] * lp[l[4]];
+            if exp < 5.0 {
+                return 0.0;
+            }
+            (c as f64 - exp).powi(2) / exp
+        })
+        .sum();
 
     // Q4: Vtest chi-square on 4-letter words.
-    let q4: f64 = counts4.iter().enumerate().map(|(w, &c)| {
-        let l = [w/125, (w/25)%5, (w/5)%5, w%5];
-        let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]];
-        if exp < 5.0 { return 0.0; }
-        (c as f64 - exp).powi(2) / exp
-    }).sum();
+    let q4: f64 = counts4
+        .iter()
+        .enumerate()
+        .map(|(w, &c)| {
+            let l = [w / 125, (w / 25) % 5, (w / 5) % 5, w % 5];
+            let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]];
+            if exp < 5.0 {
+                return 0.0;
+            }
+            (c as f64 - exp).powi(2) / exp
+        })
+        .sum();
 
     // Reference statistic: Z = (Q5 − Q4 − 2500) / √5000.
     let z = (q5 - q4 - QDIFF_MEAN) / QDIFF_STDDEV;
@@ -119,6 +137,9 @@ fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str)
     TestResult::with_note(
         name,
         p_value,
-        format!("n={n}, Q5={q5:.2}, Q4={q4:.2}, Q5-Q4={:.2}, Z={z:.4}", q5 - q4),
+        format!(
+            "n={n}, Q5={q5:.2}, Q4={q4:.2}, Q5-Q4={:.2}, Z={z:.4}",
+            q5 - q4
+        ),
     )
 }

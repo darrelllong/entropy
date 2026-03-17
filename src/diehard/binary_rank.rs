@@ -7,7 +7,10 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::{gf2_rank, igamc}, result::TestResult};
+use crate::{
+    math::{gf2_rank, igamc},
+    result::TestResult,
+};
 
 // ── 32×32 ─────────────────────────────────────────────────────────────────────
 
@@ -63,9 +66,9 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
     // P(rank=6) = (255×254×252×248×240×224) / 2^48 = 217613271859200 / 281474976710656 ≈ 0.7731
     // P(rank=5) = 63 × (255×254×252×248×240) / 2^48 = 61203732710400 / 281474976710656 ≈ 0.2174
     // P(rank≤4) = 1 − P(rank=6) − P(rank=5) ≈ 0.0094
-    let p_full: f64  = 217_613_271_859_200.0 / 281_474_976_710_656.0;  // rank = 6
-    let p_five: f64  = 61_203_732_710_400.0  / 281_474_976_710_656.0;  // rank = 5
-    let p_less: f64  = 1.0 - p_full - p_five;                           // rank ≤ 4
+    let p_full: f64 = 217_613_271_859_200.0 / 281_474_976_710_656.0; // rank = 6
+    let p_five: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0; // rank = 5
+    let p_less: f64 = 1.0 - p_full - p_five; // rank ≤ 4
 
     let mut f = [0usize; 3]; // f[0]=rank≤4, f[1]=rank=5, f[2]=rank=6
     let mut word_iter = words.iter().copied();
@@ -73,8 +76,8 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
     for _ in 0..n_matrices {
         // Build 6-row matrix: byte 0 of each of 6 consecutive words.
         let mut matrix = [0u8; 6];
-        for r in 0..rows {
-            matrix[r] = (word_iter.next().unwrap_or(0) & 0xFF) as u8;
+        for slot in matrix.iter_mut().take(rows) {
+            *slot = (word_iter.next().unwrap_or(0) & 0xFF) as u8;
         }
         let rank = gf2_rank_6x8(&matrix, rows, cols);
         match rank {
@@ -85,8 +88,7 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
     }
 
     let m = n_matrices as f64;
-    let chi_sq =
-        (f[0] as f64 - m * p_less).powi(2) / (m * p_less)
+    let chi_sq = (f[0] as f64 - m * p_less).powi(2) / (m * p_less)
         + (f[1] as f64 - m * p_five).powi(2) / (m * p_five)
         + (f[2] as f64 - m * p_full).powi(2) / (m * p_full);
 
@@ -105,7 +107,13 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
 ///
 /// Uses 4 bins matching `diehard_rank_32x32.c`: rank=full, full-1, full-2, ≤full-3.
 /// Bins with expected count < 5.0 are excluded from the chi-square (Vtest cutoff).
-fn rank_test(words: &[u32], rows: usize, cols: usize, n_matrices: usize, name: &'static str) -> TestResult {
+fn rank_test(
+    words: &[u32],
+    rows: usize,
+    cols: usize,
+    n_matrices: usize,
+    name: &'static str,
+) -> TestResult {
     if words.len() < rows * n_matrices {
         return TestResult::insufficient(name, "not enough words");
     }
@@ -116,7 +124,11 @@ fn rank_test(words: &[u32], rows: usize, cols: usize, n_matrices: usize, name: &
     let mut f = [0usize; 4]; // f[3]=rank=full, f[2]=full-1, f[1]=full-2, f[0]=≤full-3
 
     // Mask is the same for every matrix; pre-allocate the row buffer once.
-    let mask = if cols < 32 { (1u32 << cols) - 1 } else { u32::MAX };
+    let mask = if cols < 32 {
+        (1u32 << cols) - 1
+    } else {
+        u32::MAX
+    };
     let mut matrix = Vec::with_capacity(rows);
 
     for m_idx in 0..n_matrices {
@@ -125,26 +137,39 @@ fn rank_test(words: &[u32], rows: usize, cols: usize, n_matrices: usize, name: &
         matrix.extend(slice.iter().map(|&w| w & mask));
         let rank = gf2_rank(&matrix, rows, cols);
         let full = rows.min(cols);
-        if rank == full         { f[3] += 1; }
-        else if rank == full-1  { f[2] += 1; }
-        else if rank == full-2  { f[1] += 1; }
-        else                    { f[0] += 1; }
+        if rank == full {
+            f[3] += 1;
+        } else if rank == full - 1 {
+            f[2] += 1;
+        } else if rank == full - 2 {
+            f[1] += 1;
+        } else {
+            f[0] += 1;
+        }
     }
 
     let m = n_matrices as f64;
     let probs = [p0, p1, p2, p3];
-    let chi_sq: f64 = f.iter().zip(probs.iter())
+    let chi_sq: f64 = f
+        .iter()
+        .zip(probs.iter())
         .filter(|(_, &p)| p * m >= 5.0)
         .map(|(&cnt, &p)| (cnt as f64 - m * p).powi(2) / (m * p))
         .sum();
-    let df = f.iter().zip(probs.iter())
+    let df = f
+        .iter()
+        .zip(probs.iter())
         .filter(|(_, &p)| p * m >= 5.0)
         .count()
         .saturating_sub(1);
 
     let p_value = igamc(df as f64 / 2.0, chi_sq / 2.0);
 
-    TestResult::with_note(name, p_value, format!("{rows}×{cols}, N={n_matrices}, χ²={chi_sq:.4}"))
+    TestResult::with_note(
+        name,
+        p_value,
+        format!("{rows}×{cols}, N={n_matrices}, χ²={chi_sq:.4}"),
+    )
 }
 
 /// Theoretical rank-distribution probabilities for an R×C matrix over GF(2).

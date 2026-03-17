@@ -74,8 +74,5 @@ pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
 
 fn count_overlapping(block: &[u8], template: &[u8]) -> usize {
     let m = template.len();
-    block
-        .windows(m)
-        .filter(|&w| w == template)
-        .count()
+    block.windows(m).filter(|&w| w == template).count()
 }

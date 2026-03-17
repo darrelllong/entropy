@@ -56,17 +56,17 @@ fn choose_l(n: usize) -> usize {
     // These thresholds are n_min = (Q + K) * L = 10*2^L * L + 1000*L.
     match n {
         n if n >= 1_059_061_760 => 16,
-        n if n >= 496_435_200   => 15,
-        n if n >= 231_669_760   => 14,
-        n if n >= 107_560_960   => 13,
-        n if n >= 49_643_520    => 12,
-        n if n >= 22_753_280    => 11,
-        n if n >= 10_342_400    => 10,
-        n if n >= 4_654_080     => 9,
-        n if n >= 2_068_480     => 8,
-        n if n >= 904_960       => 7,
-        n if n >= 387_840       => 6,
-        n if n >= 165_120       => 5,
+        n if n >= 496_435_200 => 15,
+        n if n >= 231_669_760 => 14,
+        n if n >= 107_560_960 => 13,
+        n if n >= 49_643_520 => 12,
+        n if n >= 22_753_280 => 11,
+        n if n >= 10_342_400 => 10,
+        n if n >= 4_654_080 => 9,
+        n if n >= 2_068_480 => 8,
+        n if n >= 904_960 => 7,
+        n if n >= 387_840 => 6,
+        n if n >= 165_120 => 5,
         _ => 0, // too small
     }
 }
@@ -141,8 +141,8 @@ fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {
         sum += (gap as f64).log2();
         table[pattern] = i + 1;
     }
-    let f_n = sum / k as f64;
-    f_n
+
+    sum / k as f64
 }
 
 fn universal_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
@@ -181,8 +181,12 @@ mod tests {
         let bits = vec![0u8; 1_000_000];
         let results = universal_parametric_all(&bits);
         assert_eq!(results.len(), 11);
-        assert!(results.iter().any(|r| r.name == "maurer::universal_l10" && !r.skipped()));
-        assert!(results.iter().any(|r| r.name == "maurer::universal_l13" && r.skipped()));
+        assert!(results
+            .iter()
+            .any(|r| r.name == "maurer::universal_l10" && !r.skipped()));
+        assert!(results
+            .iter()
+            .any(|r| r.name == "maurer::universal_l13" && r.skipped()));
     }
 
     #[test]

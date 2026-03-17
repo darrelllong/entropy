@@ -1,9 +1,9 @@
 use entropy::research::marsaglia_tsang::{gorilla_aggregate_ks, gorilla_all, GorillaBitResult};
-use entropy::seed::seed_material;
 use entropy::rng::{
     AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
     SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
 };
+use entropy::seed::seed_material;
 
 const GORILLA_STREAM_WORDS: usize = (1 << 26) + 25;
 
@@ -94,13 +94,25 @@ fn main() {
         ("BAD Unix System V rand()", with_rng(SystemVRand::new(1))),
         ("BAD Unix System V mrand48()", with_rng(Rand48::new(1))),
         ("BAD Unix BSD random()", with_rng(BsdRandom::new(1))),
-        ("BAD Unix Linux glibc rand()/random()", with_rng(LinuxLibcRandom::new(1))),
+        (
+            "BAD Unix Linux glibc rand()/random()",
+            with_rng(LinuxLibcRandom::new(1)),
+        ),
         ("BAD Windows CRT rand()", with_rng(WindowsMsvcRand::new(1))),
         ("BAD Windows VB6/VBA Rnd()", with_rng(WindowsVb6Rnd::new(1))),
-        ("BAD Windows .NET Random(seed)", with_rng(WindowsDotNetRandom::new(1))),
-        ("ANSI C sample LCG", with_rng(Lcg32::new(LcgVariant::AnsiC, 1))),
+        (
+            "BAD Windows .NET Random(seed)",
+            with_rng(WindowsDotNetRandom::new(1)),
+        ),
+        (
+            "ANSI C sample LCG",
+            with_rng(Lcg32::new(LcgVariant::AnsiC, 1)),
+        ),
         ("LCG MINSTD", with_rng(Lcg32::new(LcgVariant::Minstd, 1))),
-        ("AES-128-CTR", with_rng(AesCtr::new(&seed_material::<16>(1), 0))),
+        (
+            "AES-128-CTR",
+            with_rng(AesCtr::new(&seed_material::<16>(1), 0)),
+        ),
         (
             "cryptography::CtrDrbgAes256",
             with_rng(CryptoCtrDrbg::new(&seed_material::<48>(1))),

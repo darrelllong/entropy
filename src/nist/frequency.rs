@@ -19,7 +19,10 @@ pub fn frequency(bits: &[u8]) -> TestResult {
     }
 
     // S_n = Σ (2·b_i − 1), so +1 for each 1-bit and −1 for each 0-bit.
-    let s_n: i64 = bits.iter().map(|&b| if b == 1 { 1i64 } else { -1i64 }).sum();
+    let s_n: i64 = bits
+        .iter()
+        .map(|&b| if b == 1 { 1i64 } else { -1i64 })
+        .sum();
 
     let s_obs = (s_n.unsigned_abs() as f64) / (n as f64).sqrt();
     let p_value = erfc(s_obs / SQRT_2);

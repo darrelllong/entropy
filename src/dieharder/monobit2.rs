@@ -29,7 +29,10 @@ pub fn monobit2(words: &[u32]) -> TestResult {
 
     let ntup = auto_ntuple(words.len());
     if ntup == 0 {
-        return TestResult::insufficient("dieharder::monobit2", "not enough samples for any block size");
+        return TestResult::insufficient(
+            "dieharder::monobit2",
+            "not enough samples for any block size",
+        );
     }
 
     // This layout intentionally matches the C code's single flat buffer:
@@ -65,7 +68,12 @@ pub fn monobit2(words: &[u32]) -> TestResult {
     TestResult::with_note(
         "dieharder::monobit2",
         p_value,
-        format!("tsamples={}, ntuple={}, block_sizes=2..{}", words.len(), ntup, 2usize << (ntup - 1)),
+        format!(
+            "tsamples={}, ntuple={}, block_sizes=2..{}",
+            words.len(),
+            ntup,
+            2usize << (ntup - 1)
+        ),
     )
 }
 
@@ -80,10 +88,9 @@ fn auto_ntuple(tsamples: usize) -> usize {
             break;
         }
         let mid = nmax / 2;
-        let log_pdf = lgamma((nmax + 1) as f64)
-            - lgamma((mid + 1) as f64)
-            - lgamma((nmax - mid + 1) as f64)
-            + (nmax as f64) * LN_HALF;
+        let log_pdf =
+            lgamma((nmax + 1) as f64) - lgamma((mid + 1) as f64) - lgamma((nmax - mid + 1) as f64)
+                + (nmax as f64) * LN_HALF;
         let center_mass = log_pdf.exp();
         if (nsamp as f64) * center_mass < 20.0 {
             ntup = j;
@@ -115,9 +122,7 @@ fn chisq_binomial(observed: &[f64], prob: f64, kmax: usize, nsamp: usize) -> f64
 
 fn binomial_pdf(k: usize, n: usize, prob: f64) -> f64 {
     let q = 1.0 - prob;
-    let log_p = lgamma((n + 1) as f64)
-        - lgamma((k + 1) as f64)
-        - lgamma((n - k + 1) as f64)
+    let log_p = lgamma((n + 1) as f64) - lgamma((k + 1) as f64) - lgamma((n - k + 1) as f64)
         + (k as f64) * prob.ln()
         + ((n - k) as f64) * q.ln();
     log_p.exp()

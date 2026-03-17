@@ -29,20 +29,20 @@ use cryptography::Sha256;
 
 use super::{OsRng, Rng};
 
-const SEEDLEN:  usize = 55;  // 440 bits — Table 2, SHA-256 row
-const OUTLEN:   usize = 32;  // SHA-256 output = 256 bits = 32 bytes
+const SEEDLEN: usize = 55; // 440 bits — Table 2, SHA-256 row
+const OUTLEN: usize = 32; // SHA-256 output = 256 bits = 32 bytes
 
 /// Hash_DRBG instantiated with SHA-256 per NIST SP 800-90A §10.1.1.
 pub struct HashDrbg {
-    v:              [u8; SEEDLEN],
-    c:              [u8; SEEDLEN],
+    v: [u8; SEEDLEN],
+    c: [u8; SEEDLEN],
     reseed_counter: u64,
-    buf:            [u8; OUTLEN],  // buffered Hashgen output
-    offset:         usize,
+    buf: [u8; OUTLEN], // buffered Hashgen output
+    offset: usize,
     // Incrementing counter for the current Hashgen sequence (§10.1.1.4
     // "data").  Snapshotted from V at the start of each 32-byte block run
     // and incremented by add1_mod2seedlen after each block.
-    gen_v:          [u8; SEEDLEN],
+    gen_v: [u8; SEEDLEN],
 }
 
 impl HashDrbg {
@@ -64,8 +64,11 @@ impl HashDrbg {
             hash_df(&input, SEEDLEN)
         };
         let mut drbg = Self {
-            v, c, reseed_counter: 1,
-            buf: [0u8; OUTLEN], offset: OUTLEN,
+            v,
+            c,
+            reseed_counter: 1,
+            buf: [0u8; OUTLEN],
+            offset: OUTLEN,
             gen_v: [0u8; SEEDLEN],
         };
         // Prime the first generate block.
@@ -140,7 +143,7 @@ fn hash_df(input: &[u8], out_bytes: usize) -> [u8; SEEDLEN] {
         msg.extend_from_slice(input);
         let block = Sha256::digest(&msg);
         let start = i * OUTLEN;
-        let end   = start + OUTLEN;
+        let end = start + OUTLEN;
         temp[start..end].copy_from_slice(&block);
     }
     let mut out = [0u8; SEEDLEN];
@@ -164,14 +167,14 @@ fn add1_mod2seedlen(data: &mut [u8; SEEDLEN]) {
 fn add_bytes_mod(data: &mut [u8; SEEDLEN], addend: &[u8]) {
     let mut carry = 0u16;
     let data_len = data.len();
-    let add_len  = addend.len();
+    let add_len = addend.len();
     for i in (0..data_len).rev() {
         let add_byte = if i + add_len >= data_len {
             addend[i + add_len - data_len]
         } else {
             0
         };
-        carry = data[i] as u16 + add_byte as u16 + carry;
+        carry += data[i] as u16 + add_byte as u16;
         data[i] = carry as u8;
         carry >>= 8;
     }
@@ -189,7 +192,9 @@ fn sha256_bytes(input: &[u8]) -> [u8; OUTLEN] {
 }
 
 impl Default for HashDrbg {
-    fn default() -> Self { Self::from_os_rng() }
+    fn default() -> Self {
+        Self::from_os_rng()
+    }
 }
 
 impl Rng for HashDrbg {

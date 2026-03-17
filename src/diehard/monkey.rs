@@ -65,7 +65,7 @@ pub fn opso(words: &[u32]) -> TestResult {
 ///
 /// Reference: `diehard_oqso.c`
 pub fn oqso(words: &[u32]) -> TestResult {
-    let words_needed = (STREAM / 6) * 4 + if STREAM % 6 == 0 { 0 } else { 4 };
+    let words_needed = (STREAM / 6) * 4 + if STREAM.is_multiple_of(6) { 0 } else { 4 };
     if words.len() < words_needed {
         return TestResult::insufficient("diehard::oqso", "not enough words");
     }
@@ -139,8 +139,8 @@ pub fn dna(words: &[u32]) -> TestResult {
 #[cfg(test)]
 mod tests {
     use super::{
-        dna, missing_count, monkey_result, opso, oqso, mark_seen, BITSET_BYTES, DNA_MEAN, OQSO_MEAN,
-        OPSO_MEAN, STREAM, WORD_SPACE,
+        dna, mark_seen, missing_count, monkey_result, opso, oqso, BITSET_BYTES, DNA_MEAN,
+        OPSO_MEAN, OQSO_MEAN, STREAM, WORD_SPACE,
     };
 
     #[test]

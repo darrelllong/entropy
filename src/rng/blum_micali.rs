@@ -33,9 +33,13 @@ use super::{primes::is_probable_prime, Rng};
 /// Modular multiplication for p = 2^k − 1, assuming a, b < p.
 #[inline]
 fn mersenne_mul(a: u64, b: u64, p: u64, k: u32) -> u64 {
-    let t = a * b;              // fits in u64 because a*b < p^2 < 2^(2k) ≤ 2^64
+    let t = a * b; // fits in u64 because a*b < p^2 < 2^(2k) ≤ 2^64
     let r = (t >> k) + (t & p);
-    if r >= p { r - p } else { r }
+    if r >= p {
+        r - p
+    } else {
+        r
+    }
 }
 
 /// Modular exponentiation base^exp mod p for Mersenne prime p = 2^k − 1.
@@ -59,7 +63,11 @@ fn mersenne_k(p: u64) -> Option<u32> {
     let p1 = p + 1;
     if p1.is_power_of_two() {
         let k = p1.trailing_zeros();
-        if k <= 32 { Some(k) } else { None }
+        if k <= 32 {
+            Some(k)
+        } else {
+            None
+        }
     } else {
         None
     }
@@ -67,10 +75,10 @@ fn mersenne_k(p: u64) -> Option<u32> {
 
 /// Blum-Micali pseudorandom bit generator.
 pub struct BlumMicali {
-    p:     u64,        // prime modulus
-    g:     u64,        // generator (element of large order in Zp*)
-    state: u64,        // current xᵢ
-    k:     Option<u32>, // Mersenne exponent if p = 2^k−1, else None
+    p: u64,         // prime modulus
+    g: u64,         // generator (element of large order in Zp*)
+    state: u64,     // current xᵢ
+    k: Option<u32>, // Mersenne exponent if p = 2^k−1, else None
 }
 
 impl BlumMicali {
@@ -89,14 +97,19 @@ impl BlumMicali {
         assert!(g > 1 && g < p, "g must be in (1, p)");
         assert!(seed > 0 && seed < p, "seed must be in (0, p)");
         let k = mersenne_k(p);
-        Self { p, g, state: seed, k }
+        Self {
+            p,
+            g,
+            state: seed,
+            k,
+        }
     }
 
     /// Advance one step and return the output bit.
     pub fn next_bit(&mut self) -> u8 {
         self.state = match self.k {
             Some(k) => mersenne_pow(self.g, self.state, self.p, k),
-            None    => super::primes::mod_pow(self.g, self.state, self.p),
+            None => super::primes::mod_pow(self.g, self.state, self.p),
         };
         u8::from(self.state <= (self.p - 1) / 2)
     }
@@ -134,7 +147,7 @@ mod tests {
     fn larger_prime_runs() {
         // p = 2147483647 (2³¹−1), g = 7, seed = 42
         let mut bm = BlumMicali::new(2_147_483_647, 7, 42);
-        let first  = bm.next_u32();
+        let first = bm.next_u32();
         let second = bm.next_u32();
         assert_ne!(first, second);
     }

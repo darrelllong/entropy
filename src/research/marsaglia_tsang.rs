@@ -43,10 +43,13 @@ fn missing_words_for_bit(words: &[u32], bit_position_from_msb: usize, word_bits:
     assert!((1..=31).contains(&word_bits), "word_bits must be in 1..=31");
     let windows = 1usize << word_bits;
     let stream_bits = windows + word_bits - 1;
-    assert!(words.len() >= stream_bits, "not enough source words for Gorilla stream");
+    assert!(
+        words.len() >= stream_bits,
+        "not enough source words for Gorilla stream"
+    );
     assert!(bit_position_from_msb < 32, "bit position must be in 0..32");
 
-    let mut seen = vec![0u64; (windows + 63) / 64];
+    let mut seen = vec![0u64; windows.div_ceil(64)];
     let mask = windows - 1;
     let mut rolling = 0usize;
     let mut seen_count = 0usize;
@@ -107,7 +110,9 @@ pub fn gorilla_aggregate_ks(results: &[GorillaBitResult]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{missing_words_for_bit, GorillaBitResult, GORILLA_MISSING_MEAN, GORILLA_MISSING_STDDEV};
+    use super::{
+        missing_words_for_bit, GorillaBitResult, GORILLA_MISSING_MEAN, GORILLA_MISSING_STDDEV,
+    };
     use crate::math::normal_cdf;
 
     #[test]
@@ -135,6 +140,9 @@ mod tests {
             z_score,
             p_value: 1.0 - normal_cdf(z_score),
         };
-        assert!(result.p_value < 0.01, "excess missing words should yield a small p-value");
+        assert!(
+            result.p_value < 0.01,
+            "excess missing words should yield a small p-value"
+        );
     }
 }
