@@ -6,6 +6,14 @@
 //! expected for random data.
 //!
 //! Recommended defaults: m = 10 for n ≥ 10^6 (SP 800-22 §2.12.7).
+//!
+//! # References
+//! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.12.
+//!   [pubs/NIST-SP-800-22r1a.pdf]
+//! * S. M. Pincus, "Approximate entropy as a measure of system complexity,"
+//!   *Proceedings of the National Academy of Sciences* 88(6), pp. 2297–2301,
+//!   March 1991. DOI: 10.1073/pnas.88.6.2297.
+//!   [Original ApEn statistic definition]
 
 use crate::{math::igamc, result::TestResult};
 use std::f64::consts::LN_2;

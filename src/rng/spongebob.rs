@@ -18,6 +18,18 @@
 //! On `aarch64` targets that expose FEAT_SHA3 (Apple Silicon and most modern
 //! ARM cores), the underlying `cryptography::Sha3_512` call dispatches to
 //! hardware EOR3/RAX1/BCAX Keccak-f[1600] intrinsics automatically.
+//!
+//! # References
+//! * National Institute of Standards and Technology, "SHA-3 Standard:
+//!   Permutation-Based Hash and Extendable-Output Functions,"
+//!   *FIPS PUB 202*, August 2015.
+//! * G. Bertoni, J. Daemen, M. Peeters, and G. Van Assche,
+//!   "The Keccak Reference," Version 3.0, January 2011.
+//!   <https://keccak.team/files/Keccak-reference-3.0.pdf>
+//!   [Keccak permutation underlying SHA-3]
+//!
+//! # Author
+//! NIST (SHA-3 specification); Darrell Long (Rust implementation).
 
 use cryptography::Sha3_512;
 

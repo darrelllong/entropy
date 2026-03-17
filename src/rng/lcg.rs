@@ -3,6 +3,15 @@
 //! LCGs have the form `x_(n+1) = (a*x_n + c) mod m`.
 //! These are parameterized mathematical generators, not necessarily faithful
 //! libc APIs. Historical Unix libc wrappers live in [`super::c_stdlib`].
+//!
+//! # References
+//! * K. Thompson and D. M. Ritchie, *Unix Programmer's Manual*, 7th Edition,
+//!   Bell Laboratories, 1979.
+//!   [Source of the `AnsiC` / System V `rand()` parameters a=1103515245, c=12345]
+//! * S. K. Park and K. W. Miller, "Random number generators: good ones are
+//!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
+//!   DOI: 10.1145/63039.63042.
+//!   [MINSTD: a=16807, c=0, m=2³¹−1]
 
 use super::Rng;
 
