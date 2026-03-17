@@ -94,7 +94,142 @@ throughput spread across the cipher family.
 Neither throughput column **certifies quality or safety**. For that, see the
 current full-battery results in [TESTS.md](TESTS.md).
 
-### `MT19937 (seed=19650218)`
+---
+
+### Bad RNGs — Do Not Use
+
+These generators have known structural weaknesses, predictable output, or
+catastrophically small state.  They are included as negative controls and
+historical references, not as recommendations.
+
+#### `ANSI C sample LCG (seed=1)`
+
+This is the textbook sample LCG
+$x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{31}}$.
+It is not meant to represent some hidden good libc implementation; it is here
+as the famous printed-manual recurrence that showed up in endless example code.
+It is fast because it is trivial arithmetic, and it is awful because that same
+arithmetic creates glaring lattice and serial structure. The battery results in
+[TESTS.md](TESTS.md) are exactly the reason this entry exists.
+
+#### `LCG MINSTD (seed=1)`
+
+MINSTD is the Park-Miller multiplicative congruential generator
+$x_{n+1} = 16807\times x_n \pmod{2^{31}-1}$.
+Historically it was a serious improvement over many older LCGs, and it is a
+nice clean mathematical benchmark, but it is still a small-state linear
+generator and still not remotely cryptographic. The throughput is unremarkable
+and the full battery in [TESTS.md](TESTS.md) is very hard on it, which is the
+correct modern attitude.
+
+#### `BAD Unix System V rand() (seed=1)`
+
+This is the classic 15-bit libc LCG
+$x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{32}}$,
+with output `y = (x >> 16) & 0x7FFF`.
+It is historically important precisely because it is bad: tiny effective
+output width, linear structure, and easy predictability. It remains useful here
+as a negative control and compatibility target. The benchmark shows it is fast;
+[TESTS.md](TESTS.md) shows why that speed is worthless for serious use.
+
+#### `BAD Unix System V mrand48() (seed=1)`
+
+`mrand48()` is the POSIX 48-bit LCG
+$x_{n+1} = (0x5DEECE66D\times x_n + 0xB) \bmod 2^{48}$,
+with the high bits returned as output. It is materially better than old
+15-bit `rand()`, which is why it survives more tests and runs faster than
+heavier modern CSPRNGs, but it is still just a linear congruential generator.
+That means it is predictable, non-cryptographic, and inappropriate for key
+material, nonces, or anything adversarial. The full battery in
+[TESTS.md](TESTS.md) is the right place to see where it still bends.
+
+#### `BAD Unix BSD random() TYPE_3 (seed=1)`
+
+BSD `random()` is the additive lagged generator with TYPE_3 state, roughly
+$x_n = x_{n-3} + x_{n-31} \pmod{2^{32}}$,
+followed by a right shift on output. Historically it was a real improvement
+over tiny libc LCGs, and that shows up in the test counts: it often looks much
+cleaner than the old 15-bit families. But it is still a weak user-space PRNG,
+not a cryptographic one, and its state is recoverable. Treat the decent
+throughput and relatively mild fail count as "less embarrassing bad Unix RNG,"
+not as a recommendation.
+
+#### `BAD Unix Linux glibc rand()/random() (seed=1)`
+
+On glibc, `rand()` is effectively `random()`, so this benchmark entry is the
+same Berkeley-derived additive generator as BSD `random()`. Its behavior is
+therefore close to the BSD line in both speed and statistical profile. It is
+still a historical libc generator, still predictable, and still not safe for
+security. Readers should not let the modest fail count in [TESTS.md](TESTS.md)
+trick them into thinking it belongs anywhere near cryptographic use.
+
+#### `BAD Unix FreeBSD12 rand_r() compat (seed=1)`
+
+This compatibility path is the single-word Park-Miller family:
+$x_{n+1} = 16807\times x_n \pmod{2^{31}-1}$,
+with a small ABI-shaped wrapper around the returned value. It exists here
+because real systems shipped it, not because it is good. Like other one-word
+LCGs, it is predictable and structurally weak. The benchmark page shows it is
+slower than some other historical junk; [TESTS.md](TESTS.md) shows it also
+fails more often than the BSD/glibc additive family.
+
+#### `BAD Windows CRT rand() (seed=1)`
+
+This is the old MSVCRT/UCRT generator
+$x_{n+1} = 214013\times x_n + 2531011 \pmod{2^{32}}$,
+with output `y = (x >> 16) & 0x7FFF`.
+It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
+linearity, and trivial predictability. It is in the benchmark because it was
+widely deployed in real code, not because it deserves respect. See
+[TESTS.md](TESTS.md) for how the battery treats it.
+
+#### `BAD Windows VB6/VBA Rnd() (seed=1)`
+
+VB6/VBA `Rnd()` uses a 24-bit linear state with update
+$x_{n+1} = (0x43FD43FD\times x_n + 0x00C39EC3) \bmod 2^{24}$,
+then scales that tiny state into a floating-point sample in $[0,1)$. This is
+catastrophically small and easy to predict, which is exactly why it is one of
+the most heavily destroyed entries in [TESTS.md](TESTS.md). It is a wonderful
+museum piece and a terrible random number generator.
+
+#### `BAD Windows .NET Random(seed=1) compat`
+
+Classic `.NET` `System.Random(seed)` is a subtractive generator with a
+55-element table, descended from Knuth-style lagged subtraction methods rather
+than a one-word LCG. That gives it more apparent statistical grace than the
+CRT and VB6 generators, but it is still not a CSPRNG and was never meant to
+protect secrets. The benchmark shows middling speed; the test report shows that
+it can still look deceptively clean in one run. The right conclusion is
+"legacy application PRNG," not "safe modern randomness."
+
+#### `Constant (0xDEAD_DEAD)`
+
+This is not a generator in any meaningful sense: it returns the same 32-bit
+word forever,
+$x_n = c$ for all $n$.
+It appears in the benchmark as a synthetic ceiling and as a sanity check that
+the test suite really does annihilate obvious garbage. Its enormous throughput
+is meaningless except as a reminder that speed alone says nothing about
+randomness.
+
+#### `Counter (0,1,2,...)`
+
+This fixture returns the deterministic arithmetic progression
+$x_n = x_0 + n \pmod{2^{32}}$.
+Like the constant stream, it is present to make sure the statistical battery
+and the benchmark report keep a clear distinction between "fast" and "good."
+It is almost as fast as the constant generator and almost maximally unsuitable
+for any use that actually requires randomness; [TESTS.md](TESTS.md) shows that
+plainly.
+
+---
+
+### Simulation RNGs
+
+Non-cryptographic generators suitable for Monte Carlo, statistical testing, and
+reproducible experiments.  None should be used for key material or nonces.
+
+#### `MT19937 (seed=19650218)`
 
 MT19937 is the 32-bit Mersenne Twister with period $2^{19937}-1$, using the
 standard twisted recurrence on a 624-word state plus tempering on output. It is
@@ -105,7 +240,19 @@ speed here is respectable, and the battery results in [TESTS.md](TESTS.md)
 still look broadly healthy, but that should be read as "good for classic
 simulation use," not "safe for secrets."
 
-### `Xorshift64 (seed=1)`
+#### `Xorshift32 (seed=1)`
+
+This is the classic 32-bit xorshift
+$x \leftarrow x \oplus (x \ll 13)$,
+$x \leftarrow x \oplus (x \gg 17)$,
+$x \leftarrow x \oplus (x \ll 5)$.
+It is even smaller-state and more fragile than the 64-bit version, which is
+why it is both extremely fast and much easier to embarrass statistically. It
+is not appropriate for any security use, and the full battery in
+[TESTS.md](TESTS.md) already treats it much more harshly than the stronger
+generators.
+
+#### `Xorshift64 (seed=1)`
 
 This is Marsaglia's 64-bit xorshift core
 $x \leftarrow x \oplus (x \ll 13)$,
@@ -119,244 +266,114 @@ unsuitable for cryptography. The current tests do catch some structure; see
 [TESTS.md](TESTS.md), but the right interpretation is still "fast historical
 toy / simulation-grade only."
 
-### `Xorshift32 (seed=1)`
+#### `PCG32 (seed=42, seq=54)`
 
-This is the classic 32-bit xorshift
-$x \leftarrow x \oplus (x \ll 13)$,
-$x \leftarrow x \oplus (x \gg 17)$,
-$x \leftarrow x \oplus (x \ll 5)$.
-It is even smaller-state and more fragile than the 64-bit version, which is
-why it is both extremely fast and much easier to embarrass statistically. It
-is not appropriate for any security use, and the full battery in
-[TESTS.md](TESTS.md) already treats it much more harshly than the stronger
-generators.
+PCG32 is Melissa O'Neill's 32-bit Permuted Congruential Generator (O'Neill
+2014).  The inner state is a 64-bit LCG
+$s_{n+1} = s_n \cdot \mathtt{6364136223846793005} + \mathtt{inc} \pmod{2^{64}}$,
+where `inc` encodes the stream selector.  The output permutation is XSH-RR:
+right-shift by a rotation amount extracted from the top 5 bits, xor-shift the
+result, then rotate right.  This destroys the visible linearity of the raw LCG
+while adding no more state.  The reference sequence (seed=42, seq=54) matches
+the C reference implementation exactly, which confirms the initialization order.
+Period: $2^{64}$.
 
-### `BAD Unix System V rand() (seed=1)`
+#### `PCG64 (state=1, seq=1)`
 
-This is the classic 15-bit libc LCG
-$x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{32}}$,
-with output `y = (x >> 16) & 0x7FFF`.
-It is historically important precisely because it is bad: tiny effective
-output width, linear structure, and easy predictability. It remains useful here
-as a negative control and compatibility target. The benchmark shows it is fast;
-[TESTS.md](TESTS.md) shows why that speed is worthless for serious use.
+PCG64 uses a 128-bit LCG multiplier
+$\mathtt{47026247687942121848144207491837523525}$
+with an XSL-RR output permutation: xor the two 64-bit halves, then rotate right
+by the top 6 bits of the old state.  The 128-bit arithmetic is more expensive
+on a 64-bit machine than the 64-bit LCG used by PCG32, which is why PCG64 reads
+as slower (843.8 MW/s vs PCG32's 934.1 MW/s) despite producing 64 bits per step.
+Period: $2^{128}$.
 
-### `BAD Unix System V mrand48() (seed=1)`
+#### `Xoshiro256** (seeds=1,2,3,4)`
 
-`mrand48()` is the POSIX 48-bit LCG
-$x_{n+1} = (0x5DEECE66D\times x_n + 0xB) \bmod 2^{48}$,
-with the high bits returned as output. It is materially better than old
-15-bit `rand()`, which is why it survives more tests and runs faster than
-heavier modern CSPRNGs, but it is still just a linear congruential generator.
-That means it is predictable, non-cryptographic, and inappropriate for key
-material, nonces, or anything adversarial. The full battery in
-[TESTS.md](TESTS.md) is the right place to see where it still bends.
+Xoshiro256\*\* (Blackman and Vigna 2021) is a 256-bit linear generator over
+$\mathbb{F}_2$ with a starstar scrambler on output.  The linear engine is
+a shift-register recurrence over four 64-bit words; the output at each step is
+$\mathrm{rotl}(s_1 \cdot 5,\ 7) \cdot 9$.
+The starstar multiplications break the linearity that would be visible to
+linear-complexity tests.  The generator passes BigCrush and PractRand beyond
+32 TiB; it is not cryptographic.  Period: $2^{256}-1$; the all-zero seed is
+forbidden and rejected at construction.
 
-### `BAD Unix BSD random() TYPE_3 (seed=1)`
+#### `Xoroshiro128** (seeds=1,2)`
 
-BSD `random()` is the additive lagged generator with TYPE_3 state, roughly
-$x_n = x_{n-3} + x_{n-31} \pmod{2^{32}}$,
-followed by a right shift on output. Historically it was a real improvement
-over tiny libc LCGs, and that shows up in the test counts: it often looks much
-cleaner than the old 15-bit families. But it is still a weak user-space PRNG,
-not a cryptographic one, and its state is recoverable. Treat the decent
-throughput and relatively mild fail count as "less embarrassing bad Unix RNG,"
-not as a recommendation.
+Xoroshiro128\*\* is the 128-bit sibling of Xoshiro256\*\* using the same starstar
+scrambler but a two-word xoroshiro recurrence
+$(s_0', s_1') = (s_0 \oplus s_1,\ s_1')$
+with specific rotation constants $a=24$, $b=16$, $c=37$.  It is slightly faster
+than the 256-bit version and uses half the state, at the cost of a shorter period
+($2^{128}-1$) and marginally more failures in our battery (13 vs 5).  Not
+cryptographic; all-zero seed forbidden.
 
-### `BAD Unix Linux glibc rand()/random() (seed=1)`
+#### `WyRand (seed=42)`
 
-On glibc, `rand()` is effectively `random()`, so this benchmark entry is the
-same Berkeley-derived additive generator as BSD `random()`. Its behavior is
-therefore close to the BSD line in both speed and statistical profile. It is
-still a historical libc generator, still predictable, and still not safe for
-security. Readers should not let the modest fail count in [TESTS.md](TESTS.md)
-trick them into thinking it belongs anywhere near cryptographic use.
+WyRand (Wang Yi, wyhash v4.2, 2022) advances a 64-bit Weyl counter by a fixed
+odd increment
+$s_{n+1} = s_n + \mathtt{a0761d6478bd642f}_{16}$
+then passes the result through the wyhash 128-bit multiply-xorfold mixer:
+$\mathrm{wymix}(a,b) = \bigl((a\cdot b \bmod 2^{128}) \gg 64\bigr) \oplus (a\cdot b \bmod 2^{64})$.
+The multiplication provides strong avalanche in a single instruction on
+architectures with 64×64→128-bit multiply support.  Period: $2^{64}$.  Not
+cryptographic; the state is trivially invertible from the output.  WyRand's
+3120 MW/s on Dyson reflects Apple Silicon's high-throughput 64×64→128-bit
+multiply pipeline; the `wyhash` mixer reduces to two multiply-accumulate
+operations per word, which the M4 handles in one or two cycles.
 
-### `BAD Unix FreeBSD12 rand_r() compat (seed=1)`
+#### `SFC64 (seeds=1,2,3)`
 
-This compatibility path is the single-word Park-Miller family:
-$x_{n+1} = 16807\times x_n \pmod{2^{31}-1}$,
-with a small ABI-shaped wrapper around the returned value. It exists here
-because real systems shipped it, not because it is good. Like other one-word
-LCGs, it is predictable and structurally weak. The benchmark page shows it is
-slower than some other historical junk; [TESTS.md](TESTS.md) shows it also
-fails more often than the BSD/glibc additive family.
+SFC64 (Small Fast Counting, Chris Doty-Humphrey, PractRand) is a counter-assisted
+chaotic generator with four 64-bit state words.  The recurrence is
+$t = a + b + \mathtt{ctr}$,
+$a' = b \oplus (b \gg 11)$,
+$b' = c + (c \ll 3)$,
+$c' = \mathrm{rotl}(c,24) + t$,
+with the counter incremented by one each step to guarantee a period of at least
+$2^{64}$.  Eighteen warm-up steps are applied after seeding per Doty-Humphrey's
+recommendation.  The chaotic recurrence passes BigCrush and PractRand, and its
+1262 MW/s throughput on Dyson makes it one of the fastest generators in the
+suite after WyRand and the trivial ceiling fixtures.
 
-### `BAD Windows CRT rand() (seed=1)`
+#### `JSF64 (seed=0xdeadbeef)`
 
-This is the old MSVCRT/UCRT generator
-$x_{n+1} = 214013\times x_n + 2531011 \pmod{2^{32}}$,
-with output `y = (x >> 16) & 0x7FFF`.
-It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
-linearity, and trivial predictability. It is in the benchmark because it was
-widely deployed in real code, not because it deserves respect. See
-[TESTS.md](TESTS.md) for how the battery treats it.
+JSF64 is Bob Jenkins' Small Fast generator (Jenkins 2007) with four 64-bit words:
+$e = a - \mathrm{rotl}(b, 7)$,
+$a' = b \oplus \mathrm{rotl}(c, 13)$,
+$b' = c + \mathrm{rotl}(d, 37)$,
+$c' = d + e$,
+$d' = e + a'$.
+The initial word is fixed at $a = \mathtt{f1ea5eed}_{16}$ and twenty warm-up
+steps scatter the seed through the full four-word state.  JSF64 reaches 1314 MW/s
+on Dyson, just above SFC64 (1262 MW/s); their battery counts are within one
+run's statistical noise.  Not cryptographic.
 
-### `BAD Windows VB6/VBA Rnd() (seed=1)`
+---
 
-VB6/VBA `Rnd()` uses a 24-bit linear state with update
-$x_{n+1} = (0x43FD43FD\times x_n + 0x00C39EC3) \bmod 2^{24}$,
-then scales that tiny state into a floating-point sample in $[0,1)$. This is
-catastrophically small and easy to predict, which is exactly why it is one of
-the most heavily destroyed entries in [TESTS.md](TESTS.md). It is a wonderful
-museum piece and a terrible random number generator.
+### Slow Generators
 
-### `BAD Windows .NET Random(seed=1) compat`
+These generators are slower than the simulation category but provide stronger
+statistical or cryptographic guarantees.  Entries marked **(CSPRNG)** are
+computationally indistinguishable from random under standard hardness assumptions
+and are suitable for key generation, nonces, and other security-sensitive uses
+when seeded from `OsRng`.
 
-Classic `.NET` `System.Random(seed)` is a subtractive generator with a
-55-element table, descended from Knuth-style lagged subtraction methods rather
-than a one-word LCG. That gives it more apparent statistical grace than the
-CRT and VB6 generators, but it is still not a CSPRNG and was never meant to
-protect secrets. The benchmark shows middling speed; the test report shows that
-it can still look deceptively clean in one run. The right conclusion is
-"legacy application PRNG," not "safe modern randomness."
+#### `ChaCha20 CSPRNG (OsRng key)` **(CSPRNG)**
 
-### `ANSI C sample LCG (seed=1)`
+This generator wraps the ChaCha20 stream cipher (Bernstein 2008) as a
+pseudorandom byte source.  A 256-bit key and 96-bit nonce are drawn from
+`OsRng` at construction; thereafter `keystream_block()` produces 64-byte
+blocks, each costing one ChaCha20 core invocation (20 rounds over a
+4×4 32-bit word state).  This is structurally identical to how Linux
+`/dev/urandom` and macOS `arc4random` work internally.  Output is
+computationally indistinguishable from uniform under the PRF assumption; no
+reseed is implemented here because the scope is the test battery, not a
+long-running daemon.  At 170.7 MW/s on Dyson it is the fastest crypto-grade
+generator in the suite, about 53× faster than HMAC_DRBG.
 
-This is the textbook sample LCG
-$x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{31}}$.
-It is not meant to represent some hidden good libc implementation; it is here
-as the famous printed-manual recurrence that showed up in endless example code.
-It is fast because it is trivial arithmetic, and it is awful because that same
-arithmetic creates glaring lattice and serial structure. The battery results in
-[TESTS.md](TESTS.md) are exactly the reason this entry exists.
-
-### `LCG MINSTD (seed=1)`
-
-MINSTD is the Park-Miller multiplicative congruential generator
-$x_{n+1} = 16807\times x_n \pmod{2^{31}-1}$.
-Historically it was a serious improvement over many older LCGs, and it is a
-nice clean mathematical benchmark, but it is still a small-state linear
-generator and still not remotely cryptographic. The throughput is unremarkable
-and the full battery in [TESTS.md](TESTS.md) is very hard on it, which is the
-correct modern attitude.
-
-### `AES-128-CTR (NIST key)`
-
-This generator emits
-$Y_i = \mathrm{AES}_K(\mathrm{ctr}+i)$
-in counter mode under a fixed 128-bit AES key, then slices each 128-bit block
-into four 32-bit words. As a construction, AES-CTR is cryptographically strong
-when the key is secret and the counter/nonce discipline is correct. In this
-repository it is used as a deterministic benchmark fixture, so the key is fixed
-for reproducibility, not secrecy. On Dyson (Apple M4) the 137.8 MW/s reflects
-hardware AES acceleration (ARMv8 `FEAT_AES`); the throughput will differ on
-x86 depending on AES-NI availability.
-
-### `Camellia-128-CTR (key=00..0f)`
-
-Camellia (NTT and Mitsubishi Electric, 2000) is a 128-bit block cipher with
-the same key sizes, block size, and security margin as AES.  It was a finalist
-in the NESSIE project and is specified in RFC 3713.  The structure is a
-Feistel network with 18 rounds for 128-bit keys plus six key-whitening
-operations (FL/FL$^{-1}$ layers every six rounds).  Without dedicated hardware
-acceleration, Camellia-128 runs at about 36 MW/s on Dyson — roughly one-quarter
-of AES-CTR speed — because the M4's `FEAT_AES` engine does not accelerate it.
-
-### `Twofish-128-CTR (key=00..0f)`
-
-Twofish (Schneier, Kelsey, Whiting, Wagner, Hall, Ferguson, 1998) is a 128-bit
-block cipher that was one of five AES finalists.  Its defining feature is
-key-dependent S-boxes: two of the four S-boxes are derived from the key
-material at setup, so encryption throughput is tightly coupled to how well
-those S-boxes fit in cache.  On Dyson the result is 3.5 MW/s — one of the
-slowest in the cipher suite — and on dmz (i5 with a smaller L1) it drops
-further to 1.3 MW/s.  Twofish's security margin is considered strong; its
-software speed is simply the price of its key schedule design.
-
-### `Serpent-128-CTR (key=00..0f)`
-
-Serpent (Anderson, Biham, and Knudsen, 1998) was the AES finalist with the
-widest security margin: 32 rounds versus AES's 10.  Each round is a simple
-SP-network over eight 4-bit S-boxes, which is fast in hardware but expensive
-in software because it requires 32 iterations of bitsliced operations.  At
-2.9 MW/s on Dyson and 1.1 MW/s on dmz it is the slowest block cipher in
-the suite; the benchmark reflects the deliberate design choice to prioritise
-safety margin over speed.
-
-### `SM4-CTR (key=00..0f)`
-
-SM4 (Chinese national standard GB/T 32907-2016) is a 128-bit block cipher
-mandated for use in Chinese government and financial systems and standardised
-for WLAN security under the WAPI amendment to 802.11.  It uses a 32-round
-Feistel structure with a single 8-bit S-box and 32-bit linear diffusion,
-closely paralleling AES in structure though with different design constants.
-The 47 MW/s on Dyson reflects pure software execution; there is no ARMv8
-extension for SM4 acceleration on the M4 at time of measurement.
-
-### `Grasshopper-CTR (key=00..1f)`
-
-Grasshopper (Russian: Кузнечик, "Kuznyechik", GOST R 34.12-2015) is the
-Russian national 128-bit block cipher, adopted in 2015 as part of the GOST
-standard family.  It uses a 256-bit key, ten rounds of an SP-network with a
-single 8-bit S-box and a linear transform over GF(2)$^{128}$, and was designed
-as a replacement for GOST 28147-89 (Magma).  The 6.7 MW/s on Dyson and
-3.9 MW/s on dmz reflect a pure software implementation; like SM4, there is
-no hardware acceleration path available on current ARMv8 or x86 platforms.
-
-### `CAST-128-CTR (key=00..0f)`
-
-CAST-128 (Carlisle Adams and Stafford Tavares, 1996) is a 64-bit block cipher
-with key sizes from 40 to 128 bits, specified in RFC 2144.  It is the cipher
-used by default in PGP 2.x and GnuPG, and it was included in early versions of
-SSH and many other widely deployed protocols.  The structure is a 16-round
-Feistel network with three rotating S-box types.  At 59.5 MW/s on Dyson it is
-the fastest block-CTR cipher in the suite after AES — its 64-bit block means
-twice as many encryptions per megaword, but each encryption is cheap.
-
-### `SEED-CTR (key=00..0f)`
-
-SEED (Korean Information Security Agency / TTAS.KO-12.0004, 1998) is the South
-Korean national 128-bit block cipher, developed after the Korean government
-declined to license RC5 for domestic deployment.  It is a 16-round Feistel
-cipher with a 128-bit block and 128-bit key; it has been mandated in Korean
-banking and e-government applications since 1999.  The 18.5 MW/s on Dyson
-reflects its software implementation; like CAST-128, no hardware acceleration
-path exists for it on current platforms.
-
-### `Rabbit (key=00..0f, iv=00..07)`
-
-Rabbit (Boesgaard, Vesterager, Pedersen, Christiansen, and Scavenius, 2003)
-is a stream cipher submitted to eSTREAM and selected for the software portfolio
-in Phase 3.  The state is eight 32-bit counters driven by a coupled iteration
-$x_{j,i+1} = (x_{j,i} + \phi_j(g_{j,i})) \bmod 2^{32}$, where the
-$g$-function provides nonlinearity and $\phi_j$ are precomputed rotation
-constants.  Output is 16 bytes per round by XOR'ing paired state words.  At
-352.6 MW/s on Dyson it is the fastest cipher in the suite by a wide margin
-because its 128-bit integer operations map directly onto SIMD lanes.
-
-### `Salsa20 (key=00..1f, nonce=00..07)`
-
-Salsa20 (Bernstein, 2007) is an eSTREAM winner and the predecessor of ChaCha20.
-The core is a 20-round ARX (add-rotate-XOR) hash of a 512-bit state consisting
-of four constant words, eight key words, two counter words, and two nonce
-words.  Unlike ChaCha20, Salsa20 indexes its input words in a diagonal rather
-than columnar pattern.  At 201 MW/s on Dyson it runs faster than ChaCha20
-(171 MW/s) in this harness because the harness wraps it as a `StreamRng`
-(buffered byte stream) rather than as a DRBG with nonce management overhead.
-
-### `Snow3G (key=00..0f, iv=00..0f)`
-
-Snow3G (ETSI SAGE, 3GPP TS 35.216, 2006) is the stream cipher underlying the
-3GPP f8 (confidentiality) and f9 (integrity) algorithms used in UMTS and the
-GSMA's Milenage suite.  The generator combines a 32-stage linear feedback
-shift register over GF(2$^{32}$) with a finite state machine whose output
-function uses two 8-bit S-boxes derived from AES.  Key and IV are both 128 bits.
-At 136 MW/s on Dyson it runs at roughly AES-CTR speed, reflecting its single
-pass of finite-field arithmetic per 32-bit output word.
-
-### `ZUC-128 (key=00..0f, iv=00..0f)`
-
-ZUC ("Zu Chongzhi", 3GPP TS 35.221, 2011) is the Chinese stream cipher that
-underlies the 3GPP 128-EEA3 (confidentiality) and 128-EIA3 (integrity)
-algorithms used in LTE and 5G.  It drives a 16-stage LFSR over
-GF(2$^{31}$−1), feeds the output through a bit-reorganisation layer and a
-nonlinear function F with two 32-bit internal registers and four 8-bit S-boxes,
-and produces 32 output bits per clock.  At 142 MW/s on Dyson and 71.6 MW/s on
-dmz it is close to Snow3G, consistent with the similar LFSR-plus-NLF
-architecture.
-
-### `SpongeBob (SHA3-512 chain, seed=00..3f)`
+#### `SpongeBob (SHA3-512 chain, seed=00..3f)` **(CSPRNG)**
 
 `SpongeBob` hashes a variable-length seed into a 512-bit state
 $x_0 = \text{SHA3-512}(\text{seed})$,
@@ -371,7 +388,7 @@ Keccak-f[1600] (EOR3, RAX1, BCAX intrinsics) is used automatically through
 promising but not spotless, so the right read is "plausible modern generator,
 worth more runs," not "already proved perfect."
 
-### `Squidward (SHA-256 chain, seed=00..1f)`
+#### `Squidward (SHA-256 chain, seed=00..1f)` **(CSPRNG)**
 
 Squidward is a SHA-256 hash chain, the same design as SpongeBob but with
 SHA-256 replacing SHA3-512.  The state is a single 32-byte digest; each step
@@ -383,134 +400,7 @@ FEAT_SHA2 hardware acceleration, the implementation detects and uses the
 portable `cryptography::Sha256` path otherwise.  On Dyson (Apple M4) the
 hardware path reaches 239.6 MW/s.
 
-### `cryptography::CtrDrbgAes256 (seed=00..2f)`
-
-This is the sibling `cryptography` crate's `CtrDrbgAes256`, i.e. an
-AES-256-based CTR_DRBG in the NIST SP 800-90A style, seeded here with a fixed
-48-byte test vector for repeatability. Unlike the historical libc generators,
-this is meant to represent a real cryptographic design. It is among the
-slowest entries in the table because it is doing full DRBG machinery rather
-than just a toy recurrence, but that is the price of a serious generator. The
-full-battery behavior in [TESTS.md](TESTS.md) is the relevant safety evidence.
-
-### `Constant (0xDEAD_DEAD)`
-
-This is not a generator in any meaningful sense: it returns the same 32-bit
-word forever,
-$x_n = c$ for all $n$.
-It appears in the benchmark as a synthetic ceiling and as a sanity check that
-the test suite really does annihilate obvious garbage. Its enormous throughput
-is meaningless except as a reminder that speed alone says nothing about
-randomness.
-
-### `Counter (0,1,2,...)`
-
-This fixture returns the deterministic arithmetic progression
-$x_n = x_0 + n \pmod{2^{32}}$.
-Like the constant stream, it is present to make sure the statistical battery
-and the benchmark report keep a clear distinction between "fast" and "good."
-It is almost as fast as the constant generator and almost maximally unsuitable
-for any use that actually requires randomness; [TESTS.md](TESTS.md) shows that
-plainly.
-
-### `PCG32 (seed=42, seq=54)`
-
-PCG32 is Melissa O'Neill's 32-bit Permuted Congruential Generator (O'Neill
-2014).  The inner state is a 64-bit LCG
-$s_{n+1} = s_n \cdot \mathtt{6364136223846793005} + \mathtt{inc} \pmod{2^{64}}$,
-where `inc` encodes the stream selector.  The output permutation is XSH-RR:
-right-shift by a rotation amount extracted from the top 5 bits, xor-shift the
-result, then rotate right.  This destroys the visible linearity of the raw LCG
-while adding no more state.  The reference sequence (seed=42, seq=54) matches
-the C reference implementation exactly, which confirms the initialization order.
-Period: $2^{64}$.
-
-### `PCG64 (state=1, seq=1)`
-
-PCG64 uses a 128-bit LCG multiplier
-$\mathtt{47026247687942121848144207491837523525}$
-with an XSL-RR output permutation: xor the two 64-bit halves, then rotate right
-by the top 6 bits of the old state.  The 128-bit arithmetic is more expensive
-on a 64-bit machine than the 64-bit LCG used by PCG32, which is why PCG64 reads
-as slower (843.8 MW/s vs PCG32's 934.1 MW/s) despite producing 64 bits per step.
-Period: $2^{128}$.
-
-### `Xoshiro256** (seeds=1,2,3,4)`
-
-Xoshiro256\*\* (Blackman and Vigna 2021) is a 256-bit linear generator over
-$\mathbb{F}_2$ with a starstar scrambler on output.  The linear engine is
-a shift-register recurrence over four 64-bit words; the output at each step is
-$\mathrm{rotl}(s_1 \cdot 5,\ 7) \cdot 9$.
-The starstar multiplications break the linearity that would be visible to
-linear-complexity tests.  The generator passes BigCrush and PractRand beyond
-32 TiB; it is not cryptographic.  Period: $2^{256}-1$; the all-zero seed is
-forbidden and rejected at construction.
-
-### `Xoroshiro128** (seeds=1,2)`
-
-Xoroshiro128\*\* is the 128-bit sibling of Xoshiro256\*\* using the same starstar
-scrambler but a two-word xoroshiro recurrence
-$(s_0', s_1') = (s_0 \oplus s_1,\ s_1')$
-with specific rotation constants $a=24$, $b=16$, $c=37$.  It is slightly faster
-than the 256-bit version and uses half the state, at the cost of a shorter period
-($2^{128}-1$) and marginally more failures in our battery (13 vs 5).  Not
-cryptographic; all-zero seed forbidden.
-
-### `WyRand (seed=42)`
-
-WyRand (Wang Yi, wyhash v4.2, 2022) advances a 64-bit Weyl counter by a fixed
-odd increment
-$s_{n+1} = s_n + \mathtt{a0761d6478bd642f}_{16}$
-then passes the result through the wyhash 128-bit multiply-xorfold mixer:
-$\mathrm{wymix}(a,b) = \bigl((a\cdot b \bmod 2^{128}) \gg 64\bigr) \oplus (a\cdot b \bmod 2^{64})$.
-The multiplication provides strong avalanche in a single instruction on
-architectures with 64×64→128-bit multiply support.  Period: $2^{64}$.  Not
-cryptographic; the state is trivially invertible from the output.  WyRand's
-3120 MW/s on Dyson reflects Apple Silicon's high-throughput 64×64→128-bit
-multiply pipeline; the `wyhash` mixer reduces to two multiply-accumulate
-operations per word, which the M4 handles in one or two cycles.
-
-### `SFC64 (seeds=1,2,3)`
-
-SFC64 (Small Fast Counting, Chris Doty-Humphrey, PractRand) is a counter-assisted
-chaotic generator with four 64-bit state words.  The recurrence is
-$t = a + b + \mathtt{ctr}$,
-$a' = b \oplus (b \gg 11)$,
-$b' = c + (c \ll 3)$,
-$c' = \mathrm{rotl}(c,24) + t$,
-with the counter incremented by one each step to guarantee a period of at least
-$2^{64}$.  Eighteen warm-up steps are applied after seeding per Doty-Humphrey's
-recommendation.  The chaotic recurrence passes BigCrush and PractRand, and its
-1262 MW/s throughput on Dyson makes it one of the fastest generators in the
-suite after WyRand and the trivial ceiling fixtures.
-
-### `JSF64 (seed=0xdeadbeef)`
-
-JSF64 is Bob Jenkins' Small Fast generator (Jenkins 2007) with four 64-bit words:
-$e = a - \mathrm{rotl}(b, 7)$,
-$a' = b \oplus \mathrm{rotl}(c, 13)$,
-$b' = c + \mathrm{rotl}(d, 37)$,
-$c' = d + e$,
-$d' = e + a'$.
-The initial word is fixed at $a = \mathtt{f1ea5eed}_{16}$ and twenty warm-up
-steps scatter the seed through the full four-word state.  JSF64 reaches 1314 MW/s
-on Dyson, just above SFC64 (1262 MW/s); their battery counts are within one
-run's statistical noise.  Not cryptographic.
-
-### `ChaCha20 CSPRNG (OsRng key)`
-
-This generator wraps the ChaCha20 stream cipher (Bernstein 2008) as a
-pseudorandom byte source.  A 256-bit key and 96-bit nonce are drawn from
-`OsRng` at construction; thereafter `keystream_block()` produces 64-byte
-blocks, each costing one ChaCha20 core invocation (20 rounds over a
-4×4 32-bit word state).  This is structurally identical to how Linux
-`/dev/urandom` and macOS `arc4random` work internally.  Output is
-computationally indistinguishable from uniform under the PRF assumption; no
-reseed is implemented here because the scope is the test battery, not a
-long-running daemon.  At 170.7 MW/s on Dyson it is the fastest crypto-grade
-generator in the suite, about 53× faster than HMAC_DRBG.
-
-### `HMAC_DRBG SHA-256 (OsRng seed)`
+#### `HMAC_DRBG SHA-256 (OsRng seed)` **(CSPRNG)**
 
 HMAC_DRBG (NIST SP 800-90A §10.1.2) is a deterministic RBG whose state is a
 pair $(K, V)$ of 32-byte values updated after every generate call by
@@ -522,7 +412,7 @@ $V$.  Initial seeding uses 48 bytes of `OsRng` entropy (32 bytes entropy_input
 The 3.218 MW/s throughput on Dyson reflects the cost of two HMAC invocations
 per 32-byte output block.
 
-### `Hash_DRBG SHA-256 (OsRng seed)`
+#### `Hash_DRBG SHA-256 (OsRng seed)` **(CSPRNG)**
 
 Hash_DRBG (NIST SP 800-90A §10.1.1) uses no keying material.  The state is a
 single 440-bit value $V$ (the NIST seedlen for SHA-256, Table 2) plus a
@@ -534,3 +424,148 @@ using big-endian carry arithmetic.  At 12.37 MW/s on Dyson it is about 3.8×
 faster than HMAC_DRBG because it replaces the two keyed-MAC steps with a
 single hash per output block, and it achieved the best FAIL count of any
 non-trivial generator in the battery (2 FAILs / 734 tests).
+
+#### `cryptography::CtrDrbgAes256 (seed=00..2f)` **(CSPRNG)**
+
+This is the sibling `cryptography` crate's `CtrDrbgAes256`, i.e. an
+AES-256-based CTR_DRBG in the NIST SP 800-90A style, seeded here with a fixed
+48-byte test vector for repeatability. Unlike the historical libc generators,
+this is meant to represent a real cryptographic design. It is among the
+slowest entries in the table because it is doing full DRBG machinery rather
+than just a toy recurrence, but that is the price of a serious generator. The
+full-battery behavior in [TESTS.md](TESTS.md) is the relevant safety evidence.
+
+---
+
+### Cipher-Based Generators
+
+All entries in this section are built on vetted cryptographic primitives and
+produce CSPRNG-grade output when the key (and IV, where applicable) are kept
+secret and not reused.  The harness initialises every generator with fixed
+test-vector keys for reproducibility; those keys must never appear in
+production code.
+
+#### `AES-128-CTR (NIST key)` **(CSPRNG)**
+
+This generator emits
+$Y_i = \mathrm{AES}_K(\mathrm{ctr}+i)$
+in counter mode under a fixed 128-bit AES key, then slices each 128-bit block
+into four 32-bit words. As a construction, AES-CTR is cryptographically strong
+when the key is secret and the counter/nonce discipline is correct. In this
+repository it is used as a deterministic benchmark fixture, so the key is fixed
+for reproducibility, not secrecy. On Dyson (Apple M4) the 137.8 MW/s reflects
+hardware AES acceleration (ARMv8 `FEAT_AES`); the throughput will differ on
+x86 depending on AES-NI availability.
+
+#### `Camellia-128-CTR (key=00..0f)` **(CSPRNG)**
+
+Camellia (NTT and Mitsubishi Electric, 2000) is a 128-bit block cipher with
+the same key sizes, block size, and security margin as AES.  It was a finalist
+in the NESSIE project and is specified in RFC 3713.  The structure is a
+Feistel network with 18 rounds for 128-bit keys plus six key-whitening
+operations (FL/FL$^{-1}$ layers every six rounds).  Without dedicated hardware
+acceleration, Camellia-128 runs at about 36 MW/s on Dyson — roughly one-quarter
+of AES-CTR speed — because the M4's `FEAT_AES` engine does not accelerate it.
+
+#### `Twofish-128-CTR (key=00..0f)` **(CSPRNG)**
+
+Twofish (Schneier, Kelsey, Whiting, Wagner, Hall, Ferguson, 1998) is a 128-bit
+block cipher that was one of five AES finalists.  Its defining feature is
+key-dependent S-boxes: two of the four S-boxes are derived from the key
+material at setup, so encryption throughput is tightly coupled to how well
+those S-boxes fit in cache.  On Dyson the result is 3.5 MW/s — one of the
+slowest in the cipher suite — and on dmz (i5 with a smaller L1) it drops
+further to 1.3 MW/s.  Twofish's security margin is considered strong; its
+software speed is simply the price of its key schedule design.
+
+#### `Serpent-128-CTR (key=00..0f)` **(CSPRNG)**
+
+Serpent (Anderson, Biham, and Knudsen, 1998) was the AES finalist with the
+widest security margin: 32 rounds versus AES's 10.  Each round is a simple
+SP-network over eight 4-bit S-boxes, which is fast in hardware but expensive
+in software because it requires 32 iterations of bitsliced operations.  At
+2.9 MW/s on Dyson and 1.1 MW/s on dmz it is the slowest block cipher in
+the suite; the benchmark reflects the deliberate design choice to prioritise
+safety margin over speed.
+
+#### `SM4-CTR (key=00..0f)` **(CSPRNG)**
+
+SM4 (Chinese national standard GB/T 32907-2016) is a 128-bit block cipher
+mandated for use in Chinese government and financial systems and standardised
+for WLAN security under the WAPI amendment to 802.11.  It uses a 32-round
+Feistel structure with a single 8-bit S-box and 32-bit linear diffusion,
+closely paralleling AES in structure though with different design constants.
+The 47 MW/s on Dyson reflects pure software execution; there is no ARMv8
+extension for SM4 acceleration on the M4 at time of measurement.
+
+#### `Grasshopper-CTR (key=00..1f)` **(CSPRNG)**
+
+Grasshopper (Russian: Кузнечик, "Kuznyechik", GOST R 34.12-2015) is the
+Russian national 128-bit block cipher, adopted in 2015 as part of the GOST
+standard family.  It uses a 256-bit key, ten rounds of an SP-network with a
+single 8-bit S-box and a linear transform over GF(2)$^{128}$, and was designed
+as a replacement for GOST 28147-89 (Magma).  The 6.7 MW/s on Dyson and
+3.9 MW/s on dmz reflect a pure software implementation; like SM4, there is
+no hardware acceleration path available on current ARMv8 or x86 platforms.
+
+#### `CAST-128-CTR (key=00..0f)` **(CSPRNG)**
+
+CAST-128 (Carlisle Adams and Stafford Tavares, 1996) is a 64-bit block cipher
+with key sizes from 40 to 128 bits, specified in RFC 2144.  It is the cipher
+used by default in PGP 2.x and GnuPG, and it was included in early versions of
+SSH and many other widely deployed protocols.  The structure is a 16-round
+Feistel network with three rotating S-box types.  At 59.5 MW/s on Dyson it is
+the fastest block-CTR cipher in the suite after AES — its 64-bit block means
+twice as many encryptions per megaword, but each encryption is cheap.
+
+#### `SEED-CTR (key=00..0f)` **(CSPRNG)**
+
+SEED (Korean Information Security Agency / TTAS.KO-12.0004, 1998) is the South
+Korean national 128-bit block cipher, developed after the Korean government
+declined to license RC5 for domestic deployment.  It is a 16-round Feistel
+cipher with a 128-bit block and 128-bit key; it has been mandated in Korean
+banking and e-government applications since 1999.  The 18.5 MW/s on Dyson
+reflects its software implementation; like CAST-128, no hardware acceleration
+path exists for it on current platforms.
+
+#### `Rabbit (key=00..0f, iv=00..07)` **(CSPRNG)**
+
+Rabbit (Boesgaard, Vesterager, Pedersen, Christiansen, and Scavenius, 2003)
+is a stream cipher submitted to eSTREAM and selected for the software portfolio
+in Phase 3.  The state is eight 32-bit counters driven by a coupled iteration
+$x_{j,i+1} = (x_{j,i} + \phi_j(g_{j,i})) \bmod 2^{32}$, where the
+$g$-function provides nonlinearity and $\phi_j$ are precomputed rotation
+constants.  Output is 16 bytes per round by XOR'ing paired state words.  At
+352.6 MW/s on Dyson it is the fastest cipher in the suite by a wide margin
+because its 128-bit integer operations map directly onto SIMD lanes.
+
+#### `Salsa20 (key=00..1f, nonce=00..07)` **(CSPRNG)**
+
+Salsa20 (Bernstein, 2007) is an eSTREAM winner and the predecessor of ChaCha20.
+The core is a 20-round ARX (add-rotate-XOR) hash of a 512-bit state consisting
+of four constant words, eight key words, two counter words, and two nonce
+words.  Unlike ChaCha20, Salsa20 indexes its input words in a diagonal rather
+than columnar pattern.  At 201 MW/s on Dyson it runs faster than ChaCha20
+(171 MW/s) in this harness because the harness wraps it as a `StreamRng`
+(buffered byte stream) rather than as a DRBG with nonce management overhead.
+
+#### `Snow3G (key=00..0f, iv=00..0f)` **(CSPRNG)**
+
+Snow3G (ETSI SAGE, 3GPP TS 35.216, 2006) is the stream cipher underlying the
+3GPP f8 (confidentiality) and f9 (integrity) algorithms used in UMTS and the
+GSMA's Milenage suite.  The generator combines a 32-stage linear feedback
+shift register over GF(2$^{32}$) with a finite state machine whose output
+function uses two 8-bit S-boxes derived from AES.  Key and IV are both 128 bits.
+At 136 MW/s on Dyson it runs at roughly AES-CTR speed, reflecting its single
+pass of finite-field arithmetic per 32-bit output word.
+
+#### `ZUC-128 (key=00..0f, iv=00..0f)` **(CSPRNG)**
+
+ZUC ("Zu Chongzhi", 3GPP TS 35.221, 2011) is the Chinese stream cipher that
+underlies the 3GPP 128-EEA3 (confidentiality) and 128-EIA3 (integrity)
+algorithms used in LTE and 5G.  It drives a 16-stage LFSR over
+GF(2$^{31}$−1), feeds the output through a bit-reorganisation layer and a
+nonlinear function F with two 32-bit internal registers and four 8-bit S-boxes,
+and produces 32 output bits per clock.  At 142 MW/s on Dyson and 71.6 MW/s on
+dmz it is close to Snow3G, consistent with the similar LFSR-plus-NLF
+architecture.
