@@ -43,7 +43,7 @@
 <circle cx="382.5" cy="411.0" r="4.5" fill="#1b4b9f"/>
 <circle cx="415.3" cy="389.9" r="4.5" fill="#1b4b9f"/>
 </g>
-<polygon points="450.0,222.4 562.1,255.8 627.7,347.4 653.6,450.0 622.1,549.3 528.7,586.3 450.0,618.4 367.5,593.0 335.3,516.2 368.2,450.0 417.6,431.3 415.3,389.9" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3" stroke-dasharray="8 4"/>
+<polygon points="450.0,222.4 562.1,255.8 627.7,347.4 653.6,450.0 622.1,549.3 528.7,586.3 450.0,618.4 367.5,593.0 335.3,516.2 368.2,450.0 417.6,431.3 435.0,424.1" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3"/>
 <g>
 <circle cx="450.0" cy="222.4" r="4.5" fill="#9f1b1b"/>
 <circle cx="562.1" cy="255.8" r="4.5" fill="#9f1b1b"/>
@@ -56,7 +56,7 @@
 <circle cx="335.3" cy="516.2" r="4.5" fill="#9f1b1b"/>
 <circle cx="368.2" cy="450.0" r="4.5" fill="#9f1b1b"/>
 <circle cx="417.6" cy="431.3" r="4.5" fill="#9f1b1b"/>
-<circle cx="415.3" cy="389.9" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="435.0" cy="424.1" r="4.5" fill="#9f1b1b"/>
 </g>
 <g font-family="Georgia, serif" font-size="17" fill="#3f3426">
 <text x="450.0" y="108.0" text-anchor="middle">Rabbit</text>
@@ -87,10 +87,9 @@
 <g font-family="Georgia, serif" font-size="14" fill="#3f3426">
 <rect x="30" y="814" width="18" height="14" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="2"/>
 <text x="54" y="826">Dyson (Apple M4 aarch64)</text>
-<rect x="30" y="836" width="18" height="14" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="2" stroke-dasharray="4 2"/>
-<text x="54" y="848">dmz.lan (Intel i5 x86_64) (partial data†)</text>
+<rect x="30" y="836" width="18" height="14" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="2"/>
+<text x="54" y="848">dmz.lan (Intel i5 x86_64)</text>
 </g>
 <text x="450" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#2f2418">Throughput — Cipher-Based Generators (log-normalized)</text>
 <text x="450" y="76" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#6f5d46">dyson · dmz · pilot-bench normal preset</text>
-<text x="450" y="888" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#9a7a5a">† reference value — not measured on this machine</text>
 </svg>
