@@ -47,14 +47,14 @@ pub fn count_ones_stream(words: &[u32]) -> TestResult {
         return TestResult::insufficient("diehard::count_ones_stream", "not enough words");
     }
 
-    let bytes: Vec<u8> = words
+    // Feed bytes → letters directly into the rolling-window accumulator
+    // without materialising a Vec<u8> or Vec<usize>.
+    let letter_iter = words
         .iter()
         .flat_map(|&w| w.to_le_bytes())
         .take(bytes_needed)
-        .collect();
-
-    let letters: Vec<usize> = bytes.iter().map(|&b| hamming_letter(b)).collect();
-    count_ones_test(&letters, "diehard::count_ones_stream")
+        .map(hamming_letter);
+    count_ones_test(letter_iter, "diehard::count_ones_stream")
 }
 
 fn hamming_letter(b: u8) -> usize {
@@ -67,7 +67,11 @@ fn hamming_letter(b: u8) -> usize {
     }
 }
 
-fn count_ones_test(letters: &[usize], name: &'static str) -> TestResult {
+/// Core Q5−Q4 statistic, driven by an iterator of letter indices (0..ALPHA_SIZE).
+///
+/// Accepts any `Iterator<Item = usize>` so the caller can stream bytes→letters
+/// directly without materialising intermediate Vecs.
+fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str) -> TestResult {
     let n = N_SAMPLES;
 
     // Letter marginal probabilities (binomial weights for 8 trials, p=0.5).
@@ -80,13 +84,13 @@ fn count_ones_test(letters: &[usize], name: &'static str) -> TestResult {
 
     // Encode the initial (WORD_LEN − 1)-letter prefix.
     let mut word5 = 0usize;
-    for &l in &letters[..WORD_LEN - 1] {
+    for l in letters.by_ref().take(WORD_LEN - 1) {
         word5 = word5 * ALPHA_SIZE + l;
     }
 
-    // Slide over N complete 5-letter windows.
-    for i in (WORD_LEN - 1)..(n + WORD_LEN - 1) {
-        word5 = (word5 * ALPHA_SIZE + letters[i]) % N_CATEGORIES5;
+    // Slide N complete 5-letter windows directly from the iterator.
+    for l in letters.take(n) {
+        word5 = (word5 * ALPHA_SIZE + l) % N_CATEGORIES5;
         counts5[word5] += 1;
         // The leading 4-letter prefix of this window is word5 / ALPHA_SIZE.
         counts4[word5 / ALPHA_SIZE] += 1;
