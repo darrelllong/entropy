@@ -7,6 +7,15 @@
 //!
 //! The formulas used here are the standard chi-square and conditional
 //! runs-test moments for binary classifications.
+//!
+//! # References
+//! * D. E. Knuth, *The Art of Computer Programming, Volume 2: Seminumerical
+//!   Algorithms*, 3rd edition, Addison-Wesley, 1997. §3.3.2.
+//!   [Permutation test, gap test, runs-above/below-median test with exact moments]
+//! * R. G. T. Grafton, "Algorithm AS 157: The runs-up and runs-down tests,"
+//!   *Applied Statistics* 30(1), pp. 81–85, 1981.
+//!   DOI: 10.2307/2346560.
+//!   [Covariance matrix for the runs-above/below statistic]
 
 use crate::{
     math::{chi2_pvalue, erfc},

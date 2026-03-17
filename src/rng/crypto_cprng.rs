@@ -1,5 +1,21 @@
 //! Adapters for CPRNG / DRBG implementations provided by the sibling
 //! `cryptography` crate.
+//!
+//! `CryptoCtrDrbg` wraps `CtrDrbgAes256`, an AES-256-CTR DRBG conforming to
+//! NIST SP 800-90A Rev. 1 §10.2.  The underlying DRBG implementation lives in
+//! the `cryptography` crate and is not reproduced here.
+//!
+//! # References
+//! * National Institute of Standards and Technology, "Recommendation for
+//!   Random Number Generation Using Deterministic Random Bit Generators,"
+//!   *NIST SP 800-90A Rev. 1*, June 2015, §10.2 (CTR_DRBG).
+//!   [pubs/NIST-SP-800-90Ar1.pdf]
+//! * National Institute of Standards and Technology, "Advanced Encryption
+//!   Standard (AES)," *FIPS PUB 197*, November 2001.
+//!   [Block cipher used by CTR_DRBG]
+//!
+//! # Author
+//! NIST (CTR_DRBG specification); Darrell Long (Rust adapter).
 
 use crate::rng::Rng;
 use cryptography::{Csprng, CtrDrbgAes256};

@@ -13,6 +13,24 @@
 //! - Windows VB6/VBA `Rnd`: 24-bit linear congruential state
 //! - Windows/.NET Framework `System.Random(seed)`: Knuth-style subtractive PRNG
 //! - System V / POSIX `mrand48()`: 48-bit LCG
+//!
+//! # References
+//! * K. Thompson and D. M. Ritchie, *Unix Programmer's Manual*, 7th Edition,
+//!   Bell Laboratories, 1979.  [`rand(3)` source of the 1103515245/12345 parameters
+//!   used in `SystemVRand` and `WindowsMsvcRand`.]
+//! * S. K. Park and K. W. Miller, "Random number generators: good ones are
+//!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
+//!   DOI: 10.1145/63039.63042.
+//!   [MINSTD; basis of `park_miller31` used in `BsdRandCompat`]
+//! * D. E. Knuth, *The Art of Computer Programming, Volume 2: Seminumerical
+//!   Algorithms*, 3rd edition, Addison-Wesley, 1997. §3.2.2.
+//!   [Subtractive generator used by Windows/.NET `System.Random`]
+//! * J. P. Hughes, "BADRANDOM: The Effect and Mitigations for Low Entropy
+//!   Random Numbers in TLS," PhD thesis, UC Santa Cruz, 2021.
+//!   [pubs/hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf]
+//!   [§2 surveys historical weak libc generators of this class as prior failure modes]
+//! * IEEE Std 1003.1 (POSIX.1), *The Open Group Base Specifications*, Issue 8, 2024.
+//!   [Normative specification of `rand()`, `rand_r()`, and `mrand48()`]
 
 use super::Rng;
 

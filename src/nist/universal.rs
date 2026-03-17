@@ -7,6 +7,15 @@
 //! Recommended defaults (Table 5, SP 800-22 §2.9.7):
 //!   L = 7, Q = 1280, for n ≥ 387 840.
 //!   L = 15 for n ≥ 1 900 000 gives higher power.
+//!
+//! # References
+//! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.9.
+//!   [pubs/NIST-SP-800-22r1a.pdf]
+//! * U. M. Maurer, "A universal statistical test for random bit generators,"
+//!   *Journal of Cryptology* 5(2), pp. 89–105, 1992.
+//!   DOI: 10.1007/BF00193563.
+//!   [pubs/maurer-1992-universal-test.pdf]
+//!   [Table 1: expected values μ and variances σ² for L=1..16, reproduced in EXPECTED_LOG_GAP_STATS]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;

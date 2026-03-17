@@ -89,6 +89,177 @@ The point of keeping these files in-tree is auditability: readers should be able
 
 ---
 
+## Generator algorithms
+
+Papers that define the RNG algorithms implemented in `src/rng/`.
+
+```bibtex
+@article{matsumoto1998mersenne,
+  author  = {Matsumoto, Makoto and Nishimura, Takuji},
+  title   = {Mersenne Twister: A 623-Dimensionally Equidistributed Uniform
+             Pseudo-Random Number Generator},
+  journal = {ACM Transactions on Modeling and Computer Simulation},
+  volume  = {8},
+  number  = {1},
+  pages   = {3--30},
+  year    = {1998},
+  doi     = {10.1145/272991.272995},
+  note    = {[TODO: library] Period 2^{19937}-1; state recovery from 624 consecutive
+             outputs is documented in §3.  Default generator in NumPy, MATLAB, R.}
+}
+
+@article{blackman2021xoshiro,
+  author  = {Blackman, David and Vigna, Sebastiano},
+  title   = {Scrambled Linear Pseudorandom Number Generators},
+  journal = {ACM Transactions on Mathematical Software},
+  volume  = {47},
+  number  = {4},
+  pages   = {36:1--36:32},
+  year    = {2021},
+  doi     = {10.1145/3460772},
+  note    = {[pubs/blackman-vigna-2021-scrambled-linear.pdf] Xoshiro256** and
+             Xoroshiro128** scrambler definitions.}
+}
+
+@techreport{oneill2014pcg,
+  author      = {O'Neill, Melissa E.},
+  title       = {{PCG}: A Family of Simple Fast Space-Efficient Statistically Good
+                 Algorithms for Random Number Generation},
+  institution = {Harvey Mudd College},
+  number      = {HMC-CS-2014-0905},
+  year        = {2014},
+  note        = {[pubs/oneill-2014-pcg.pdf] PCG32 (XSH-RR) and PCG64 (XSL-RR).}
+}
+
+@article{marsaglia2003xorshift,
+  author  = {Marsaglia, George},
+  title   = {Xorshift {RNG}s},
+  journal = {Journal of Statistical Software},
+  volume  = {8},
+  number  = {14},
+  year    = {2003},
+  doi     = {10.18637/jss.v008.i14},
+  note    = {32-bit and 64-bit Xorshift generators; listing 1 defines xorshift32.}
+}
+
+@misc{wangyi2022wyhash,
+  author = {Wang, Yi},
+  title  = {wyhash and wyrand, version 4.2},
+  year   = {2022},
+  url    = {https://github.com/wangyi-fudan/wyhash},
+  note   = {[pubs/wang-2022-wyhash.pdf] Weyl-sequence counter with 128-bit
+             multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.}
+}
+
+@misc{jenkins2007smallprng,
+  author = {Jenkins, Bob},
+  title  = {A Small Noncryptographic {PRNG}},
+  year   = {2007},
+  url    = {http://burtleburtle.net/bob/rand/smallprng.html},
+  note   = {[pubs/jenkins-2007-smallprng.html] JSF64 (Jenkins Small Fast),
+             four-word 64-bit chaotic generator.}
+}
+
+@inproceedings{bernstein2008chacha,
+  author    = {Bernstein, Daniel J.},
+  title     = {{ChaCha}, a Variant of {Salsa20}},
+  booktitle = {Workshop Record of SASC 2008: The State of the Art of Stream Ciphers},
+  year      = {2008},
+  note      = {[pubs/bernstein-2008-chacha.pdf] ChaCha20 stream cipher; 20-round
+               variant used in Linux /dev/urandom, macOS arc4random, and TLS 1.3.}
+}
+
+@article{park1988minstd,
+  author  = {Park, Stephen K. and Miller, Keith W.},
+  title   = {Random Number Generators: Good Ones Are Hard to Find},
+  journal = {Communications of the ACM},
+  volume  = {31},
+  number  = {10},
+  pages   = {1192--1201},
+  year    = {1988},
+  doi     = {10.1145/63039.63042},
+  note    = {MINSTD: a=16807, c=0, m=2^{31}-1 (Lehmer generator).  Also defines
+             the Park-Miller test used by FreeBSD rand_r() compatibility path.}
+}
+
+@misc{unix-v7-manual,
+  author = {Thompson, Ken and Ritchie, Dennis M.},
+  title  = {Unix Programmer's Manual, 7th Edition},
+  year   = {1979},
+  note   = {Bell Laboratories. rand(3) entry defines the LCG parameters
+             a=1103515245, c=12345 that became the de facto ANSI C / System V
+             rand() implementation.  Available at
+             https://www.tuhs.org/Archive/Distributions/Research/V7/}
+}
+
+@incollection{bernstein2015dualec,
+  author    = {Bernstein, Daniel J. and Lange, Tanja and Niederhagen, Ruben},
+  title     = {Dual {EC}: A Standardized Back Door},
+  booktitle = {The New Codebreakers: Essays Dedicated to David Kahn on the
+               Occasion of His 85th Birthday},
+  series    = {Lecture Notes in Computer Science},
+  volume    = {9100},
+  publisher = {Springer},
+  year      = {2016},
+  pages     = {256--281},
+  doi       = {10.1007/978-3-662-49301-4_17},
+  note      = {Demonstrates that the NIST-specified Q points in SP 800-90 Appendix A.1
+               are likely NSA-chosen with a discrete-log trapdoor.  State recovery
+               from 30 bytes of output.}
+}
+```
+
+---
+
+## Cryptographic primitives
+
+FIPS standards and mode-of-operation documents underlying the cipher-based generators.
+
+```bibtex
+@techreport{nist-fips-197,
+  author      = {{National Institute of Standards and Technology}},
+  title       = {Advanced Encryption Standard ({AES})},
+  institution = {NIST},
+  number      = {FIPS PUB 197},
+  year        = {2001},
+  note        = {[TODO: local copy not in pubs/] AES block cipher specification.
+                 Underlying cipher for AesCtr, BlockCtrRng<Aes>, and CryptoCtrDrbg.}
+}
+
+@techreport{nist-sp800-38a,
+  author      = {Dworkin, Morris},
+  title       = {Recommendation for Block Cipher Modes of Operation},
+  institution = {NIST},
+  number      = {SP 800-38A},
+  year        = {2001},
+  note        = {[TODO: local copy not in pubs/] §6.5 defines CTR mode used by
+                 AesCtr and BlockCtrRng.}
+}
+
+@techreport{nist-fips-180-4,
+  author      = {{National Institute of Standards and Technology}},
+  title       = {Secure Hash Standard ({SHS})},
+  institution = {NIST},
+  number      = {FIPS PUB 180-4},
+  year        = {2015},
+  note        = {[TODO: local copy not in pubs/] SHA-256 specification.
+                 Used by Squidward hash-chain generator and Hash_DRBG.}
+}
+
+@techreport{nist-fips-202,
+  author      = {{National Institute of Standards and Technology}},
+  title       = {{SHA-3} Standard: Permutation-Based Hash and Extendable-Output
+                 Functions},
+  institution = {NIST},
+  number      = {FIPS PUB 202},
+  year        = {2015},
+  note        = {[TODO: local copy not in pubs/] SHA3-512 specification.
+                 Used by SpongeBob hash-chain generator.}
+}
+```
+
+---
+
 ## Domain context
 
 ```bibtex
@@ -229,6 +400,59 @@ The point of keeping these files in-tree is auditability: readers should be able
                to all seeded generators here to test differential output behavior under
                single-bit seed perturbations. Initial implementation now lives in
                `src/research/webster_tavares.rs` and `src/bin/webster_tavares.rs`.}
+}
+```
+
+## Already-implemented test algorithms
+
+Papers whose algorithms are **fully implemented** in this crate but that were
+previously missing from this bibliography.
+
+```bibtex
+@article{pincus1991apen,
+  author  = {Pincus, Steven M.},
+  title   = {Approximate Entropy as a Measure of System Complexity},
+  journal = {Proceedings of the National Academy of Sciences},
+  volume  = {88},
+  number  = {6},
+  pages   = {2297--2301},
+  year    = {1991},
+  doi     = {10.1073/pnas.88.6.2297},
+  note    = {[TODO: open-access PDF at PMC: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC51218/]
+             Original ApEn(m) definition: φ(m) − φ(m+1) over overlapping patterns.
+             NIST SP 800-22 §2.12 and `src/nist/approximate_entropy.rs` implement this statistic.
+             Multi-scale sweep over m=2..6 is in `src/research/approx_entropy.rs`.}
+}
+
+@article{massey1969lfsr,
+  author  = {Massey, James L.},
+  title   = {Shift-Register Synthesis and {BCH} Decoding},
+  journal = {IEEE Transactions on Information Theory},
+  volume  = {15},
+  number  = {1},
+  pages   = {122--127},
+  year    = {1969},
+  doi     = {10.1109/TIT.1969.1054260},
+  note    = {[TODO: library] The Berlekamp-Massey algorithm for computing the minimal LFSR
+             that generates a given sequence.  Used in NIST SP 800-22 §2.10
+             (`src/nist/linear_complexity.rs`) and implicitly in the linear-complexity
+             profile test in TestU01 BigCrush.}
+}
+
+@article{grafton1981runs,
+  author  = {Grafton, R. G. T.},
+  title   = {Algorithm {AS} 157: The Runs-Up and Runs-Down Tests},
+  journal = {Applied Statistics},
+  volume  = {30},
+  number  = {1},
+  pages   = {81--85},
+  year    = {1981},
+  doi     = {10.2307/2346560},
+  note    = {[TODO: library] Covariance matrix and expected proportions for the
+             runs-up/down chi-square statistic.  Used verbatim in
+             `src/diehard/runs_float.rs` (constant PSEUDO_INV_COV matrix) and
+             `src/research/knuth.rs` (runs-above/below-median test).
+             See also Knuth TAOCP Vol. 2 §3.3.2.}
 }
 ```
 

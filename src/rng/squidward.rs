@@ -14,6 +14,14 @@
 //! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
 //! are used; mixing widths at a refill boundary silently discards up to 7
 //! trailing bytes before refilling.
+//!
+//! # References
+//! * National Institute of Standards and Technology, "Secure Hash Standard
+//!   (SHS)," *FIPS PUB 180-4*, August 2015.
+//!   [SHA-256 specification]
+//!
+//! # Author
+//! NIST (SHA-256 specification); Darrell Long (Rust implementation).
 
 use cryptography::Sha256;
 

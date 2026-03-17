@@ -6,6 +6,14 @@
 //! i.i.d. Bernoulli(½) source.
 //!
 //! Recommended defaults: M = 500, n ≥ 10^6.
+//!
+//! # References
+//! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.10.
+//!   [pubs/NIST-SP-800-22r1a.pdf]
+//! * J. L. Massey, "Shift-register synthesis and BCH decoding,"
+//!   *IEEE Transactions on Information Theory* 15(1), pp. 122–127, January 1969.
+//!   DOI: 10.1109/TIT.1969.1054260.
+//!   [Berlekamp-Massey algorithm used to compute LFSR length of each block]
 
 use crate::{math::igamc, result::TestResult};
 
