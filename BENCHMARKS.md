@@ -38,6 +38,17 @@ points if some benchmark files are still missing.
 | `BBS (p=2^31-1, q=4294967291)` | 61.29 | ±0.312 | 38.53 | ±0.476 |
 | `Blum-Micali (p=2^31-1, g=7)` | 0.462 | ±0.002 | 0.197 | ±0.002 |
 | `AES-128-CTR (NIST key)` | 137.8 | ±1.404 | 63.55 | ±0.595 |
+| `Camellia-128-CTR (key=00..0f)` | 36.21 | ±0.077 | 23.58 | ±0.194 |
+| `Twofish-128-CTR (key=00..0f)` | 3.512 | ±0.030 | 1.328 | ±0.004 |
+| `Serpent-128-CTR (key=00..0f)` | 2.859 | ±0.018 | 1.110 | ±0.009 |
+| `SM4-CTR (key=00..0f)` | 47.20 | ±0.204 | 30.71 | ±0.475 |
+| `Grasshopper-CTR (key=00..1f)` | 6.723 | ±0.008 | 3.850 | ±0.016 |
+| `CAST-128-CTR (key=00..0f)` | 59.50 | ±2.424 | 28.38 | ±0.564 |
+| `SEED-CTR (key=00..0f)` | 18.51 | ±0.163 | 12.98 | ±0.071 |
+| `Rabbit (key=00..0f, iv=00..07)` | 352.6 | ±4.358 | 127.0 | ±0.560 |
+| `Salsa20 (key=00..1f, nonce=00..07)` | 201.0 | ±1.014 | 117.4 | ±0.598 |
+| `Snow3G (key=00..0f, iv=00..0f)` | 136.4 | ±0.270 | 74.16 | ±2.042 |
+| `ZUC-128 (key=00..0f, iv=00..0f)` | 142.5 | ±0.595 | 71.55 | ±0.626 |
 | `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.22 | ±0.099 | 24.17 | ±0.201 |
 | `Squidward (SHA-256 chain, seed=00..1f)` | 239.6 | ±0.574 | 25.68 | ±0.419 |
 | `PCG32 (seed=42, seq=54)` | 934.1 | ±6.738 | 817.1 | ±2.848 |
@@ -118,7 +129,7 @@ generators.
 This is the classic 15-bit libc LCG
 $x_{n+1} = 1103515245\times x_n + 12345 \pmod{2^{32}}$,
 with output
-$y_n = (x_n \gg 16) \mathbin{\text{\&}} \mathtt{0x7fff}$.
+$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
 It is historically important precisely because it is bad: tiny effective
 output width, linear structure, and easy predictability. It remains useful here
 as a negative control and compatibility target. The benchmark shows it is fast;
@@ -170,7 +181,7 @@ fails more often than the BSD/glibc additive family.
 This is the old MSVCRT/UCRT generator
 $x_{n+1} = 214013\times x_n + 2531011 \pmod{2^{32}}$,
 with output
-$y_n = (x_n \gg 16) \mathbin{\text{\&}} \mathtt{0x7fff}$.
+$y_n = (x_n \gg 16) \mathbin{\&} \mathtt{0x7fff}$.
 It is one of the notorious bad Windows RNGs: tiny 15-bit outputs, obvious
 linearity, and trivial predictability. It is in the benchmark because it was
 widely deployed in real code, not because it deserves respect. See
