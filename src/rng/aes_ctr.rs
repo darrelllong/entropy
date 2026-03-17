@@ -12,9 +12,11 @@
 //! # References
 //!
 //! * National Institute of Standards and Technology, "Advanced Encryption
-//!   Standard (AES)", *FIPS PUB 197*, November 2001.
+//!   Standard (AES)", *FIPS PUB 197 Update 1*, 2023.
+//!   [pubs/NIST-FIPS-197.pdf]
 //! * M. Dworkin, "Recommendation for Block Cipher Modes of Operation",
 //!   *NIST Special Publication 800-38A*, 2001.
+//!   [pubs/NIST-SP-800-38A.pdf]
 //!
 //! # Author
 //! Joan Daemen and Vincent Rijmen (Rijndael / AES, 2001);
