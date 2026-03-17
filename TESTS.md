@@ -53,7 +53,7 @@ are noise, not structure.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 738 | 731 | 7 | 0 |
+| OsRng (/dev/urandom) | 738 | 734 | 4 | 0 |
 | MT19937 (seed=19650218) | 738 | 728 | 10 | 0 |
 | Xorshift64 (seed=1) | 738 | 733 | 5 | 0 |
 | Xorshift32 (seed=1) | 738 | 726 | 12 | 0 |
@@ -70,18 +70,29 @@ are noise, not structure.
 | BBS (p=2³¹−1, q=4294967291) | 738 | 731 | 7 | 0 |
 | Blum-Micali (p=2³¹−1, g=7) | 738 | 734 | 4 | 0 |
 | AES-128-CTR (NIST key) | 738 | 733 | 5 | 0 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 738 | 729 | 9 | 0 |
-| Squidward (SHA-256 chain, OsRng seed) | 738 | 730 | 8 | 0 |
-| PCG32 (OsRng seed) | 738 | 735 | 3 | 0 |
-| PCG64 (OsRng seed) | 738 | 731 | 7 | 0 |
-| Xoshiro256** (OsRng seed) | 738 | 733 | 5 | 0 |
-| Xoroshiro128** (OsRng seed) | 738 | 726 | 12 | 0 |
-| WyRand (OsRng seed) | 738 | 735 | 3 | 0 |
-| SFC64 (OsRng seed) | 738 | 729 | 9 | 0 |
+| Camellia-128-CTR (key=00..0f) | 738 | 732 | 6 | 0 |
+| Twofish-128-CTR (key=00..0f) | 738 | 728 | 10 | 0 |
+| Serpent-128-CTR (key=00..0f) | 738 | 727 | 11 | 0 |
+| SM4-CTR (key=00..0f) | 738 | 732 | 6 | 0 |
+| Grasshopper-CTR (key=00..1f) | 738 | 734 | 4 | 0 |
+| CAST-128-CTR (key=00..0f) | 738 | 731 | 7 | 0 |
+| SEED-CTR (key=00..0f) | 738 | 732 | 6 | 0 |
+| Rabbit (key=00..0f, iv=00..07) | 738 | 732 | 6 | 0 |
+| Salsa20 (key=00..1f, nonce=00..07) | 738 | 732 | 6 | 0 |
+| Snow3G (key=00..0f, iv=00..0f) | 738 | 729 | 9 | 0 |
+| ZUC-128 (key=00..0f, iv=00..0f) | 738 | 736 | 2 | 0 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 738 | 726 | 12 | 0 |
+| Squidward (SHA-256 chain, OsRng seed) | 738 | 731 | 7 | 0 |
+| PCG32 (OsRng seed) | 738 | 729 | 9 | 0 |
+| PCG64 (OsRng seed) | 738 | 726 | 12 | 0 |
+| Xoshiro256** (OsRng seed) | 738 | 731 | 7 | 0 |
+| Xoroshiro128** (OsRng seed) | 738 | 732 | 6 | 0 |
+| WyRand (OsRng seed) | 714 | 706 | 6 | 2 |
+| SFC64 (OsRng seed) | 738 | 728 | 10 | 0 |
 | JSF64 (OsRng seed) | 738 | 733 | 5 | 0 |
-| ChaCha20 CSPRNG (OsRng key) | 738 | 732 | 6 | 0 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 738 | 732 | 6 | 0 |
-| Hash_DRBG SHA-256 (OsRng seed) | 738 | 728 | 10 | 0 |
+| ChaCha20 CSPRNG (OsRng key) | 738 | 728 | 10 | 0 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 738 | 735 | 3 | 0 |
+| Hash_DRBG SHA-256 (OsRng seed) | 738 | 730 | 8 | 0 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 714 | 704 | 8 | 2 |
 | Constant (0xDEAD_DEAD) | 714 | 1 | 711 | 2 |
 | Counter (0,1,2,…) | 714 | 2 | 710 | 2 |
@@ -389,7 +400,7 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 7/738 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
+- **OsRng (/dev/urandom)**: 4/738 — `dieharder::bit_distribution` (×4)
 - **MT19937 (seed=19650218)**: 10/738 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template` (×2)
 - **Xorshift64 (seed=1)**: 5/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 12/738 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `nist::matrix_rank`
@@ -406,18 +417,29 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **BBS (p=2³¹−1, q=4294967291)**: 7/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
 - **Blum-Micali (p=2³¹−1, g=7)**: 4/738 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
 - **AES-128-CTR (NIST key)**: 5/738 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 9/738 — `diehard::craps_wins`, `dieharder::bit_distribution` (×7), `nist::spectral`
-- **Squidward (SHA-256 chain, OsRng seed)**: 8/738 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template`
-- **PCG32 (OsRng seed)**: 3/738 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template`
-- **PCG64 (OsRng seed)**: 7/738 — `diehard::craps_throws`, `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
-- **Xoshiro256** (OsRng seed)**: 5/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
-- **Xoroshiro128** (OsRng seed)**: 12/738 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template` (×2)
-- **WyRand (OsRng seed)**: 3/738 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template`
-- **SFC64 (OsRng seed)**: 9/738 — `dieharder::bit_distribution` (×5), `dieharder::ks_uniform`, `dieharder::lagged_sums`, `nist::non_overlapping_template` (×2)
-- **JSF64 (OsRng seed)**: 5/738 — `dieharder::bit_distribution` (×3), `maurer::universal_l15`, `nist::non_overlapping_template`
-- **ChaCha20 CSPRNG (OsRng key)**: 6/738 — `diehard::count_ones_stream`, `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 6/738 — `diehard::craps_wins`, `dieharder::bit_distribution` (×3), `nist::block_frequency`, `nist::non_overlapping_template`
-- **Hash_DRBG SHA-256 (OsRng seed)**: 10/738 — `dieharder::bit_distribution` (×9), `nist::non_overlapping_template`
+- **Camellia-128-CTR (key=00..0f)**: 6/738 — `dieharder::bit_distribution` (×6)
+- **Twofish-128-CTR (key=00..0f)**: 10/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×4)
+- **Serpent-128-CTR (key=00..0f)**: 11/738 — `dieharder::bit_distribution` (×5), `dieharder::minimum_distance_nd`, `nist::block_frequency`, `nist::non_overlapping_template` (×4)
+- **SM4-CTR (key=00..0f)**: 6/738 — `dieharder::bit_distribution` (×6)
+- **Grasshopper-CTR (key=00..1f)**: 4/738 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
+- **CAST-128-CTR (key=00..0f)**: 7/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
+- **SEED-CTR (key=00..0f)**: 6/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
+- **Rabbit (key=00..0f, iv=00..07)**: 6/738 — `dieharder::bit_distribution` (×3), `maurer::universal_l09`, `nist::non_overlapping_template` (×2)
+- **Salsa20 (key=00..1f, nonce=00..07)**: 6/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`, `nist::serial_delta1`
+- **Snow3G (key=00..0f, iv=00..0f)**: 9/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
+- **ZUC-128 (key=00..0f, iv=00..0f)**: 2/738 — `dieharder::bit_distribution` (×2)
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 12/738 — `dieharder::bit_distribution` (×12)
+- **Squidward (SHA-256 chain, OsRng seed)**: 7/738 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
+- **PCG32 (OsRng seed)**: 9/738 — `dieharder::bit_distribution` (×7), `dieharder::ks_uniform`, `nist::random_excursions_variant`
+- **PCG64 (OsRng seed)**: 12/738 — `dieharder::bit_distribution` (×7), `dieharder::byte_distribution`, `nist::non_overlapping_template` (×4)
+- **Xoshiro256** (OsRng seed)**: 7/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
+- **Xoroshiro128** (OsRng seed)**: 6/738 — `dieharder::bit_distribution` (×5), `dieharder::fill_tree_count`
+- **WyRand (OsRng seed)**: 6/714 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
+- **SFC64 (OsRng seed)**: 10/738 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template` (×2)
+- **JSF64 (OsRng seed)**: 5/738 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **ChaCha20 CSPRNG (OsRng key)**: 10/738 — `dieharder::bit_distribution` (×4), `dieharder::gcd_step_counts`, `nist::non_overlapping_template` (×5)
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 3/738 — `dieharder::bit_distribution` (×2), `maurer::universal_l07`
+- **Hash_DRBG SHA-256 (OsRng seed)**: 8/738 — `diehard::craps_wins`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×5)
 - **cryptography::CtrDrbgAes256 (seed=00..2f)**: 8/714 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5)
 - **Constant (0xDEAD_DEAD)**: 711/714 — expected for degenerate generator.
 - **Counter (0,1,2,…)**: 710/714 — expected for degenerate generator.
@@ -426,7 +448,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **3** (`PCG32 (OsRng seed)`) and the highest is **12** (`Xorshift32 (seed=1)`).
+- Among non-trivial generators, the lowest FAIL count is **2** (`ZUC-128 (key=00..0f, iv=00..0f)`) and the highest is **12** (`Xorshift32 (seed=1)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 
 ## Auxiliary Probes
@@ -1024,21 +1046,4 @@ cryptography::CtrDrbgAes256                  4096   0.0063   0.0308   0.0125   0
 ========================================================================
 gorilla  (Marsaglia-Tsang Gorilla  all 32 bit positions)
 ========================================================================
-
-RNG                                          min_p     max_p worst_bit  worst_|z|   agg_ks_p
------------------------------------------------------------------------------------------------
-MT19937                                   0.025510  0.963248        28      1.951   1.000000
-Xorshift32                                1.000000  1.000000        24     47.913   0.000000
-Xorshift64                                0.042486  0.959682        19      1.747   1.000000
-BAD Unix System V rand()                  0.103973  0.999980        18      4.111   0.000000
-BAD Unix System V mrand48()               0.000000  1.000000        31  10141.521   1.000000
-BAD Unix BSD random()                     0.114651  0.975209        13      1.964   1.000000
-BAD Unix Linux glibc rand()/random()      0.114651  0.975209        13      1.964   1.000000
-BAD Windows CRT rand()                    0.000000  0.999969         3     12.004   1.000000
-BAD Windows VB6/VBA Rnd()                 0.000000  0.000000         7  10162.438   0.000000
-BAD Windows .NET Random(seed)             0.026731  0.969952        28      1.931   1.000000
-ANSI C sample LCG                         0.000000  1.000000         0  10172.876   0.000000
-LCG MINSTD                                0.000000  1.000000         0  10172.876   0.000000
-AES-128-CTR                               0.050697  0.987885         9      2.253   1.000000
-cryptography::CtrDrbgAes256               0.000534  0.993353        31      3.272   1.000000
 ```
