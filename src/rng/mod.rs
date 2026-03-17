@@ -3,8 +3,6 @@
 pub mod aes_ctr;
 pub mod bad;
 pub mod block_ctr;
-pub mod blum_blum_shub;
-pub mod blum_micali;
 pub mod c_stdlib;
 pub mod chacha20_rng;
 pub mod crypto_cprng;
@@ -27,8 +25,6 @@ pub mod xoshiro;
 pub use aes_ctr::AesCtr;
 pub use bad::{ConstantRng, CounterRng};
 pub use block_ctr::BlockCtrRng;
-pub use blum_blum_shub::BlumBlumShub;
-pub use blum_micali::BlumMicali;
 pub use c_stdlib::{
     BsdRandCompat, BsdRandom, CRand, LinuxLibcRandom, Rand48, SystemVRand, WindowsDotNetRandom,
     WindowsMsvcRand, WindowsVb6Rnd,

@@ -111,7 +111,7 @@ See [BENCHMARKS.md](BENCHMARKS.md) for the full results table and radar charts.
 
 ## What The Runner Exercises
 
-The default runner compares 44 built-in generators across six categories:
+The default runner compares 42 built-in generators across six categories:
 
 **OS entropy**
 - `OsRng` (`/dev/urandom`)

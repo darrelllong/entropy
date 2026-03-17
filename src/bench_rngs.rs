@@ -9,7 +9,7 @@
 //!   cargo run --release --bin bench_rngs
 
 use entropy::rng::{
-    AesCtr, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ConstantRng, CounterRng, Lcg32,
+    AesCtr, BsdRandCompat, BsdRandom, ConstantRng, CounterRng, Lcg32,
     LinuxLibcRandom, Mt19937, OsRng, Rand48, Rng, SpongeBob, SystemVRand, WindowsDotNetRandom,
     WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
 };
@@ -146,14 +146,6 @@ fn main() {
     );
     bench("ANSI C sample LCG (seed=1)", Lcg32::ansi_c());
     bench("LCG MINSTD (seed=1)", Lcg32::minstd());
-    bench(
-        "BBS (p=2³¹−1, q=4294967291)",
-        BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567),
-    );
-    bench(
-        "Blum-Micali (p=2³¹−1, g=7)",
-        BlumMicali::new(2_147_483_647, 7, 42),
-    );
     bench("AES-128-CTR (NIST key)", AesCtr::with_nist_key());
     bench(
         "SpongeBob (SHA3-512 chain, seed=00..3f)",
