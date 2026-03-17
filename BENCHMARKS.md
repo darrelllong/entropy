@@ -288,7 +288,7 @@ Period: $2^{128}$.
 
 #### `Xoshiro256 (seeds=1,2,3,4)`
 
-Xoshiro256\*\* (Blackman and Vigna 2021) is a 256-bit linear generator over
+Xoshiro256 (Blackman and Vigna 2021) is a 256-bit linear generator over
 $\mathbb{F}_2$ with a starstar scrambler on output.  The linear engine is
 a shift-register recurrence over four 64-bit words; the output at each step is
 $\mathrm{rotl}(s_1 \cdot 5,\ 7) \cdot 9$.
@@ -299,7 +299,7 @@ forbidden and rejected at construction.
 
 #### `Xoroshiro128 (seeds=1,2)`
 
-Xoroshiro128\*\* is the 128-bit sibling of Xoshiro256\*\* using the same starstar
+Xoroshiro128 is the 128-bit sibling of Xoshiro256 using the same starstar
 scrambler but a two-word xoroshiro recurrence
 $(s_0', s_1') = (s_0 \oplus s_1,\ s_1')$
 with specific rotation constants $a=24$, $b=16$, $c=37$.  It is slightly faster

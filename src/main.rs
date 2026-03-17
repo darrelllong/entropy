@@ -34,7 +34,7 @@ use cryptography::{
     Snow3g, Twofish128, Zuc128,
 };
 use entropy::rng::{
-    AesCtr, BlockCtrRng, BlumBlumShub, BlumMicali, BsdRandCompat, BsdRandom, ChaCha20Rng,
+    AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng,
     ConstantRng, CounterRng, CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32,
     LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward,
     StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand,
@@ -260,14 +260,6 @@ fn make_runs(args: Args) -> Vec<RunFn> {
         Lcg32::ansi_c()
     );
     run!("LCG MINSTD (seed=1)", Lcg32::minstd());
-    run!(
-        "BBS (p=2³¹−1, q=4294967291)",
-        BlumBlumShub::new(2_147_483_647, 4_294_967_291, 1_234_567)
-    );
-    run!(
-        "Blum-Micali (p=2³¹−1, g=7)",
-        BlumMicali::new(2_147_483_647, 7, 42)
-    );
     run!("AES-128-CTR (NIST key)", AesCtr::with_nist_key());
     // Block-cipher CTR-mode RNGs (NIST SP 800-38A).  Keys are K16/K32.
     run!(
