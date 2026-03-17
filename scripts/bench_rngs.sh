@@ -119,6 +119,7 @@ measure windows_vb6_rnd "BAD Windows VB6/VBA Rnd() (seed=1)"          10000000
 measure windows_dotnet_random "BAD Windows .NET Random(seed=1) compat" 10000000
 measure ansi_c_lcg    "ANSI C sample LCG (seed=1)"                    10000000
 measure lcg_minstd    "LCG MINSTD (seed=1)"                           10000000
+measure borland_lcg   "BAD Borland C++ rand() LCG (seed=1)"           10000000
 measure aes_ctr       "AES-128-CTR (NIST key)"                        10000000
 measure camellia_ctr  "Camellia-128-CTR (key=00..0f)"                 10000000
 measure twofish_ctr   "Twofish-128-CTR (key=00..0f)"                  10000000

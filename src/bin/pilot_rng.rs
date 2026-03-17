@@ -14,7 +14,7 @@
 //! Names: osrng  mt19937  xorshift64  xorshift32  sysv_rand  rand48
 //!        bsd_random  linux_glibc_random  bsd_rand_compat
 //!        windows_msvc_rand  windows_vb6_rnd  windows_dotnet_random
-//!        ansi_c_lcg  lcg_minstd  aes_ctr
+//!        ansi_c_lcg  lcg_minstd  borland_lcg  aes_ctr
 //!        spongebob  squidward
 //!        pcg32  pcg64  xoshiro256  xoroshiro128
 //!        wyrand  sfc64  jsf64
@@ -33,7 +33,7 @@ use cryptography::{
 };
 use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
-    CryptoCtrDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LinuxLibcRandom, Mt19937, OsRng, Pcg32,
+    CryptoCtrDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, OsRng, Pcg32,
     Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom,
     WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
 };
@@ -81,6 +81,7 @@ fn main() {
         "windows_dotnet_random" => measure(WindowsDotNetRandom::new(1), n),
         "ansi_c_lcg" => measure(Lcg32::ansi_c(), n),
         "lcg_minstd" => measure(Lcg32::minstd(), n),
+        "borland_lcg" => measure(Lcg32::new(LcgVariant::Borland, 1), n),
         "aes_ctr" => measure(AesCtr::with_nist_key(), n),
         "camellia_ctr" => measure(BlockCtrRng::new(Camellia128::new(&K16), 0), n),
         "twofish_ctr" => measure(BlockCtrRng::new(Twofish128::new(&K16), 0), n),
