@@ -36,6 +36,7 @@ use cryptography::{
 use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng,
     ConstantRng, CounterRng, CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32,
+    LcgVariant,
     LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward,
     StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand,
     Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
@@ -258,6 +259,10 @@ fn make_runs(args: Args) -> Vec<RunFn> {
         Lcg32::ansi_c()
     );
     run!("LCG MINSTD (seed=1)", Lcg32::minstd());
+    run!(
+        "BAD Borland C++ rand() LCG (seed=1)",
+        Lcg32::new(LcgVariant::Borland, 1)
+    );
     run!("AES-128-CTR (NIST key)", AesCtr::with_nist_key());
     // Block-cipher CTR-mode RNGs (NIST SP 800-38A).  Keys are K16/K32.
     run!(
