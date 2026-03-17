@@ -123,10 +123,9 @@ The default runner compares 43 built-in generators across six categories:
 - Unix libc: System V `rand()`, `mrand48()`, BSD `random()`, Linux glibc `rand()/random()`, FreeBSD `rand_r()` compat
 - Windows: CRT `rand()`, VB6/VBA `Rnd()`, `.NET Random` compat
 - Classic LCGs: ANSI C, MINSTD, Borland C++
-- `MT19937` (state fully recoverable from 624 consecutive outputs; not for adversarial contexts)
 
 **Quality simulation generators**
-- `Xorshift32`, `Xorshift64`
+- `MT19937`, `Xorshift32`, `Xorshift64`
 - `PCG32`, `PCG64`, `Xoshiro256`, `Xoroshiro128`
 - `WyRand`, `SFC64`, `JSF64`
 
