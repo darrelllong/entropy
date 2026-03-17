@@ -1,6 +1,6 @@
 # Full Battery Results
 
-Full `run_tests` battery harvested from `darby.local` on 2026-03-15.
+Full `run_tests` battery harvested from `darby.local` on 2026-03-16.
 
 Sample size: **16 Mbit** per generator.
 
@@ -9,6 +9,13 @@ Command:
 ```sh
 ./target/release/run_tests
 ```
+
+Scope:
+
+This top section covers the standard `run_tests` battery only.  The Knuth,
+TestU01, PractRand, Webster-Tavares, and Gorilla probes are reported
+separately in `## Auxiliary Probes`; use `tests/run_all.sh` for the combined
+audit path or `tests/run_aux.sh` for the auxiliary suite alone.
 
 Notes:
 
@@ -23,7 +30,7 @@ The battery has **738 test slots** at this sample size:
   tests (`random_excursions` and `random_excursions_variant`) completed
   successfully (J ≥ 500 zero-crossing cycles).  At 16 Mbit the expected
   cycle count is J ≈ 3191 (= √(2n/π)),
-  comfortably above the threshold for well-behaved generators.
+  which is comfortably above the threshold for well-behaved generators.
 
 - **714 results** — 24 fewer slots than the full battery.  The excursion
   families normally emit 8 + 18 = 26 individual per-state results; when the
@@ -46,7 +53,7 @@ are noise, not structure.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 714 | 707 | 5 | 2 |
+| OsRng (/dev/urandom) | 738 | 731 | 7 | 0 |
 | MT19937 (seed=19650218) | 738 | 728 | 10 | 0 |
 | Xorshift64 (seed=1) | 738 | 733 | 5 | 0 |
 | Xorshift32 (seed=1) | 738 | 726 | 12 | 0 |
@@ -63,18 +70,18 @@ are noise, not structure.
 | BBS (p=2³¹−1, q=4294967291) | 738 | 731 | 7 | 0 |
 | Blum-Micali (p=2³¹−1, g=7) | 738 | 734 | 4 | 0 |
 | AES-128-CTR (NIST key) | 738 | 733 | 5 | 0 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 738 | 727 | 11 | 0 |
-| Squidward (SHA-256 chain, OsRng seed) | 738 | 731 | 7 | 0 |
-| PCG32 (OsRng seed) | 738 | 728 | 10 | 0 |
-| PCG64 (OsRng seed) | 738 | 729 | 9 | 0 |
-| Xoshiro256** (OsRng seed) | 738 | 726 | 12 | 0 |
-| Xoroshiro128** (OsRng seed) | 738 | 731 | 7 | 0 |
-| WyRand (OsRng seed) | 738 | 737 | 1 | 0 |
-| SFC64 (OsRng seed) | 714 | 708 | 4 | 2 |
-| JSF64 (OsRng seed) | 738 | 727 | 11 | 0 |
-| ChaCha20 CSPRNG (OsRng key) | 738 | 730 | 8 | 0 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 714 | 702 | 10 | 2 |
-| Hash_DRBG SHA-256 (OsRng seed) | 714 | 706 | 6 | 2 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 738 | 729 | 9 | 0 |
+| Squidward (SHA-256 chain, OsRng seed) | 738 | 730 | 8 | 0 |
+| PCG32 (OsRng seed) | 738 | 735 | 3 | 0 |
+| PCG64 (OsRng seed) | 738 | 731 | 7 | 0 |
+| Xoshiro256** (OsRng seed) | 738 | 733 | 5 | 0 |
+| Xoroshiro128** (OsRng seed) | 738 | 726 | 12 | 0 |
+| WyRand (OsRng seed) | 738 | 735 | 3 | 0 |
+| SFC64 (OsRng seed) | 738 | 729 | 9 | 0 |
+| JSF64 (OsRng seed) | 738 | 733 | 5 | 0 |
+| ChaCha20 CSPRNG (OsRng key) | 738 | 732 | 6 | 0 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 738 | 732 | 6 | 0 |
+| Hash_DRBG SHA-256 (OsRng seed) | 738 | 728 | 10 | 0 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 714 | 704 | 8 | 2 |
 | Constant (0xDEAD_DEAD) | 714 | 1 | 711 | 2 |
 | Counter (0,1,2,…) | 714 | 2 | 710 | 2 |
@@ -382,12 +389,14 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 ### OsRng (/dev/urandom)
 
-- `5` failures out of `714` tests:
-  - `diehard::binary_rank_32x32`: p = 0.004461  (32×32, N=40000, χ²=13.0826)
-  - `dieharder::fill_tree_count`: p = 0.003674  (trials=100000, χ²=24.4273, start=4, end=14)
-  - `dieharder::bit_distribution`: p = 0.004686  (width=5, pattern=1, tsamples=1600000, bsamples=64, df=10, χ²=25.3703)
-  - `dieharder::bit_distribution`: p = 0.009778  (width=7, pattern=126, tsamples=1142857, bsamples=64, df=5, χ²=15.1406)
-  - `dieharder::bit_distribution`: p = 0.008999  (width=8, pattern=165, tsamples=1000000, bsamples=64, df=4, χ²=13.5191)
+- `7` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.009214  (B=000001111, N=8, M=2000000, χ²=20.3130)
+  - `nist::non_overlapping_template`: p = 0.001430  (B=001100101, N=8, M=2000000, χ²=25.2139)
+  - `dieharder::bit_distribution`: p = 0.008293  (width=4, pattern=4, tsamples=2000000, bsamples=64, df=14, χ²=29.7372)
+  - `dieharder::bit_distribution`: p = 0.001238  (width=5, pattern=3, tsamples=1600000, bsamples=64, df=10, χ²=29.0167)
+  - `dieharder::bit_distribution`: p = 0.003733  (width=5, pattern=27, tsamples=1600000, bsamples=64, df=10, χ²=26.0055)
+  - `dieharder::bit_distribution`: p = 0.006758  (width=8, pattern=13, tsamples=1000000, bsamples=64, df=4, χ²=14.1746)
+  - `dieharder::bit_distribution`: p = 0.002015  (width=8, pattern=110, tsamples=1000000, bsamples=64, df=4, χ²=16.9066)
 
 ### MT19937 (seed=19650218)
 
@@ -2482,147 +2491,134 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 ### SpongeBob (SHA3-512 chain, OsRng seed)
 
-- `11` failures out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.008069  (B=000010001, N=8, M=2000000, χ²=20.6729)
-  - `nist::non_overlapping_template`: p = 0.000105  (B=000100011, N=8, M=2000000, χ²=31.7155)
-  - `nist::non_overlapping_template`: p = 0.007154  (B=000101011, N=8, M=2000000, χ²=20.9975)
-  - `nist::non_overlapping_template`: p = 0.006093  (B=101010000, N=8, M=2000000, χ²=21.4280)
-  - `diehard::binary_rank_31x31`: p = 0.003067  (31×31, N=40000, χ²=13.8845)
-  - `dieharder::bit_distribution`: p = 0.000866  (width=3, pattern=7, tsamples=2666666, bsamples=64, df=21, χ²=47.2595)
-  - `dieharder::bit_distribution`: p = 0.002888  (width=4, pattern=1, tsamples=2000000, bsamples=64, df=14, χ²=32.9931)
-  - `dieharder::bit_distribution`: p = 0.009661  (width=5, pattern=5, tsamples=1600000, bsamples=64, df=10, χ²=23.3092)
-  - `dieharder::bit_distribution`: p = 0.008021  (width=7, pattern=114, tsamples=1142857, bsamples=64, df=5, χ²=15.6187)
-  - `dieharder::bit_distribution`: p = 0.000287  (width=8, pattern=85, tsamples=1000000, bsamples=64, df=4, χ²=21.2116)
-  - `dieharder::bit_distribution`: p = 0.002204  (width=8, pattern=221, tsamples=1000000, bsamples=64, df=4, χ²=16.7063)
+- `9` failures out of `738` tests:
+  - `nist::spectral`: p = 0.002881  (n=16000000, N₀=7600000.0, N₁=7598701, T=6923.2735, d=-2.9801)
+  - `diehard::craps_wins`: p = 0.005959  (games=200000, wins=97971, z=-2.7500)
+  - `dieharder::bit_distribution`: p = 0.003690  (width=4, pattern=12, tsamples=2000000, bsamples=64, df=14, χ²=32.2508)
+  - `dieharder::bit_distribution`: p = 0.009336  (width=5, pattern=15, tsamples=1600000, bsamples=64, df=10, χ²=23.4081)
+  - `dieharder::bit_distribution`: p = 0.009538  (width=6, pattern=50, tsamples=1333333, bsamples=64, df=7, χ²=18.5999)
+  - `dieharder::bit_distribution`: p = 0.000214  (width=7, pattern=5, tsamples=1142857, bsamples=64, df=5, χ²=24.0329)
+  - `dieharder::bit_distribution`: p = 0.003768  (width=7, pattern=14, tsamples=1142857, bsamples=64, df=5, χ²=17.4204)
+  - `dieharder::bit_distribution`: p = 0.007405  (width=8, pattern=53, tsamples=1000000, bsamples=64, df=4, χ²=13.9659)
+  - `dieharder::bit_distribution`: p = 0.001160  (width=8, pattern=220, tsamples=1000000, bsamples=64, df=4, χ²=18.1374)
 
 ### Squidward (SHA-256 chain, OsRng seed)
 
-- `7` failures out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.009023  (B=100100000, N=8, M=2000000, χ²=20.3701)
-  - `nist::non_overlapping_template`: p = 0.006036  (B=111111100, N=8, M=2000000, χ²=21.4533)
-  - `dieharder::bit_distribution`: p = 0.005415  (width=7, pattern=30, tsamples=1142857, bsamples=64, df=5, χ²=16.5597)
-  - `dieharder::bit_distribution`: p = 0.004934  (width=7, pattern=60, tsamples=1142857, bsamples=64, df=5, χ²=16.7814)
-  - `dieharder::bit_distribution`: p = 0.007852  (width=8, pattern=32, tsamples=1000000, bsamples=64, df=4, χ²=13.8318)
-  - `dieharder::bit_distribution`: p = 0.004028  (width=8, pattern=197, tsamples=1000000, bsamples=64, df=4, χ²=15.3499)
-  - `dieharder::bit_distribution`: p = 0.002553  (width=8, pattern=201, tsamples=1000000, bsamples=64, df=4, χ²=16.3767)
+- `8` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.003603  (B=111011010, N=8, M=2000000, χ²=22.8201)
+  - `dieharder::bit_distribution`: p = 0.006676  (width=4, pattern=6, tsamples=2000000, bsamples=64, df=14, χ²=30.4206)
+  - `dieharder::bit_distribution`: p = 0.006608  (width=6, pattern=41, tsamples=1333333, bsamples=64, df=7, χ²=19.5579)
+  - `dieharder::bit_distribution`: p = 0.007027  (width=7, pattern=77, tsamples=1142857, bsamples=64, df=5, χ²=15.9368)
+  - `dieharder::bit_distribution`: p = 0.008087  (width=8, pattern=47, tsamples=1000000, bsamples=64, df=4, χ²=13.7641)
+  - `dieharder::bit_distribution`: p = 0.005119  (width=8, pattern=149, tsamples=1000000, bsamples=64, df=4, χ²=14.8069)
+  - `dieharder::bit_distribution`: p = 0.004452  (width=8, pattern=151, tsamples=1000000, bsamples=64, df=4, χ²=15.1233)
+  - `dieharder::bit_distribution`: p = 0.005808  (width=8, pattern=204, tsamples=1000000, bsamples=64, df=4, χ²=14.5197)
 
 ### PCG32 (OsRng seed)
 
-- `10` failures out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.005114  (B=000111001, N=8, M=2000000, χ²=21.8951)
-  - `nist::non_overlapping_template`: p = 0.001519  (B=010011011, N=8, M=2000000, χ²=25.0594)
-  - `nist::non_overlapping_template`: p = 0.000010  (B=011011111, N=8, M=2000000, χ²=37.4318)
-  - `dieharder::byte_distribution`: p = 0.005384  (tsamples=5333333, streams=9, expected/cell=20833.3, χ²=2471.4373)
-  - `dieharder::bit_distribution`: p = 0.003157  (width=7, pattern=105, tsamples=1142857, bsamples=64, df=5, χ²=17.8372)
-  - `dieharder::bit_distribution`: p = 0.004051  (width=8, pattern=95, tsamples=1000000, bsamples=64, df=4, χ²=15.3369)
-  - `dieharder::bit_distribution`: p = 0.002548  (width=8, pattern=151, tsamples=1000000, bsamples=64, df=4, χ²=16.3811)
-  - `dieharder::bit_distribution`: p = 0.009921  (width=8, pattern=163, tsamples=1000000, bsamples=64, df=4, χ²=13.2950)
-  - `dieharder::bit_distribution`: p = 0.005514  (width=8, pattern=197, tsamples=1000000, bsamples=64, df=4, χ²=14.6379)
-  - `dieharder::bit_distribution`: p = 0.003610  (width=8, pattern=246, tsamples=1000000, bsamples=64, df=4, χ²=15.5975)
+- `3` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.003140  (B=110100100, N=8, M=2000000, χ²=23.1810)
+  - `dieharder::bit_distribution`: p = 0.007077  (width=6, pattern=24, tsamples=1333333, bsamples=64, df=7, χ²=19.3800)
+  - `dieharder::bit_distribution`: p = 0.005529  (width=8, pattern=217, tsamples=1000000, bsamples=64, df=4, χ²=14.6319)
 
 ### PCG64 (OsRng seed)
 
-- `9` failures out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.005613  (B=000000101, N=8, M=2000000, χ²=21.6472)
-  - `maurer::universal_l16`: p = 0.005797  (n=16000000, L=16, Q=655360, K=344640, f_n=15.1609, μ=15.1674, σ=0.002360)
-  - `dieharder::bit_distribution`: p = 0.009041  (width=1, pattern=0, tsamples=8000000, bsamples=64, df=36, χ²=59.0594)
-  - `dieharder::bit_distribution`: p = 0.009041  (width=1, pattern=1, tsamples=8000000, bsamples=64, df=36, χ²=59.0594)
-  - `dieharder::bit_distribution`: p = 0.007115  (width=5, pattern=10, tsamples=1600000, bsamples=64, df=10, χ²=24.1886)
-  - `dieharder::bit_distribution`: p = 0.000638  (width=7, pattern=14, tsamples=1142857, bsamples=64, df=5, χ²=21.5466)
-  - `dieharder::bit_distribution`: p = 0.001251  (width=8, pattern=29, tsamples=1000000, bsamples=64, df=4, χ²=17.9691)
-  - `dieharder::bit_distribution`: p = 0.002123  (width=8, pattern=31, tsamples=1000000, bsamples=64, df=4, χ²=16.7907)
-  - `dieharder::bit_distribution`: p = 0.005890  (width=8, pattern=245, tsamples=1000000, bsamples=64, df=4, χ²=14.4881)
+- `7` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.009926  (B=001000101, N=8, M=2000000, χ²=20.1105)
+  - `nist::non_overlapping_template`: p = 0.004975  (B=110000100, N=8, M=2000000, χ²=21.9680)
+  - `diehard::craps_throws`: p = 0.009176  (games=200000, df=21, χ²=39.2445)
+  - `dieharder::bit_distribution`: p = 0.008703  (width=5, pattern=4, tsamples=1600000, bsamples=64, df=10, χ²=23.6110)
+  - `dieharder::bit_distribution`: p = 0.004332  (width=6, pattern=19, tsamples=1333333, bsamples=64, df=7, χ²=20.6453)
+  - `dieharder::bit_distribution`: p = 0.004845  (width=7, pattern=59, tsamples=1142857, bsamples=64, df=5, χ²=16.8243)
+  - `dieharder::bit_distribution`: p = 0.001276  (width=8, pattern=177, tsamples=1000000, bsamples=64, df=4, χ²=17.9261)
 
 ### Xoshiro256** (OsRng seed)
 
-- `12` failures out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.008791  (B=000011011, N=8, M=2000000, χ²=20.4407)
-  - `nist::non_overlapping_template`: p = 0.003802  (B=101010100, N=8, M=2000000, χ²=22.6788)
-  - `nist::non_overlapping_template`: p = 0.002845  (B=111101110, N=8, M=2000000, χ²=23.4378)
-  - `maurer::universal_l13`: p = 0.003833  (n=16000000, L=13, Q=81920, K=1148849, f_n=12.1647, μ=12.1681, σ=0.001161)
-  - `maurer::universal_l15`: p = 0.005133  (n=16000000, L=15, Q=327680, K=738986, f_n=14.1718, μ=14.1675, σ=0.001535)
-  - `dieharder::byte_distribution`: p = 0.001246  (tsamples=5333333, streams=9, expected/cell=20833.3, χ²=2505.3394)
-  - `dieharder::bit_distribution`: p = 0.005948  (width=4, pattern=1, tsamples=2000000, bsamples=64, df=14, χ²=30.7811)
-  - `dieharder::bit_distribution`: p = 0.005697  (width=6, pattern=2, tsamples=1333333, bsamples=64, df=7, χ²=19.9419)
-  - `dieharder::bit_distribution`: p = 0.007777  (width=6, pattern=29, tsamples=1333333, bsamples=64, df=7, χ²=19.1344)
-  - `dieharder::bit_distribution`: p = 0.001711  (width=7, pattern=17, tsamples=1142857, bsamples=64, df=5, χ²=19.2706)
-  - `dieharder::bit_distribution`: p = 0.005421  (width=8, pattern=83, tsamples=1000000, bsamples=64, df=4, χ²=14.6765)
-  - `dieharder::bit_distribution`: p = 0.004659  (width=8, pattern=110, tsamples=1000000, bsamples=64, df=4, χ²=15.0204)
+- `5` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.001874  (B=000111001, N=8, M=2000000, χ²=24.5194)
+  - `dieharder::bit_distribution`: p = 0.009370  (width=6, pattern=53, tsamples=1333333, bsamples=64, df=7, χ²=18.6465)
+  - `dieharder::bit_distribution`: p = 0.006435  (width=7, pattern=0, tsamples=1142857, bsamples=64, df=5, χ²=16.1475)
+  - `dieharder::bit_distribution`: p = 0.008390  (width=8, pattern=61, tsamples=1000000, bsamples=64, df=4, χ²=13.6799)
+  - `dieharder::bit_distribution`: p = 0.001966  (width=8, pattern=214, tsamples=1000000, bsamples=64, df=4, χ²=16.9623)
 
 ### Xoroshiro128** (OsRng seed)
 
-- `7` failures out of `738` tests:
-  - `diehard::oqso`: p = 0.003278  (missing=142776, z=2.9404)
-  - `dieharder::bit_distribution`: p = 0.006685  (width=5, pattern=19, tsamples=1600000, bsamples=64, df=10, χ²=24.3663)
-  - `dieharder::bit_distribution`: p = 0.001948  (width=7, pattern=43, tsamples=1142857, bsamples=64, df=5, χ²=18.9688)
-  - `dieharder::bit_distribution`: p = 0.008076  (width=7, pattern=71, tsamples=1142857, bsamples=64, df=5, χ²=15.6022)
-  - `dieharder::bit_distribution`: p = 0.001167  (width=8, pattern=60, tsamples=1000000, bsamples=64, df=4, χ²=18.1236)
-  - `dieharder::bit_distribution`: p = 0.001042  (width=8, pattern=147, tsamples=1000000, bsamples=64, df=4, χ²=18.3762)
-  - `dieharder::bit_distribution`: p = 0.000321  (width=8, pattern=168, tsamples=1000000, bsamples=64, df=4, χ²=20.9682)
+- `12` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.009729  (B=010101111, N=8, M=2000000, χ²=20.1652)
+  - `nist::non_overlapping_template`: p = 0.004386  (B=111010000, N=8, M=2000000, χ²=22.3022)
+  - `dieharder::bit_distribution`: p = 0.004531  (width=4, pattern=5, tsamples=2000000, bsamples=64, df=14, χ²=31.6228)
+  - `dieharder::bit_distribution`: p = 0.004189  (width=4, pattern=9, tsamples=2000000, bsamples=64, df=14, χ²=31.8637)
+  - `dieharder::bit_distribution`: p = 0.004182  (width=5, pattern=27, tsamples=1600000, bsamples=64, df=10, χ²=25.6890)
+  - `dieharder::bit_distribution`: p = 0.000997  (width=6, pattern=24, tsamples=1333333, bsamples=64, df=7, χ²=24.3295)
+  - `dieharder::bit_distribution`: p = 0.000221  (width=6, pattern=56, tsamples=1333333, bsamples=64, df=7, χ²=27.9874)
+  - `dieharder::bit_distribution`: p = 0.002191  (width=8, pattern=25, tsamples=1000000, bsamples=64, df=4, χ²=16.7192)
+  - `dieharder::bit_distribution`: p = 0.008557  (width=8, pattern=70, tsamples=1000000, bsamples=64, df=4, χ²=13.6347)
+  - `dieharder::bit_distribution`: p = 0.001857  (width=8, pattern=84, tsamples=1000000, bsamples=64, df=4, χ²=17.0896)
+  - `dieharder::bit_distribution`: p = 0.002353  (width=8, pattern=131, tsamples=1000000, bsamples=64, df=4, χ²=16.5603)
+  - `dieharder::bit_distribution`: p = 0.001620  (width=8, pattern=236, tsamples=1000000, bsamples=64, df=4, χ²=17.3947)
 
 ### WyRand (OsRng seed)
 
-- `1` failure out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.002594  (B=110101010, N=8, M=2000000, χ²=23.6783)
+- `3` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.006655  (B=111100100, N=8, M=2000000, χ²=21.1919)
+  - `dieharder::bit_distribution`: p = 0.008620  (width=4, pattern=3, tsamples=2000000, bsamples=64, df=14, χ²=29.6146)
+  - `dieharder::bit_distribution`: p = 0.004439  (width=6, pattern=50, tsamples=1333333, bsamples=64, df=7, χ²=20.5830)
 
 ### SFC64 (OsRng seed)
 
-- `4` failures out of `714` tests:
-  - `nist::non_overlapping_template`: p = 0.003297  (B=000001001, N=8, M=2000000, χ²=23.0525)
-  - `nist::non_overlapping_template`: p = 0.002998  (B=000010011, N=8, M=2000000, χ²=23.3013)
-  - `dieharder::bit_distribution`: p = 0.006759  (width=8, pattern=134, tsamples=1000000, bsamples=64, df=4, χ²=14.1743)
-  - `dieharder::bit_distribution`: p = 0.009010  (width=8, pattern=145, tsamples=1000000, bsamples=64, df=4, χ²=13.5164)
+- `9` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.006754  (B=110110010, N=8, M=2000000, χ²=21.1521)
+  - `nist::non_overlapping_template`: p = 0.001898  (B=111001010, N=8, M=2000000, χ²=24.4877)
+  - `dieharder::lagged_sums`: p = 0.005090  (lag=1, tsamples=8000000, sum=3997712.7654, z=-2.8013)
+  - `dieharder::ks_uniform`: p = 0.001668  (tsamples=16000000)
+  - `dieharder::bit_distribution`: p = 0.001197  (width=6, pattern=9, tsamples=1333333, bsamples=64, df=7, χ²=23.8784)
+  - `dieharder::bit_distribution`: p = 0.002714  (width=7, pattern=62, tsamples=1142857, bsamples=64, df=5, χ²=18.1927)
+  - `dieharder::bit_distribution`: p = 0.008083  (width=7, pattern=108, tsamples=1142857, bsamples=64, df=5, χ²=15.6004)
+  - `dieharder::bit_distribution`: p = 0.001922  (width=8, pattern=113, tsamples=1000000, bsamples=64, df=4, χ²=17.0131)
+  - `dieharder::bit_distribution`: p = 0.007017  (width=8, pattern=228, tsamples=1000000, bsamples=64, df=4, χ²=14.0887)
 
 ### JSF64 (OsRng seed)
 
-- `11` failures out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.001467  (B=001111111, N=8, M=2000000, χ²=25.1480)
-  - `diehard::opso`: p = 0.009372  (missing=142664, z=2.5982)
-  - `dieharder::bit_distribution`: p = 0.001337  (width=6, pattern=17, tsamples=1333333, bsamples=64, df=7, χ²=23.6047)
-  - `dieharder::bit_distribution`: p = 0.009284  (width=6, pattern=43, tsamples=1333333, bsamples=64, df=7, χ²=18.6707)
-  - `dieharder::bit_distribution`: p = 0.001486  (width=7, pattern=91, tsamples=1142857, bsamples=64, df=5, χ²=19.5984)
-  - `dieharder::bit_distribution`: p = 0.004605  (width=8, pattern=11, tsamples=1000000, bsamples=64, df=4, χ²=15.0471)
-  - `dieharder::bit_distribution`: p = 0.002149  (width=8, pattern=60, tsamples=1000000, bsamples=64, df=4, χ²=16.7634)
-  - `dieharder::bit_distribution`: p = 0.000357  (width=8, pattern=110, tsamples=1000000, bsamples=64, df=4, χ²=20.7395)
-  - `dieharder::bit_distribution`: p = 0.000875  (width=8, pattern=144, tsamples=1000000, bsamples=64, df=4, χ²=18.7634)
-  - `dieharder::bit_distribution`: p = 0.003020  (width=8, pattern=174, tsamples=1000000, bsamples=64, df=4, χ²=15.9991)
-  - `dieharder::bit_distribution`: p = 0.003426  (width=8, pattern=222, tsamples=1000000, bsamples=64, df=4, χ²=15.7152)
+- `5` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.002393  (B=101111100, N=8, M=2000000, χ²=23.8875)
+  - `maurer::universal_l15`: p = 0.005467  (n=16000000, L=15, Q=327680, K=738986, f_n=14.1632, μ=14.1675, σ=0.001535)
+  - `dieharder::bit_distribution`: p = 0.000551  (width=7, pattern=2, tsamples=1142857, bsamples=64, df=5, χ²=21.8840)
+  - `dieharder::bit_distribution`: p = 0.004728  (width=7, pattern=71, tsamples=1142857, bsamples=64, df=5, χ²=16.8825)
+  - `dieharder::bit_distribution`: p = 0.000314  (width=8, pattern=25, tsamples=1000000, bsamples=64, df=4, χ²=21.0181)
 
 ### ChaCha20 CSPRNG (OsRng key)
 
-- `8` failures out of `738` tests:
-  - `nist::non_overlapping_template`: p = 0.009124  (B=010000011, N=8, M=2000000, χ²=20.3399)
-  - `nist::non_overlapping_template`: p = 0.009726  (B=100010000, N=8, M=2000000, χ²=20.1659)
-  - `nist::non_overlapping_template`: p = 0.000809  (B=101010100, N=8, M=2000000, χ²=26.6592)
-  - `nist::non_overlapping_template`: p = 0.005626  (B=110101010, N=8, M=2000000, χ²=21.6411)
-  - `diehard::craps_wins`: p = 0.003487  (games=200000, wins=99239, z=2.9212)
-  - `dieharder::bit_distribution`: p = 0.006419  (width=6, pattern=40, tsamples=1333333, bsamples=64, df=7, χ²=19.6330)
-  - `dieharder::bit_distribution`: p = 0.008913  (width=7, pattern=119, tsamples=1142857, bsamples=64, df=5, χ²=15.3646)
-  - `dieharder::bit_distribution`: p = 0.004372  (width=8, pattern=92, tsamples=1000000, bsamples=64, df=4, χ²=15.1646)
+- `6` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.000206  (B=101111100, N=8, M=2000000, χ²=30.0692)
+  - `diehard::count_ones_stream`: p = 0.008560  (n=256000, Q5=3364.33, Q4=678.43, Q5-Q4=2685.91, Z=2.6291)
+  - `dieharder::bit_distribution`: p = 0.001350  (width=3, pattern=3, tsamples=2666666, bsamples=64, df=21, χ²=45.8195)
+  - `dieharder::bit_distribution`: p = 0.002957  (width=7, pattern=115, tsamples=1142857, bsamples=64, df=5, χ²=17.9913)
+  - `dieharder::bit_distribution`: p = 0.009183  (width=8, pattern=58, tsamples=1000000, bsamples=64, df=4, χ²=13.4726)
+  - `dieharder::bit_distribution`: p = 0.008745  (width=8, pattern=135, tsamples=1000000, bsamples=64, df=4, χ²=13.5848)
 
 ### HMAC_DRBG SHA-256 (OsRng seed)
 
-- `10` failures out of `714` tests:
-  - `nist::non_overlapping_template`: p = 0.000364  (B=011000111, N=8, M=2000000, χ²=28.6593)
-  - `nist::non_overlapping_template`: p = 0.008579  (B=101001100, N=8, M=2000000, χ²=20.5071)
-  - `nist::non_overlapping_template`: p = 0.007108  (B=101011000, N=8, M=2000000, χ²=21.0149)
-  - `nist::non_overlapping_template`: p = 0.005716  (B=101011100, N=8, M=2000000, χ²=21.5987)
-  - `maurer::universal_l08`: p = 0.009795  (n=16000000, L=8, Q=2560, K=1997440, f_n=7.1817, μ=7.1837, σ=0.000767)
-  - `dieharder::bit_distribution`: p = 0.005007  (width=7, pattern=23, tsamples=1142857, bsamples=64, df=5, χ²=16.7461)
-  - `dieharder::bit_distribution`: p = 0.007504  (width=8, pattern=47, tsamples=1000000, bsamples=64, df=4, χ²=13.9353)
-  - `dieharder::bit_distribution`: p = 0.000822  (width=8, pattern=119, tsamples=1000000, bsamples=64, df=4, χ²=18.9012)
-  - `dieharder::bit_distribution`: p = 0.009918  (width=8, pattern=218, tsamples=1000000, bsamples=64, df=4, χ²=13.2957)
-  - `dieharder::bit_distribution`: p = 0.007995  (width=8, pattern=238, tsamples=1000000, bsamples=64, df=4, χ²=13.7904)
+- `6` failures out of `738` tests:
+  - `nist::block_frequency`: p = 0.000215  (n=16000000, M=128, N=125000, χ²=126767.9375)
+  - `nist::non_overlapping_template`: p = 0.009852  (B=001111111, N=8, M=2000000, χ²=20.1310)
+  - `diehard::craps_wins`: p = 0.003551  (games=200000, wins=97934, z=-2.9155)
+  - `dieharder::bit_distribution`: p = 0.007983  (width=4, pattern=15, tsamples=2000000, bsamples=64, df=14, χ²=29.8581)
+  - `dieharder::bit_distribution`: p = 0.001341  (width=6, pattern=21, tsamples=1333333, bsamples=64, df=7, χ²=23.5964)
+  - `dieharder::bit_distribution`: p = 0.003311  (width=7, pattern=22, tsamples=1142857, bsamples=64, df=5, χ²=17.7256)
 
 ### Hash_DRBG SHA-256 (OsRng seed)
 
-- `6` failures out of `714` tests:
-  - `nist::non_overlapping_template`: p = 0.005472  (B=111101010, N=8, M=2000000, χ²=21.7149)
-  - `dieharder::bit_distribution`: p = 0.006506  (width=6, pattern=55, tsamples=1333333, bsamples=64, df=7, χ²=19.5984)
-  - `dieharder::bit_distribution`: p = 0.008598  (width=7, pattern=114, tsamples=1142857, bsamples=64, df=5, χ²=15.4514)
-  - `dieharder::bit_distribution`: p = 0.006620  (width=8, pattern=11, tsamples=1000000, bsamples=64, df=4, χ²=14.2216)
-  - `dieharder::bit_distribution`: p = 0.007003  (width=8, pattern=162, tsamples=1000000, bsamples=64, df=4, χ²=14.0935)
-  - `dieharder::bit_distribution`: p = 0.004440  (width=8, pattern=230, tsamples=1000000, bsamples=64, df=4, χ²=15.1295)
+- `10` failures out of `738` tests:
+  - `nist::non_overlapping_template`: p = 0.000090  (B=110111100, N=8, M=2000000, χ²=32.0813)
+  - `dieharder::bit_distribution`: p = 0.005526  (width=4, pattern=5, tsamples=2000000, bsamples=64, df=14, χ²=31.0099)
+  - `dieharder::bit_distribution`: p = 0.002814  (width=6, pattern=29, tsamples=1333333, bsamples=64, df=7, χ²=21.7423)
+  - `dieharder::bit_distribution`: p = 0.009180  (width=7, pattern=52, tsamples=1142857, bsamples=64, df=5, χ²=15.2933)
+  - `dieharder::bit_distribution`: p = 0.006370  (width=7, pattern=96, tsamples=1142857, bsamples=64, df=5, χ²=16.1720)
+  - `dieharder::bit_distribution`: p = 0.005121  (width=8, pattern=3, tsamples=1000000, bsamples=64, df=4, χ²=14.8060)
+  - `dieharder::bit_distribution`: p = 0.009339  (width=8, pattern=19, tsamples=1000000, bsamples=64, df=4, χ²=13.4339)
+  - `dieharder::bit_distribution`: p = 0.007107  (width=8, pattern=137, tsamples=1000000, bsamples=64, df=4, χ²=14.0596)
+  - `dieharder::bit_distribution`: p = 0.008070  (width=8, pattern=241, tsamples=1000000, bsamples=64, df=4, χ²=13.7690)
+  - `dieharder::bit_distribution`: p = 0.005888  (width=8, pattern=250, tsamples=1000000, bsamples=64, df=4, χ²=14.4889)
 
 ### cryptography::CtrDrbgAes256 (seed=00..2f)
 
@@ -2654,19 +2650,19 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **1** (`WyRand (OsRng seed)`) and the highest is **12** (`Xorshift32 (seed=1)`).
+- Among non-trivial generators, the lowest FAIL count is **3** (`PCG32 (OsRng seed)`) and the highest is **12** (`Xorshift32 (seed=1)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 
 ## Auxiliary Probes
 
-Auxiliary probes run via `tests/run_aux.sh` on `darby.local` (2026-03-15).
+These probes are not part of `run_tests`; they are recorded separately here
+from `tests/run_all.sh` on `darby.local` (2026-03-16).
 
 These probes exercise statistical properties not covered by the NIST/DIEHARD/DIEHARDER
 battery.  They run with their default parameters; use the individual binaries for
 filtered or resized runs.  All probes exit 0 (no crashes or panics).
 
 ```
-
 ========================================================================
 bib_tests  (Knuth + NIST ApEn profile m=2..6)
 ========================================================================

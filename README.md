@@ -51,7 +51,8 @@ tests/run_all.sh
 ```
 
 Runs the complete audit path — NIST/DIEHARD/DIEHARDER battery plus all five
-auxiliary probes — and saves a timestamped log to `/tmp/run_all-<date>.log`.
+auxiliary probes — and saves a timestamped log to
+`logs/run_all-<host>-<date>.log`.
 Feed that log to `scripts/parse_battery.py` to regenerate `TESTS.md`.
 
 ### Main battery only

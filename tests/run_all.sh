@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full repository audit: main NIST/DIEHARD/DIEHARDER battery + all auxiliary probes.
 #
-# Output is written to both stdout and a timestamped log file under /tmp.
+# Output is written to both stdout and a timestamped log file under logs/.
 # The main-battery portion of the log can be fed to scripts/parse_battery.py
 # to regenerate TESTS.md.
 #
@@ -31,7 +31,7 @@ Runs the full repository audit:
 All run_tests flags (--quick, --suite, --rng, etc.) are forwarded to step 1.
 Steps 2-6 always run with their default parameters.
 
-Output is tee'd to /tmp/run_all-<YYYYMMDD-HHMMSS>.log.
+Output is tee'd to logs/run_all-<host>-<YYYYMMDD-HHMMSS>.log.
 Feed that file to scripts/parse_battery.py to regenerate TESTS.md.
 
 Examples:
@@ -42,7 +42,10 @@ EOF
     exit 0
 fi
 
-LOG="/tmp/run_all-$(date +%Y%m%d-%H%M%S).log"
+LOG_DIR="${LOG_DIR:-$ROOT_DIR/logs}"
+mkdir -p "$LOG_DIR"
+HOST_TAG="$(hostname -s 2>/dev/null || hostname)"
+LOG="$LOG_DIR/run_all-${HOST_TAG}-$(date +%Y%m%d-%H%M%S).log"
 
 # Tee everything (stdout + stderr) to the log.
 exec > >(tee "$LOG") 2>&1
