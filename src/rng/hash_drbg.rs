@@ -13,6 +13,21 @@
 //! per block are used; mixing widths at a refill boundary silently discards
 //! up to 7 trailing bytes before refilling.
 //!
+//! # Reseed interval
+//! SP 800-90A §10.1.1 Table 2 specifies a reseed interval of 2⁴⁸ generate
+//! calls for 256-bit security strength.  `reseed_counter` is incremented once
+//! per generate call (in `finalise_generate`) and checked at the top of each
+//! `refill`; the implementation panics if the limit is exceeded.  The test
+//! battery never approaches this bound.
+//!
+//! # Backtracking resistance
+//! This implementation provides **no backtracking resistance**.  Compromising
+//! the process memory reveals V and C, which fully determines all past and
+//! future output since instantiation.  "Security rests on SHA-256 one-wayness"
+//! means one-way chaining, not forward secrecy.  Correct for a test harness;
+//! do not copy into applications requiring backtracking or prediction
+//! resistance.
+//!
 //! # Seedlen rationale (SP 800-90A Table 2)
 //! For SHA-256 (outlen=256 bits, security_strength=256 bits):
 //!   seedlen = 440 bits = 55 bytes.
@@ -78,6 +93,11 @@ impl HashDrbg {
     /// update V once per §10.1.1.5.  The local data counter is snapshotted
     /// from V and incremented only within this call, not stored in the struct.
     fn refill(&mut self) {
+        // SP 800-90A §10.1.1.4 step 1: enforce reseed interval.
+        assert!(
+            self.reseed_counter < (1u64 << 48),
+            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.1 Table 2)"
+        );
         let mut data = self.v;
         for i in 0..GENERATE_BLOCKS {
             let block = Sha256::digest(&data);

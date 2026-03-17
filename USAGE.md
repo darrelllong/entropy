@@ -33,16 +33,32 @@ ChaCha20Rng, Squidward) override this to read 8 little-endian bytes directly;
 mixing `next_u32` and `next_u64` calls at a buffer-refill boundary in those
 generators silently discards up to 7 trailing bytes.
 
+**`next_f64` uses only 32 bits.** The default `next_f64` always calls
+`next_u32`, so it produces at most 2³² distinct values even from 64-bit
+generators (PCG64, Xoshiro256, ChaCha20Rng, etc.). This is sufficient for
+the p-value calculations in this crate. Do not rely on `next_f64` for
+high-precision floating-point sampling from a 64-bit generator.
+
+**No CSPRNG marker type.** The `Rng` trait has no subtrait distinguishing
+cryptographic from non-cryptographic generators. Any function accepting
+`impl Rng` will compile with `ConstantRng` or `SystemVRand`. This flat
+design is correct for a test harness that compares all generators uniformly.
+In production code, define a `CsprngRng: Rng` marker subtrait so weak
+generators are rejected at compile time.
+
 ---
 
 ## Seeding Utilities (`entropy::seed`)
 
-### `seed_material(seed: u64) -> [u8; N]`
+### `seed_material(seed: u64) -> [u8; N]` — FOR TESTS ONLY
 
 Expands a single 64-bit seed into `N` bytes using the Vigna splitmix64 mixer,
 XOR'd first with the wyhash wyp0 prime `0xa076_1d64_78bd_642f` so that
 `seed = 0` does not collapse to the all-zeros splitmix64 state. Output is
 deterministic and suitable for reproducible test runs.
+**Never use `seed_material` to generate key material, nonces, or any value
+that must be unpredictable.** The output is fully determined by the 64-bit
+seed; an adversary who can guess or observe the seed recovers the entire key.
 
 ### `sequential_bytes<const N>() -> [u8; N]` — FOR TESTS ONLY
 
@@ -100,6 +116,15 @@ output.
 
 These generators have no cryptographic claims but perform well on all three
 batteries and are appropriate for Monte Carlo simulation and statistical testing.
+
+**Do not use any generator in this section in any adversarial context.**
+PCG, Xoshiro, Xoroshiro, WyRand, SFC64, JSF64, and Xorshift are all
+invertible: an adversary who can observe output can reconstruct the internal
+state and predict all future (and past) values. "Not for keys" is the minimum
+caveat; the correct rule is: do not use any of these anywhere an adversary can
+observe output and benefit from predicting future values — this includes session
+identifiers, OAuth state parameters, nonces, load-balancing tokens, and
+experiment assignments in adversarial environments.
 
 | Type | Construction | State |
 |------|-------------|-------|
@@ -179,10 +204,23 @@ maintain a persistent counter that is never rewound.
 | `Squidward`     | `Squidward::from_os_rng()`      | SHA-256 hash chain |
 
 `from_os_rng()` constructors seed from `/dev/urandom` and are safe to use in
-test contexts. For long-running applications, the NIST DRBGs require periodic
-reseeding (NIST SP 800-90A §8.6 specifies reseed intervals by security
-strength). `CryptoCtrDrbg::with_test_seed()` uses a fixed sequential seed and
-must not be used outside the test harness.
+test contexts.
+
+**NIST DRBG reseed intervals.** `HashDrbg` and `HmacDrbg` enforce the SP
+800-90A §10.1 reseed interval of 2⁴⁸ generate calls by panicking if the
+limit is reached; no automatic reseed is provided. The test battery never
+approaches this bound. `CryptoCtrDrbg` is managed externally (see the
+`cryptography` crate). For long-running applications outside this harness,
+implement periodic reseeding per SP 800-90A §8.6.
+
+**`ChaCha20Rng` has no reseed API.** There is no `reseed()` method on
+`ChaCha20Rng`; the only way to reseed is to construct a fresh
+`ChaCha20Rng::from_os_rng()`. The 32-bit block counter limits output to
+256 GiB before wrap; long-running applications should rotate the key by
+constructing a new instance before reaching that limit.
+
+`CryptoCtrDrbg::with_test_seed()` uses a fixed sequential seed and must not
+be used outside the test harness.
 
 ---
 
@@ -237,7 +275,7 @@ DIEHARDER runs prohibitively slow.
 |------|-----------|-------|
 | Fast simulation, no reproducibility requirement | `WyRand` or `Sfc64` | Fastest generators in the suite |
 | Reproducible statistical testing | `Pcg64` or `Xoshiro256` | Seed with `seed_material(n)`; deterministic across runs |
-| Cryptographic-quality output | `ChaCha20Rng` or `CryptoCtrDrbg` (AES-256) | Seed from `OsRng`; reseed periodically |
+| Cryptographic-quality output | `ChaCha20Rng` or `CryptoCtrDrbg` (AES-256) | Seed from `OsRng`; rotate `ChaCha20Rng` before 256 GiB output; no reseed API exists |
 | OS entropy directly | `OsRng` | Wraps `/dev/urandom`; not buffered |
 | Negative control — must fail all tests | `ConstantRng` or `CounterRng` | Sanity check that batteries are working |
 | Never use for anything | `DualEcDrbg` | Known backdoor; included for reference only |

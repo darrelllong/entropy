@@ -17,8 +17,20 @@
 //! # Security
 //! Output is computationally indistinguishable from random under the
 //! assumption that ChaCha20 is a secure PRF.  The initial key and nonce are
-//! drawn from the OS entropy source.  No reseed mechanism is implemented here;
-//! for long-running applications use the OS CSPRNG directly.
+//! drawn from the OS entropy source.
+//!
+//! **Output limit.** ChaCha20 uses a 32-bit block counter; with 64 bytes per
+//! block the keystream repeats after 2³² × 64 = **256 GiB** of output.  A
+//! long-running process that exhausts this limit will silently wrap and repeat
+//! output.  No reseed or counter-exhaustion check is implemented here; for
+//! applications that may produce more than a few GiB from a single key, either
+//! reseed manually by constructing a fresh `ChaCha20Rng::from_os_rng()` or use
+//! the OS CSPRNG directly.
+//!
+//! **Backtracking resistance.** No forward secrecy is provided.  Compromising
+//! the process memory reveals the cipher state, which determines all future
+//! output.  Correct for a test harness; do not copy this design into
+//! applications that require prediction resistance.
 //!
 //! # References
 //! D. J. Bernstein, "ChaCha, a variant of Salsa20", Workshop Record of

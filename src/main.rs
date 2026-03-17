@@ -225,6 +225,8 @@ fn make_runs(args: Args) -> Vec<RunFn> {
     }
 
     run!("OsRng (/dev/urandom)", OsRng::new());
+    // MT19937: full 624-word state is recoverable from 624 consecutive outputs.
+    // Not for adversarial contexts. Fixed seed is for test reproducibility only.
     run!("MT19937 (seed=19650218)", Mt19937::new(19650218));
     run!("Xorshift64 (seed=1)", Xorshift64::new(1));
     run!("Xorshift32 (seed=1)", Xorshift32::new(1));
@@ -264,7 +266,11 @@ fn make_runs(args: Args) -> Vec<RunFn> {
         Lcg32::new(LcgVariant::Borland, 1)
     );
     run!("AES-128-CTR (NIST key)", AesCtr::with_nist_key());
-    // Block-cipher CTR-mode RNGs (NIST SP 800-38A).  Keys are K16/K32.
+    // Block-cipher CTR-mode RNGs (NIST SP 800-38A).
+    // FOR TESTING ONLY — all use public test-vector keys (K16/K32) and
+    // counter=0.  Reusing a (key, counter) starting state produces identical
+    // output streams; any production use requires a unique key and a counter
+    // that is never rewound.
     run!(
         "Camellia-128-CTR (key=00..0f)",
         BlockCtrRng::new(Camellia128::new(&K16), 0)
@@ -338,7 +344,7 @@ fn make_runs(args: Args) -> Vec<RunFn> {
     // scalar multiplications per 30-byte block make DIEHARD/DIEHARDER
     // prohibitively slow (~2 M scalar mults); NIST suite only.
     let mut dual_ec_seed = [0u8; 32];
-    dual_ec_seed[31] = 1; // seed = 0x00…01
+    dual_ec_seed[31] = 1; // seed = 0x00…01 — INSECURE TEST SEED, DO NOT COPY
     run_nist!("Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)", DualEcDrbg::p256(&dual_ec_seed));
 
     if runs.is_empty() {
