@@ -111,7 +111,7 @@ See [BENCHMARKS.md](BENCHMARKS.md) for the full results table and radar charts.
 
 ## What The Runner Exercises
 
-The default runner compares 42 built-in generators across six categories:
+The default runner compares 43 built-in generators across six categories:
 
 **OS entropy**
 - `OsRng` (`/dev/urandom`)
@@ -122,7 +122,7 @@ The default runner compares 42 built-in generators across six categories:
 **Historical broken generators (negative controls)**
 - Unix libc: System V `rand()`, `mrand48()`, BSD `random()`, Linux glibc `rand()/random()`, FreeBSD `rand_r()` compat
 - Windows: CRT `rand()`, VB6/VBA `Rnd()`, `.NET Random` compat
-- Classic LCGs: ANSI C, MINSTD
+- Classic LCGs: ANSI C, MINSTD, Borland C++
 
 **Quality simulation generators**
 - `MT19937`, `Xorshift32`, `Xorshift64`

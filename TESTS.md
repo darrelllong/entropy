@@ -37,7 +37,7 @@ The battery has **738 test slots** at this sample size:
   signed random walk produces fewer than J = 500 complete zero-crossing cycles
   both families are each collapsed to a single family-level SKIP entry,
   yielding 26 − 2 = 24 fewer slots.  Degenerate generators (Constant,
-  Counter, ANSI C LCG, MINSTD) always land here; a handful of non-degenerate
+  Counter, ANSI C LCG, MINSTD, Borland LCG) always land here; a handful of non-degenerate
   generators can too, depending on their random seed.
 
 - **199 results** — `Dual_EC_DRBG` only: two P-256 scalar multiplications per
@@ -69,6 +69,7 @@ Full log: [logs/run_all-darby-20260316-192756.log](logs/run_all-darby-20260316-1
 | BAD Windows .NET Random(seed=1) compat | 738 | 731 | 7 | 0 |
 | ANSI C sample LCG (1103515245,12345; seed=1) | 714 | 15 | 697 | 2 |
 | LCG MINSTD (seed=1) | 714 | 20 | 692 | 2 |
+| BAD Borland C++ rand() LCG (seed=1) | 714 | 11 | 701 | 2 |
 | AES-128-CTR (NIST key) | 738 | 733 | 5 | 0 |
 | Camellia-128-CTR (key=00..0f) | 738 | 732 | 6 | 0 |
 | Twofish-128-CTR (key=00..0f) | 738 | 728 | 10 | 0 |
@@ -498,7 +499,8 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **BAD Windows VB6/VBA Rnd() (project seed=1)**: 529/738 — `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::squeeze`, `dieharder::bit_distribution` (×497), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums`, `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
 - **BAD Windows .NET Random(seed=1) compat**: 7/738 — `dieharder::bit_distribution` (×3), `dieharder::dct`, `nist::non_overlapping_template` (×3)
 - **ANSI C sample LCG (1103515245,12345; seed=1)**: 697/714 — `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l12`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
-- **LCG MINSTD (seed=1)**: 692/714 — `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
+- **BAD Borland C++ rand() LCG (seed=1)**: 701/714 — 15-bit output window causes catastrophic bias; only 11 tests survive: `nist::linear_complexity`, `diehard::binary_rank_6x8`, `diehard::runs_up`, `diehard::runs_down`, `diehard::craps_wins`, `diehard::craps_throws`, `dieharder::permutations`, `dieharder::monobit2`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`.
+- **LCG MINSTD (seed=1)**: 692/714 —`diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
 - **AES-128-CTR (NIST key)**: 5/738 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
 - **Camellia-128-CTR (key=00..0f)**: 6/738 — `dieharder::bit_distribution` (×6)
 - **Twofish-128-CTR (key=00..0f)**: 10/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×4)
@@ -530,7 +532,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 
 ## Bottom Line
 
-- Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
+- Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, Borland LCG, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
 - Among non-trivial generators, the lowest FAIL count is **2** (`ZUC-128 (key=00..0f, iv=00..0f)`) and the highest is **12** (tied: `Xorshift32 (seed=1)`, `BAD Unix System V rand()`, `SpongeBob (SHA3-512 chain, OsRng seed)`, `PCG64 (OsRng seed)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 

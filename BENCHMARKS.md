@@ -35,6 +35,7 @@ points if some benchmark files are still missing.
 | `BAD Windows .NET Random(seed=1) compat` | 428.4 | ±14.1 | 279.3 | ±1.142 |
 | `ANSI C sample LCG (seed=1)` | 186.7 | ±2.666 | 93.70 | ±0.124 |
 | `LCG MINSTD (seed=1)` | 171.6 | ±0.408 | 93.73 | ±0.169 |
+| `BAD Borland C++ rand() LCG (seed=1)` | 187.4 | ±0.705 | 93.88 | ±0.192 |
 | `AES-128-CTR (NIST key)` | 137.8 | ±1.404 | 63.55 | ±0.595 |
 | `Camellia-128-CTR (key=00..0f)` | 36.21 | ±0.077 | 23.58 | ±0.194 |
 | `Twofish-128-CTR (key=00..0f)` | 3.512 | ±0.030 | 1.328 | ±0.004 |
@@ -119,6 +120,18 @@ nice clean mathematical benchmark, but it is still a small-state linear
 generator and still not remotely cryptographic. The throughput is unremarkable
 and the full battery in [TESTS.md](TESTS.md) is very hard on it, which is the
 correct modern attitude.
+
+#### `BAD Borland C++ rand() LCG (seed=1)`
+
+Borland C++'s `rand()` used the LCG
+$x_{n+1} = 22695477\times x_n + 1 \pmod{2^{32}}$,
+returning `(x >> 16) & 0x7FFF` — 15 usable bits per call, same effective width
+as the System V generator.  The lower 16 bits are discarded, but the surviving
+high bits still carry the full linear structure of the recurrence.  The battery
+[results](TESTS.md) are catastrophic: 701/714 failures.  Throughput on Dyson
+(187.4 MW/s) edges slightly ahead of ANSI C and MINSTD because the 32-bit
+modulus wraps naturally on hardware; DMZ (93.88 MW/s) is essentially tied with
+both.
 
 #### `BAD Unix System V rand() (seed=1)`
 
