@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900">
+<rect width="100%" height="100%" fill="#f6f1e8"/>
+<g stroke="#d8cdb8" fill="none">
+<polygon points="450.0,345.0 502.5,359.1 540.9,397.5 555.0,450.0 540.9,502.5 502.5,540.9 450.0,555.0 397.5,540.9 359.1,502.5 345.0,450.0 359.1,397.5 397.5,359.1" stroke-width="1"/>
+<polygon points="450.0,300.0 525.0,320.1 579.9,375.0 600.0,450.0 579.9,525.0 525.0,579.9 450.0,600.0 375.0,579.9 320.1,525.0 300.0,450.0 320.1,375.0 375.0,320.1" stroke-width="1"/>
+<polygon points="450.0,255.0 547.5,281.1 618.9,352.5 645.0,450.0 618.9,547.5 547.5,618.9 450.0,645.0 352.5,618.9 281.1,547.5 255.0,450.0 281.1,352.5 352.5,281.1" stroke-width="1"/>
+<polygon points="450.0,210.0 570.0,242.2 657.8,330.0 690.0,450.0 657.8,570.0 570.0,657.8 450.0,690.0 330.0,657.8 242.2,570.0 210.0,450.0 242.2,330.0 330.0,242.2" stroke-width="1"/>
+<polygon points="450.0,165.0 592.5,203.2 696.8,307.5 735.0,450.0 696.8,592.5 592.5,696.8 450.0,735.0 307.5,696.8 203.2,592.5 165.0,450.0 203.2,307.5 307.5,203.2" stroke-width="1"/>
+</g>
+<g stroke="#b8aa90" stroke-width="1">
+<line x1="450" y1="450" x2="450.0" y2="150.0"/>
+<line x1="450" y1="450" x2="600.0" y2="190.2"/>
+<line x1="450" y1="450" x2="709.8" y2="300.0"/>
+<line x1="450" y1="450" x2="750.0" y2="450.0"/>
+<line x1="450" y1="450" x2="709.8" y2="600.0"/>
+<line x1="450" y1="450" x2="600.0" y2="709.8"/>
+<line x1="450" y1="450" x2="450.0" y2="750.0"/>
+<line x1="450" y1="450" x2="300.0" y2="709.8"/>
+<line x1="450" y1="450" x2="190.2" y2="600.0"/>
+<line x1="450" y1="450" x2="150.0" y2="450.0"/>
+<line x1="450" y1="450" x2="190.2" y2="300.0"/>
+<line x1="450" y1="450" x2="300.0" y2="190.2"/>
+</g>
+<polygon points="450.0,179.9 573.4,236.3 649.7,334.7 682.4,450.0 650.0,565.5 537.6,601.8 450.0,636.3 352.0,619.7 322.5,523.6 345.0,450.0 382.5,411.0 415.3,389.9" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="3"/>
+<g>
+<circle cx="450.0" cy="179.9" r="4.5" fill="#1b4b9f"/>
+<circle cx="573.4" cy="236.3" r="4.5" fill="#1b4b9f"/>
+<circle cx="649.7" cy="334.7" r="4.5" fill="#1b4b9f"/>
+<circle cx="682.4" cy="450.0" r="4.5" fill="#1b4b9f"/>
+<circle cx="650.0" cy="565.5" r="4.5" fill="#1b4b9f"/>
+<circle cx="537.6" cy="601.8" r="4.5" fill="#1b4b9f"/>
+<circle cx="450.0" cy="636.3" r="4.5" fill="#1b4b9f"/>
+<circle cx="352.0" cy="619.7" r="4.5" fill="#1b4b9f"/>
+<circle cx="322.5" cy="523.6" r="4.5" fill="#1b4b9f"/>
+<circle cx="345.0" cy="450.0" r="4.5" fill="#1b4b9f"/>
+<circle cx="382.5" cy="411.0" r="4.5" fill="#1b4b9f"/>
+<circle cx="415.3" cy="389.9" r="4.5" fill="#1b4b9f"/>
+</g>
+<polygon points="450.0,179.9 573.4,236.3 649.7,334.7 682.4,450.0 622.1,549.3 537.6,601.8 450.0,636.3 352.0,619.7 322.5,523.6 345.0,450.0 382.5,411.0 415.3,389.9" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3" stroke-dasharray="8 4"/>
+<g>
+<circle cx="450.0" cy="179.9" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="573.4" cy="236.3" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="649.7" cy="334.7" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="682.4" cy="450.0" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="622.1" cy="549.3" r="4.5" fill="#9f1b1b"/>
+<circle cx="537.6" cy="601.8" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="450.0" cy="636.3" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="352.0" cy="619.7" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="322.5" cy="523.6" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="345.0" cy="450.0" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="382.5" cy="411.0" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+<circle cx="415.3" cy="389.9" r="4.5" fill="#f6f1e8" stroke="#9f1b1b" stroke-width="2"/>
+</g>
+<g font-family="Georgia, serif" font-size="17" fill="#3f3426">
+<text x="450.0" y="108.0" text-anchor="middle">Rabbit</text>
+<text x="450.0" y="126.0" text-anchor="middle" font-size="13" fill="#7a6850">352.6 MW/s</text>
+<text x="618.0" y="166.2" text-anchor="start">Salsa20</text>
+<text x="618.0" y="184.2" text-anchor="start" font-size="13" fill="#7a6850">201 MW/s</text>
+<text x="731.8" y="280.0" text-anchor="start">Snow3G</text>
+<text x="731.8" y="298.0" text-anchor="start" font-size="13" fill="#7a6850">136.4 MW/s</text>
+<text x="758.0" y="440.0" text-anchor="start">ZUC-128</text>
+<text x="758.0" y="458.0" text-anchor="start" font-size="13" fill="#7a6850">142.5 MW/s</text>
+<text x="731.8" y="614.0" text-anchor="start">AES-128-CTR</text>
+<text x="731.8" y="632.0" text-anchor="start" font-size="13" fill="#7a6850">137.8 MW/s</text>
+<text x="618.0" y="725.8" text-anchor="start">Camellia-CTR</text>
+<text x="618.0" y="743.8" text-anchor="start" font-size="13" fill="#7a6850">36.21 MW/s</text>
+<text x="450.0" y="778.0" text-anchor="middle">SM4-CTR</text>
+<text x="450.0" y="796.0" text-anchor="middle" font-size="13" fill="#7a6850">47.2 MW/s</text>
+<text x="282.0" y="725.8" text-anchor="end">CAST-128-CTR</text>
+<text x="282.0" y="743.8" text-anchor="end" font-size="13" fill="#7a6850">59.5 MW/s</text>
+<text x="168.2" y="607.0" text-anchor="end">SEED-CTR</text>
+<text x="168.2" y="625.0" text-anchor="end" font-size="13" fill="#7a6850">18.51 MW/s</text>
+<text x="142.0" y="440.0" text-anchor="end">Grasshopper-CTR</text>
+<text x="142.0" y="458.0" text-anchor="end" font-size="13" fill="#7a6850">6.723 MW/s</text>
+<text x="168.2" y="280.0" text-anchor="end">Twofish-CTR</text>
+<text x="168.2" y="298.0" text-anchor="end" font-size="13" fill="#7a6850">3.512 MW/s</text>
+<text x="282.0" y="162.2" text-anchor="end">Serpent-CTR</text>
+<text x="282.0" y="180.2" text-anchor="end" font-size="13" fill="#7a6850">2.859 MW/s</text>
+</g>
+<g font-family="Georgia, serif" font-size="14" fill="#3f3426">
+<rect x="30" y="814" width="18" height="14" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="2"/>
+<text x="54" y="826">Dyson (Apple M4 aarch64)</text>
+<rect x="30" y="836" width="18" height="14" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="2" stroke-dasharray="4 2"/>
+<text x="54" y="848">dmz.lan (Intel i5 x86_64) (partial data†)</text>
+</g>
+<text x="450" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#2f2418">Throughput — Cipher-Based Generators (log-normalized)</text>
+<text x="450" y="76" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#6f5d46">dyson · dmz · pilot-bench normal preset</text>
+<text x="450" y="888" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#9a7a5a">† reference value — not measured on this machine</text>
+</svg>
