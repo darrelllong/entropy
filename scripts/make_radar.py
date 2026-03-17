@@ -29,7 +29,6 @@ from pathlib import Path
 REPO     = Path(__file__).parent.parent
 CX, CY   = 450.0, 450.0
 CANVAS   = 900
-N_SPOKES           = 12
 SPOKE_R            = 300
 RINGS              = [105, 150, 195, 240, 285]
 LABEL_LINE_SPACING = 18   # vertical gap between label name and MW/s annotation
@@ -53,7 +52,7 @@ MACHINES = [
 #
 # Scale calibration (Dyson numbers):
 #   fast chart: sysv_rand (~441) → r=70, WyRand (~3120) → r=270
-#   slow chart: Blum-Micali (~0.462) → r=70, Squidward (~240) → r=270
+#   slow chart: OsRng (~1.191) → r=70, Squidward (~240) → r=270
 
 CHARTS = [
     {
@@ -97,8 +96,8 @@ CHARTS = [
     {
         "title":    "Throughput — Slow Generators (log-normalized)",
         "out":      "benchmarks-radar-slow.svg",
-        # Blum-Micali(0.462) → r=70, Squidward(240) → r=270
-        "A": 73.6, "B": 94.7,
+        # OsRng(1.191) → r=70, Squidward(240) → r=270
+        "A": 86.8, "B": 63.4,
         # FreeBSD rand_r and ANSI C LCG are included because they land near
         # ChaCha20 in throughput — same speed, opposite quality.
         "generators": [
@@ -108,26 +107,22 @@ CHARTS = [
             ("ANSI C LCG",      186.7, "ansi_c_lcg.bench"),
             ("AES-128-CTR",     137.8, "aes_ctr.bench"),
             ("SpongeBob",        32.22, "spongebob.bench"),
-            ("BBS",              61.29, "bbs.bench"),
             ("Hash_DRBG",        12.37, "hash_drbg.bench"),
             ("HMAC_DRBG",         3.218, "hmac_drbg.bench"),
             ("CtrDrbgAes256",     1.893, "crypto_ctr_drbg.bench"),
             ("OsRng",             1.191, "osrng.bench"),
-            ("Blum-Micali",       0.462, "blum_micali.bench"),
         ],
         "labels": [
             ("middle",  0, -42),  #0°   Squidward
-            ("start",  18, -24),  #30°  FreeBSD rand_r
-            ("start",  22, -20),  #60°  ChaCha20
-            ("start",   8, -10),  #90°  ANSI C LCG
-            ("start",  22,  14),  #120° AES-128-CTR
-            ("start",  18,  16),  #150° SpongeBob
-            ("middle",  0,  28),  #180° BBS
-            ("end",   -18,  16),  #210° Hash_DRBG
-            ("end",   -22,   7),  #240° HMAC_DRBG
-            ("end",    -8, -10),  #270° CtrDrbgAes256
-            ("end",   -22, -20),  #300° OsRng
-            ("end",   -18, -28),  #330° Blum-Micali
+            ("start",  18, -26),  #36°  FreeBSD rand_r
+            ("start",  22, -14),  #72°  ChaCha20
+            ("start",  22,   8),  #108° ANSI C LCG
+            ("start",  18,  22),  #144° AES-128-CTR
+            ("middle",  0,  32),  #180° SpongeBob
+            ("end",   -18,  22),  #216° Hash_DRBG
+            ("end",   -22,   4),  #252° HMAC_DRBG
+            ("end",   -22, -14),  #288° CtrDrbgAes256
+            ("end",   -18, -28),  #324° OsRng
         ],
     },
     {
@@ -176,8 +171,8 @@ def spoke_xy(r, deg):
     rad = math.radians(deg)
     return CX + r * math.sin(rad), CY - r * math.cos(rad)
 
-def ring_polygon(r):
-    pts = [spoke_xy(r, k * 360 / N_SPOKES) for k in range(N_SPOKES)]
+def ring_polygon(r, n):
+    pts = [spoke_xy(r, k * 360 / n) for k in range(n)]
     return " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
 
 def log_r(mw_s, A, B):
@@ -229,6 +224,7 @@ def generate_svg(chart, machine_cache):
     loaded data without re-reading bench files or re-emitting warnings.
     """
     A, B = chart["A"], chart["B"]
+    n = len(chart["generators"])
     lines = []
     emit = lines.append
 
@@ -238,7 +234,7 @@ def generate_svg(chart, machine_cache):
     # Grid rings with speed annotations along the top spoke (0°).
     emit('<g stroke="#d8cdb8" fill="none">')
     for r in RINGS:
-        emit(f'<polygon points="{ring_polygon(r)}" stroke-width="1"/>')
+        emit(f'<polygon points="{ring_polygon(r, n)}" stroke-width="1"/>')
     emit('</g>')
     emit('<g font-family="Georgia, serif" font-size="11" fill="#9a8470" text-anchor="middle">')
     for r in RINGS:
@@ -250,8 +246,8 @@ def generate_svg(chart, machine_cache):
 
     # Spokes
     emit('<g stroke="#b8aa90" stroke-width="1">')
-    for k in range(N_SPOKES):
-        x2, y2 = spoke_xy(SPOKE_R, k * 360 / N_SPOKES)
+    for k in range(n):
+        x2, y2 = spoke_xy(SPOKE_R, k * 360 / n)
         emit(f'<line x1="{CX:.0f}" y1="{CY:.0f}" x2="{x2:.1f}" y2="{y2:.1f}"/>')
     emit('</g>')
 
@@ -268,7 +264,7 @@ def generate_svg(chart, machine_cache):
             label_data = data
 
         radii  = [log_r(mw_s, A, B) for _, mw_s, _ in data]
-        pts_xy = [spoke_xy(r, k * 360 / N_SPOKES) for k, r in enumerate(radii)]
+        pts_xy = [spoke_xy(r, k * 360 / n) for k, r in enumerate(radii)]
         pts_str = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts_xy)
         has_fallback = any(not m for _, _, m in data)
         dash_attr = ' stroke-dasharray="8 4"' if has_fallback else ''
@@ -291,7 +287,7 @@ def generate_svg(chart, machine_cache):
         emit('<g font-family="Georgia, serif" font-size="17" fill="#3f3426">')
         for k, ((label, mw_s, is_measured), (anchor, dx, dy)) in enumerate(
                 zip(label_data, chart["labels"])):
-            tx, ty = spoke_xy(SPOKE_R, k * 360 / N_SPOKES)
+            tx, ty = spoke_xy(SPOKE_R, k * 360 / n)
             lx, ly1 = tx + dx, ty + dy
             emit(f'<text x="{lx:.1f}" y="{ly1:.1f}" text-anchor="{anchor}">{label}</text>')
             annotation = fmt_mw(mw_s) + ("†" if not is_measured else "")

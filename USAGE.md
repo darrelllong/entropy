@@ -189,8 +189,6 @@ must not be used outside the test harness.
 
 | Type | Construction | Hazard |
 |------|-------------|--------|
-| `BlumBlumShub`  | `BlumBlumShub::new(p, q, seed)` | Quadratic residue generator; provably secure under factoring assumption but extremely slow (~1 bit per modular squaring) |
-| `BlumMicali`    | `BlumMicali::new(p, g, seed)`   | Discrete-log hardness assumption; similarly slow |
 | `DualEcDrbg`    | `DualEcDrbg::p256(&seed)`       | **BACKDOORED** — see below |
 
 **Dual_EC_DRBG.** The NIST P-256 Q point embedded in this standard encodes a

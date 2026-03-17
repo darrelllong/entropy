@@ -69,8 +69,6 @@ Full log: [logs/run_all-darby-20260316-192756.log](logs/run_all-darby-20260316-1
 | BAD Windows .NET Random(seed=1) compat | 738 | 731 | 7 | 0 |
 | ANSI C sample LCG (1103515245,12345; seed=1) | 714 | 15 | 697 | 2 |
 | LCG MINSTD (seed=1) | 714 | 20 | 692 | 2 |
-| BBS (p=2³¹−1, q=4294967291) | 738 | 731 | 7 | 0 |
-| Blum-Micali (p=2³¹−1, g=7) | 738 | 734 | 4 | 0 |
 | AES-128-CTR (NIST key) | 738 | 733 | 5 | 0 |
 | Camellia-128-CTR (key=00..0f) | 738 | 732 | 6 | 0 |
 | Twofish-128-CTR (key=00..0f) | 738 | 728 | 10 | 0 |
@@ -501,8 +499,6 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **BAD Windows .NET Random(seed=1) compat**: 7/738 — `dieharder::bit_distribution` (×3), `dieharder::dct`, `nist::non_overlapping_template` (×3)
 - **ANSI C sample LCG (1103515245,12345; seed=1)**: 697/714 — `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l12`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
 - **LCG MINSTD (seed=1)**: 692/714 — `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
-- **BBS (p=2³¹−1, q=4294967291)**: 7/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
-- **Blum-Micali (p=2³¹−1, g=7)**: 4/738 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
 - **AES-128-CTR (NIST key)**: 5/738 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
 - **Camellia-128-CTR (key=00..0f)**: 6/738 — `dieharder::bit_distribution` (×6)
 - **Twofish-128-CTR (key=00..0f)**: 10/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×4)
