@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # RNG throughput benchmark using pilot-bench.
 #
-# For each generator, measures throughput (MW/s) with 95% CI using pilot-bench
-# and writes a result file to stats/<machine>/<name>.bench.  If the file already
-# exists, that RNG is skipped unless --force is given.
+# For each generator, measures throughput (MW/s) using pilot-bench and writes a
+# result file to stats/<machine>/<name>.bench.  If the file already exists, that
+# RNG is skipped unless --force is given.
+#
+# Confidence level defaults to 90%.  Pass --confidence-level 0.95 for tighter
+# intervals (requires more runs and significantly longer wall time for slow RNGs).
 #
 # Usage:
 #   scripts/bench_rngs.sh [--preset quick|normal|strict] [--machine <name>] \
-#                         [--force] [name ...]
+#                         [--confidence-level 0.90] [--force] [name ...]
 #
-#   --machine <name>  subdirectory under stats/ for this machine (default: dyson)
-#   name ...          optional whitelist; if given, only measure those generators.
+#   --machine <name>          subdirectory under stats/ for this machine (default: dyson)
+#   --confidence-level <val>  CI level, e.g. 0.90 or 0.95 (default: 0.90)
+#   name ...                  optional whitelist; if given, only measure those generators.
 #
 # Environment:
 #   PILOT_BENCH_CLI   path to the pilot bench CLI  (default: ~/pilot-bench/build/cli/bench)
 #   PILOT_RNG_BIN     path to pilot_rng binary      (default: target/release/pilot_rng)
 #   PILOT_PRESET      quick | normal | strict       (default: quick)
 #   PILOT_MACHINE     machine subdirectory name     (default: dyson)
+#   PILOT_CONF_LEVEL  confidence level              (default: 0.90)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,6 +29,7 @@ BENCH="${PILOT_BENCH_CLI:-$HOME/pilot-bench/build/cli/bench}"
 RNG_BIN="${PILOT_RNG_BIN:-$ROOT_DIR/target/release/pilot_rng}"
 PRESET="${PILOT_PRESET:-quick}"
 MACHINE="${PILOT_MACHINE:-dyson}"
+CONF_LEVEL="${PILOT_CONF_LEVEL:-0.90}"
 FORCE=0
 WHITELIST=()
 
@@ -33,6 +39,8 @@ while [[ $# -gt 0 ]]; do
         --preset)   shift; PRESET="$1" ;;
         --machine=*) MACHINE="${1#--machine=}" ;;
         --machine)  shift; MACHINE="$1" ;;
+        --confidence-level=*) CONF_LEVEL="${1#--confidence-level=}" ;;
+        --confidence-level)   shift; CONF_LEVEL="$1" ;;
         --force)    FORCE=1 ;;
         *)          WHITELIST+=("$1") ;;
     esac
@@ -67,6 +75,7 @@ measure() {
     local out mean ci rounds
     out=$("$BENCH" run_program \
           --preset "$PRESET" \
+          --confidence-level "$CONF_LEVEL" \
           --pi "${rng_name},MW/s,0,1,1" \
           --env "PILOT_RNG_WORDS=${words}" \
           -- "$RNG_BIN" "$rng_name" 2>&1)
@@ -86,9 +95,10 @@ measure() {
 echo ""
 echo "## RNG throughput benchmark (pilot-bench, preset=$PRESET, machine=$MACHINE)"
 echo ""
-echo "Throughput in MW/s (10⁶ u32 words/s).  CI is 95%."
+CI_PCT=$(echo "$CONF_LEVEL * 100" | bc | sed 's/\.00$//')
+echo "Throughput in MW/s (10⁶ u32 words/s).  CI is ${CI_PCT}%."
 echo ""
-echo "| Generator                            |   MW/s   | ±CI 95%  | Runs  |"
+echo "| Generator                            |   MW/s   | ±CI ${CI_PCT}%  | Runs  |"
 echo "|--------------------------------------|----------|----------|-------|"
 
 # Keep each probe comfortably above timer noise. The ultra-fast synthetic
