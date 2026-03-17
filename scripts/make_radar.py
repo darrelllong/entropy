@@ -129,6 +129,42 @@ CHARTS = [
             ("end",   -18, -28, 18),  # 330° Blum-Micali
         ],
     },
+    {
+        "title":    "Throughput — Cipher-Based Generators (log-normalized)",
+        "out":      "benchmarks-radar-cipher.svg",
+        # Serpent-CTR(2.859) → r=70, Rabbit(352.6) → r=270
+        "A": 96.0, "B": 25.6,
+        # Spokes clockwise from top: stream ciphers (fast) followed by
+        # block-CTR ciphers (slower).  AES-128-CTR included for reference.
+        "generators": [
+            ("Rabbit",          352.6, "rabbit.bench"),
+            ("Salsa20",         201.0, "salsa20.bench"),
+            ("Snow3G",          136.4, "snow3g.bench"),
+            ("ZUC-128",         142.5, "zuc128.bench"),
+            ("AES-128-CTR",     137.8, "aes_ctr.bench"),
+            ("Camellia-CTR",     36.21, "camellia_ctr.bench"),
+            ("SM4-CTR",          47.2,  "sm4_ctr.bench"),
+            ("CAST-128-CTR",     59.5,  "cast128_ctr.bench"),
+            ("SEED-CTR",         18.51, "seed_ctr.bench"),
+            ("Grasshopper-CTR",   6.723, "grasshopper_ctr.bench"),
+            ("Twofish-CTR",       3.512, "twofish_ctr.bench"),
+            ("Serpent-CTR",       2.859, "serpent_ctr.bench"),
+        ],
+        "labels": [
+            ("middle",  0, -42, 18),  # 0°   Rabbit
+            ("start",  18, -24, 18),  # 30°  Salsa20
+            ("start",  22, -20, 18),  # 60°  Snow3G
+            ("start",   8, -10, 18),  # 90°  ZUC-128
+            ("start",  22,  14, 18),  # 120° AES-128-CTR
+            ("start",  18,  16, 18),  # 150° Camellia-CTR
+            ("middle",  0,  28, 18),  # 180° SM4-CTR
+            ("end",   -18,  16, 18),  # 210° CAST-128-CTR
+            ("end",   -22,   7, 18),  # 240° SEED-CTR
+            ("end",    -8, -10, 18),  # 270° Grasshopper-CTR
+            ("end",   -22, -20, 18),  # 300° Twofish-CTR
+            ("end",   -18, -28, 18),  # 330° Serpent-CTR
+        ],
+    },
 ]
 
 # ---------------------------------------------------------------------------
