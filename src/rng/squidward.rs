@@ -38,15 +38,6 @@ impl Squidward {
         }
     }
 
-    /// Construct with optional seed; `None` draws from OsRng.
-    #[must_use]
-    pub fn new(seed: Option<&[u8]>) -> Self {
-        match seed {
-            Some(s) => Self::from_seed(s),
-            None => Self::from_os_rng(),
-        }
-    }
-
     /// Construct from 32 bytes drawn from the operating system RNG.
     #[must_use]
     pub fn from_os_rng() -> Self {

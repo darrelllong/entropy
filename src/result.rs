@@ -13,8 +13,6 @@ pub struct TestResult {
     /// Computed p-value.  `NAN` indicates a pre-condition failure
     /// (sequence too short, etc.).
     pub p_value: f64,
-    /// Significance level used (default [`ALPHA`] = 0.01).
-    pub alpha: f64,
     /// Optional human-readable note (e.g. parameter values used).
     pub note: Option<String>,
 }
@@ -25,7 +23,6 @@ impl TestResult {
         Self {
             name,
             p_value,
-            alpha: ALPHA,
             note: None,
         }
     }
@@ -35,7 +32,6 @@ impl TestResult {
         Self {
             name,
             p_value,
-            alpha: ALPHA,
             note: Some(note.into()),
         }
     }
@@ -45,14 +41,13 @@ impl TestResult {
         Self {
             name,
             p_value: f64::NAN,
-            alpha: ALPHA,
             note: Some(reason.to_owned()),
         }
     }
 
     /// `true` if p_value ≥ alpha (the sequence is not rejected at this level).
     pub fn passed(&self) -> bool {
-        self.p_value >= self.alpha
+        self.p_value >= ALPHA
     }
 
     /// `true` if the preconditions were not met (`p_value` is NaN).

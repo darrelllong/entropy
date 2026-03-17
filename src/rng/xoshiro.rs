@@ -182,4 +182,22 @@ mod tests {
         let r = std::panic::catch_unwind(|| Xoshiro256::new(0, 0, 0, 0));
         assert!(r.is_err());
     }
+
+    #[test]
+    fn xoshiro256_deterministic() {
+        let mut a = Xoshiro256::new(0xdead, 0xbeef, 0xcafe, 0xbabe);
+        let mut b = Xoshiro256::new(0xdead, 0xbeef, 0xcafe, 0xbabe);
+        for _ in 0..10 {
+            assert_eq!(a.next_u64(), b.next_u64());
+        }
+    }
+
+    #[test]
+    fn xoroshiro128_deterministic() {
+        let mut a = Xoroshiro128::new(0xdead_beef, 0xcafe_babe);
+        let mut b = Xoroshiro128::new(0xdead_beef, 0xcafe_babe);
+        for _ in 0..10 {
+            assert_eq!(a.next_u64(), b.next_u64());
+        }
+    }
 }

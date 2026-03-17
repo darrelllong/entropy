@@ -3,6 +3,7 @@
 //! All functions are pure Rust, no external crates.  Algorithms are cited inline.
 
 use std::f64::consts::{PI, SQRT_2};
+use rustfft::{num_complex::Complex, FftPlanner};
 
 // ── erfc ──────────────────────────────────────────────────────────────────────
 
@@ -304,13 +305,21 @@ fn matrix_multiply(a: &[f64], b: &[f64], m: usize) -> Vec<f64> {
 }
 
 fn renormalize_matrix(v: &mut [f64], exponent: &mut i32) {
-    if v.iter().all(|&x| x <= 1.0e140) {
+    if !v.iter().any(|x| x.abs() > 1.0e140) {
         return;
     }
     for x in v.iter_mut() {
         *x *= 1.0e-140;
     }
     *exponent += 140;
+
+    if v.iter().all(|&x| x == 0.0) {
+        return;
+    }
+    if v.iter().all(|x| x.abs() < 1.0e-140) {
+        v.iter_mut().for_each(|x| *x *= 1.0e140);
+        *exponent -= 140;
+    }
 }
 
 // ── Chi-square p-value (convenience) ─────────────────────────────────────────
@@ -429,4 +438,3 @@ mod tests {
         assert_eq!(ks_pvalue(1.0, 10), 0.0);
     }
 }
-use rustfft::{num_complex::Complex, FftPlanner};

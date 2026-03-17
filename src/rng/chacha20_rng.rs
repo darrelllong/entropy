@@ -73,9 +73,6 @@ impl ChaCha20Rng {
 
     fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
         const { assert!(N <= BLOCK_BYTES, "chunk larger than ChaCha20 block") }
-        if self.offset == BLOCK_BYTES {
-            self.refill();
-        }
         if self.offset + N > BLOCK_BYTES {
             self.refill();
         }

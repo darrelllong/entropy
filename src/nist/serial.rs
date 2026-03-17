@@ -20,28 +20,12 @@ use crate::{math::igamc, result::TestResult};
 /// # Reference
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.11.
 pub fn serial(bits: &[u8], m: usize) -> TestResult {
-    let n = bits.len();
-    if n < 1_000 || m < 2 {
-        return TestResult::insufficient("nist::serial", "n < 1000 or m < 2");
-    }
-
-    let psi_m = psi_sq(bits, m, n);
-    let psi_m1 = psi_sq(bits, m - 1, n);
-    let psi_m2 = if m >= 2 { psi_sq(bits, m - 2, n) } else { 0.0 };
-
-    let del2 = psi_m - 2.0 * psi_m1 + psi_m2;
-    let del1 = psi_m - psi_m1;
-
-    let p1 = igamc(2.0_f64.powi(m as i32 - 2), del2 / 2.0);
-    let p2 = igamc(2.0_f64.powi(m as i32 - 1), del1 / 2.0);
-
-    let p_min = p1.min(p2);
-
-    TestResult::with_note(
-        "nist::serial",
-        p_min,
-        format!("n={n}, m={m}, p1={p1:.4}, p2={p2:.4}"),
-    )
+    let results = serial_both(bits, m);
+    // serial_both always returns exactly two results; pick the one with the
+    // smaller p-value (most conservative) as the single reported verdict.
+    let r1 = results[0].clone();
+    let r2 = results[1].clone();
+    if r1.p_value <= r2.p_value { r1 } else { r2 }
 }
 
 /// Run the serial test; returns the two p-values as separate `TestResult`s.
