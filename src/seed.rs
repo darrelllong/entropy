@@ -5,13 +5,23 @@
 //! test.  It is **not** itself the generator being evaluated.
 //!
 //! [`seed_material`] converts a `u64` seed into an arbitrary-width byte array
-//! using [`splitmix64`].  The XOR with `0xa076_1d64_78bd_642f` (the bit-
-//! reversal of Knuth's FKS golden-ratio constant) ensures that seed = 0 does
+//! using [`splitmix64`].  The XOR with `0xa076_1d64_78bd_642f` (the first
+//! Weyl-sequence prime from wyhash, Wang Yi, 2019) ensures that seed = 0 does
 //! not produce the all-zeros splitmix64 state.
 //!
 //! Seed derivation is part of experimental reproducibility: having one
 //! definition, one comment, and one set of tests reduces the risk that a
 //! future bug fix lands in some probe binaries but not others.
+//!
+//! ## Cipher test keys
+//!
+//! [`K16`], [`K32`], [`IV8`], and [`IV16`] are the fixed keys and IVs used to
+//! construct cipher-based RNGs in the test harness.  They are defined here
+//! once and imported wherever needed.
+//!
+//! **These constants are NOT suitable for any production use.**  Sequential
+//! byte strings are present in every published test-vector corpus and would
+//! immediately compromise any real cryptographic deployment.
 
 /// One step of the Vigna splitmix64 mixer.
 ///
@@ -28,8 +38,8 @@ pub fn splitmix64(state: &mut u64) -> u64 {
 ///
 /// Expands `seed` via repeated [`splitmix64`] calls, writing 8 bytes per
 /// iteration until `N` bytes are filled (big-endian word order).  The XOR
-/// with `0xa076_1d64_78bd_642f` before the first call ensures that seed = 0
-/// yields a non-trivial initial state.
+/// with `0xa076_1d64_78bd_642f` (wyhash wyp0 prime) before the first call
+/// ensures that seed = 0 yields a non-trivial initial state.
 pub fn seed_material<const N: usize>(seed: u64) -> [u8; N] {
     let mut state = seed ^ 0xa076_1d64_78bd_642f;
     let mut out = [0u8; N];
@@ -48,15 +58,36 @@ pub fn seed_material<const N: usize>(seed: u64) -> [u8; N] {
 /// Used to construct fixed test keys for cipher-based RNGs so that the key
 /// bytes appear only once in the codebase rather than being repeated at each
 /// call site as an inline hex literal.
+///
+/// # Warning — NOT FOR PRODUCTION USE
+///
+/// Sequential byte strings `[0x00, 0x01, …, N-1]` are present in every
+/// published test-vector corpus.  Any cipher initialised with these values in
+/// a real deployment would be immediately broken.  Use a cryptographically
+/// secure random source for all production key material.
 pub const fn sequential_bytes<const N: usize>() -> [u8; N] {
     let mut out = [0u8; N];
     let mut i = 0;
     while i < N {
-        out[i] = (i & 0xff) as u8;
+        out[i] = i as u8;
         i += 1;
     }
     out
 }
+
+// ── Cipher test keys ─────────────────────────────────────────────────────────
+//
+// Defined here once; imported by main.rs, pilot_rng.rs, and any future binary
+// that instantiates cipher-based RNGs.  See the module-level warning above.
+
+/// 128-bit test key: `[0x00, 0x01, …, 0x0f]`.  NOT FOR PRODUCTION USE.
+pub const K16: [u8; 16] = sequential_bytes();
+/// 256-bit test key: `[0x00, 0x01, …, 0x1f]`.  NOT FOR PRODUCTION USE.
+pub const K32: [u8; 32] = sequential_bytes();
+/// 64-bit test IV:  `[0x00, 0x01, …, 0x07]`.  NOT FOR PRODUCTION USE.
+pub const IV8: [u8; 8] = sequential_bytes();
+/// 128-bit test IV: `[0x00, 0x01, …, 0x0f]`.  NOT FOR PRODUCTION USE.
+pub const IV16: [u8; 16] = sequential_bytes();
 
 #[cfg(test)]
 mod tests {
@@ -65,8 +96,8 @@ mod tests {
     #[test]
     fn splitmix64_nonzero_seed_zero() {
         // seed = 0 must not produce all-zeros output.
-        let mut s = 0u64 ^ 0xa076_1d64_78bd_642f;
-        assert_ne!(splitmix64(&mut s), 0);
+        let out: [u8; 8] = seed_material(0);
+        assert!(out.iter().any(|&b| b != 0));
     }
 
     #[test]
@@ -74,12 +105,6 @@ mod tests {
         let mut s1 = 42u64;
         let mut s2 = 42u64;
         assert_eq!(splitmix64(&mut s1), splitmix64(&mut s2));
-    }
-
-    #[test]
-    fn seed_material_length() {
-        let out: [u8; 55] = seed_material(12345);
-        assert_eq!(out.len(), 55);
     }
 
     #[test]
@@ -93,5 +118,18 @@ mod tests {
         let a: [u8; 16] = seed_material(99);
         let b: [u8; 16] = seed_material(99);
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn sequential_bytes_correct() {
+        let b: [u8; 4] = sequential_bytes();
+        assert_eq!(b, [0x00, 0x01, 0x02, 0x03]);
+        let b16: [u8; 16] = sequential_bytes();
+        assert_eq!(b16[0], 0x00);
+        assert_eq!(b16[15], 0x0f);
+        // Verify wrapping at 256.
+        let b257: [u8; 257] = sequential_bytes();
+        assert_eq!(b257[255], 0xff);
+        assert_eq!(b257[256], 0x00);
     }
 }

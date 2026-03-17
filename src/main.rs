@@ -40,7 +40,7 @@ use entropy::rng::{
     StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand,
     Xoroshiro128StarStar, Xorshift32, Xorshift64, Xoshiro256StarStar,
 };
-use entropy::seed::sequential_bytes;
+use entropy::seed::{IV16, IV8, K16, K32};
 use entropy::{diehard, dieharder, nist, result::TestResult};
 use std::thread;
 
@@ -51,12 +51,6 @@ use std::thread;
 // cycles (J = √(2n/π) >> 500 minimum) for any non-degenerate generator.
 const NIST_N: usize = 16_000_000;
 const DIEHARD_N: usize = 16_000_000;
-
-// Fixed test keys for cipher-based RNGs — sequential bytes, defined once.
-const K16: [u8; 16] = sequential_bytes();
-const K32: [u8; 32] = sequential_bytes();
-const IV8: [u8; 8] = sequential_bytes();
-const IV16: [u8; 16] = sequential_bytes();
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -348,12 +342,15 @@ fn make_runs(args: Args) -> Vec<RunFn> {
     );
     run!("Constant (0xDEAD_DEAD)", ConstantRng::new(0xDEAD_DEAD));
     run!("Counter (0,1,2,…)", CounterRng::new(0));
-    // Dual_EC_DRBG: two P-256 scalar multiplications per 30-byte block.
-    // DIEHARD/DIEHARDER would require ~2 M scalar mults — NIST only.
-    run_nist!(
-        "Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)",
-        DualEcDrbg::p256(&[0u8; 31].iter().copied().chain([1u8]).collect::<Vec<_>>())
-    );
+    // Dual_EC_DRBG: included for reference only.
+    // WARNING: This generator is known to be backdoored — the NIST Q point
+    // embeds a discrete-log trapdoor (Bernstein et al., 2014; Checkoway et
+    // al., 2014).  It must never be used to produce key material.  Two P-256
+    // scalar multiplications per 30-byte block make DIEHARD/DIEHARDER
+    // prohibitively slow (~2 M scalar mults); NIST suite only.
+    let mut dual_ec_seed = [0u8; 32];
+    dual_ec_seed[31] = 1; // seed = 0x00…01
+    run_nist!("Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)", DualEcDrbg::p256(&dual_ec_seed));
 
     if runs.is_empty() {
         die("no RNG labels matched --rng filter");
