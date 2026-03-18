@@ -8,11 +8,13 @@ FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
 (`Linux x86_64`).  The `moore` column is an AMD EPYC 7452 32-core (`Linux x86_64`,
 `moore.soe.ucsc.edu`).
 
-> **Note — Serpent-128-CTR on dmz:** Serpent is the only generator measured at
-> 80% CI on `dmz.lan` rather than 90%.  Its unrolled software AES-finalists
-> implementation is slow enough on that Core i5 that the normal-preset 90% CI
-> requires an impractical number of rounds; 80% CI is used as a pragmatic
-> compromise.  All other generators on all machines use 90% CI.
+> **Note — Twofish and Serpent on dmz:** Twofish-128-CTR and Serpent-128-CTR
+> are measured at 80% CI on `dmz.lan` rather than 90%.  Both are heavily
+> unrolled software AES-finalist implementations that sustain enough heat on
+> the NUC's Core i5 to cause thermal throttling; the normal-preset 90% CI
+> requires an impractical number of rounds under those conditions.  80% CI is
+> used as a pragmatic compromise for these two generators only.  All other
+> generators on all machines use 90% CI.
 
 To benchmark on a new machine:
 
