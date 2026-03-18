@@ -295,6 +295,16 @@ impl AesCtr {
     }
 }
 
+impl Drop for AesCtr {
+    fn drop(&mut self) {
+        // Zeroize round keys and keystream buffer so key material does not
+        // linger in memory after the RNG is dropped.  The hw field's own Drop
+        // (Aes128X86::drop) zeroizes the hardware round key schedule separately.
+        cryptography::zeroize_slice(&mut self.rk);
+        cryptography::zeroize_slice(&mut self.buf);
+    }
+}
+
 impl Rng for AesCtr {
     fn next_u32(&mut self) -> u32 {
         if self.pos >= 4 {
