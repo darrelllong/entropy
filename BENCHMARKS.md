@@ -28,70 +28,74 @@ points if some benchmark files are still missing.
 
 ## Results
 
-| Generator | Dyson MW/s | ±CI | dmz MW/s | ±CI |
-|---|---:|---:|---:|---:|
-| `OsRng (/dev/urandom)` | 1.191 | ±0.008 | 1.220 | ±0.004 |
-| `MT19937 (seed=19650218)` | 641.2 | ±16.28 | 315.4 | ±0.624 |
-| `Xorshift64 (seed=1)` | 646.1 | ±2.962 | 566.8 | ±1.900 |
-| `Xorshift32 (seed=1)` | 647.7 | ±12.44 | 606.2 | ±2.084 |
-| `BAD Unix System V rand() (seed=1)` | 441.4 | ±1.419 | 357.3 | ±1.626 |
-| `BAD Unix System V mrand48() (seed=1)` | 973 | ±2.591 | 903.8 | ±5.002 |
-| `BAD Unix BSD random() TYPE_3 (seed=1)` | 405.8 | ±1.471 | 306.0 | ±1.558 |
-| `BAD Unix Linux glibc rand()/random() (seed=1)` | 405.8 | ±1.736 | 234.0 | ±0.737 |
-| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 189.1 | ±0.519 | 172.6 | ±0.361 |
-| `BAD Windows CRT rand() (seed=1)` | 438.5 | ±12.51 | 358.8 | ±1.625 |
-| `BAD Windows VB6/VBA Rnd() (seed=1)` | 379.5 | ±7.133 | 512.8 | ±2.109 |
-| `BAD Windows .NET Random(seed=1) compat` | 428.4 | ±14.1 | 279.3 | ±1.142 |
-| `ANSI C sample LCG (seed=1)` | 186.7 | ±2.666 | 93.70 | ±0.124 |
-| `LCG MINSTD (seed=1)` | 171.6 | ±0.408 | 93.73 | ±0.169 |
-| `BAD Borland C++ rand() LCG (seed=1)` | 187.4 | ±0.705 | 93.88 | ±0.192 |
-| `AES-128-CTR (NIST key)` | 137.8 | ±1.404 | 63.55 | ±0.595 |
-| `Camellia-128-CTR (key=00..0f)` | 36.21 | ±0.077 | 23.58 | ±0.194 |
-| `Twofish-128-CTR (key=00..0f)` | 3.512 | ±0.030 | 1.328 | ±0.004 |
-| `Serpent-128-CTR (key=00..0f)` | 2.859 | ±0.018 | 1.110 | ±0.009 |
-| `SM4-CTR (key=00..0f)` | 47.20 | ±0.204 | 30.71 | ±0.475 |
-| `Grasshopper-CTR (key=00..1f)` | 6.723 | ±0.008 | 3.850 | ±0.016 |
-| `CAST-128-CTR (key=00..0f)` | 59.50 | ±2.424 | 28.38 | ±0.564 |
-| `SEED-CTR (key=00..0f)` | 18.51 | ±0.163 | 12.98 | ±0.071 |
-| `Rabbit (key=00..0f, iv=00..07)` | 352.6 | ±4.358 | 127.0 | ±0.560 |
-| `Salsa20 (key=00..1f, nonce=00..07)` | 201.0 | ±1.014 | 117.4 | ±0.598 |
-| `Snow3G (key=00..0f, iv=00..0f)` | 136.4 | ±0.270 | 74.16 | ±2.042 |
-| `ZUC-128 (key=00..0f, iv=00..0f)` | 142.5 | ±0.595 | 71.55 | ±0.626 |
-| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.22 | ±0.099 | 24.17 | ±0.201 |
-| `Squidward (SHA-256 chain, seed=00..1f)` | 239.6 | ±0.574 | 25.68 | ±0.419 |
-| `PCG32 (seed=42, seq=54)` | 934.1 | ±6.738 | 817.1 | ±2.848 |
-| `PCG64 (state=1, seq=1)` | 843.8 | ±2.893 | 580.3 | ±2.532 |
-| `Xoshiro256 (seeds=1,2,3,4)` | 1287 | ±4.56 | 927.5 | ±2.207 |
-| `Xoroshiro128 (seeds=1,2)` | 902.8 | ±9.123 | 730.4 | ±1.964 |
-| `WyRand (seed=42)` | 3120 | ±14.32 | 940.7 | ±3.277 |
-| `SFC64 (seeds=1,2,3)` | 1262 | ±15.58 | 1001 | ±2.452 |
-| `JSF64 (seed=0xdeadbeef)` | 1314 | ±23.22 | 870.6 | ±2.447 |
-| `ChaCha20 CSPRNG (OsRng key)` | 170.7 | ±1.076 | 87.78 | ±1.530 |
-| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.218 | ±0.026 | 1.969 | ±0.026 |
-| `Hash_DRBG SHA-256 (OsRng seed)` | 12.37 | ±0.425 | 7.376 | ±0.029 |
-| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.893 | ±0.010 | 1.123 | ±0.005 |
-| `Constant (0xDEAD_DEAD)` | 31560 | ±108.7 | 23470 | ±394.4 |
-| `Counter (0,1,2,...)` | 26300 | ±77.3 | 17630 | ±64.38 |
+| Generator | Dyson MW/s | ±CI | dmz MW/s | ±CI | moore MW/s | ±CI |
+|---|---:|---:|---:|---:|---:|---:|
+| `OsRng (/dev/urandom)` | 1.184 | ±0.015 | 1.222 | ±0.002 | 2.725 | ±0.008 |
+| `MT19937 (seed=19650218)` | 648.2 | ±3.71 | 315.6 | ±0.580 | 250.3 | ±1.32 |
+| `Xorshift64 (seed=1)` | 648.3 | ±1.49 | 568.6 | ±1.89 | 516.5 | ±1.77 |
+| `Xorshift32 (seed=1)` | 656.4 | ±1.15 | 608.5 | ±2.32 | 534.6 | ±1.25 |
+| `BAD Unix System V rand() (seed=1)` | 442.7 | ±1.03 | 356.0 | ±1.35 | 332.4 | ±0.706 |
+| `BAD Unix System V mrand48() (seed=1)` | 972.9 | ±2.44 | 909.8 | ±4.44 | 821.8 | ±2.17 |
+| `BAD Unix BSD random() TYPE_3 (seed=1)` | 407.2 | ±1.54 | 304.3 | ±1.42 | 256.9 | ±0.933 |
+| `BAD Unix Linux glibc rand()/random() (seed=1)` | 407.2 | ±1.37 | 302.8 | ±1.04 | 255.7 | ±1.57 |
+| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 189.2 | ±0.808 | 170.9 | ±0.422 | 155.2 | ±0.388 |
+| `BAD Windows CRT rand() (seed=1)` | 441.7 | ±1.46 | 356.6 | ±1.29 | 331.9 | ±0.774 |
+| `BAD Windows VB6/VBA Rnd() (seed=1)` | 383.6 | ±1.12 | 514.1 | ±1.18 | 498.9 | ±1.13 |
+| `BAD Windows .NET Random(seed=1) compat` | 424.3 | ±19.1 | 279.9 | ±1.12 | 234.9 | ±1.28 |
+| `ANSI C sample LCG (seed=1)` | 187.9 | ±0.372 | 93.34 | ±0.129 | 116.8 | ±0.250 |
+| `LCG MINSTD (seed=1)` | 171.8 | ±0.336 | 93.57 | ±0.131 | 158.1 | ±0.325 |
+| `BAD Borland C++ rand() LCG (seed=1)` | 188.0 | ±0.307 | 93.70 | ±0.130 | 1482 ‡ | ±6.32 |
+| `AES-128-CTR (NIST key)` | 138.0 | ±0.311 | 61.81 | ±0.094 | 63.53 | ±0.579 |
+| `Camellia-128-CTR (key=00..0f)` | 36.18 | ±0.064 | 23.65 | ±0.268 | 21.98 | ±0.028 |
+| `Twofish-128-CTR (key=00..0f)` | 3.521 | ±0.005 | 1.304 † | ±0.005 | 0.979 | ±0.004 |
+| `Serpent-128-CTR (key=00..0f)` | 2.823 | ±0.002 | 1.112 † | ±0.003 | 1.270 | ±0.002 |
+| `SM4-CTR (key=00..0f)` | 47.12 | ±0.359 | 30.71 | ±0.475 | 33.05 | ±0.284 |
+| `Grasshopper-CTR (key=00..1f)` | 6.697 | ±0.050 | 3.850 | ±0.016 | 3.314 | ±0.007 |
+| `CAST-128-CTR (key=00..0f)` | 61.36 | ±0.083 | 28.38 | ±0.564 | 25.88 | ±0.191 |
+| `SEED-CTR (key=00..0f)` | 18.60 | ±0.018 | 12.98 | ±0.071 | 11.96 | ±0.029 |
+| `Rabbit (key=00..0f, iv=00..07)` | 352.4 | ±3.77 | 127.0 | ±0.560 | 129.2 | ±0.388 |
+| `Salsa20 (key=00..1f, nonce=00..07)` | 201.4 | ±0.523 | 117.4 | ±0.598 | 105.4 | ±0.224 |
+| `Snow3G (key=00..0f, iv=00..0f)` | 136.0 | ±0.243 | 74.16 | ±2.04 | 72.30 | ±0.676 |
+| `ZUC-128 (key=00..0f, iv=00..0f)` | 142.6 | ±0.235 | 71.55 | ±0.626 | 69.15 | ±0.202 |
+| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.36 | ±0.051 | 24.17 | ±0.201 | 34.50 | ±0.112 |
+| `Squidward (SHA-256 chain, seed=00..1f)` | 240.0 | ±0.519 | 25.68 | ±0.419 | 24.56 | ±0.046 |
+| `PCG32 (seed=42, seq=54)` | 931.8 | ±4.25 | 817.1 | ±2.85 | 753.0 | ±1.77 |
+| `PCG64 (state=1, seq=1)` | 845.0 | ±1.90 | 580.3 | ±2.53 | 655.9 | ±3.00 |
+| `Xoshiro256 (seeds=1,2,3,4)` | 1291 | ±3.57 | 927.5 | ±2.21 | 781.5 | ±1.94 |
+| `Xoroshiro128 (seeds=1,2)` | 907.1 | ±1.88 | 730.4 | ±1.96 | 623.0 | ±1.44 |
+| `WyRand (seed=42)` | 3119 | ±11.8 | 940.7 | ±3.28 | 1024 | ±2.19 |
+| `SFC64 (seeds=1,2,3)` | 1268 | ±3.18 | 1001 | ±2.45 | 859.8 | ±1.91 |
+| `JSF64 (seed=0xdeadbeef)` | 1320 | ±3.31 | 870.6 | ±2.45 | 831.1 | ±1.71 |
+| `ChaCha20 CSPRNG (OsRng key)` | 173.2 | ±0.348 | 87.78 | ±1.53 | 89.83 | ±0.197 |
+| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.298 | ±0.012 | 1.969 | ±0.026 | 1.855 | ±0.006 |
+| `Hash_DRBG SHA-256 (OsRng seed)` | 31.19 | ±0.140 | 7.376 | ±0.029 | 17.56 | ±0.037 |
+| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.906 | ±0.004 | 1.123 | ±0.005 | 0.897 | ±0.001 |
+| `Constant (0xDEAD_DEAD)` | 31570 | ±89.4 | 23470 | ±394 | 22050 | ±57.8 |
+| `Counter (0,1,2,...)` | 26360 | ±62.9 | 17630 | ±64.4 | 15100 | ±129 |
+
+† Measured at 80% CI on dmz.lan (thermal throttling; see header note).
+‡ Anomalously high on moore (AMD EPYC 7452); likely a measurement artifact — interpret with caution.
 
 The synthetic ceiling generators dominate raw throughput, so the visuals use
 normalized $\log_{10}(\text{MW/s})$ rather than a linear scale.  Each radar
-chart shows one polygon per machine (blue for Dyson, red for dmz.lan).  The
-scales are calibrated independently for each chart's throughput range.
+chart shows one polygon per machine (blue for Dyson, red for dmz.lan, green
+for moore).  The scales are calibrated independently for each chart's throughput
+range using Dyson anchor values.
 
-**Fast / simulation generators** — scale anchored at sysv\_rand (441 MW/s) → $r=70$
-and WyRand (3120 MW/s) → $r=270$.  `mrand48` and `sysv_rand` are included as the
+**Fast / simulation generators** — scale anchored at sysv\_rand (443 MW/s) → $r=70$
+and WyRand (3119 MW/s) → $r=270$.  `mrand48` and `sysv_rand` are included as the
 fastest of the "BAD" generators; being fast does not make them good.
 
 ![Radar chart: fast/simulation generators](assets/benchmarks-radar-fast.svg)
 
-**Slow generators** — scale anchored at OsRng (1.191 MW/s) → $r=70$
+**Slow generators** — scale anchored at OsRng (1.184 MW/s) → $r=70$
 and Squidward (240 MW/s) → $r=270$.  `FreeBSD rand_r` and `ANSI C LCG` land near
 ChaCha20 in throughput: nearly identical speed, opposite security posture.
 
 ![Radar chart: slow generators](assets/benchmarks-radar-slow.svg)
 
-**Cipher-based generators** — scale anchored at Serpent-CTR (2.86 MW/s) → $r=70$
-and Rabbit (352.6 MW/s) → $r=270$.  Includes both stream ciphers (Rabbit, Salsa20,
+**Cipher-based generators** — scale anchored at Serpent-CTR (2.82 MW/s) → $r=70$
+and Rabbit (352.4 MW/s) → $r=270$.  Includes both stream ciphers (Rabbit, Salsa20,
 Snow3G, ZUC-128) and block-CTR modes (AES through Serpent), showing the wide
 throughput spread across the cipher family.
 
@@ -138,8 +142,8 @@ returning `(x >> 16) & 0x7FFF` — 15 usable bits per call, same effective width
 as the System V generator.  The lower 16 bits are discarded, but the surviving
 high bits still carry the full linear structure of the recurrence.  The battery
 [results](TESTS.md) are catastrophic: 701/714 failures.  Throughput on Dyson
-(187.4 MW/s) edges slightly ahead of ANSI C and MINSTD because the 32-bit
-modulus wraps naturally on hardware; DMZ (93.88 MW/s) is essentially tied with
+(188.0 MW/s) edges slightly ahead of ANSI C and MINSTD because the 32-bit
+modulus wraps naturally on hardware; DMZ (93.70 MW/s) is essentially tied with
 both.
 
 #### `BAD Unix System V rand() (seed=1)`
@@ -305,7 +309,7 @@ $\mathtt{47026247687942121848144207491837523525}$
 with an XSL-RR output permutation: xor the two 64-bit halves, then rotate right
 by the top 6 bits of the old state.  The 128-bit arithmetic is more expensive
 on a 64-bit machine than the 64-bit LCG used by PCG32, which is why PCG64 reads
-as slower (843.8 MW/s vs PCG32's 934.1 MW/s) despite producing 64 bits per step.
+as slower (845 MW/s vs PCG32's 931.8 MW/s) despite producing 64 bits per step.
 Period: $2^{128}$.
 
 #### `Xoshiro256 (seeds=1,2,3,4)`
@@ -317,7 +321,7 @@ $\mathrm{rotl}(s_1 \cdot 5,\ 7) \cdot 9$.
 The starstar multiplications break the linearity that would be visible to
 linear-complexity tests.  The generator passes BigCrush and PractRand beyond
 32 TiB; it is not cryptographic.  Period: $2^{256}-1$; the all-zero seed is
-forbidden and rejected at construction.
+forbidden and rejected at construction.  On Dyson it reaches 1291 MW/s.
 
 #### `Xoroshiro128 (seeds=1,2)`
 
@@ -339,7 +343,7 @@ $\mathrm{wymix}(a,b) = \bigl((a\cdot b \bmod 2^{128}) \gg 64\bigr) \oplus (a\cdo
 The multiplication provides strong avalanche in a single instruction on
 architectures with 64×64→128-bit multiply support.  Period: $2^{64}$.  Not
 cryptographic; the state is trivially invertible from the output.  WyRand's
-3120 MW/s on Dyson reflects Apple Silicon's high-throughput 64×64→128-bit
+3119 MW/s on Dyson reflects Apple Silicon's high-throughput 64×64→128-bit
 multiply pipeline; the `wyhash` mixer reduces to two multiply-accumulate
 operations per word, which the M4 handles in one or two cycles.
 
@@ -354,7 +358,7 @@ $c' = \mathrm{rotl}(c,24) + t$,
 with the counter incremented by one each step to guarantee a period of at least
 $2^{64}$.  Eighteen warm-up steps are applied after seeding per Doty-Humphrey's
 recommendation.  The chaotic recurrence passes BigCrush and PractRand, and its
-1262 MW/s throughput on Dyson makes it one of the fastest generators in the
+1268 MW/s throughput on Dyson makes it one of the fastest generators in the
 suite after WyRand and the trivial ceiling fixtures.
 
 #### `JSF64 (seed=0xdeadbeef)`
@@ -366,8 +370,8 @@ $b' = c + \mathrm{rotl}(d, 37)$,
 $c' = d + e$,
 $d' = e + a'$.
 The initial word is fixed at $a = \mathtt{f1ea5eed}_{16}$ and twenty warm-up
-steps scatter the seed through the full four-word state.  JSF64 reaches 1314 MW/s
-on Dyson, just above SFC64 (1262 MW/s); their battery counts are within one
+steps scatter the seed through the full four-word state.  JSF64 reaches 1320 MW/s
+on Dyson, just above SFC64 (1268 MW/s); their battery counts are within one
 run's statistical noise.  Not cryptographic.
 
 ---
@@ -390,7 +394,7 @@ blocks, each costing one ChaCha20 core invocation (20 rounds over a
 `/dev/urandom` and macOS `arc4random` work internally.  Output is
 computationally indistinguishable from uniform under the PRF assumption; no
 reseed is implemented here because the scope is the test battery, not a
-long-running daemon.  At 170.7 MW/s on Dyson it is the fastest crypto-grade
+long-running daemon.  At 173.2 MW/s on Dyson it is the fastest crypto-grade
 generator in the suite, about 53× faster than HMAC_DRBG.
 
 #### `SpongeBob (SHA3-512 chain, seed=00..3f)` **(CSPRNG)**
@@ -404,7 +408,10 @@ fresh 64-byte digest every time the previous one is exhausted. This is a very
 simple hash-chain CSPRNG design: no linear recurrence, no tiny hidden state,
 and no claim that raw speed is the point. On Dyson, FEAT_SHA3 hardware
 Keccak-f[1600] (EOR3, RAX1, BCAX intrinsics) is used automatically through
-`cryptography::Sha3_512`. The first full battery in [TESTS.md](TESTS.md) looks
+`cryptography::Sha3_512`.  On moore (x86_64), there is no SHA3 hardware path,
+yet SpongeBob (34.5 MW/s) slightly outpaces Dyson (32.4 MW/s), suggesting the
+AMD EPYC's higher clock for software Keccak compensates for the lack of
+FEAT_SHA3. The first full battery in [TESTS.md](TESTS.md) looks
 promising but not spotless, so the right read is "plausible modern generator,
 worth more runs," not "already proved perfect."
 
@@ -418,7 +425,7 @@ and output is consumed as a sequential byte stream.  On ARM targets that expose
 FEAT_SHA2 hardware acceleration, the implementation detects and uses the
 `vsha256*` NEON intrinsics via the `aarch64-alt` crate, falling back to the
 portable `cryptography::Sha256` path otherwise.  On Dyson (Apple M4) the
-hardware path reaches 239.6 MW/s.
+hardware path reaches 240 MW/s.
 
 #### `HMAC_DRBG SHA-256 (OsRng seed)` **(CSPRNG)**
 
@@ -429,7 +436,7 @@ $V \leftarrow \mathrm{HMAC}(K,\ V)$,
 followed by a second round with byte $0\mathrm{x01}$ to mix in the old output
 $V$.  Initial seeding uses 48 bytes of `OsRng` entropy (32 bytes entropy_input
 + 16 bytes nonce).  Security rests on the pseudorandomness of HMAC-SHA-256.
-The 3.218 MW/s throughput on Dyson reflects the cost of two HMAC invocations
+The 3.298 MW/s throughput on Dyson reflects the cost of two HMAC invocations
 per 32-byte output block.
 
 #### `Hash_DRBG SHA-256 (OsRng seed)` **(CSPRNG)**
@@ -440,7 +447,7 @@ constant $C$ derived from $V$ at instantiation time.  Hashgen produces output
 by hashing an incrementing counter concatenated with $V$, and after each
 generate call the state is updated as
 $V \leftarrow (V + \mathrm{SHA\text{-}256}(0\mathrm{x03} \mathbin{\|} V) + C + \mathtt{reseed\_counter}) \bmod 2^{440}$
-using big-endian carry arithmetic.  At 12.37 MW/s on Dyson it is about 3.8×
+using big-endian carry arithmetic.  At 31.19 MW/s on Dyson it is about 9.5×
 faster than HMAC_DRBG because it replaces the two keyed-MAC steps with a
 single hash per output block, and it achieved the best FAIL count of any
 non-trivial generator in the battery (2 FAILs / 734 tests).
@@ -473,9 +480,9 @@ in counter mode under a fixed 128-bit AES key, then slices each 128-bit block
 into four 32-bit words. As a construction, AES-CTR is cryptographically strong
 when the key is secret and the counter/nonce discipline is correct. In this
 repository it is used as a deterministic benchmark fixture, so the key is fixed
-for reproducibility, not secrecy. On Dyson (Apple M4) the 137.8 MW/s reflects
-hardware AES acceleration (ARMv8 `FEAT_AES`); the throughput will differ on
-x86 depending on AES-NI availability.
+for reproducibility, not secrecy. On Dyson (Apple M4) the 138 MW/s reflects hardware AES acceleration
+(ARMv8 `FEAT_AES`); dmz (61.8 MW/s) and moore (63.5 MW/s) use AES-NI on x86_64
+and run at similar speed to each other, roughly half of Dyson's rate.
 
 #### `Camellia-128-CTR (key=00..0f)` **(CSPRNG)**
 
@@ -484,7 +491,7 @@ the same key sizes, block size, and security margin as AES.  It was a finalist
 in the NESSIE project and is specified in RFC 3713.  The structure is a
 Feistel network with 18 rounds for 128-bit keys plus six key-whitening
 operations (FL/FL$^{-1}$ layers every six rounds).  Without dedicated hardware
-acceleration, Camellia-128 runs at about 36 MW/s on Dyson — roughly one-quarter
+acceleration, Camellia-128 runs at 36.2 MW/s on Dyson — roughly one-quarter
 of AES-CTR speed — because the M4's `FEAT_AES` engine does not accelerate it.
 
 #### `Twofish-128-CTR (key=00..0f)` **(CSPRNG)**
@@ -495,7 +502,7 @@ key-dependent S-boxes: two of the four S-boxes are derived from the key
 material at setup, so encryption throughput is tightly coupled to how well
 those S-boxes fit in cache.  On Dyson the result is 3.5 MW/s — one of the
 slowest in the cipher suite — and on dmz (i5 with a smaller L1) it drops
-further to 1.3 MW/s.  Twofish's security margin is considered strong; its
+further to 1.3 MW/s; moore reaches only 0.98 MW/s.  Twofish's security margin is considered strong; its
 software speed is simply the price of its key schedule design.
 
 #### `Serpent-128-CTR (key=00..0f)` **(CSPRNG)**
@@ -504,7 +511,7 @@ Serpent (Anderson, Biham, and Knudsen, 1998) was the AES finalist with the
 widest security margin: 32 rounds versus AES's 10.  Each round is a simple
 SP-network over eight 4-bit S-boxes, which is fast in hardware but expensive
 in software because it requires 32 iterations of bitsliced operations.  At
-2.9 MW/s on Dyson and 1.1 MW/s on dmz it is the slowest block cipher in
+2.8 MW/s on Dyson and 1.1 MW/s on dmz it is the slowest block cipher in
 the suite; the benchmark reflects the deliberate design choice to prioritise
 safety margin over speed.
 
@@ -515,7 +522,7 @@ mandated for use in Chinese government and financial systems and standardised
 for WLAN security under the WAPI amendment to 802.11.  It uses a 32-round
 Feistel structure with a single 8-bit S-box and 32-bit linear diffusion,
 closely paralleling AES in structure though with different design constants.
-The 47 MW/s on Dyson reflects pure software execution; there is no ARMv8
+The 47.1 MW/s on Dyson reflects pure software execution; there is no ARMv8
 extension for SM4 acceleration on the M4 at time of measurement.
 
 #### `Grasshopper-CTR (key=00..1f)` **(CSPRNG)**
@@ -525,8 +532,9 @@ Russian national 128-bit block cipher, adopted in 2015 as part of the GOST
 standard family.  It uses a 256-bit key, ten rounds of an SP-network with a
 single 8-bit S-box and a linear transform over GF(2)$^{128}$, and was designed
 as a replacement for GOST 28147-89 (Magma).  The 6.7 MW/s on Dyson and
-3.9 MW/s on dmz reflect a pure software implementation; like SM4, there is
-no hardware acceleration path available on current ARMv8 or x86 platforms.
+3.9 MW/s on dmz (3.3 MW/s on moore) reflect a pure software implementation;
+like SM4, there is no hardware acceleration path available on current ARMv8
+or x86 platforms.
 
 #### `CAST-128-CTR (key=00..0f)` **(CSPRNG)**
 
@@ -534,7 +542,7 @@ CAST-128 (Carlisle Adams and Stafford Tavares, 1996) is a 64-bit block cipher
 with key sizes from 40 to 128 bits, specified in RFC 2144.  It is the cipher
 used by default in PGP 2.x and GnuPG, and it was included in early versions of
 SSH and many other widely deployed protocols.  The structure is a 16-round
-Feistel network with three rotating S-box types.  At 59.5 MW/s on Dyson it is
+Feistel network with three rotating S-box types.  At 61.4 MW/s on Dyson it is
 the fastest block-CTR cipher in the suite after AES — its 64-bit block means
 twice as many encryptions per megaword, but each encryption is cheap.
 
@@ -544,7 +552,7 @@ SEED (Korean Information Security Agency / TTAS.KO-12.0004, 1998) is the South
 Korean national 128-bit block cipher, developed after the Korean government
 declined to license RC5 for domestic deployment.  It is a 16-round Feistel
 cipher with a 128-bit block and 128-bit key; it has been mandated in Korean
-banking and e-government applications since 1999.  The 18.5 MW/s on Dyson
+banking and e-government applications since 1999.  The 18.6 MW/s on Dyson
 reflects its software implementation; like CAST-128, no hardware acceleration
 path exists for it on current platforms.
 
@@ -556,7 +564,7 @@ in Phase 3.  The state is eight 32-bit counters driven by a coupled iteration
 $x_{j,i+1} = (x_{j,i} + \phi_j(g_{j,i})) \bmod 2^{32}$, where the
 $g$-function provides nonlinearity and $\phi_j$ are precomputed rotation
 constants.  Output is 16 bytes per round by XOR'ing paired state words.  At
-352.6 MW/s on Dyson it is the fastest cipher in the suite by a wide margin
+352.4 MW/s on Dyson it is the fastest cipher in the suite by a wide margin
 because its 128-bit integer operations map directly onto SIMD lanes.
 
 #### `Salsa20 (key=00..1f, nonce=00..07)` **(CSPRNG)**
@@ -566,7 +574,7 @@ The core is a 20-round ARX (add-rotate-XOR) hash of a 512-bit state consisting
 of four constant words, eight key words, two counter words, and two nonce
 words.  Unlike ChaCha20, Salsa20 indexes its input words in a diagonal rather
 than columnar pattern.  At 201 MW/s on Dyson it runs faster than ChaCha20
-(171 MW/s) in this harness because the harness wraps it as a `StreamRng`
+(173 MW/s) in this harness because the harness wraps it as a `StreamRng`
 (buffered byte stream) rather than as a DRBG with nonce management overhead.
 
 #### `Snow3G (key=00..0f, iv=00..0f)` **(CSPRNG)**
@@ -576,8 +584,9 @@ Snow3G (ETSI SAGE, 3GPP TS 35.216, 2006) is the stream cipher underlying the
 GSMA's Milenage suite.  The generator combines a 32-stage linear feedback
 shift register over GF(2$^{32}$) with a finite state machine whose output
 function uses two 8-bit S-boxes derived from AES.  Key and IV are both 128 bits.
-At 136 MW/s on Dyson it runs at roughly AES-CTR speed, reflecting its single
-pass of finite-field arithmetic per 32-bit output word.
+At 136 MW/s on Dyson it runs at roughly the same speed as Snow3G on moore
+(72.3 MW/s) and dmz (74.2 MW/s), reflecting its single pass of finite-field
+arithmetic per 32-bit output word.
 
 #### `ZUC-128 (key=00..0f, iv=00..0f)` **(CSPRNG)**
 
@@ -586,6 +595,5 @@ underlies the 3GPP 128-EEA3 (confidentiality) and 128-EIA3 (integrity)
 algorithms used in LTE and 5G.  It drives a 16-stage LFSR over
 GF(2$^{31}$−1), feeds the output through a bit-reorganisation layer and a
 nonlinear function F with two 32-bit internal registers and four 8-bit S-boxes,
-and produces 32 output bits per clock.  At 142 MW/s on Dyson and 71.6 MW/s on
-dmz it is close to Snow3G, consistent with the similar LFSR-plus-NLF
-architecture.
+and produces 32 output bits per clock.  At 142.6 MW/s on Dyson, 71.6 MW/s on dmz, and 69.2 MW/s on moore it is
+close to Snow3G, consistent with the similar LFSR-plus-NLF architecture.
