@@ -1,1 +1,1 @@
-| BAD Borland C++ rand() LCG (seed=1)  |    187.4 | ±0.7052 |    30 |
+| BAD Borland C++ rand() LCG (seed=1)  |      188 | ±0.3073 |   110 |
