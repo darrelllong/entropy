@@ -1,1 +1,1 @@
-| BAD Unix FreeBSD12 rand_r() compat (seed=1) |    172.6 | ±0.3607 |   110 |
+| BAD Unix FreeBSD12 rand_r() compat (seed=1) |    170.9 | ±0.4222 |    83 |

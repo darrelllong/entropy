@@ -1,1 +1,1 @@
-| BAD Unix Linux glibc rand()/random() (seed=1) |      234 | ±0.7373 |    55 |
+| BAD Unix Linux glibc rand()/random() (seed=1) |    302.8 | ±1.035  |    82 |
