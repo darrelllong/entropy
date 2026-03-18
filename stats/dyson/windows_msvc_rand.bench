@@ -1,1 +1,1 @@
-| BAD Windows CRT rand() (seed=1)      |    438.5 | ±12.51  |    50 |
+| BAD Windows CRT rand() (seed=1)      |    441.7 | ±1.463  |    80 |
