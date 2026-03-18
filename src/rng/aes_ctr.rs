@@ -3,9 +3,11 @@
 //! Encrypts successive 128-bit counter values under a fixed AES-128 key to
 //! produce a keystream.  Each encrypted block yields four 32-bit output words.
 //!
-//! The AES-128 T-table implementation is taken verbatim from the cryptography
-//! codebase and implements FIPS PUB 197 (2001).  The T-table path is
-//! intentionally optimised for throughput, not constant-time behaviour.
+//! On `x86` / `x86_64` targets the implementation automatically dispatches to
+//! AES-NI hardware intrinsics (`AESENC` / `AESENCLAST`) via the `x86-alt` crate
+//! when the CPU reports `aes` feature support; all other targets — including
+//! `x86_64` without AES-NI — fall back to the pure-Rust T-table path.  The
+//! T-table path is optimised for throughput, not constant-time behaviour.
 //!
 //! Counter mode construction follows NIST SP 800-38A § 6.5.
 //!
@@ -20,7 +22,7 @@
 //!
 //! # Author
 //! Joan Daemen and Vincent Rijmen (Rijndael / AES, 2001);
-//! T-table implementation by Darrell Long (UC Santa Cruz).
+//! T-table implementation and x86 AES-NI dispatch by Darrell Long (UC Santa Cruz).
 
 use super::Rng;
 
@@ -219,14 +221,19 @@ fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
 /// produced by encrypting a 128-bit big-endian counter.  Four words are
 /// dispensed per AES block; the counter is incremented after each block.
 ///
+/// On `x86`/`x86_64` with AES-NI the hardware path is used automatically;
+/// all other targets use the pure-Rust T-table path.
+///
 /// Default key: NIST SP 800-38A Appendix F.5 AES-128-CTR test vector key
 /// `2b7e1516 28aed2a6 abf71588 09cf4f3c`.
 /// Default counter: all zeros.
 pub struct AesCtr {
-    rk: [u32; 44],
-    counter: u128, // 128-bit counter, incremented after each block
-    buf: [u32; 4], // current keystream block, as four big-endian u32s
-    pos: usize,    // index of next word to return (0..4); 4 = exhausted
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    hw: Option<x86_alt::aes128_x86::Aes128X86>,
+    rk: [u32; 44],     // T-table round keys — always computed, used when hw is None
+    counter: u128,     // 128-bit counter, incremented after each block
+    buf: [u32; 4],     // current keystream block, as four big-endian u32s
+    pos: usize,        // index of next word to return (0..4); 4 = exhausted
 }
 
 impl AesCtr {
@@ -237,6 +244,8 @@ impl AesCtr {
     #[must_use]
     pub fn new(key: &[u8; 16], counter: u128) -> Self {
         Self {
+            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+            hw: x86_alt::aes128_x86::Aes128X86::new(key).ok(),
             rk: expand_128(key),
             counter,
             buf: [0u32; 4],
@@ -260,13 +269,29 @@ impl AesCtr {
     /// Fill `buf` by encrypting the current counter block, then increment.
     fn refill(&mut self) {
         let block = self.counter.to_be_bytes();
+        self.counter = self.counter.wrapping_add(1);
+        self.pos = 0;
+
+        // AES-NI fast path: available on x86/x86_64 when the CPU supports it.
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        if let Some(ref hw) = self.hw {
+            let mut block = block; // mutable copy for in-place encryption
+            // encrypt_block cannot fail here: Aes128X86::new() already verified
+            // AES-NI support, so MissingAesFeature is unreachable.
+            let _ = hw.encrypt_block(&mut block);
+            self.buf[0] = u32::from_be_bytes(block[0..4].try_into().unwrap());
+            self.buf[1] = u32::from_be_bytes(block[4..8].try_into().unwrap());
+            self.buf[2] = u32::from_be_bytes(block[8..12].try_into().unwrap());
+            self.buf[3] = u32::from_be_bytes(block[12..16].try_into().unwrap());
+            return;
+        }
+
+        // Pure-Rust T-table fallback.
         let ct = aes_encrypt(&block, &self.rk);
         self.buf[0] = u32::from_be_bytes(ct[0..4].try_into().unwrap());
         self.buf[1] = u32::from_be_bytes(ct[4..8].try_into().unwrap());
         self.buf[2] = u32::from_be_bytes(ct[8..12].try_into().unwrap());
         self.buf[3] = u32::from_be_bytes(ct[12..16].try_into().unwrap());
-        self.counter = self.counter.wrapping_add(1);
-        self.pos = 0;
     }
 }
 

@@ -24,3 +24,6 @@ rustfft       = "6.2"
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-alt   = { path = "../cryptography/fast/Apple-Silicon/aarch64-alt" }
+
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+x86-alt       = { path = "../cryptography/fast/x86/x86-alt" }
