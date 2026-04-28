@@ -7,10 +7,10 @@
 //! 0..=8) are combined with a final KS test.
 //!
 //! Faithful transcription of `diehard_birthdays.c` in Dieharder 3.31.1:
-//!   - intervals[0] = rand_uint[0] (gap from day 0 to first birthday)
-//!   - intervals[m] = rand_uint[m] − rand_uint[m−1]  (m = 1..M)
+//!   - `intervals[0] = rand_uint[0]` (gap from day 0 to first birthday)
+//!   - `intervals[m] = rand_uint[m] − rand_uint[m−1]`  (m = 1..M)
 //!   - j counts interval values appearing more than once
-//!   - chi-square on js[] histogram (tail bins with expected < 5 are excluded)
+//!   - chi-square on `js[]` histogram (tail bins with expected < 5 are excluded)
 //!   - KS on the 9 chi-square p-values
 //!
 //! # Author

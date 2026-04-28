@@ -79,14 +79,13 @@ impl HashDrbg {
             input[1..].copy_from_slice(&v);
             hash_df(&input, SEEDLEN)
         };
-        let drbg = Self {
+        Self {
             v,
             c,
             reseed_counter: 1,
             buf: [0u8; GENERATE_SIZE],
             offset: GENERATE_SIZE, // force refill on first use
-        };
-        drbg
+        }
     }
 
     /// Produce GENERATE_BLOCKS Hashgen blocks (§10.1.1.4) into buf, then

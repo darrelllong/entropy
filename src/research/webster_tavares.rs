@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn parity_broadcast_is_maximally_correlated() {
         let report = evaluate_u64(4, 4, 16, |x| {
-            let g = ((x & 1) & ((x >> 1) & 1)) as u64;
+            let g = (x & 1) & ((x >> 1) & 1);
             g | (g << 1)
         });
         for i in 0..2 {

@@ -9,7 +9,7 @@
 //! enough readings to produce a 95% confidence interval.
 //!
 //! Usage:
-//!   pilot_rng <name>
+//!   `pilot_rng <name>`
 //!
 //! Names: osrng  mt19937  xorshift64  xorshift32  sysv_rand  rand48
 //!        bsd_random  linux_glibc_random  bsd_rand_compat

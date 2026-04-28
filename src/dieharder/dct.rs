@@ -7,9 +7,9 @@
 //!
 //! Algorithm from `dieharder-3.31.1/libdieharder/dab_dct.c`:
 //!   1. Rotate raw u32 words (rotAmount increases by rmax_bits/4 each quarter).
-//!   2. DCT-II: X[k] = Σ x[j] cos(π(j+½)k/N)  (direct O(n²), n=256).
-//!   3. Adjust DC component: X[0] -= N·(2³¹−½); X[0] /= √2.
-//!   4. Record argmax |X[k]|.
+//!   2. DCT-II: `X[k] = Σ x[j] cos(π(j+½)k/N)`  (direct O(n²), n=256).
+//!   3. Adjust DC component: `X[0] -= N·(2³¹−½); X[0] /= √2`.
+//!   4. Record `argmax |X[k]|`.
 //!
 //!   Chi-square on position counts; expected = tsamples/ntuple per position.
 //!
