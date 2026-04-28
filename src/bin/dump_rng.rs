@@ -1,13 +1,15 @@
 //! Stream raw u32 words from a named RNG to stdout.
 //!
 //! Usage:
-//!     dump_rng <name> <count>
+//!     dump_rng <name> <count>     write `count` LE u32 words to stdout
+//!     dump_rng --list             write the supported names, one per line
+//!     dump_rng --help             usage message
 //!
-//! Writes `count` little-endian u32 words (4 * count bytes) to stdout. R can
-//! read the result with `readBin(con, integer(), n=count, size=4, endian="little")`.
-//! Names match `pilot_rng`.
+//! Each output u32 is little-endian; R reads it with
+//!   `readBin(con, integer(), n=count, size=4, endian="little")`.
+//! `count == 0` is legal and produces empty output.  Names match `pilot_rng`.
 
-use std::io::{self, BufWriter, Write};
+use std::io::{self, BufWriter, ErrorKind, Write};
 
 use cryptography::{
     Camellia128, Cast128, Grasshopper, Rabbit, Salsa20, Seed as SeedCipher, Serpent128, Sm4,
@@ -22,31 +24,65 @@ use entropy::rng::{
 };
 use entropy::seed::{IV16, IV8, K16, K32};
 
+/// Canonical list of supported names.  Tests and `--list` use this directly.
+pub const NAMES: &[&str] = &[
+    "osrng",
+    "mt19937",
+    "xorshift32",
+    "xorshift64",
+    "sysv_rand",
+    "rand48",
+    "bsd_random",
+    "linux_glibc_random",
+    "bsd_rand_compat",
+    "windows_msvc_rand",
+    "windows_vb6_rnd",
+    "windows_dotnet_random",
+    "ansi_c_lcg",
+    "lcg_minstd",
+    "borland_lcg",
+    "msvc_lcg",
+    "aes_ctr",
+    "camellia_ctr",
+    "twofish_ctr",
+    "serpent_ctr",
+    "sm4_ctr",
+    "grasshopper_ctr",
+    "cast128_ctr",
+    "seed_ctr",
+    "rabbit",
+    "salsa20",
+    "snow3g",
+    "zuc128",
+    "spongebob",
+    "squidward",
+    "pcg32",
+    "pcg64",
+    "xoshiro256",
+    "xoroshiro128",
+    "wyrand",
+    "sfc64",
+    "jsf64",
+    "chacha20",
+    "hmac_drbg",
+    "hash_drbg",
+    "crypto_ctr_drbg",
+    "dual_ec_p256",
+    "constant",
+    "counter",
+];
+
 fn dump<R: Rng>(mut rng: R, n: u64) -> io::Result<()> {
     let stdout = io::stdout();
     let mut out = BufWriter::with_capacity(1 << 20, stdout.lock());
     for _ in 0..n {
-        let w = rng.next_u32();
-        out.write_all(&w.to_le_bytes())?;
+        out.write_all(&rng.next_u32().to_le_bytes())?;
     }
     out.flush()
 }
 
-fn main() {
-    let mut args = std::env::args().skip(1);
-    let name = args.next().unwrap_or_else(|| {
-        eprintln!("usage: dump_rng <name> <count>");
-        std::process::exit(1);
-    });
-    let n: u64 = args
-        .next()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or_else(|| {
-            eprintln!("usage: dump_rng <name> <count>");
-            std::process::exit(1);
-        });
-
-    let r: io::Result<()> = match name.to_ascii_lowercase().as_str() {
+fn dispatch(name: &str, n: u64) -> Result<io::Result<()>, ()> {
+    let r = match name {
         "osrng" => dump(OsRng::new(), n),
         "mt19937" => dump(Mt19937::new(19650218), n),
         "xorshift64" => dump(Xorshift64::new(1), n),
@@ -91,17 +127,91 @@ fn main() {
         "dual_ec_p256" => dump(DualEcDrbg::p256(b"entropy-r-report"), n),
         "constant" => dump(ConstantRng::new(0xDEAD_DEAD), n),
         "counter" => dump(CounterRng::new(0), n),
-        other => {
-            eprintln!("unknown RNG: {other}");
-            std::process::exit(1);
+        _ => return Err(()),
+    };
+    Ok(r)
+}
+
+fn print_usage(stream: &mut dyn Write) {
+    let _ = writeln!(
+        stream,
+        "usage: dump_rng <name> <count>\n       dump_rng --list\n       dump_rng --help",
+    );
+}
+
+fn main() {
+    let argv: Vec<String> = std::env::args().skip(1).collect();
+    if argv.iter().any(|a| a == "--help" || a == "-h") {
+        print_usage(&mut io::stdout());
+        return;
+    }
+    if argv.iter().any(|a| a == "--list") {
+        let stdout = io::stdout();
+        let mut out = stdout.lock();
+        for n in NAMES {
+            let _ = writeln!(out, "{n}");
+        }
+        return;
+    }
+    if argv.len() != 2 {
+        print_usage(&mut io::stderr());
+        std::process::exit(2);
+    }
+    let name = argv[0].to_ascii_lowercase();
+    let count: u64 = match argv[1].parse() {
+        Ok(c) => c,
+        Err(_) => {
+            eprintln!("dump_rng: count must be a non-negative integer, got {:?}", argv[1]);
+            std::process::exit(2);
         }
     };
 
-    if let Err(e) = r {
-        // Broken pipe is normal when the consumer (R) has read enough.
-        if e.kind() != io::ErrorKind::BrokenPipe {
+    match dispatch(&name, count) {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) if e.kind() == ErrorKind::BrokenPipe => {
+            // Consumer closed stdin early — normal for `head`/R early-stop.
+        }
+        Ok(Err(e)) => {
             eprintln!("dump_rng: write error: {e}");
             std::process::exit(1);
         }
+        Err(()) => {
+            eprintln!("dump_rng: unknown RNG: {name}");
+            eprintln!("hint: dump_rng --list");
+            std::process::exit(2);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn names_are_unique_and_sorted_meaningfully() {
+        let mut sorted = NAMES.to_vec();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), NAMES.len(), "duplicate name in NAMES");
+    }
+
+    #[test]
+    fn every_name_is_dispatchable_with_zero_words() {
+        // count=0 exercises the dispatch & constructor for each generator
+        // without paying any RNG output cost.  Validates that adding a name
+        // to NAMES without a matching match-arm trips the test, and that
+        // all constructors run without panicking.
+        for &n in NAMES {
+            match dispatch(n, 0) {
+                Ok(Ok(())) => {}
+                Ok(Err(e)) => panic!("dispatch({n}, 0) failed I/O: {e}"),
+                Err(()) => panic!("dispatch({n}, 0) returned UnknownName"),
+            }
+        }
+    }
+
+    #[test]
+    fn dispatch_rejects_unknown_name() {
+        assert!(dispatch("not_a_real_rng", 0).is_err());
     }
 }

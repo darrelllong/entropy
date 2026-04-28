@@ -10,8 +10,20 @@ if len(sys.argv) != 2:
     sys.exit("usage: r_report_summary.py <report.md>")
 
 path = sys.argv[1]
-with open(path) as fh:
-    text = fh.read()
+try:
+    with open(path) as fh:
+        text = fh.read()
+except OSError as exc:
+    sys.exit(f"r_report_summary: cannot read {path}: {exc}")
+
+# Strip any previous summary block first so re-runs are idempotent.  The
+# block we emit ends with a `---\n\n` separator, then the first per-RNG
+# `##` heading.  `(?=^## )` requires the next paragraph start with `## `
+# without consuming it.
+text = re.sub(
+    r"## Summary —[^\n]*\n.*?\n---\n\n(?=^## )",
+    "", text, flags=re.DOTALL | re.MULTILINE
+)
 
 # Split into front matter (everything before the first '## ') and body.
 m = re.search(r"^## ", text, flags=re.MULTILINE)
@@ -19,13 +31,18 @@ if not m:
     sys.exit("no '## ' section found")
 front, body = text[: m.start()], text[m.start() :]
 
-# Walk each '## <label>' section.
+# Walk each '## <label>' section.  Only sections that contain a "Raw
+# moments" table are RNG sections — this skips the trailing analytical
+# discussion ("## Analysis") if present.
 sections = re.split(r"^(## .+)$", body, flags=re.MULTILINE)
 # split() returns ['', heading1, content1, heading2, content2, ...]
 rows = []
 for i in range(1, len(sections), 2):
     heading = sections[i].lstrip("# ").strip()
     chunk = sections[i + 1]
+    # An RNG section's signature is the moments-table header.
+    if "### Raw moments E[U^k]" not in chunk:
+        continue
     # tally REJECT/pass/n/a, ignoring the Jarque-Bera row (always REJECT)
     rejects = 0
     passes = 0
@@ -62,9 +79,6 @@ out = ["## Summary — REJECT counts at α = 0.001\n",
 for h, r, p, n, _ in rows:
     out.append(f"| {h} | {r} | {p} | {n} |")
 summary = "\n".join(out) + "\n\n---\n\n"
-
-# Replace any prior summary block, then re-insert.
-front = re.sub(r"## Summary —.*?---\n\n", "", front, flags=re.DOTALL)
 
 with open(path, "w") as fh:
     fh.write(front + summary + body)

@@ -29,13 +29,12 @@ R packages used:
 - `randtests` 1.0.2
 - `randtoolbox` 2.0.5
 - `tseries` 0.10.61
-- `nortest` 1.0.4
 - `moments` 0.14.1
 - `stats` 4.5.0
 
 R version: 4.5.0
 Host: Darwin 25.4.0 arm64
-Date: 2026-04-28 10:08:03 PDT
+Date: 2026-04-28 14:27:46 PDT
 
 ---
 
@@ -95,28 +94,28 @@ Counts exclude `tseries::jarque.bera.test`, which is a Normality test and is **e
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.499965  Var = 0.083295  Min = 0.000000  Max = 1.000000
+Mean = 0.500183  Var = 0.083294  Min = 0.000000  Max = 1.000000
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | 0.344355 | 0.730580 | pass |
-| randtests::bartels.rank.test | 0.082414 | 0.934317 | pass |
-| randtests::cox.stuart.test (trend) | 1250244.000000 | 0.758078 | pass |
-| randtests::difference.sign.test | -0.031758 | 0.974665 | pass |
-| randtests::turning.point.test | -0.374413 | 0.708097 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | -0.430513 | 0.666823 | pass |
-| randtoolbox::freq.test (16 bins) | 16.933754 | 0.322840 | pass |
-| randtoolbox::gap.test [0,0.5) | 15.912694 | 0.820195 | pass |
-| randtoolbox::serial.test (d=8) | 53.127680 | 0.807824 | pass |
-| randtoolbox::poker.test (5-hand) | 2.485808 | 0.647179 | pass |
-| randtoolbox::order.test (d=4) | 26.362163 | 0.284069 | pass |
-| stats::ks.test vs U(0,1) | 0.000283 | 0.818953 | pass |
-| stats::chisq.test (256 bins) | 283.372646 | 0.107149 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 28.213071 | 0.298138 | pass |
-| tseries::runs.test (binary) | 0.344355 | 0.730580 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299896.175707 | 0.000000 | REJECT |
+| randtests::runs.test (median) | 2.188664 | 0.028621 | pass |
+| randtests::bartels.rank.test | 1.936566 | 0.052798 | pass |
+| randtests::cox.stuart.test (trend) | 1248924.000000 | 0.173700 | pass |
+| randtests::difference.sign.test | -0.945782 | 0.344260 | pass |
+| randtests::turning.point.test | 1.170969 | 0.241611 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | 0.101129 | 0.919448 | pass |
+| randtoolbox::freq.test (16 bins) | 12.092787 | 0.671993 | pass |
+| randtoolbox::gap.test [0,0.5) | 34.657008 | 0.042062 | pass |
+| randtoolbox::serial.test (d=8) | 55.483034 | 0.738352 | pass |
+| randtoolbox::poker.test (5-hand) | 1.945753 | 0.745736 | pass |
+| randtoolbox::order.test (d=4) | 21.510093 | 0.549967 | pass |
+| stats::ks.test vs U(0,1) | 0.000510 | 0.148024 | pass |
+| stats::chisq.test (256 bins) | 265.399194 | 0.314265 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 21.073897 | 0.688482 | pass |
+| tseries::runs.test (binary) | 2.188664 | 0.028621 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299845.542118 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -124,28 +123,28 @@ Mean = 0.499965  Var = 0.083295  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.49996508 | 0.50000000 | 3.49e-05 |
-| 2 | 0.33325979 | 0.33333333 | 7.35e-05 |
-| 3 | 0.24990039 | 0.25000000 | 9.96e-05 |
-| 4 | 0.19988349 | 0.20000000 | 1.17e-04 |
-| 5 | 0.16653985 | 0.16666667 | 1.27e-04 |
-| 6 | 0.14272455 | 0.14285714 | 1.33e-04 |
-| 7 | 0.12486467 | 0.12500000 | 1.35e-04 |
-| 8 | 0.11097504 | 0.11111111 | 1.36e-04 |
-| 9 | 0.09986444 | 0.10000000 | 1.36e-04 |
-| 10 | 0.09077484 | 0.09090909 | 1.34e-04 |
+| 1 | 0.50018262 | 0.50000000 | 1.83e-04 |
+| 2 | 0.33347671 | 0.33333333 | 1.43e-04 |
+| 3 | 0.25010484 | 0.25000000 | 1.05e-04 |
+| 4 | 0.20007630 | 0.20000000 | 7.63e-05 |
+| 5 | 0.16672183 | 0.16666667 | 5.52e-05 |
+| 6 | 0.14289614 | 0.14285714 | 3.90e-05 |
+| 7 | 0.12502624 | 0.12500000 | 2.62e-05 |
+| 8 | 0.11112704 | 0.11111111 | 1.59e-05 |
+| 9 | 0.10000745 | 0.10000000 | 7.45e-06 |
+| 10 | 0.09090948 | 0.09090909 | 3.89e-07 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 19.866133 |
-| Bonferroni p (no spike) | 0.005874 |
-| Spectral flatness (Wiener entropy) | 0.561461 |
+| max normalized periodogram (P_max) | 17.471118 |
+| Bonferroni p (no spike) | 0.062571 |
+| Spectral flatness (Wiener entropy) | 0.561398 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=1.798, p=0.994275 |
-| Periodogram KS vs Exp(1) | D=0.000366, p=0.891224 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=6.223, p=0.717434 |
+| Periodogram KS vs Exp(1) | D=0.000403, p=0.812421 |
 
 
 ## ConstantRng
@@ -2147,28 +2146,28 @@ Mean = 0.500085  Var = 0.083371  Min = 0.000001  Max = 1.000000
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.499920  Var = 0.083257  Min = 0.000000  Max = 1.000000
+Mean = 0.500067  Var = 0.083312  Min = 0.000000  Max = 1.000000
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | 0.240601 | 0.809864 | pass |
-| randtests::bartels.rank.test | -0.337737 | 0.735561 | pass |
-| randtests::cox.stuart.test (trend) | 1251533.000000 | 0.052565 | pass |
-| randtests::difference.sign.test | -0.149497 | 0.881161 | pass |
-| randtests::turning.point.test | -1.129603 | 0.258643 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | 0.620639 | 0.534837 | pass |
-| randtoolbox::freq.test (16 bins) | 17.390419 | 0.296066 | pass |
-| randtoolbox::gap.test [0,0.5) | 14.872075 | 0.867669 | pass |
-| randtoolbox::serial.test (d=8) | 85.831475 | 0.029529 | pass |
-| randtoolbox::poker.test (5-hand) | 2.547099 | 0.636222 | pass |
-| randtoolbox::order.test (d=4) | 26.977485 | 0.256927 | pass |
-| stats::ks.test vs U(0,1) | 0.000462 | 0.235597 | pass |
-| stats::chisq.test (256 bins) | 245.691597 | 0.650878 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 24.383778 | 0.497297 | pass |
-| tseries::runs.test (binary) | 0.240601 | 0.809864 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299525.269662 | 0.000000 | REJECT |
+| randtests::runs.test (median) | 1.412301 | 0.157861 | pass |
+| randtests::bartels.rank.test | 1.003260 | 0.315735 | pass |
+| randtests::cox.stuart.test (trend) | 1248573.000000 | 0.071169 | pass |
+| randtests::difference.sign.test | -0.824945 | 0.409403 | pass |
+| randtests::turning.point.test | 0.736098 | 0.461671 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | 0.053432 | 0.957387 | pass |
+| randtoolbox::freq.test (16 bins) | 17.951661 | 0.265215 | pass |
+| randtoolbox::gap.test [0,0.5) | 15.969326 | 0.817405 | pass |
+| randtoolbox::serial.test (d=8) | 74.709811 | 0.148395 | pass |
+| randtoolbox::poker.test (5-hand) | 5.534849 | 0.236683 | pass |
+| randtoolbox::order.test (d=4) | 36.204083 | 0.039316 | pass |
+| stats::ks.test vs U(0,1) | 0.000311 | 0.718380 | pass |
+| stats::chisq.test (256 bins) | 247.391130 | 0.622000 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 33.616909 | 0.116353 | pass |
+| tseries::runs.test (binary) | 1.412301 | 0.157861 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299785.859755 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -2176,28 +2175,28 @@ Mean = 0.499920  Var = 0.083257  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.49992008 | 0.50000000 | 7.99e-05 |
-| 2 | 0.33317741 | 0.33333333 | 1.56e-04 |
-| 3 | 0.24981416 | 0.25000000 | 1.86e-04 |
-| 4 | 0.19980605 | 0.20000000 | 1.94e-04 |
-| 5 | 0.16647414 | 0.16666667 | 1.93e-04 |
-| 6 | 0.14267000 | 0.14285714 | 1.87e-04 |
-| 7 | 0.12481960 | 0.12500000 | 1.80e-04 |
-| 8 | 0.11093764 | 0.11111111 | 1.73e-04 |
-| 9 | 0.09983309 | 0.10000000 | 1.67e-04 |
-| 10 | 0.09074820 | 0.09090909 | 1.61e-04 |
+| 1 | 0.50006696 | 0.50000000 | 6.70e-05 |
+| 2 | 0.33337852 | 0.33333333 | 4.52e-05 |
+| 3 | 0.25002803 | 0.25000000 | 2.80e-05 |
+| 4 | 0.20001820 | 0.20000000 | 1.82e-05 |
+| 5 | 0.16667983 | 0.16666667 | 1.32e-05 |
+| 6 | 0.14286790 | 0.14285714 | 1.08e-05 |
+| 7 | 0.12500961 | 0.12500000 | 9.61e-06 |
+| 8 | 0.11112011 | 0.11111111 | 9.00e-06 |
+| 9 | 0.10000854 | 0.10000000 | 8.54e-06 |
+| 10 | 0.09091713 | 0.09090909 | 8.04e-06 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 14.483454 |
-| Bonferroni p (no spike) | 0.722492 |
-| Spectral flatness (Wiener entropy) | 0.561987 |
+| max normalized periodogram (P_max) | 14.379339 |
+| Bonferroni p (no spike) | 0.758905 |
+| Spectral flatness (Wiener entropy) | 0.562060 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=6.360, p=0.703467 |
-| Periodogram KS vs Exp(1) | D=0.000520, p=0.508653 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=11.176, p=0.263866 |
+| Periodogram KS vs Exp(1) | D=0.000667, p=0.216189 |
 
 
 ## SpongeBob (SHA3-512)
@@ -2318,28 +2317,28 @@ Mean = 0.500039  Var = 0.083353  Min = 0.000000  Max = 0.999999
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.500152  Var = 0.083334  Min = 0.000000  Max = 1.000000
+Mean = 0.499985  Var = 0.083306  Min = 0.000000  Max = 1.000000
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | 0.432008 | 0.665735 | pass |
-| randtests::bartels.rank.test | 0.881983 | 0.377786 | pass |
-| randtests::cox.stuart.test (trend) | 1250629.000000 | 0.426615 | pass |
-| randtests::difference.sign.test | -1.190555 | 0.233828 | pass |
-| randtests::turning.point.test | 0.387141 | 0.698652 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | 0.660429 | 0.508978 | pass |
-| randtoolbox::freq.test (16 bins) | 15.626726 | 0.407284 | pass |
-| randtoolbox::gap.test [0,0.5) | 23.565776 | 0.370395 | pass |
-| randtoolbox::serial.test (d=8) | 54.691840 | 0.762797 | pass |
-| randtoolbox::poker.test (5-hand) | 4.183442 | 0.381749 | pass |
-| randtoolbox::order.test (d=4) | 21.108890 | 0.574438 | pass |
-| stats::ks.test vs U(0,1) | 0.000448 | 0.267482 | pass |
-| stats::chisq.test (256 bins) | 235.552051 | 0.803551 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 22.874815 | 0.584873 | pass |
-| tseries::runs.test (binary) | 0.432008 | 0.665735 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299686.380034 | 0.000000 | REJECT |
+| randtests::runs.test (median) | 0.703020 | 0.482043 | pass |
+| randtests::bartels.rank.test | -0.247601 | 0.804443 | pass |
+| randtests::cox.stuart.test (trend) | 1250645.000000 | 0.414938 | pass |
+| randtests::difference.sign.test | -0.941135 | 0.346636 | pass |
+| randtests::turning.point.test | 0.133643 | 0.893685 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | 0.195794 | 0.844771 | pass |
+| randtoolbox::freq.test (16 bins) | 11.100186 | 0.745461 | pass |
+| randtoolbox::gap.test [0,0.5) | 20.109488 | 0.576191 | pass |
+| randtoolbox::serial.test (d=8) | 52.740813 | 0.818222 | pass |
+| randtoolbox::poker.test (5-hand) | 5.189349 | 0.268415 | pass |
+| randtoolbox::order.test (d=4) | 13.572352 | 0.938467 | pass |
+| stats::ks.test vs U(0,1) | 0.000338 | 0.617147 | pass |
+| stats::chisq.test (256 bins) | 245.494579 | 0.654182 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 31.484661 | 0.173469 | pass |
+| tseries::runs.test (binary) | 0.703020 | 0.482043 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299493.506468 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -2347,56 +2346,56 @@ Mean = 0.500152  Var = 0.083334  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.50015182 | 0.50000000 | 1.52e-04 |
-| 2 | 0.33348592 | 0.33333333 | 1.53e-04 |
-| 3 | 0.25013116 | 0.25000000 | 1.31e-04 |
-| 4 | 0.20011394 | 0.20000000 | 1.14e-04 |
-| 5 | 0.16676884 | 0.16666667 | 1.02e-04 |
-| 6 | 0.14295128 | 0.14285714 | 9.41e-05 |
-| 7 | 0.12508841 | 0.12500000 | 8.84e-05 |
-| 8 | 0.11119521 | 0.11111111 | 8.41e-05 |
-| 9 | 0.10008066 | 0.10000000 | 8.07e-05 |
-| 10 | 0.09098686 | 0.09090909 | 7.78e-05 |
+| 1 | 0.49998522 | 0.50000000 | 1.48e-05 |
+| 2 | 0.33329167 | 0.33333333 | 4.17e-05 |
+| 3 | 0.24994992 | 0.25000000 | 5.01e-05 |
+| 4 | 0.19995392 | 0.20000000 | 4.61e-05 |
+| 5 | 0.16663028 | 0.16666667 | 3.64e-05 |
+| 6 | 0.14283227 | 0.14285714 | 2.49e-05 |
+| 7 | 0.12498658 | 0.12500000 | 1.34e-05 |
+| 8 | 0.11110828 | 0.11111111 | 2.83e-06 |
+| 9 | 0.10000657 | 0.10000000 | 6.57e-06 |
+| 10 | 0.09092384 | 0.09090909 | 1.48e-05 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 14.421140 |
-| Bonferroni p (no spike) | 0.744447 |
-| Spectral flatness (Wiener entropy) | 0.561916 |
+| max normalized periodogram (P_max) | 13.934945 |
+| Bonferroni p (no spike) | 0.891234 |
+| Spectral flatness (Wiener entropy) | 0.561302 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=5.433, p=0.795068 |
-| Periodogram KS vs Exp(1) | D=0.000501, p=0.556371 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=12.983, p=0.163396 |
+| Periodogram KS vs Exp(1) | D=0.000463, p=0.656616 |
 
 
 ## HashDrbg
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.499820  Var = 0.083277  Min = 0.000000  Max = 1.000000
+Mean = 0.500196  Var = 0.083331  Min = 0.000001  Max = 1.000000
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | 0.317522 | 0.750848 | pass |
-| randtests::bartels.rank.test | -0.003281 | 0.997382 | pass |
-| randtests::cox.stuart.test (trend) | 1249881.000000 | 0.880850 | pass |
-| randtests::difference.sign.test | -1.096054 | 0.273055 | pass |
-| randtests::turning.point.test | 0.845346 | 0.397918 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | -0.731915 | 0.464220 | pass |
-| randtoolbox::freq.test (16 bins) | 25.148550 | 0.047984 | pass |
-| randtoolbox::gap.test [0,0.5) | 27.693083 | 0.186077 | pass |
-| randtoolbox::serial.test (d=8) | 66.303437 | 0.363739 | pass |
-| randtoolbox::poker.test (5-hand) | 1.766544 | 0.778597 | pass |
-| randtoolbox::order.test (d=4) | 33.426189 | 0.073923 | pass |
-| stats::ks.test vs U(0,1) | 0.000546 | 0.101631 | pass |
-| stats::chisq.test (256 bins) | 238.186803 | 0.767864 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 29.470845 | 0.244714 | pass |
-| tseries::runs.test (binary) | 0.317522 | 0.750848 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299735.326152 | 0.000000 | REJECT |
+| randtests::runs.test (median) | 0.069765 | 0.944380 | pass |
+| randtests::bartels.rank.test | -0.242031 | 0.808756 | pass |
+| randtests::cox.stuart.test (trend) | 1250162.000000 | 0.838132 | pass |
+| randtests::difference.sign.test | 0.459336 | 0.645993 | pass |
+| randtests::turning.point.test | 0.617304 | 0.537034 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | 0.119523 | 0.904861 | pass |
+| randtoolbox::freq.test (16 bins) | 17.369197 | 0.297277 | pass |
+| randtoolbox::gap.test [0,0.5) | 32.747544 | 0.065514 | pass |
+| randtoolbox::serial.test (d=8) | 59.815014 | 0.590558 | pass |
+| randtoolbox::poker.test (5-hand) | 3.789948 | 0.435179 | pass |
+| randtoolbox::order.test (d=4) | 29.916275 | 0.151820 | pass |
+| stats::ks.test vs U(0,1) | 0.000581 | 0.068318 | pass |
+| stats::chisq.test (256 bins) | 226.280243 | 0.902006 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 25.126705 | 0.455291 | pass |
+| tseries::runs.test (binary) | 0.069765 | 0.944380 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 300078.605338 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -2404,28 +2403,28 @@ Mean = 0.499820  Var = 0.083277  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.49982012 | 0.50000000 | 1.80e-04 |
-| 2 | 0.33309764 | 0.33333333 | 2.36e-04 |
-| 3 | 0.24974919 | 0.25000000 | 2.51e-04 |
-| 4 | 0.19974893 | 0.20000000 | 2.51e-04 |
-| 5 | 0.16642104 | 0.16666667 | 2.46e-04 |
-| 6 | 0.14261908 | 0.14285714 | 2.38e-04 |
-| 7 | 0.12477012 | 0.12500000 | 2.30e-04 |
-| 8 | 0.11088936 | 0.11111111 | 2.22e-04 |
-| 9 | 0.09978605 | 0.10000000 | 2.14e-04 |
-| 10 | 0.09070251 | 0.09090909 | 2.07e-04 |
+| 1 | 0.50019554 | 0.50000000 | 1.96e-04 |
+| 2 | 0.33352626 | 0.33333333 | 1.93e-04 |
+| 3 | 0.25014915 | 0.25000000 | 1.49e-04 |
+| 4 | 0.20010480 | 0.20000000 | 1.05e-04 |
+| 5 | 0.16673453 | 0.16666667 | 6.79e-05 |
+| 6 | 0.14289559 | 0.14285714 | 3.84e-05 |
+| 7 | 0.12501518 | 0.12500000 | 1.52e-05 |
+| 8 | 0.11110783 | 0.11111111 | 3.28e-06 |
+| 9 | 0.09998198 | 0.10000000 | 1.80e-05 |
+| 10 | 0.09087924 | 0.09090909 | 2.99e-05 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 15.308680 |
-| Bonferroni p (no spike) | 0.429732 |
-| Spectral flatness (Wiener entropy) | 0.561545 |
+| max normalized periodogram (P_max) | 15.034974 |
+| Bonferroni p (no spike) | 0.522156 |
+| Spectral flatness (Wiener entropy) | 0.561336 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=5.745, p=0.765185 |
-| Periodogram KS vs Exp(1) | D=0.000500, p=0.559323 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=5.744, p=0.765242 |
+| Periodogram KS vs Exp(1) | D=0.000443, p=0.711296 |
 
 
 ## CtrDrbgAes256

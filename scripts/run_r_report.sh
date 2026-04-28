@@ -7,6 +7,20 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DUMP="$ROOT/target/release/dump_rng"
 R_SCRIPT="$ROOT/scripts/r_rng_tests.R"
 OUT="$ROOT/R-REPORT.md"
+
+if [[ ! -x "$DUMP" ]]; then
+  echo "error: $DUMP not found — run \`cargo build --release --bin dump_rng\` first" >&2
+  exit 1
+fi
+if [[ ! -r "$R_SCRIPT" ]]; then
+  echo "error: $R_SCRIPT missing or unreadable" >&2
+  exit 1
+fi
+if ! command -v Rscript >/dev/null 2>&1; then
+  echo "error: Rscript not on PATH" >&2
+  exit 1
+fi
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -105,7 +119,7 @@ R packages used:
 EOF
 
 Rscript -e '
-pkgs <- c("randtests","randtoolbox","tseries","nortest","moments","stats")
+pkgs <- c("randtests","randtoolbox","tseries","moments","stats")
 for (p in pkgs) {
   v <- tryCatch(packageVersion(p), error=function(e) NA)
   cat(sprintf("- `%s` %s\n", p, ifelse(is.na(v),"(not installed)",as.character(v))))
@@ -136,11 +150,25 @@ for entry in "${RNGS[@]}"; do
     echo "[err] dump_rng $name failed" >&2
     continue
   fi
+  expected=$(( n * 4 ))
+  # Use stat directly (no pipeline) so set -eo pipefail can't abort here
+  # on a transient error.  Linux/BSD stat have different flags.
+  if actual=$(stat -f%z "$bin" 2>/dev/null) || actual=$(stat -c%s "$bin" 2>/dev/null); then
+    :
+  else
+    echo "[err] cannot stat $bin" >&2
+    continue
+  fi
+  if [[ "$actual" != "$expected" ]]; then
+    echo "[err] $name: expected $expected bytes, got $actual" >&2
+    continue
+  fi
   if ! Rscript "$R_SCRIPT" "$bin" "$label"; then
     echo "[err] R analysis on $label failed" >&2
   fi
   rm -f "$bin"
 done
-} > "$OUT"
+} > "$OUT.tmp"
 
+mv -f "$OUT.tmp" "$OUT"
 echo "[done] wrote $OUT" >&2
