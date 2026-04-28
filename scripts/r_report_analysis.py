@@ -13,11 +13,16 @@ import sys
 if len(sys.argv) != 2:
     sys.exit("usage: r_report_analysis.py <report.md>")
 
-with open(sys.argv[1]) as fh:
-    text = fh.read()
+try:
+    with open(sys.argv[1]) as fh:
+        text = fh.read()
+except OSError as exc:
+    sys.exit(f"r_report_analysis: cannot read {sys.argv[1]}: {exc}")
 
 # Strip leading summary block — only the per-RNG sections matter here.
 m = re.search(r"^## ", text, flags=re.MULTILINE)
+if m is None:
+    sys.exit(f"r_report_analysis: no '## ' headings in {sys.argv[1]}")
 body = text[m.start():]
 
 # Keep only ## sections that contain a moments table (skip the inserted
@@ -27,7 +32,7 @@ records = []
 for i in range(1, len(chunks), 2):
     label = chunks[i].lstrip("# ").strip()
     chunk = chunks[i + 1]
-    if "Raw moments" not in chunk:
+    if "### Raw moments E[U^k]" not in chunk:
         continue
     # Sample size
     sz = re.search(r"Sample size:\s*([\d,]+)\s*u32", chunk)

@@ -11,23 +11,39 @@ suppressPackageStartupMessages({
   library(tseries)
   library(moments)
   library(stats)
+  # NOTE: nortest is intentionally not loaded — its tests target Normality,
+  # not Uniformity, so they would always REJECT for a clean U(0,1) stream.
 })
 
 argv  <- commandArgs(trailingOnly = TRUE)
+if (length(argv) != 2L)
+  stop("usage: Rscript r_rng_tests.R <binary file> <rng label>", call. = FALSE)
 path  <- argv[[1]]
 label <- argv[[2]]
+if (!file.exists(path))
+  stop(sprintf("input file not found: %s", path), call. = FALSE)
+if (file.info(path)$size == 0L)
+  stop(sprintf("input file is empty: %s", path), call. = FALSE)
+if (file.info(path)$size %% 4L != 0L)
+  stop(sprintf("input file size %d is not a multiple of 4 bytes",
+               file.info(path)$size), call. = FALSE)
 
 # ---- read binary stream ------------------------------------------------------
+# IMPORTANT: R's `integer` type uses INT_MIN (= -2^31) as NA_integer_, so
+# `readBin(..., what=integer(), signed=TRUE)` silently turns the u32 word
+# 0x80000000 into NA.  For CSPRNGs over 5e6 words this NA-poisoning hits
+# ~0.12 % of runs and corrupts every downstream statistic.  We instead
+# read raw bytes and reassemble each u32 from its 4 little-endian bytes
+# in numeric (double) precision, where 0..2^32-1 is exact.
 fi <- file(path, "rb")
 sz <- file.info(path)$size
 n  <- as.integer(sz / 4L)
-raw_int <- readBin(fi, integer(), n = n, size = 4L, signed = TRUE,
-                   endian = "little")
+raw_bytes <- readBin(fi, what = "raw", n = sz)
 close(fi)
 
-# Convert signed -> unsigned -> [0,1) without bitwAnd (R has no uint32).
-# `%% 2^32` on a numeric maps -2^31..2^31-1 onto 0..2^32-1.
-u32_num <- as.numeric(raw_int) %% 2^32
+# Reshape into 4 x n matrix; each column is one little-endian u32.
+b   <- matrix(as.numeric(as.integer(raw_bytes)), nrow = 4L)
+u32_num <- b[1L, ] + 256 * (b[2L, ] + 256 * (b[3L, ] + 256 * b[4L, ]))
 u   <- u32_num / 2^32                         # [0,1)
 # Guard against u==0 for tests that need ]0,1[
 u_nz <- pmax(u, 1 / 2^33)
