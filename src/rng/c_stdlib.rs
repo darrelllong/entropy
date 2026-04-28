@@ -34,14 +34,17 @@
 
 use super::Rng;
 
+/// Bit-packing accumulator used by the historical `rand()` adapters that
+/// produce fewer than 32 bits per call.  Shared with [`super::lcg::Lcg32`]
+/// so both code paths agree on a single packing rule.
 #[derive(Debug, Clone, Default)]
-struct PackedBits {
-    acc: u64,
-    bits: u32,
+pub(super) struct PackedBits {
+    pub(super) acc: u64,
+    pub(super) bits: u32,
 }
 
 impl PackedBits {
-    fn push(&mut self, value: u32, width: u32) {
+    pub(super) fn push(&mut self, value: u32, width: u32) {
         debug_assert!((1..=32).contains(&width));
         let masked = if width == 32 {
             u64::from(value)
@@ -52,7 +55,7 @@ impl PackedBits {
         self.bits += width;
     }
 
-    fn pop_word(&mut self) -> u32 {
+    pub(super) fn pop_word(&mut self) -> u32 {
         debug_assert!(self.bits >= 32);
         let out = self.acc as u32;
         self.acc >>= 32;
