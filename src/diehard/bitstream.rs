@@ -91,7 +91,7 @@ mod tests {
         // An all-zero word stream produces only the all-zeros 20-bit pattern (0).
         // All other 2^20 - 1 patterns are missing.
         let bits_needed = WINDOW + 50;
-        let words = vec![0u32; (bits_needed + 31) / 32];
+        let words = vec![0u32; bits_needed.div_ceil(32)];
         assert_eq!(
             TOTAL_WORDS - 1,
             count_missing_20bit_words_streaming(&words, bits_needed)

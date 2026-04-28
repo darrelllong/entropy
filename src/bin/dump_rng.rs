@@ -1,9 +1,11 @@
 //! Stream raw u32 words from a named RNG to stdout.
 //!
 //! Usage:
+//! ```text
 //!     dump_rng <name> <count>     write `count` LE u32 words to stdout
 //!     dump_rng --list             write the supported names, one per line
 //!     dump_rng --help             usage message
+//! ```
 //!
 //! Each output u32 is little-endian; R reads it with
 //!   `readBin(con, integer(), n=count, size=4, endian="little")`.

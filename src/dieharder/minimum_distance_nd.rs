@@ -8,7 +8,7 @@
 //! P-value formula (Fischler, as in `rgb_minimum_distance.c`):
 //!   dvolume = ball_volume(mindist, d)
 //!   earg = −n(n−1)·dvolume/2
-//!   qarg = 1 + ((2 + Q[d])/6)·n³·dvolume²
+//!   qarg = 1 + ((2 + Q\[d\])/6)·n³·dvolume²
 //!   p = 1 − exp(earg)·qarg
 //!
 //! Q correction table from C source:

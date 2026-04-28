@@ -17,7 +17,7 @@
 //!
 //! On `aarch64` targets that expose FEAT_SHA3 (Apple Silicon and most modern
 //! ARM cores), the underlying `cryptography::Sha3_512` call dispatches to
-//! hardware EOR3/RAX1/BCAX Keccak-f[1600] intrinsics automatically.
+//! hardware EOR3/RAX1/BCAX `Keccak-f[1600]` intrinsics automatically.
 //!
 //! # References
 //! * National Institute of Standards and Technology, "SHA-3 Standard:

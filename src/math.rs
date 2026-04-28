@@ -232,7 +232,7 @@ fn ks_pvalue_exact(d: f64, n: usize) -> f64 {
     let mut hmat = vec![0.0; m * m];
     for i in 0..m {
         for j in 0..m {
-            if i + 1 >= j + 1 {
+            if i >= j {
                 hmat[i * m + j] = 1.0;
             }
         }
