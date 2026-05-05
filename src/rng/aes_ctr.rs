@@ -221,16 +221,15 @@ fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
 /// produced by encrypting a 128-bit big-endian counter.  Four words are
 /// dispensed per AES block; the counter is incremented after each block.
 ///
-/// On `x86`/`x86_64` with AES-NI the hardware path is used automatically;
-/// all other targets use the pure-Rust T-table path.
+/// AES path is the pure-Rust T-table implementation. The previous
+/// build had an optional AES-NI fast path via the `x86-alt` sub-crate;
+/// it has been removed for the published crate.
 ///
 /// Default key: NIST SP 800-38A Appendix F.5 AES-128-CTR test vector key
 /// `2b7e1516 28aed2a6 abf71588 09cf4f3c`.
 /// Default counter: all zeros.
 pub struct AesCtr {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    hw: Option<x86_alt::aes128_x86::Aes128X86>,
-    rk: [u32; 44],     // T-table round keys — always computed, used when hw is None
+    rk: [u32; 44],     // T-table round keys
     counter: u128,     // 128-bit counter, incremented after each block
     buf: [u32; 4],     // current keystream block, as four big-endian u32s
     pos: usize,        // index of next word to return (0..4); 4 = exhausted
@@ -244,8 +243,6 @@ impl AesCtr {
     #[must_use]
     pub fn new(key: &[u8; 16], counter: u128) -> Self {
         Self {
-            #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-            hw: x86_alt::aes128_x86::Aes128X86::new(key).ok(),
             rk: expand_128(key),
             counter,
             buf: [0u32; 4],
@@ -272,21 +269,7 @@ impl AesCtr {
         self.counter = self.counter.wrapping_add(1);
         self.pos = 0;
 
-        // AES-NI fast path: available on x86/x86_64 when the CPU supports it.
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        if let Some(ref hw) = self.hw {
-            let mut block = block; // mutable copy for in-place encryption
-            // encrypt_block cannot fail here: Aes128X86::new() already verified
-            // AES-NI support, so MissingAesFeature is unreachable.
-            let _ = hw.encrypt_block(&mut block);
-            self.buf[0] = u32::from_be_bytes(block[0..4].try_into().unwrap());
-            self.buf[1] = u32::from_be_bytes(block[4..8].try_into().unwrap());
-            self.buf[2] = u32::from_be_bytes(block[8..12].try_into().unwrap());
-            self.buf[3] = u32::from_be_bytes(block[12..16].try_into().unwrap());
-            return;
-        }
-
-        // Pure-Rust T-table fallback.
+        // Pure-Rust T-table path.
         let ct = aes_encrypt(&block, &self.rk);
         self.buf[0] = u32::from_be_bytes(ct[0..4].try_into().unwrap());
         self.buf[1] = u32::from_be_bytes(ct[4..8].try_into().unwrap());

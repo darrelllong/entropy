@@ -3,33 +3,26 @@
 version = 4
 
 [[package]]
-name = "aarch64-alt"
-version = "0.1.0"
-dependencies = [
- "cryptography",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
-name = "cryptography"
-version = "0.2.0"
+name = "cryptography-rs"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe9d9c159b210347523fa2e82b9131dddc3156627270ddcb642bfa224c78fc25"
 dependencies = [
  "quick-xml",
 ]
 
 [[package]]
-name = "entropy"
-version = "0.1.0"
+name = "entropy-rs"
+version = "0.5.0"
 dependencies = [
- "aarch64-alt",
- "cryptography",
+ "cryptography-rs",
  "rustfft",
- "x86-alt",
 ]
 
 [[package]]
@@ -111,11 +104,4 @@ checksum = "1ad61aed86bc3faea4300c7aee358b4c6d0c8d6ccc36524c96e4c92ccf26e77e"
 dependencies = [
  "num-integer",
  "strength_reduce",
-]
-
-[[package]]
-name = "x86-alt"
-version = "0.1.0"
-dependencies = [
- "cryptography",
 ]
