@@ -96,13 +96,11 @@ impl Rng for Squidward {
     }
 }
 
-/// Compute SHA-256, preferring FEAT_SHA2 hardware on AArch64.
+/// Compute SHA-256 via the pure-Rust `cryptography_rs` implementation.
+/// The previous build had an optional FEAT_SHA2 fast path via the
+/// `aarch64-alt` sub-crate; it has been removed for the published crate.
 #[inline]
 fn sha256(data: &[u8]) -> [u8; BLOCK] {
-    #[cfg(target_arch = "aarch64")]
-    if let Ok(d) = aarch64_alt::sha256_armv8::Sha256Armv8::digest(data) {
-        return d;
-    }
     Sha256::digest(data)
 }
 
@@ -161,13 +159,14 @@ mod tests {
     }
 
     #[test]
-    fn hw_and_sw_paths_agree() {
-        let data = b"consistency check across implementations";
-        let sw = Sha256::digest(data);
-        #[cfg(target_arch = "aarch64")]
-        if let Ok(hw) = aarch64_alt::sha256_armv8::Sha256Armv8::digest(data) {
-            assert_eq!(hw, sw);
-        }
-        let _ = sw;
+    fn sha256_matches_known_vector() {
+        // FIPS 180-4 §B.1 — empty-input SHA-256 = e3b0c44298fc1c14...
+        let sw = Sha256::digest(b"");
+        let expected: [u8; 32] = [
+            0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
+            0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
+            0x78, 0x52, 0xb8, 0x55,
+        ];
+        assert_eq!(sw, expected);
     }
 }

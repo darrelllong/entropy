@@ -1,10 +1,28 @@
 [package]
-name        = "entropy"
-version     = "0.1.0"
+name        = "entropy-rs"
+version     = "0.5.0"
 edition     = "2021"
-description = "A pure-Rust statistical test suite for pseudorandom number generators (NIST SP 800-22, DIEHARD, DIEHARDER)"
+description = "A pure-Rust statistical test suite for pseudorandom number generators (NIST SP 800-22, DIEHARD, DIEHARDER)."
 license     = "BSD-2-Clause"
+authors     = ["Darrell Long"]
+repository  = "https://github.com/darrelllong/entropy"
+readme      = "README.md"
+documentation = "https://docs.rs/entropy-rs"
+keywords    = ["randomness", "statistics", "rng", "diehard", "nist"]
+categories  = ["cryptography", "algorithms"]
 default-run = "run_tests"
+exclude = [
+    "assets/**",
+    "scripts/**",
+    "stats/**",
+    "target/**",
+    "pubs/**",
+    ".claude/**",
+    ".codex/**",
+    "pilot_result_*/**",
+    "CLAUDE.md",
+    "AGENTS.md",
+]
 
 [[bin]]
 name = "run_tests"
@@ -19,11 +37,5 @@ name = "entropy"
 path = "src/lib.rs"
 
 [dependencies]
-cryptography  = { path = "../cryptography" }
-rustfft       = "6.2"
-
-[target.'cfg(target_arch = "aarch64")'.dependencies]
-aarch64-alt   = { path = "../cryptography/fast/Apple-Silicon/aarch64-alt" }
-
-[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
-x86-alt       = { path = "../cryptography/fast/x86/x86-alt" }
+cryptography-rs = "0.5"
+rustfft         = "6.2"
