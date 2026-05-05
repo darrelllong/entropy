@@ -1,5 +1,5 @@
 [package]
-name        = "entropy-rs"
+name        = "rng-entropy"
 version     = "0.5.0"
 edition     = "2021"
 description = "A pure-Rust statistical test suite for pseudorandom number generators (NIST SP 800-22, DIEHARD, DIEHARDER)."
@@ -7,7 +7,7 @@ license     = "BSD-2-Clause"
 authors     = ["Darrell Long"]
 repository  = "https://github.com/darrelllong/entropy"
 readme      = "README.md"
-documentation = "https://docs.rs/entropy-rs"
+documentation = "https://docs.rs/rng-entropy"
 keywords    = ["randomness", "statistics", "rng", "diehard", "nist"]
 categories  = ["cryptography", "algorithms"]
 default-run = "run_tests"
