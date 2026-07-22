@@ -2,17 +2,25 @@
 
 Throughput measured with `pilot-bench` `run_program --preset normal`.
 
-> **Provenance.**  The hardware for each column is described below, but the
-> measurement dates were not recorded; all figures predate the v0.5.0
-> crates.io release and the July 2026 code cleanup.  In particular the
-> Squidward numbers were taken under an earlier build with a hardware
-> SHA-256 fast path that has since been removed (see its entry below).
+> **Provenance.**  `tolkien` and `baase` were measured on 2026-07-22 against
+> the post-cleanup code and are the current reference columns.  `Dyson`, `dmz`,
+> and `moore` are retained for cross-architecture comparison, but their
+> measurement dates were not recorded and they predate the v0.5.0 crates.io
+> release and the July 2026 code cleanup.  Two consequences are visible in the
+> table: their `OsRng` figures predate the read-buffering fix (the old code did
+> one `read` syscall per word rather than per 64 words), which is why `tolkien`
+> and `baase` read `/dev/urandom` roughly 40–80× faster; and their `Squidward`
+> numbers were taken under an earlier build with a hardware SHA-256 fast path
+> that has since been removed (see its entry below).
 
 All results are in millions of 32-bit words per second (`MW/s`); 90% CI shown.
 The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`) with FEAT_SHA2 and
 FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
 (`Linux x86_64`).  The `moore` column is an AMD EPYC 7452 32-core (`Linux x86_64`,
-`moore.soe.ucsc.edu`).
+`moore.soe.ucsc.edu`).  The `tolkien` column is an Apple M1 (`macOS aarch64`,
+4 performance + 4 efficiency cores); the `baase` column is an ARM Cortex-X925
+(`Linux aarch64`, 20 cores).  Both were measured on 2026-07-22 with
+`scripts/bench_rngs.sh --preset normal` at 90% CI.
 
 > **Note — Twofish and Serpent on dmz:** Twofish-128-CTR and Serpent-128-CTR
 > are measured at 80% CI on `dmz.lan` rather than 90%.  Both are heavily
@@ -25,87 +33,63 @@ FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
 To benchmark on a new machine:
 
 ```
-scripts/bench_rngs.sh --preset normal --machine <name>
+scripts/bench_rngs.sh --preset normal --machine <name>   # writes stats/<name>/
+python scripts/make_benchmarks.py                        # rebuild the table below
+python scripts/make_radar.py                             # rebuild the radar charts
 ```
 
-Results land in `stats/<name>/`.  On the next regeneration, this table uses
-any measured files it finds there, and the radar chart annotates fallback
-points if some benchmark files are still missing.
+`make_benchmarks.py` rebuilds the `## Results` table from every `stats/<name>/`
+directory it finds (generator order and display names come from the `measure`
+calls in `bench_rngs.sh`), preserving this prose; the radar chart annotates
+fallback points if some benchmark files are still missing.
 
 ## Results
 
-| Generator | Dyson MW/s | ±CI | dmz MW/s | ±CI | moore MW/s | ±CI |
-|---|---:|---:|---:|---:|---:|---:|
-| `OsRng (/dev/urandom)` | 1.184 | ±0.015 | 1.222 | ±0.002 | 2.725 | ±0.008 |
-| `MT19937 (seed=19650218)` | 648.2 | ±3.71 | 315.6 | ±0.580 | 250.3 | ±1.32 |
-| `Xorshift64 (seed=1)` | 648.3 | ±1.49 | 568.6 | ±1.89 | 516.5 | ±1.77 |
-| `Xorshift32 (seed=1)` | 656.4 | ±1.15 | 608.5 | ±2.32 | 534.6 | ±1.25 |
-| `BAD Unix System V rand() (seed=1)` | 442.7 | ±1.03 | 356.0 | ±1.35 | 332.4 | ±0.706 |
-| `BAD Unix System V mrand48() (seed=1)` | 972.9 | ±2.44 | 909.8 | ±4.44 | 821.8 | ±2.17 |
-| `BAD Unix BSD random() TYPE_3 (seed=1)` | 407.2 | ±1.54 | 304.3 | ±1.42 | 256.9 | ±0.933 |
-| `BAD Unix Linux glibc rand()/random() (seed=1)` | 407.2 | ±1.37 | 302.8 | ±1.04 | 255.7 | ±1.57 |
-| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 189.2 | ±0.808 | 170.9 | ±0.422 | 155.2 | ±0.388 |
-| `BAD Windows CRT rand() (seed=1)` | 441.7 | ±1.46 | 356.6 | ±1.29 | 331.9 | ±0.774 |
-| `BAD Windows VB6/VBA Rnd() (seed=1)` | 383.6 | ±1.12 | 514.1 | ±1.18 | 498.9 | ±1.13 |
-| `BAD Windows .NET Random(seed=1) compat` | 424.3 | ±19.1 | 279.9 | ±1.12 | 234.9 | ±1.28 |
-| `ANSI C sample LCG (seed=1)` | 187.9 | ±0.372 | 93.34 | ±0.129 | 116.8 | ±0.250 |
-| `LCG MINSTD (seed=1)` | 171.8 | ±0.336 | 93.57 | ±0.131 | 158.1 | ±0.325 |
-| `BAD Borland C++ rand() LCG (seed=1)` | 188.0 | ±0.307 | 93.70 | ±0.130 | 1482 ‡ | ±6.32 |
-| `AES-128-CTR (NIST key)` | 138.0 | ±0.311 | 61.81 | ±0.094 | 63.53 | ±0.579 |
-| `Camellia-128-CTR (key=00..0f)` | 36.18 | ±0.064 | 23.65 | ±0.268 | 21.98 | ±0.028 |
-| `Twofish-128-CTR (key=00..0f)` | 3.521 | ±0.005 | 1.304 † | ±0.005 | 0.979 | ±0.004 |
-| `Serpent-128-CTR (key=00..0f)` | 2.823 | ±0.002 | 1.112 † | ±0.003 | 1.270 | ±0.002 |
-| `SM4-CTR (key=00..0f)` | 47.12 | ±0.359 | 30.71 | ±0.475 | 33.05 | ±0.284 |
-| `Grasshopper-CTR (key=00..1f)` | 6.697 | ±0.050 | 3.850 | ±0.016 | 3.314 | ±0.007 |
-| `CAST-128-CTR (key=00..0f)` | 61.36 | ±0.083 | 28.38 | ±0.564 | 25.88 | ±0.191 |
-| `SEED-CTR (key=00..0f)` | 18.60 | ±0.018 | 12.98 | ±0.071 | 11.96 | ±0.029 |
-| `Rabbit (key=00..0f, iv=00..07)` | 352.4 | ±3.77 | 127.0 | ±0.560 | 129.2 | ±0.388 |
-| `Salsa20 (key=00..1f, nonce=00..07)` | 201.4 | ±0.523 | 117.4 | ±0.598 | 105.4 | ±0.224 |
-| `Snow3G (key=00..0f, iv=00..0f)` | 136.0 | ±0.243 | 74.16 | ±2.04 | 72.30 | ±0.676 |
-| `ZUC-128 (key=00..0f, iv=00..0f)` | 142.6 | ±0.235 | 71.55 | ±0.626 | 69.15 | ±0.202 |
-| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.36 | ±0.051 | 24.17 | ±0.201 | 34.50 | ±0.112 |
-| `Squidward (SHA-256 chain, seed=00..1f)` | 240.0 | ±0.519 | 25.68 | ±0.419 | 24.56 | ±0.046 |
-| `PCG32 (seed=42, seq=54)` | 931.8 | ±4.25 | 817.1 | ±2.85 | 753.0 | ±1.77 |
-| `PCG64 (state=1, seq=1)` | 845.0 | ±1.90 | 580.3 | ±2.53 | 655.9 | ±3.00 |
-| `Xoshiro256 (seeds=1,2,3,4)` | 1291 | ±3.57 | 927.5 | ±2.21 | 781.5 | ±1.94 |
-| `Xoroshiro128 (seeds=1,2)` | 907.1 | ±1.88 | 730.4 | ±1.96 | 623.0 | ±1.44 |
-| `WyRand (seed=42)` | 3119 | ±11.8 | 940.7 | ±3.28 | 1024 | ±2.19 |
-| `SFC64 (seeds=1,2,3)` | 1268 | ±3.18 | 1001 | ±2.45 | 859.8 | ±1.91 |
-| `JSF64 (seed=0xdeadbeef)` | 1320 | ±3.31 | 870.6 | ±2.45 | 831.1 | ±1.71 |
-| `ChaCha20 CSPRNG (OsRng key)` | 173.2 | ±0.348 | 87.78 | ±1.53 | 89.83 | ±0.197 |
-| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.298 | ±0.012 | 1.969 | ±0.026 | 1.855 | ±0.006 |
-| `Hash_DRBG SHA-256 (OsRng seed)` | 31.19 | ±0.140 | 7.376 | ±0.029 | 17.56 | ±0.037 |
-| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.906 | ±0.004 | 1.123 | ±0.005 | 0.897 | ±0.001 |
-| `Constant (0xDEAD_DEAD)` | 31570 | ±89.4 | 23470 | ±394 | 22050 | ±57.8 |
-| `Counter (0,1,2,...)` | 26360 | ±62.9 | 17630 | ±64.4 | 15100 | ±129 |
 
-† Measured at 80% CI on dmz.lan (thermal throttling; see header note).
-‡ Anomalously high on moore (AMD EPYC 7452); likely a measurement artifact — interpret with caution.
-
-The synthetic ceiling generators dominate raw throughput, so the visuals use
-normalized $\log_{10}(\text{MW/s})$ rather than a linear scale.  Each radar
-chart shows one polygon per machine (blue for Dyson, red for dmz.lan, green
-for moore).  The scales are calibrated independently for each chart's throughput
-range using Dyson anchor values.
-
-**Fast / simulation generators** — scale anchored at sysv\_rand (443 MW/s) → $r=70$
-and WyRand (3119 MW/s) → $r=270$.  `mrand48` and `sysv_rand` are included as the
-fastest of the "BAD" generators; being fast does not make them good.
-
-![Radar chart: fast/simulation generators](assets/benchmarks-radar-fast.svg)
-
-**Slow generators** — scale anchored at OsRng (1.184 MW/s) → $r=70$
-and Squidward (240 MW/s) → $r=270$.  `FreeBSD rand_r` and `ANSI C LCG` land near
-ChaCha20 in throughput: nearly identical speed, opposite security posture.
-
-![Radar chart: slow generators](assets/benchmarks-radar-slow.svg)
-
-**Cipher-based generators** — scale anchored at Serpent-CTR (2.82 MW/s) → $r=70$
-and Rabbit (352.4 MW/s) → $r=270$.  Includes both stream ciphers (Rabbit, Salsa20,
-Snow3G, ZUC-128) and block-CTR modes (AES through Serpent), showing the wide
-throughput spread across the cipher family.
-
-![Radar chart: cipher-based generators](assets/benchmarks-radar-cipher.svg)
+| Generator | Dyson MW/s | ±CI | dmz MW/s | ±CI | moore MW/s | ±CI | tolkien MW/s | ±CI | baase MW/s | ±CI |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `OsRng (/dev/urandom)` | 1.184 | ±0.0155 | 1.222 | ±0.00217 | 2.725 | ±0.00784 | 48.58 | ±0.717 | 98.73 | ±2.94 |
+| `MT19937 (seed=19650218)` | 648.2 | ±3.71 | 315.6 | ±0.58 | 250.3 | ±1.32 | 306.5 | ±2.84 | 442.2 | ±9.76 |
+| `Xorshift64 (seed=1)` | 648.3 | ±1.49 | 568.6 | ±1.89 | 516.5 | ±1.77 | 467.5 | ±8.27 | 1259 | ±42.4 |
+| `Xorshift32 (seed=1)` | 656.4 | ±1.15 | 608.5 | ±2.32 | 534.6 | ±1.25 | 498.9 | ±1.39 | 1328 | ±0.661 |
+| `BAD Unix System V rand() (seed=1)` | 442.7 | ±1.02 | 356 | ±1.35 | 332.4 | ±0.706 | 445.3 | ±2.51 | 498.2 | ±8.34 |
+| `BAD Unix System V mrand48() (seed=1)` | 972.9 | ±2.44 | 909.8 | ±4.44 | 821.8 | ±2.17 | 1018 | ±4.05 | 1328 | ±0.819 |
+| `BAD Unix BSD random() TYPE_3 (seed=1)` | 407.2 | ±1.54 | 304.3 | ±1.42 | 256.9 | ±0.933 | 318.7 | ±0.969 | 431.8 | ±0.282 |
+| `BAD Unix Linux glibc rand()/random() (seed=1)` | 407.2 | ±1.37 | 302.8 | ±1.03 | 255.7 | ±1.57 | 319.3 | ±1.31 | 431.5 | ±0.228 |
+| `BAD Unix FreeBSD12 rand_r() compat (seed=1)` | 189.2 | ±0.807 | 170.9 | ±0.422 | 155.2 | ±0.388 | 136.7 | ±0.305 | 220.9 | ±0.0963 |
+| `BAD Windows CRT rand() (MSVC/UCRT, seed=1)` | 441.7 | ±1.46 | 356.6 | ±1.29 | 331.9 | ±0.774 | 448.9 | ±1.55 | 470.5 | ±16.3 |
+| `BAD Windows VB6/VBA Rnd() (seed=1)` | 383.6 | ±1.12 | 514.1 | ±1.18 | 498.9 | ±1.13 | 359.1 | ±1.05 | 395.3 | ±6.09 |
+| `BAD Windows .NET Random(seed=1) compat` | 424.3 | ±19.1 | 279.9 | ±1.12 | 234.9 | ±1.28 | 172.3 | ±0.479 | 235.1 | ±8.94 |
+| `ANSI C sample LCG (seed=1)` | 187.9 | ±0.372 | 93.34 | ±0.129 | 116.8 | ±0.25 | 234.3 | ±0.853 | 299.9 | ±2.19 |
+| `LCG MINSTD (seed=1)` | 171.8 | ±0.336 | 93.57 | ±0.131 | 158.1 | ±0.325 | 203 | ±1.98 | 241.4 | ±1.27 |
+| `BAD Borland C++ rand() LCG (seed=1)` | 188 | ±0.307 | 93.7 | ±0.13 | 1482 | ±6.32 | 106.4 | ±0.337 | 139.6 | ±0.233 |
+| `AES-128-CTR (NIST key)` | 138 | ±0.311 | 61.81 | ±0.0935 | 63.53 | ±0.579 | 98.93 | ±0.186 | 125.8 | ±4.42 |
+| `Camellia-128-CTR (key=00..0f)` | 36.18 | ±0.0642 | 23.65 | ±0.268 | 21.98 | ±0.0284 | 23.94 | ±0.0974 | 34.48 | ±0.268 |
+| `Twofish-128-CTR (key=00..0f)` | 3.521 | ±0.00453 | 1.304 | ±0.00533 | 0.9787 | ±0.00351 | 2.396 | ±0.0316 | 2.613 | ±0.00948 |
+| `Serpent-128-CTR (key=00..0f)` | 2.823 | ±0.00226 | 1.112 | ±0.00283 | 1.27 | ±0.00207 | 2.166 | ±0.011 | 3.021 | ±0.00246 |
+| `SM4-CTR (key=00..0f)` | 47.12 | ±0.359 | 30.71 | ±0.475 | 33.05 | ±0.284 | 36.02 | ±0.163 | 42.94 | ±0.414 |
+| `Grasshopper-CTR (key=00..1f)` | 6.697 | ±0.0499 | 3.85 | ±0.0157 | 3.314 | ±0.00728 | 5.354 | ±0.06 | 5.202 | ±0.0205 |
+| `CAST-128-CTR (key=00..0f)` | 61.36 | ±0.083 | 28.38 | ±0.564 | 25.88 | ±0.191 | 36.24 | ±1.8 | 41.42 | ±0.434 |
+| `SEED-CTR (key=00..0f)` | 18.6 | ±0.018 | 12.98 | ±0.0712 | 11.96 | ±0.0295 | 11.75 | ±0.149 | 19.84 | ±0.0871 |
+| `Rabbit (key=00..0f, iv=00..07)` | 352.4 | ±3.77 | 127 | ±0.56 | 129.2 | ±0.388 | 233.4 | ±7.78 | 256.1 | ±18.9 |
+| `Salsa20 (key=00..1f, nonce=00..07)` | 201.4 | ±0.523 | 117.4 | ±0.598 | 105.4 | ±0.224 | 132.5 | ±2.26 | 264.4 | ±4.37 |
+| `Snow3G (key=00..0f, iv=00..0f)` | 136 | ±0.243 | 74.16 | ±2.04 | 72.3 | ±0.676 | 85.65 | ±0.227 | 134.3 | ±5.02 |
+| `ZUC-128 (key=00..0f, iv=00..0f)` | 142.6 | ±0.235 | 71.55 | ±0.626 | 69.15 | ±0.202 | 93.36 | ±1.05 | 131.8 | ±4.1 |
+| `SpongeBob (SHA3-512 chain, seed=00..3f)` | 32.36 | ±0.0506 | 24.17 | ±0.201 | 34.5 | ±0.112 | 37.96 | ±0.0576 | 30.04 | ±0.306 |
+| `Squidward (SHA-256 chain, seed=00..1f)` | 240 | ±0.519 | 25.68 | ±0.419 | 24.56 | ±0.0455 | 23.02 | ±0.0728 | 40.22 | ±0.425 |
+| `PCG32 (seed=42, seq=54)` | 931.8 | ±4.25 | 817.1 | ±2.85 | 753 | ±1.77 | 960.7 | ±2.99 | 1020 | ±27.3 |
+| `PCG64 (state=1, seq=1)` | 845 | ±1.9 | 580.3 | ±2.53 | 655.9 | ±3.0 | 661.2 | ±1.78 | 704.8 | ±3.84 |
+| `Xoshiro256 (seeds=1,2,3,4)` | 1291 | ±3.56 | 927.5 | ±2.21 | 781.5 | ±1.94 | 685.8 | ±1.73 | 1038 | ±57.3 |
+| `Xoroshiro128 (seeds=1,2)` | 907.1 | ±1.88 | 730.4 | ±1.96 | 623 | ±1.44 | 488.2 | ±0.932 | 1004 | ±44.7 |
+| `WyRand (seed=42)` | 3119 | ±11.8 | 940.7 | ±3.28 | 1024 | ±2.19 | 1924 | ±6.2 | 2201 | ±118.0 |
+| `SFC64 (seeds=1,2,3)` | 1268 | ±3.18 | 1001 | ±2.45 | 859.8 | ±1.91 | 882.3 | ±33.8 | 1366 | ±18.5 |
+| `JSF64 (seed=0xdeadbeef)` | 1320 | ±3.31 | 870.6 | ±2.45 | 831.1 | ±1.71 | 865.4 | ±2.45 | 1234 | ±67.7 |
+| `ChaCha20 CSPRNG (OsRng key)` | 173.2 | ±0.348 | 87.78 | ±1.53 | 89.83 | ±0.197 | 120.6 | ±0.376 | 160.5 | ±0.308 |
+| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.298 | ±0.0117 | 1.969 | ±0.0256 | 1.855 | ±0.00571 | 1.701 | ±0.0583 | 3.228 | ±0.0217 |
+| `Hash_DRBG SHA-256 (OsRng seed)` | 31.19 | ±0.14 | 7.376 | ±0.0291 | 17.56 | ±0.0369 | 16.3 | ±0.7 | 27.79 | ±0.126 |
+| `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.906 | ±0.00428 | 1.123 | ±0.00534 | 0.8968 | ±0.00142 | 1.247 | ±0.0216 | 1.652 | ±0.00866 |
+| `Constant (0xDEAD_DEAD)` | 3.157e+04 | ±89.4 | 2.347e+04 | ±394.0 | 2.205e+04 | ±57.8 | 2.437e+04 | ±88.0 | 1.044e+04 | ±35.5 |
+| `Counter (0,1,2,...)` | 2.636e+04 | ±62.9 | 1.763e+04 | ±64.4 | 1.51e+04 | ±129.0 | 1.626e+04 | ±35.8 | 1.244e+04 | ±106.0 |
 
 ## Generator Notes
 
