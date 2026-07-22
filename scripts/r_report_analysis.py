@@ -79,7 +79,8 @@ for i in range(1, len(chunks), 2):
     flat = float(fl.group(1)) if fl else None
     pmax = re.search(r"max normalized periodogram \(P_max\) \| ([-+0-9.eE]+)", chunk)
     pmax = float(pmax.group(1)) if pmax else None
-    pspike = re.search(r"Bonferroni p \(no spike\) \| (\S+)", chunk)
+    # Newer reports label this "Max-spike exact p"; older ones "Bonferroni p".
+    pspike = re.search(r"(?:Max-spike exact p|Bonferroni p) \(no spike\) \| (\S+)", chunk)
     if pspike:
         v = pspike.group(1).replace("<", "")
         try:

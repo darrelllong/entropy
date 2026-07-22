@@ -224,9 +224,10 @@ for (k in 1:10) {
 #   * Equivalently, P_k = I(f_k) / sigma^2 ~ Exp(1).
 #
 # The two summary statistics below are:
-#   max_periodogram_p — the smallest p-value across all frequency bins after
-#     a Bonferroni correction for the m = N/2 - 1 tested ordinates (Fisher's
-#     g-style spike test; spikes from periodicity surface here).
+#   max-spike exact p — the exact p-value of the largest normalised ordinate
+#     under H0 via the max order statistic of m = N/2 - 1 iid Exp(1) draws,
+#     P[max > x] = 1 - (1 - e^{-x})^m (Fisher's g-style spike test; spikes
+#     from periodicity surface here).
 #   spec_flatness     — the geometric/arithmetic mean ratio of the
 #     periodogram (Wiener entropy).  An iid uniform stream has E[log P_k] =
 #     -gamma (Euler-Mascheroni); the population flatness is exp(-gamma) ≈
@@ -248,10 +249,13 @@ maxP <- max(Pn)
 log1p_neg_emaxP <- log1p(-exp(-maxP))
 log_p_no_spike  <- m * log1p_neg_emaxP
 p_spike <- -expm1(log_p_no_spike)             # 1 - exp(m * log(1-exp(-maxP)))
-# Wiener spectral flatness = geomean(P) / arithmetic_mean(P)
+# Wiener spectral flatness = geomean(P) / arithmetic_mean(P).
+# A constant stream has zero energy at every nonzero frequency: the
+# periodogram is identically 0, log(P) is -Inf everywhere, and 0/0 would
+# yield NaN — emit NA instead (with a note in the output row).
 log_geo <- mean(log(P))
 arith   <- mean(P)
-flatness <- exp(log_geo) / arith
+flatness <- if (arith == 0) NA_real_ else exp(log_geo) / arith
 # Periodogram chi^2_2 goodness-of-fit: bin Pn into 10 deciles of Exp(1).
 breaks <- qexp(seq(0, 1, length.out = 11L), rate = 1)
 breaks[1L]            <- -Inf
@@ -268,8 +272,14 @@ cat("| Metric | Value |\n|--------|-------|\n")
 cat(sprintf("| Periodogram bins tested (m = N/2 - 1) | %s |\n",
             format(m, big.mark = ",")))
 cat(sprintf("| max normalized periodogram (P_max) | %.6f |\n", maxP))
-cat(sprintf("| Bonferroni p (no spike) | %s |\n", fmt(p_spike)))
-cat(sprintf("| Spectral flatness (Wiener entropy) | %.6f |\n", flatness))
+# Note: this is the exact max-order-statistic p 1-(1-e^{-x})^m, not a
+# Bonferroni bound (the old label overstated the correction).
+cat(sprintf("| Max-spike exact p (no spike) | %s |\n", fmt(p_spike)))
+if (is.na(flatness)) {
+  cat("| Spectral flatness (Wiener entropy) | NA (all-zero periodogram; degenerate/constant stream) |\n")
+} else {
+  cat(sprintf("| Spectral flatness (Wiener entropy) | %.6f |\n", flatness))
+}
 cat(sprintf("| Theoretical flatness for white noise | %.6f |\n", exp(-0.5772156649)))
 cat(sprintf("| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=%.3f, p=%s |\n",
             chi2, fmt(p_chi)))
