@@ -4,15 +4,21 @@
 //! - PractRand pre-0.95, `include/PractRand/Tests/FPF.h`
 //! - PractRand pre-0.95, `src/tests.cpp` (`PractRand::Tests::FPF`)
 //!
-//! This ports the core counting/test logic:
-//! - sample a stride-spaced LSB-first bitstream window
-//! - interpret it as an FPF exponent/significand bucket
+//! This ports the core bucketing/test logic:
+//! - parse the LSB-first bitstream into FPF codewords: a run of zeros
+//!   terminated by a stop bit (the geometric exponent, capped at `max_exp`),
+//!   then `sig_bits` of significand
 //! - apply PractRand's intra-platter truncation rule and G-test
 //! - apply a grouped exponent-distribution G-test (`:cross`)
 //!
-//! It intentionally does not claim to reproduce PractRand's empirical
-//! calibration tables or suspicion scores; p-values are from the asymptotic
-//! chi-square law for the same core statistics.
+//! Deliberate deviation from PractRand: upstream slides its sample window a
+//! fixed 16-bit stride, so successive samples share examined bits whenever
+//! the exponent is ≥ 2 — a dependence its empirical calibration tables absorb.
+//! This port has no calibration tables, so it parses *disjoint* codewords
+//! instead: samples are iid, the asymptotic chi-square/G law it quotes is
+//! actually valid, and mean consumption (≈ 16 bits per sample at the default
+//! `sig_bits = 14`) matches upstream's stride.  Suspicion scores are not
+//! reproduced.
 
 use crate::{math::igamc, result::TestResult, rng::Rng};
 
@@ -48,43 +54,64 @@ fn chi_square_pvalue(chi_square: f64, dof: usize) -> f64 {
     igamc(dof as f64 / 2.0, chi_square / 2.0)
 }
 
+/// Codeword-shape parameters for [`fpf_test`].
 #[derive(Debug, Clone)]
 pub struct FpfConfig {
-    pub stride_bits_l2: usize,
+    /// Significand width in bits (1..=20).
     pub sig_bits: usize,
+    /// Exponent field width: exponents are capped at `2^exp_bits − 1`.
     pub exp_bits: usize,
 }
 
 impl Default for FpfConfig {
     fn default() -> Self {
         Self {
-            stride_bits_l2: 4,
             sig_bits: 14,
             exp_bits: 6,
         }
     }
 }
 
+/// Per-exponent ("platter") G-test outcome over significand values.
 #[derive(Debug, Clone)]
 pub struct FpfPlatterSummary {
+    /// Codeword exponent (leading-zero run length) this platter collects.
     pub exponent: usize,
+    /// Significand bits actually tested after PractRand's truncation rule.
     pub effective_sig_bits: usize,
+    /// G-test statistic over the `2^effective_sig_bits` significand bins.
     pub chi_square: f64,
+    /// Degrees of freedom (bins − 1).
     pub dof: usize,
+    /// Chi-square survival p-value of the G statistic; NaN when `dof == 0`.
     pub p_value: f64,
+    /// Number of codewords that landed in this platter.
     pub samples: usize,
 }
 
+/// Full outcome of [`fpf_test`]: per-platter results plus the cross
+/// (exponent-distribution) G-test.
 #[derive(Debug, Clone)]
 pub struct FpfSummary {
+    /// Bit budget the test was given.
     pub total_bits: usize,
-    pub stride_bits: usize,
+    /// Bits actually consumed by the parsed codewords (≤ `total_bits`).
+    pub consumed_bits: usize,
+    /// Configured significand width in bits.
     pub sig_bits: usize,
+    /// Exponent cap, `2^exp_bits − 1`.
     pub max_exp: usize,
+    /// Total number of disjoint codewords parsed.
     pub samples: usize,
+    /// Intra-platter G-test results; platters whose expected sample count
+    /// is too small are omitted.
     pub platter_results: Vec<FpfPlatterSummary>,
+    /// Grouped G-test statistic over the exponent distribution.
     pub cross_chi_square: f64,
+    /// Degrees of freedom of the cross test (merged cells − 1).
     pub cross_dof: usize,
+    /// Chi-square survival p-value of the cross test; NaN when
+    /// `cross_dof == 0`.
     pub cross_p_value: f64,
 }
 
@@ -99,18 +126,27 @@ fn next_lsb_bit(rng: &mut impl Rng, current_word: &mut u32, bits_left: &mut usiz
     bit
 }
 
-fn bitstream_window_sample(window: u128, sig_bits: usize, max_exp: usize) -> (usize, usize) {
+/// Parse one FPF codeword from the LSB-first bitstream: a run of zeros
+/// terminated by a stop bit (exponent, capped at `max_exp`, in which case no
+/// stop bit is consumed), then `sig_bits` of significand.
+/// Returns `(exponent, significand, bits_consumed)`.
+fn parse_codeword(
+    rng: &mut impl Rng,
+    current_word: &mut u32,
+    bits_left: &mut usize,
+    sig_bits: usize,
+    max_exp: usize,
+) -> (usize, usize, usize) {
     let mut e = 0usize;
-    while e < max_exp && ((window >> e) & 1) == 0 {
+    while e < max_exp && next_lsb_bit(rng, current_word, bits_left) == 0 {
         e += 1;
     }
-    if e < max_exp {
-        let sig = ((window >> (e + 1)) & ((1u128 << sig_bits) - 1)) as usize;
-        (e, sig)
-    } else {
-        let sig = ((window >> max_exp) & ((1u128 << sig_bits) - 1)) as usize;
-        (max_exp, sig)
+    let exp_bits_read = if e < max_exp { e + 1 } else { max_exp };
+    let mut sig = 0usize;
+    for j in 0..sig_bits {
+        sig |= (next_lsb_bit(rng, current_word, bits_left) as usize) << j;
     }
+    (e, sig, exp_bits_read + sig_bits)
 }
 
 fn grouped_tail_g_test(counts: &[u64], probs: &[f64], min_expected: f64) -> (f64, usize) {
@@ -148,21 +184,24 @@ fn grouped_tail_g_test(counts: &[u64], probs: &[f64], min_expected: f64) -> (f64
     (g_test(&merged_probs, &merged_counts, total), dof)
 }
 
+/// Run the PractRand FPF test over `total_bits` bits drawn LSB-first from
+/// `rng`, parsing disjoint codewords (see the module docs for the
+/// deliberate deviation from upstream's sliding window).
+///
+/// # Panics
+/// Panics if `config.sig_bits` is outside `1..=20` or `total_bits` cannot
+/// hold one worst-case codeword (`2^exp_bits − 1 + sig_bits` bits).
 pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> FpfSummary {
-    let stride_bits = 1usize << config.stride_bits_l2;
     let max_exp = (1usize << config.exp_bits) - 1;
-    let footprint = config.sig_bits + max_exp;
+    // Longest possible codeword: max_exp zeros (no stop bit) + significand.
+    let worst_codeword = max_exp + config.sig_bits;
     assert!(
         config.sig_bits > 0 && config.sig_bits <= 20,
         "sig_bits out of range"
     );
     assert!(
-        footprint <= 128,
-        "current FPF port supports footprints up to 128 bits"
-    );
-    assert!(
-        total_bits >= footprint,
-        "total_bits must cover at least one FPF footprint"
+        total_bits >= worst_codeword,
+        "total_bits must cover at least one worst-case FPF codeword"
     );
 
     let mut plateau_counts = vec![vec![0u64; 1usize << config.sig_bits]; max_exp + 1];
@@ -171,28 +210,23 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
     let mut current_word = 0u32;
     let mut bits_left = 0usize;
 
-    let mut window = 0u128;
-    for i in 0..footprint {
-        window |= (next_lsb_bit(rng, &mut current_word, &mut bits_left) as u128) << i;
-    }
-
-    let mut consumed = footprint;
+    // Parse disjoint codewords while a worst-case codeword is guaranteed to
+    // fit.  The stopping rule depends only on bits already consumed, never on
+    // the codeword being parsed, so it introduces no sampling bias.
+    let mut consumed = 0usize;
     let mut samples = 0usize;
-    loop {
-        let (e, sig) = bitstream_window_sample(window, config.sig_bits, max_exp);
+    while consumed + worst_codeword <= total_bits {
+        let (e, sig, used) = parse_codeword(
+            rng,
+            &mut current_word,
+            &mut bits_left,
+            config.sig_bits,
+            max_exp,
+        );
         plateau_counts[e][sig] += 1;
         exp_counts[e] += 1;
         samples += 1;
-
-        if consumed + stride_bits > total_bits {
-            break;
-        }
-        window >>= stride_bits;
-        for j in 0..stride_bits {
-            let bit = next_lsb_bit(rng, &mut current_word, &mut bits_left) as u128;
-            window |= bit << (footprint - stride_bits + j);
-        }
-        consumed += stride_bits;
+        consumed += used;
     }
 
     let mut platter_results = Vec::new();
@@ -236,7 +270,7 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
 
     FpfSummary {
         total_bits,
-        stride_bits,
+        consumed_bits: consumed,
         sig_bits: config.sig_bits,
         max_exp,
         samples,
@@ -247,14 +281,15 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
     }
 }
 
+/// Package the cross (exponent-distribution) G-test from `summary` as a
+/// [`TestResult`] named `practrand::fpf_cross`.
 pub fn fpf_cross_result(summary: &FpfSummary) -> TestResult {
     TestResult::with_note(
         "practrand::fpf_cross",
         summary.cross_p_value,
         format!(
-            "samples={}, stride_bits={}, sig_bits={}, max_exp={}, dof={}, chi2={:.4}",
+            "samples={}, sig_bits={}, max_exp={}, dof={}, chi2={:.4}",
             summary.samples,
-            summary.stride_bits,
             summary.sig_bits,
             summary.max_exp,
             summary.cross_dof,
@@ -263,14 +298,15 @@ pub fn fpf_cross_result(summary: &FpfSummary) -> TestResult {
     )
 }
 
+/// Package one platter's intra-platter G-test as a [`TestResult`] named
+/// `practrand::fpf_platter`.
 pub fn fpf_platter_result(platter: &FpfPlatterSummary, summary: &FpfSummary) -> TestResult {
     TestResult::with_note(
         "practrand::fpf_platter",
         platter.p_value,
         format!(
-            "samples={}, stride_bits={}, e={}, sig_bins=2^{}, dof={}, chi2={:.4}",
+            "samples={}, e={}, sig_bins=2^{}, dof={}, chi2={:.4}",
             summary.samples,
-            summary.stride_bits,
             platter.exponent,
             platter.effective_sig_bits,
             platter.dof,
@@ -281,15 +317,48 @@ pub fn fpf_platter_result(platter: &FpfPlatterSummary, summary: &FpfSummary) -> 
 
 #[cfg(test)]
 mod tests {
-    use super::{bitstream_window_sample, fpf_test, FpfConfig};
-    use crate::rng::ConstantRng;
+    use super::{fpf_test, parse_codeword, FpfConfig};
+    use crate::rng::{ConstantRng, Rng};
+
+    /// Emits a fixed word forever — enough to test codeword parsing.
+    struct FixedWordRng(u32);
+    impl Rng for FixedWordRng {
+        fn next_u32(&mut self) -> u32 {
+            self.0
+        }
+    }
 
     #[test]
-    fn window_sample_uses_trailing_zero_exponent() {
-        let window = 0b0110_1000u128;
-        let (e, sig) = bitstream_window_sample(window, 3, 7);
-        assert_eq!(e, 3);
-        assert_eq!(sig, 0b110);
+    fn parse_codeword_reads_exponent_stop_bit_then_significand() {
+        // LSB-first stream from 0b101100: bits 0,0,1 (e=2 with stop bit),
+        // then 1,0,1 → sig = 0b101 = 5.  Consumed = 3 + 3.
+        let mut rng = FixedWordRng(0b101_100);
+        let (mut word, mut left) = (0u32, 0usize);
+        let (e, sig, used) = parse_codeword(&mut rng, &mut word, &mut left, 3, 7);
+        assert_eq!(e, 2);
+        assert_eq!(sig, 5);
+        assert_eq!(used, 6);
+    }
+
+    #[test]
+    fn parse_codeword_caps_exponent_without_stop_bit() {
+        // All-zero stream: exponent saturates at max_exp (no stop bit read),
+        // then sig_bits of zeros.
+        let mut rng = ConstantRng::new(0);
+        let (mut word, mut left) = (0u32, 0usize);
+        let (e, sig, used) = parse_codeword(&mut rng, &mut word, &mut left, 3, 7);
+        assert_eq!(e, 7);
+        assert_eq!(sig, 0);
+        assert_eq!(used, 10);
+    }
+
+    #[test]
+    fn codewords_are_disjoint_and_consumption_is_tracked() {
+        let mut rng = ConstantRng::new(u32::MAX); // stream of ones: e=0 always
+        let summary = fpf_test(&mut rng, 1 << 12, &FpfConfig::default());
+        // Every codeword is 1 + 14 = 15 bits.
+        assert_eq!(summary.consumed_bits, summary.samples * 15);
+        assert!(summary.consumed_bits <= summary.total_bits);
     }
 
     #[test]

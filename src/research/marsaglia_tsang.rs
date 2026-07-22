@@ -67,9 +67,13 @@ fn missing_words_for_bit(words: &[u32], bit_position_from_msb: usize, word_bits:
 /// One Marsaglia–Tsang Gorilla result for a single bit position.
 #[derive(Debug, Clone)]
 pub struct GorillaBitResult {
+    /// Bit position tested, `0..32` counted from the most-significant bit.
     pub bit_position: usize,
+    /// Number of 26-bit words absent from the 2^26 overlapping windows.
     pub missing_words: usize,
+    /// Normal z-score of `missing_words` (mean 24 687 971, σ 4 170).
     pub z_score: f64,
+    /// Upper-tail p-value `1 − Φ(z)`: small when too many words are missing.
     pub p_value: f64,
 }
 
@@ -77,6 +81,10 @@ pub struct GorillaBitResult {
 ///
 /// Bit positions are numbered 0..31 from most-significant to least-significant,
 /// matching the paper.
+///
+/// # Panics
+/// Panics if `words` has fewer than 2^26 + 25 elements (the Gorilla
+/// stream length).
 pub fn gorilla_all(words: &[u32]) -> Vec<GorillaBitResult> {
     assert!(
         words.len() >= GORILLA_STREAM_BITS,
@@ -90,9 +98,12 @@ pub fn gorilla_all(words: &[u32]) -> Vec<GorillaBitResult> {
                 bit_position,
                 missing_words,
                 z_score,
-                // Upper-tail (one-sided) p-value per Marsaglia & Tsang (2002):
-                // the test targets generators with too many missing words (sparse
-                // coverage).  Over-uniform generators (z << 0) pass silently.
+                // Upper-tail (one-sided) p-value: the test targets generators
+                // with too many missing words (sparse coverage); over-uniform
+                // generators (z << 0) pass silently.  Note the paper itself
+                // reports the LOWER tail Φ(z) — failures there approach 1;
+                // the 1 − Φ(z) flip adapts it to this crate's small-p-fails
+                // convention (the KS aggregate is invariant under p ↦ 1 − p).
                 p_value: 1.0 - normal_cdf(z_score),
             }
         })

@@ -33,25 +33,41 @@ struct TrieNode {
     right: Option<usize>,
 }
 
+/// Outcome of one Lempel-Ziv replication over a `2^k`-bit stream.
 #[derive(Debug, Clone)]
 pub struct LempelZivReplication {
+    /// log2 of the bit-stream length (`n = 2^k`, `k` in `3..=28`).
     pub k: usize,
+    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
     pub r: usize,
+    /// Bits kept per word after the drop (TestU01 `s`).
     pub s: usize,
+    /// Number of `s`-bit words drawn to assemble the stream.
     pub words: usize,
+    /// Normalized phrase count, `(phrase_count − LZMu[k]) / LZSigma[k]`.
     pub z_score: f64,
+    /// Raw LZ78 phrase count.
     pub phrase_count: usize,
 }
 
+/// Aggregate over `replications` Lempel-Ziv replications.
 #[derive(Debug, Clone)]
 pub struct LempelZivSummary {
+    /// log2 of the per-replication stream length.
     pub k: usize,
+    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
     pub r: usize,
+    /// Bits kept per word after the drop (TestU01 `s`).
     pub s: usize,
+    /// Number of replications aggregated.
     pub replications: usize,
+    /// Mean of the per-replication z-scores.
     pub z_mean: f64,
+    /// Sum statistic `Σz / √N`, standard normal under the null.
     pub z_sum_stat: f64,
+    /// Two-sided normal p-value of `z_sum_stat`.
     pub z_sum_p_value: f64,
+    /// KS p-value for uniformity of `Φ(z)` across replications.
     pub z_ks_p_value: f64,
 }
 
@@ -130,6 +146,12 @@ fn lz78_count_blocks(blocks: &[u32], n_bits: usize, s: usize) -> usize {
     phrases
 }
 
+/// One `scomp_LempelZiv` replication: the LZ78 phrase count over `2^k` bits
+/// drawn from `rng`, normalized by the official `LZMu`/`LZSigma` tables.
+///
+/// # Panics
+/// Panics if `k` is outside `3..=28`, `s` is outside `1..=32`, or
+/// `r + s > 32`.
 pub fn lempel_ziv_replication(
     rng: &mut impl Rng,
     k: usize,
@@ -159,6 +181,13 @@ pub fn lempel_ziv_replication(
     }
 }
 
+/// Run `replications` Lempel-Ziv replications and aggregate their z-scores
+/// (sum statistic plus KS uniformity check), returning the per-replication
+/// results alongside the summary.
+///
+/// # Panics
+/// Panics if `replications == 0`, or on the same parameter violations as
+/// [`lempel_ziv_replication`].
 pub fn lempel_ziv_summary(
     rng: &mut impl Rng,
     replications: usize,
@@ -193,6 +222,8 @@ pub fn lempel_ziv_summary(
     )
 }
 
+/// Package the z-sum statistic from `summary` as a [`TestResult`] named
+/// `testu01::lzw_sum`.
 pub fn lempel_ziv_sum_result(summary: &LempelZivSummary) -> TestResult {
     TestResult::with_note(
         "testu01::lzw_sum",
@@ -209,6 +240,8 @@ pub fn lempel_ziv_sum_result(summary: &LempelZivSummary) -> TestResult {
     )
 }
 
+/// Package the KS uniformity check from `summary` as a [`TestResult`]
+/// named `testu01::lzw_ks`.
 pub fn lempel_ziv_ks_result(summary: &LempelZivSummary) -> TestResult {
     TestResult::with_note(
         "testu01::lzw_ks",
