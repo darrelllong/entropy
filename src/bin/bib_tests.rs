@@ -1,3 +1,7 @@
+//! Runs the classical research probes (Knuth gap/permutation/runs-median from
+//! TAOCP §3.3.2 plus the NIST-style ApEn profile) across the seeded RNG family.
+//! See `tests/run_aux.sh` for the batch harness.
+
 type Case<'a> = (&'a str, Box<dyn Fn() -> (Vec<f64>, Vec<u8>) + 'a>);
 
 use entropy::research::{

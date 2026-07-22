@@ -17,7 +17,7 @@ Examples:
   PILOT_BENCH_CLI=$HOME/pilot-bench/build/cli/bench tests/run_benchmarks.sh --force
 
 Notes:
-  - Results are written to stats/<name>.bench.
+  - Results are written to stats/<machine>/<name>.bench.
   - Existing stats rows are reused unless --force is supplied.
   - All additional arguments are passed through unchanged.
 EOF

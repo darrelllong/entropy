@@ -1,3 +1,7 @@
+//! Upstream-suite research probes: PractRand FPF (platter + cross) and
+//! TestU01 `sstring_HammingCorr` / `sstring_HammingIndep`, run across the
+//! seeded RNG family.
+
 type Case<'a> = (&'a str, Box<dyn Fn() + 'a>);
 
 use entropy::research::{
