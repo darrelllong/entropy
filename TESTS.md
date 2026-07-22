@@ -2,7 +2,8 @@
 
 Full `run_tests` battery harvested from `darby.local` on 2026-03-16.
 
-Sample size: **16 Mbit** per generator.
+Sample size: **16 Mbit** per generator for NIST; DIEHARD/DIEHARDER consume
+**16 M 32-bit words** (plus what the live-drawing tests take directly).
 
 Command:
 
@@ -12,10 +13,27 @@ Command:
 
 Scope:
 
-This top section covers the standard `run_tests` battery only.  The Knuth,
-TestU01, PractRand, Webster-Tavares, and Gorilla probes are reported
-separately in `## Auxiliary Probes`; use `tests/run_all.sh` for the combined
-audit path or `tests/run_aux.sh` for the auxiliary suite alone.
+This top section covers the standard `run_tests` battery only.  The five
+auxiliary probes (Knuth + ApEn via `bib_tests`, TestU01 Hamming + PractRand
+FPF via `upstream_tests`, TestU01 Lempel-Ziv, Webster-Tavares, and Gorilla)
+are reported separately in `## Auxiliary Probes`; use `tests/run_all.sh` for
+the combined audit path or `tests/run_aux.sh` for the auxiliary suite alone.
+
+> **Staleness note (2026-07).**  All measured results in this file were
+> harvested on 2026-03-16 and **predate the July 2026 statistical fixes**:
+> the Marsaglia-Tsang-Wang exact KS p-value fix (an H-matrix bug had
+> collapsed exact-branch p-values toward 1, affecting every outer-KS-scored
+> test: `parking_lot`, `birthday_spacings`, `minimum_distance_2d`/`_nd`,
+> `spheres_3d`, `bitstream`, `runs_up`/`runs_down`, and the other outer-KS
+> families — while `ks_uniform`, which runs the large-$n$ asymptotic branch,
+> was hit by a companion fix to that series' non-convergence handling), the
+> NIST `serial` df/statistic pairing fix, the
+> monkey-test (OPSO/OQSO/DNA) exact iid moments, the `monobit2` two-sided
+> fold + Šidák correction, and the removal of the out-of-domain `L=5` run
+> from `nist::universal` (the `maurer::` family now covers `L=5..16`, so the
+> NIST suite has 200 slots instead of 199 and the full battery 739 instead
+> of 738).  The tables below are kept as the last complete harvest and will
+> be re-harvested; treat every number in them as pre-fix.
 
 Notes:
 
@@ -24,15 +42,21 @@ Notes:
 The battery total differs from run to run because several test families are
 conditionally skipped based on properties of the sample, not the generator.
 
-The battery has **738 test slots** at this sample size:
+At the time of the 2026-03-16 harvest the battery had **738 test slots**;
+after the 2026-07 universal/maurer slot change the current battery has
+**739** (200 NIST = 12 fixed + 148 non-overlapping templates + 2 serial +
+12 Maurer settings `L=5..16` + 8 + 18 excursion states).  The counts below
+are the pre-fix 738-slot figures:
 
 - **738 results** — the "full active battery" outcome: the signed-random-walk
   tests (`random_excursions` and `random_excursions_variant`) completed
-  successfully (J ≥ 500 zero-crossing cycles).  At 16 Mbit the expected
+  successfully (J ≥ max(0.005·√n, 500) zero-crossing cycles — the max
+  reduces to 500 at 16 Mbit).  At 16 Mbit the expected
   cycle count is J ≈ 3191 (= √(2n/π)),
   which is comfortably above the threshold for well-behaved generators.
 
-- **714 results** — 24 fewer slots than the full battery.  The excursion
+- **714 results** (post-fix analog: 715 of 739) — 24 fewer slots than the
+  full battery.  The excursion
   families normally emit 8 + 18 = 26 individual per-state results; when the
   signed random walk produces fewer than J = 500 complete zero-crossing cycles
   both families are each collapsed to a single family-level SKIP entry,
@@ -40,9 +64,9 @@ The battery has **738 test slots** at this sample size:
   Counter, ANSI C LCG, MINSTD, Borland LCG) always land here; a handful of non-degenerate
   generators can too, depending on their random seed.
 
-- **199 results** — `Dual_EC_DRBG` only: two P-256 scalar multiplications per
-  30-byte output block makes DIEHARD and DIEHARDER prohibitively slow, so only
-  the NIST SP 800-22 suite is run.
+- **199 results** (now 200) — `Dual_EC_DRBG` only: two P-256 scalar
+  multiplications per 30-byte output block makes DIEHARD and DIEHARDER
+  prohibitively slow, so only the NIST SP 800-22 suite is run.
 
 **Expected false positives.**  At α = 0.01, a perfect generator should fail
 roughly 1% of tests by chance.  With 714–738 active tests, the expected
@@ -51,7 +75,7 @@ are noise, not structure.
 
 ## Summary Table
 
-Full log: [logs/run_all-darby-20260316-192756.log](logs/run_all-darby-20260316-192756.log) (darby.local, 2026-03-16, 738 tests/RNG at α = 0.01)
+Full log: `logs/run_all-darby-20260316-192756.log` (not committed to the repository; darby.local, 2026-03-16, 738 tests/RNG at α = 0.01)
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
@@ -104,7 +128,13 @@ Full log: [logs/run_all-darby-20260316-192756.log](logs/run_all-darby-20260316-1
 Here $Q(a,x)=\Gamma(a,x)/\Gamma(a)$ is the upper regularized gamma function,
 $\Phi$ is the standard normal CDF, and $D_n=\sup_x |F_n(x)-x|$ is the
 one-sample Kolmogorov-Smirnov statistic used whenever this report says
-"outer KS on p-values."
+"outer KS on p-values."  The KS tail probability uses the
+Marsaglia-Tsang-Wang exact small-$n$ evaluation ($n \le 4999$) with a
+Stephens-corrected asymptotic series beyond; July 2026 fixes corrected an
+H-matrix bug that had collapsed exact-branch p-values toward 1 and an
+asymptotic-series non-convergence misroute that reported p = 1 for
+catastrophically large $D$, so every KS-scored row in the tables above
+predates the corrected p-values.
 
 ### NIST SP 800-22
 
@@ -158,9 +188,11 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   allow overlaps inside each $M=1032$-bit block, and count how many matches
   occur. NIST tabulates the null probabilities $\pi_0,\dots,\pi_5$ for the
   pooled match-count bins, and the harness applies the corresponding
-  multinomial chi-square.
+  multinomial chi-square.  The implementation requires at least $N=72$
+  blocks (expected cell counts ≥ 5 in the rarest bin).
 
-- **`universal` and `maurer::universal_l06..l16`.** Maurer's universal test
+- **`universal` and `maurer::universal_l05..l16`** (`l06..l16` at the time
+  of the harvest above). Maurer's universal test
   measures compressibility by tracking recurrence gaps of $L$-bit words. If
   $A_i$ is the distance back to the previous occurrence of the current word,
   the core statistic is
@@ -168,7 +200,8 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   which is normalized as
   $z = (f_n-\mu_L)/(c(L,K)\sigma_L)$ and scored with
   $p=\mathrm{erfc}(|z|/\sqrt{2})$. The crate reports both the NIST
-  wrapper and the broader Maurer family over $L=6,\dots,16$.
+  wrapper (which selects $L$ from $n$ over NIST's domain $L\in[6,16]$)
+  and the broader Maurer parametric family over $L=5,\dots,16$.
 
 - **`linear_complexity`.** Break the stream into blocks of length $M=500$,
   run Berlekamp-Massey on each block, and compare the resulting linear
@@ -181,15 +214,22 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $\psi_m^2 = \frac{2^m}{n}\sum_i C_i^2 - n$.
   NIST then uses the derived statistics
   $\Delta\psi_m^2=\psi_m^2-\psi_{m-1}^2$ and
-  $\Delta^2\psi_m^2=\psi_m^2-2\psi_{m-1}^2+\psi_{m-2}^2$,
-  each converted to a p-value with $Q(\cdot,\cdot)$.
+  $\Delta^2\psi_m^2=\psi_m^2-2\psi_{m-1}^2+\psi_{m-2}^2$.
+  Per §2.11.4, `serial_delta1` carries $\Delta\psi_m^2 \sim \chi^2(2^{m-1})$
+  scored as $Q(2^{m-2},\Delta\psi_m^2/2)$ and `serial_delta2` carries
+  $\Delta^2\psi_m^2 \sim \chi^2(2^{m-2})$ scored as
+  $Q(2^{m-3},\Delta^2\psi_m^2/2)$; the implementation enforces
+  $m < \lfloor\log_2 n\rfloor - 2$.  (A July 2026 fix corrected a
+  cross-wired df/statistic pairing that had doubled the degrees of freedom;
+  the tables above predate it.)
 
 - **`approximate_entropy`.** For pattern lengths $m=10$ and $m+1$, define
   $\phi_m=\frac{1}{n}\sum_i \log C_i^{(m)}$, where $C_i^{(m)}$ is the
   circular pattern-match frequency of the $i$th overlapping block. The test
   statistic is
   $\mathrm{ApEn}(m)=\phi_m-\phi_{m+1}$ and NIST scores
-  $\chi^2 = 2n(\ln 2-\mathrm{ApEn}(m))$.
+  $\chi^2 = 2n(\ln 2-\mathrm{ApEn}(m))$.  The implementation enforces
+  $m < \log_2 n - 5$ per the SP 800-22 validity condition.
 
 - **`cumulative_sums` (forward and backward).** Form the random walk
   $S_k=\sum_{i=1}^k (2X_i-1)$ and record
@@ -203,7 +243,11 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   how many cycles visit $x$ exactly $k$ times for $k=0,\dots,5$ (with $k\ge5$
   pooled). The per-state statistic is
   $\chi^2_x = \sum_{k=0}^5 (\nu_k(x)-J\pi_k(x))^2/(J\pi_k(x))$ with
-  $p = Q(5/2,\chi_x^2/2)$, where $J$ is the number of cycles.
+  $p = Q(5/2,\chi_x^2/2)$, where $J$ is the number of cycles.  Both
+  excursion families require $J \ge \max(0.005\sqrt{n}, 500)$ per
+  §2.14.4/§2.15.4,
+  and a walk ending exactly at zero no longer contributes a spurious empty
+  trailing cycle.
 
 - **`random_excursions_variant`.** Use the same cycle decomposition, but now
   test only the total visit count $\xi(x)$ to each
@@ -250,23 +294,26 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $p=\mathrm{erfc}(|z|/\sqrt{2})$ and the final report is an outer KS on
   $20$ such p-values.
 
-- **`opso`.** OPSO extracts overlapping pairs of $10$-bit letters, so each
-  sample lands in a word space of size $2^{20}$. After $2^{21}$ extracted
-  pairs, the number of missing words is approximately normal around the
-  occupancy-theory value $2^{20}e^{-2}$, and the implementation uses
-  Marsaglia's tabulated $(\mu,\sigma)$ to compute
-  $p=\mathrm{erfc}(|z|/\sqrt{2})$.
+- **`opso`.** OPSO builds each $20$-bit sample from two $10$-bit letters
+  taken from two separate words, so each sample lands in a word space of
+  size $2^{20}$.  The crate deliberately deviates from the canonical
+  overlapping construction: the $2^{21}$ samples use *disjoint* bit fields,
+  so they are mutually independent and the missing-words count is scored
+  with the exact iid moments $\mu \approx 141{,}909.19$,
+  $\sigma \approx 290.33$ (the canonical overlapping OPSO $\sigma$ is 290),
+  giving $p=\mathrm{erfc}(|z|/\sqrt{2})$.
 
-- **`oqso`.** OQSO is the same sparse-occupancy idea, but with overlapping
-  quadruples of $5$-bit letters, again yielding a $2^{20}$ word space. The
-  statistic is the number of missing words after a long field-extracted stream,
-  normalized with the published OQSO mean and standard deviation.
+- **`oqso`.** OQSO is the same sparse-occupancy idea with one $5$-bit letter
+  from each of four words per sample, again a $2^{20}$ word space.  As with
+  OPSO the samples come from disjoint bit fields, so the same exact iid
+  moments ($\mu \approx 141{,}909.19$, $\sigma \approx 290.33$) apply — a
+  documented deviation from the canonical overlapping OQSO $\sigma = 295$.
 
-- **`dna`.** DNA applies the sparse-occupancy construction to ten successive
-  $2$-bit symbols, producing another $2^{20}$-word occupancy problem. The
-  test again standardizes the number of missing words against the reference
-  normal approximation and reports
-  $p=\mathrm{erfc}(|z|/\sqrt{2})$.
+- **`dna`.** DNA applies the sparse-occupancy construction with one $2$-bit
+  symbol from each of ten words per sample, another $2^{20}$-word occupancy
+  problem.  Samples are again disjoint/iid and scored with
+  $\mu \approx 141{,}909.19$, $\sigma \approx 290.33$ (canonical overlapping
+  DNA uses $\sigma = 339$), reporting $p=\mathrm{erfc}(|z|/\sqrt{2})$.
 
 - **`count_ones_stream`.** Map each byte to one of five letters
   $A,\dots,E$ according to its Hamming weight, form overlapping $5$-letter and
@@ -362,10 +409,12 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 - **`monobit2`.** For block sizes $2,4,8,\dots,2^{m}$ words, count the total
   number of ones in each block and compare the histogram to the exact binomial
-  law $\mathrm{Bin}(32b,\tfrac12)$ by chi-square. Dieharder then keeps
-  only the most extreme tail p-value across the tested block sizes and applies
-  the same multiple-test correction as `evalMostExtreme()`, so the reported
-  p-value is the corrected "worst scale" result.
+  law $\mathrm{Bin}(32b,\tfrac12)$ by chi-square.  The crate keeps the most
+  extreme per-block-size p-value, but — a documented deviation from
+  dieharder's `evalMostExtreme()`, which maps low-side extremes to $p\approx1$
+  — each per-block p-value is first folded two-sided
+  ($2\min(p,1-p)$) and the extreme is then Šidák-corrected, so both failure
+  directions map to small p while null uniformity is preserved.
 
 - **`fill_tree_count`.** Insert random floats into a fixed 32-slot implicit
   binary search tree until the insertion path collides with an already-filled
@@ -399,40 +448,62 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 ### Research Probes
 
-These seven tests live in `src/research/` and are run via `cargo test -- --include-ignored`.
-They probe structural properties that the standard batteries underweight.
+These nine probes live in `src/research/` and run via `tests/run_aux.sh`,
+which builds and executes the five auxiliary binaries (`bib_tests`,
+`upstream_tests`, `testu01_lz`, `webster_tavares`, `gorilla`) with their
+default parameters.  A sixth standalone binary, `bitplane_complexity`,
+measures Berlekamp-Massey linear complexity on each individual output bit
+plane across successive 64-bit outputs; it is not part of `run_aux.sh`.
+The probes target structural properties that the standard batteries
+underweight.
 
 - **Knuth permutation test** (TAOCP §3.3.2).  Draw non-overlapping windows of
-  $t$ successive output words ($t = 3$ and $t = 4$ in the crate), rank each
+  $t$ successive output words ($t = 5$ in the auxiliary run), rank each
   window to obtain its permutation ordinal in $S_t$, and accumulate counts over
   the $t!$ orderings.  The null distribution is uniform, so the test statistic
   is $\chi^2 = \sum_{i=0}^{t!-1} (O_i - N/t!)^2/(N/t!)$ on $t!-1$ degrees of
-  freedom.  Sensitive to short-range ordering biases that survive frequency tests.
+  freedom.  Cochran's rule is enforced: the test requires at least $5\,t!$
+  blocks so every cell has expected count ≥ 5.  Sensitive to short-range
+  ordering biases that survive frequency tests.
 
 - **Knuth gap test** (TAOCP §3.3.2).  Fix an interval $[\alpha,\beta)$ and
   record the lengths $L$ of the gaps (runs of words outside the interval)
   between successive hits.  Under the null, $L$ follows a geometric distribution
   with success probability $p = \beta - \alpha$.  The observed gap-length
-  histogram (pooled at an upper cutoff) is compared to this geometric law by
-  chi-square.  Tests uniformity of the real-valued projection and independence
-  of successive words.
+  histogram is compared to this geometric law by chi-square after Cochran-rule
+  tail merging: trailing cells whose expected count falls below 5 are pooled
+  into a single tail cell, and the test runs on the surviving `cells` with
+  $df = \mathrm{cells} - 1$.  Tests uniformity of the real-valued projection
+  and independence of successive words.
 
-- **Knuth runs test** (Wald–Wolfowitz).  Scan the output sequence and count runs
-  of consecutive ascending values.  For a truly uniform i.i.d. sequence of $n$
-  words, the number of runs $R$ has mean $\mu = (2n-1)/3$ and variance
-  $\sigma^2 = (16n-29)/90$.  The crate reports $z = (R - \mu)/\sigma$ and the
-  two-tailed p-value $p = \mathrm{erfc}(|z|/\sqrt{2})$.  Detects serial
-  monotonicity biases (too many or too few direction reversals).
+- **Knuth runs test** (Wald–Wolfowitz runs above/below the median).  Compute
+  the sample median, classify each output value as above or below it
+  (values equal to the median are dropped), and count the runs $R$ of
+  consecutive same-side values.  Conditional on $n_1$ values above and $n_2$
+  below ($n = n_1 + n_2$), the null moments are
+  $\mu = 1 + 2n_1 n_2/n$ and
+  $\sigma^2 = 2n_1 n_2(2n_1 n_2 - n)/(n^2(n-1))$.  The crate reports
+  $z = (R - \mu)/\sigma$ and the two-tailed p-value
+  $p = \mathrm{erfc}(|z|/\sqrt{2})$.  Detects clustering (too few runs) and
+  over-alternation (too many runs) around the sample median.
 
-- **PractRand FPF** (float-point-frequency).  Convert 32-bit words to IEEE 754
-  single-precision floats and partition them by their 8-bit biased exponent into
-  256 buckets.  Within each exponent bucket the significand bits form an
-  independent bit stream; the test applies a G-test (log-likelihood ratio
-  chi-square) to the per-bucket bit-frequency histogram and separately to the
-  cross-exponent marginal.  Detects carry and alignment artifacts that are
-  invisible to integer-domain frequency tests.
+- **PractRand FPF** (floating-point frequency).  Parse the LSB-first bitstream
+  into FPF codewords: a run of zeros terminated by a stop bit gives the
+  geometric exponent (capped at $2^{\mathrm{exp\_bits}}-1$), followed by
+  `sig_bits` of significand (defaults: `sig_bits` = 14, `exp_bits` = 6).
+  Per exponent "platter," the significand histogram is scored with
+  PractRand's intra-platter truncation rule and a G-test (log-likelihood
+  chi-square); a separate grouped exponent-distribution G-test (`:cross`)
+  checks the geometric law across platters.  Documented deviation from
+  upstream: PractRand slides its sample window a fixed 16-bit stride, so
+  successive samples share bits — a dependence its empirical calibration
+  tables absorb.  This port has no calibration tables, so it parses
+  *disjoint* codewords instead: samples are iid, the quoted asymptotic
+  chi-square/G law is actually valid, and mean consumption (≈ 16 bits per
+  sample at `sig_bits` = 14) matches upstream's stride.  Suspicion scores
+  are not reproduced.
 
-- **TestU01 Lempel–Ziv** (`smultin_Lempel_Ziv`).  Parse the bit stream as an
+- **TestU01 Lempel–Ziv** (`scomp_LempelZiv`).  Parse the bit stream as an
   LZ78 dictionary: each new phrase extends the longest previously seen prefix by
   one bit.  Let $C_n$ be the number of distinct phrases after reading $n$ bits.
   Asymptotically, $C_n / (n / \log_2 n) \to 1$ for a fair coin.  The crate uses
@@ -443,15 +514,19 @@ They probe structural properties that the standard batteries underweight.
   repetitive structure; high complexity flags over-dispersion.
 
 - **TestU01 Hamming** (`sstring_HammingCorr` / `sstring_HammingIndep`).
-  `HammingCorr`: Extract $L$-bit blocks from the bit stream, compute the
-  Hamming weight $W = \sum b_i$ of each block, and compare the weight histogram
-  to $\mathrm{Bin}(L, \tfrac12)$ by chi-square.  $L = 32$ and $L = 64$ are both
-  tested.
+  `HammingCorr`: Extract $n$ successive $L$-bit blocks from the bit stream
+  (TestU01 `unif01_StripB`-style extraction; the auxiliary run uses a single
+  block length, $L = 300$ by default) and compute each block's Hamming weight
+  $W_i$.  The statistic is the lag-1 correlation of successive centered
+  weights,
+  $\hat\rho = 4\sum_{i}(W_i - L/2)(W_{i+1} - L/2)\,/\,((n-1)L)$,
+  standardized as $z = \hat\rho\sqrt{n-1}$ and scored two-sided with
+  $p = \mathrm{erfc}(|z|/\sqrt{2})$.
   `HammingIndep`: For successive pairs of $L$-bit blocks $(X, Y)$, compute the
   joint weight histogram $(W_X, W_Y)$ and compare to the product distribution
-  $\mathrm{Bin}(L,\tfrac12)\times\mathrm{Bin}(L,\tfrac12)$.  The chi-square
-  statistic measures whether Hamming weights of consecutive blocks are
-  correlated.  Detects linear dependencies across block boundaries.
+  $\mathrm{Bin}(L,\tfrac12)\times\mathrm{Bin}(L,\tfrac12)$ by chi-square with
+  TestU01's `gofs_MinExpected = 10` cell lumping.  Detects linear
+  dependencies across block boundaries.
 
 - **Webster–Tavares strict avalanche criterion (SAC)**.  For each bit position
   $i$ in a $k$-word window, flip bit $i$ in the input seed and measure the
@@ -472,15 +547,16 @@ They probe structural properties that the standard batteries underweight.
   p-values, detecting positional asymmetries and bit-plane correlations invisible
   to the standard birthday-problem tests.
 
-- **Multi-scale approximate entropy (ApEn)**.  For template lengths
-  $m = 1, 2, \dots, M$ (default $M = 8$), compute Pincus's
-  $\mathrm{ApEn}(m, r, N)$ on the output sequence, where $r$ is set to
-  $0.2\,\sigma$ of the data.  Each ApEn value measures the log-likelihood that
-  runs of $m$ consecutive samples that are close together remain close for $m+1$
-  samples.  The crate reports the ApEn profile across scales; a random sequence
-  should sustain near-maximal entropy at every scale, while structured generators
-  show a characteristic drop-off at the scale where their internal period or
-  dependency length becomes apparent.
+- **Multi-scale approximate entropy (ApEn)**.  A sweep of the NIST SP 800-22
+  §2.12 bit-level ApEn statistic over embedding dimensions $m = 2,\dots,6$
+  (the single NIST test fixes one $m$).  For each $m$, compute
+  $\phi(m) = \frac1n \sum_p C_p \ln(C_p/n)$ over the circular overlapping
+  $m$-bit pattern counts $C_p$ and report
+  $\mathrm{ApEn}(m) = \phi(m) - \phi(m+1)$.  A value near $\ln 2$ indicates
+  randomness at that pattern length; the profile reveals at which scale a
+  structured generator's internal period or dependency length becomes
+  apparent.  (This is the bit-pattern ApEn of SP 800-22, not Pincus's
+  real-valued $r$-tolerance $\mathrm{ApEn}(m,r,N)$.)
 
 ## Failure Highlights
 
@@ -500,7 +576,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **BAD Windows .NET Random(seed=1) compat**: 7/738 — `dieharder::bit_distribution` (×3), `dieharder::dct`, `nist::non_overlapping_template` (×3)
 - **ANSI C sample LCG (1103515245,12345; seed=1)**: 697/714 — `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l12`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
 - **BAD Borland C++ rand() LCG (seed=1)**: 701/714 — 15-bit output window causes catastrophic bias; only 11 tests survive: `nist::linear_complexity`, `diehard::binary_rank_6x8`, `diehard::runs_up`, `diehard::runs_down`, `diehard::craps_wins`, `diehard::craps_throws`, `dieharder::permutations`, `dieharder::monobit2`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`.
-- **LCG MINSTD (seed=1)**: 692/714 —`diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
+- **LCG MINSTD (seed=1)**: 692/714 — `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta2`, `nist::spectral`, `nist::universal`
 - **AES-128-CTR (NIST key)**: 5/738 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
 - **Camellia-128-CTR (key=00..0f)**: 6/738 — `dieharder::bit_distribution` (×6)
 - **Twofish-128-CTR (key=00..0f)**: 10/738 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×4)
@@ -539,7 +615,8 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Auxiliary Probes
 
 Run on a representative subset of generators via `tests/run_all.sh` on `darby.local`
-(2026-03-16).  Full output: [logs/run_all-darby-20260316-192756.log](logs/run_all-darby-20260316-192756.log)
+(2026-03-16).  Full output: `logs/run_all-darby-20260316-192756.log` (not
+committed to the repository).
 
 Columns show PASS / total scored tests for each probe suite.
 **Knuth** = permutation + gap + runs (3 tests).
