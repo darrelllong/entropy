@@ -24,11 +24,18 @@
 //! # Author
 //! NIST (specification); Darrell Long (Rust implementation).
 
+/// One row of the ApEn profile: the φ statistics and their difference at a
+/// single embedding dimension `m`.
 #[derive(Debug, Clone)]
 pub struct ApproxEntropyPoint {
+    /// Embedding dimension (pattern length in bits).
     pub m: usize,
+    /// φ(m): the circular pattern-counting statistic at length `m`.
     pub phi_m: f64,
+    /// φ(m+1): the same statistic at length `m + 1`.
     pub phi_m1: f64,
+    /// ApEn(m) = φ(m) − φ(m+1); ≈ ln 2 for a random sequence, smaller
+    /// when the sequence is more regular than chance.
     pub ap_en: f64,
 }
 

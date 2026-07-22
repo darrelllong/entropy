@@ -97,21 +97,17 @@ fn lumped_chi_square(expected: &[f64], observed: &[u64], min_expected: f64) -> (
         }
     }
 
-    if lumped_expected >= min_expected {
+    if lumped_expected >= min_expected || kept_expected.is_empty() {
+        // Pool the weak cells into their own class.  If NO cell met the
+        // threshold this yields a single class → dof 0 → NaN p-value, i.e.
+        // an honest insufficient-data signal rather than an arbitrary
+        // low-df fallback.
         kept_expected.push(lumped_expected);
         kept_observed.push(lumped_observed);
-    } else if !kept_expected.is_empty() {
+    } else {
         let last = kept_expected.len() - 1;
         kept_expected[last] += lumped_expected;
         kept_observed[last] += lumped_observed;
-    } else {
-        let split = observed.len() / 2;
-        let e0: f64 = expected[..split].iter().sum();
-        let e1: f64 = expected[split..].iter().sum();
-        let o0: u64 = observed[..split].iter().sum();
-        let o1: u64 = observed[split..].iter().sum();
-        kept_expected.extend([e0, e1]);
-        kept_observed.extend([o0, o1]);
     }
 
     let classes = kept_expected.len();
@@ -123,17 +119,30 @@ fn lumped_chi_square(expected: &[f64], observed: &[u64], min_expected: f64) -> (
     )
 }
 
+/// Outcome of a single `sstring_HammingCorr` replication.
 #[derive(Debug, Clone)]
 pub struct HammingCorrSummary {
+    /// Number of L-bit blocks examined.
     pub n: usize,
+    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
     pub r: usize,
+    /// Bits kept per word after the drop (TestU01 `s`).
     pub s: usize,
+    /// Block length in bits (TestU01 `L`).
     pub l: usize,
+    /// Estimated correlation between successive block Hamming weights.
     pub rho_hat: f64,
+    /// Normal z-score, `rho_hat · √(n − 1)`.
     pub z_score: f64,
+    /// Two-sided normal p-value of the z-score.
     pub p_value: f64,
 }
 
+/// TestU01 `sstring_HammingCorr`: serial correlation between the Hamming
+/// weights of `n` successive `l`-bit blocks drawn from `rng`.
+///
+/// # Panics
+/// Panics if `n < 2`, `s` is outside `1..=32`, or `r + s > 32`.
 pub fn hamming_corr(
     rng: &mut impl Rng,
     n: usize,
@@ -167,6 +176,8 @@ pub fn hamming_corr(
     }
 }
 
+/// Package a [`HammingCorrSummary`] as a [`TestResult`] named
+/// `testu01::hamming_corr`.
 pub fn hamming_corr_result(summary: &HammingCorrSummary) -> TestResult {
     TestResult::with_note(
         "testu01::hamming_corr",
@@ -178,22 +189,43 @@ pub fn hamming_corr_result(summary: &HammingCorrSummary) -> TestResult {
     )
 }
 
+/// Outcome of a single `sstring_HammingIndep` replication.
 #[derive(Debug, Clone)]
 pub struct HammingIndepSummary {
+    /// Number of (X, Y) block pairs examined.
     pub n: usize,
+    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
     pub r: usize,
+    /// Bits kept per word after the drop (TestU01 `s`).
     pub s: usize,
+    /// Block length in bits (TestU01 `L`).
     pub l: usize,
+    /// Number of corner-block statistics computed (TestU01 `d`).
     pub d: usize,
+    /// Chi-square over the (L+1)×(L+1) weight-pair table after lumping.
     pub main_chi_square: f64,
+    /// Degrees of freedom of the main chi-square (classes − 1).
     pub main_dof: usize,
+    /// Survival p-value of the main chi-square; NaN when `main_dof == 0`.
     pub main_p_value: f64,
+    /// Number of low-expectation cells pooled by the
+    /// `gofs_MinExpected = 10` lumping rule.
     pub lumped_cells: usize,
+    /// Corner-block chi-square statistic for each `k` in `1..=d`.
     pub block_chi_square: Vec<f64>,
+    /// Degrees of freedom (1 or 2) for each corner-block statistic.
     pub block_dof: Vec<usize>,
+    /// Survival p-value for each corner-block statistic.
     pub block_p_value: Vec<f64>,
 }
 
+/// TestU01 `sstring_HammingIndep`: independence of the Hamming weights of
+/// successive block pairs — the main lumped chi-square over the weight-pair
+/// table plus `d` corner-block statistics.
+///
+/// # Panics
+/// Panics if `n < 20`, `s` is outside `1..=32`, `r + s > 32`, `d` is
+/// outside `1..=8`, or `d > (l + 1) / 2`.
 pub fn hamming_indep(
     rng: &mut impl Rng,
     n: usize,
@@ -287,6 +319,8 @@ pub fn hamming_indep(
     }
 }
 
+/// Package the main lumped chi-square from `summary` as a [`TestResult`]
+/// named `testu01::hamming_indep_main`.
 pub fn hamming_indep_main_result(summary: &HammingIndepSummary) -> TestResult {
     TestResult::with_note(
         "testu01::hamming_indep_main",
@@ -304,6 +338,11 @@ pub fn hamming_indep_main_result(summary: &HammingIndepSummary) -> TestResult {
     )
 }
 
+/// Package the `k`-th corner-block statistic (`k` in `1..=d`) as a
+/// [`TestResult`] named `testu01::hamming_indep_block`.
+///
+/// # Panics
+/// Panics if `k` is 0 or exceeds `summary.d` (index out of range).
 pub fn hamming_indep_block_result(summary: &HammingIndepSummary, k: usize) -> TestResult {
     let idx = k - 1;
     TestResult::with_note(

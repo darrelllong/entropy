@@ -11,11 +11,11 @@
 //! # References
 //! * D. E. Knuth, *The Art of Computer Programming, Volume 2: Seminumerical
 //!   Algorithms*, 3rd edition, Addison-Wesley, 1997. §3.3.2.
-//!   [Permutation test, gap test, runs-above/below-median test with exact moments]
-//! * R. G. T. Grafton, "Algorithm AS 157: The runs-up and runs-down tests,"
-//!   *Applied Statistics* 30(1), pp. 81–85, 1981.
-//!   DOI: 10.2307/2346560.
-//!   [Covariance matrix for the runs-above/below statistic]
+//!   [Permutation test, gap test]
+//! * A. Wald and J. Wolfowitz, "On a test whether two samples are from the
+//!   same population," *Annals of Mathematical Statistics* 11(2),
+//!   pp. 147–162, 1940.  [Conditional moments of the runs-above/below-median
+//!   statistic used by `runs_above_below_median_test`]
 
 use crate::{
     math::{chi2_pvalue, erfc},
@@ -23,28 +23,47 @@ use crate::{
 };
 use std::f64::consts::SQRT_2;
 
+/// Summary statistics computed by [`permutation_stats`].
 #[derive(Debug, Clone)]
 pub struct PermutationStats {
+    /// Window size `t`: each non-overlapping block of `t` samples is ranked.
     pub window: usize,
+    /// Number of complete non-overlapping blocks examined.
     pub blocks: usize,
+    /// Chi-square statistic over the `t!` ordering buckets (`df = t! − 1`).
     pub chi_square: f64,
 }
 
+/// Summary statistics computed by [`gap_stats`].
 #[derive(Debug, Clone)]
 pub struct GapStats {
+    /// Lower bound of the target interval (inclusive).
     pub alpha: f64,
+    /// Upper bound of the target interval (exclusive).
     pub beta: f64,
+    /// Maximum tracked gap length; longer gaps pool into the tail cell.
     pub max_gap: usize,
+    /// Number of completed gaps observed (hits after the first hit).
     pub gaps: usize,
+    /// Number of chi-square cells after Cochran-rule tail merging
+    /// (`df = cells − 1`); at most `max_gap + 1`.
+    pub cells: usize,
+    /// Chi-square statistic over the merged gap-length cells.
     pub chi_square: f64,
 }
 
+/// Summary statistics computed by [`runs_above_below_median_stats`].
 #[derive(Debug, Clone)]
 pub struct RunsMedianStats {
+    /// Sample median; values equal to it are discarded before counting runs.
     pub median: f64,
+    /// Count of samples strictly below the median.
     pub below: usize,
+    /// Count of samples strictly above the median.
     pub above: usize,
+    /// Number of runs (maximal same-side stretches) observed.
     pub runs: usize,
+    /// Normal-approximation z-score of the run count (Wald–Wolfowitz moments).
     pub z_score: f64,
 }
 
@@ -58,7 +77,7 @@ fn permutation_rank(window: &[f64]) -> usize {
     for i in 0..t {
         let mut less = 0usize;
         for j in (i + 1)..t {
-            if window[j] < window[i] || (window[j] == window[i] && j < i) {
+            if window[j] < window[i] {
                 less += 1;
             }
         }
@@ -67,13 +86,21 @@ fn permutation_rank(window: &[f64]) -> usize {
     rank
 }
 
+/// Knuth TAOCP §3.3.2 permutation-test statistics: rank each non-overlapping
+/// window of `t` samples and chi-square the counts over the `t!` orderings.
+///
+/// Returns `None` when `t` is outside `2..=8` or there are fewer than
+/// `5·t!` complete blocks (Cochran's rule).
 pub fn permutation_stats(samples: &[f64], t: usize) -> Option<PermutationStats> {
     if !(2..=8).contains(&t) {
         return None;
     }
     let buckets = factorial(t);
     let blocks = samples.len() / t;
-    if blocks <= buckets {
+    // Cochran's rule: the chi-square approximation needs expected counts of
+    // at least 5 per cell, i.e. blocks ≥ 5·t!.  (`blocks > buckets` alone
+    // permitted expected counts barely above 1.)
+    if blocks < 5 * buckets {
         return None;
     }
 
@@ -100,11 +127,15 @@ pub fn permutation_stats(samples: &[f64], t: usize) -> Option<PermutationStats> 
     })
 }
 
+/// Knuth permutation test as a [`TestResult`] (`knuth::permutation`).
+///
+/// Returns an insufficient-data result (NaN p-value) when
+/// [`permutation_stats`] returns `None`.
 pub fn permutation_test(samples: &[f64], t: usize) -> TestResult {
     let Some(stats) = permutation_stats(samples, t) else {
         return TestResult::insufficient(
             "knuth::permutation",
-            "need t in 2..=8 and more blocks than permutation classes",
+            "need t in 2..=8 and at least 5·t! blocks (Cochran's rule)",
         );
     };
     let df = factorial(t) - 1;
@@ -119,6 +150,12 @@ pub fn permutation_test(samples: &[f64], t: usize) -> TestResult {
     )
 }
 
+/// Knuth TAOCP §3.3.2 gap-test statistics: chi-square the lengths of gaps
+/// between visits to the target interval `[alpha, beta)` against the
+/// geometric law, with Cochran-rule tail merging.
+///
+/// Returns `None` on invalid bounds (`0 ≤ alpha < beta ≤ 1` required),
+/// `max_gap == 0`, or too few gaps to form two Cochran-valid cells.
 pub fn gap_stats(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> Option<GapStats> {
     if !(0.0..1.0).contains(&alpha) || !(0.0..=1.0).contains(&beta) || alpha >= beta {
         return None;
@@ -148,18 +185,51 @@ pub fn gap_stats(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> Opti
         }
     }
 
-    if gaps <= max_gap + 1 {
+    // Cell probabilities: P(gap = r) = p(1−p)^r for r < max_gap; tail pooled.
+    let mut probs: Vec<f64> = (0..max_gap)
+        .map(|r| p * (1.0 - p).powi(r as i32))
+        .collect();
+    probs.push((1.0 - p).powi(max_gap as i32));
+
+    // Cochran's rule: every cell needs expected count ≥ 5.  The interior
+    // cells p(1−p)^r decrease monotonically in r; the final pooled-tail cell
+    // (1−p)^max_gap does NOT follow that ordering (it exceeds its predecessor
+    // whenever p < 0.5), but it is always last, so keeping the longest valid
+    // prefix and pooling everything past the cut absorbs it correctly — the
+    // same prefix-merge fix applied to the R pipeline's gap test
+    // (scripts/r_rng_tests.R).
+    let g = gaps as f64;
+    let cut = probs.iter().take_while(|&&pr| pr * g >= 5.0).count();
+    if cut < probs.len() {
+        let tail_prob: f64 = probs[cut..].iter().sum();
+        if tail_prob * g >= 5.0 {
+            probs.truncate(cut);
+            probs.push(tail_prob);
+        } else if cut == 0 {
+            return None;
+        } else {
+            // Pooled tail still below 5: fold it into the last valid cell.
+            probs.truncate(cut);
+            *probs.last_mut().unwrap() += tail_prob;
+        }
+    }
+    let cells = probs.len();
+    if cells < 2 {
         return None;
     }
+    let merged_counts: Vec<usize> = (0..cells)
+        .map(|i| {
+            if i + 1 < cells {
+                counts[i]
+            } else {
+                counts[i..].iter().sum()
+            }
+        })
+        .collect();
 
     let mut chi_square = 0.0;
-    for (r, &obs) in counts.iter().enumerate() {
-        let prob = if r < max_gap {
-            p * (1.0 - p).powi(r as i32)
-        } else {
-            (1.0 - p).powi(max_gap as i32)
-        };
-        let expected = gaps as f64 * prob;
+    for (&obs, &prob) in merged_counts.iter().zip(probs.iter()) {
+        let expected = g * prob;
         let diff = obs as f64 - expected;
         chi_square += diff * diff / expected;
     }
@@ -169,29 +239,38 @@ pub fn gap_stats(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> Opti
         beta,
         max_gap,
         gaps,
+        cells,
         chi_square,
     })
 }
 
+/// Knuth gap test as a [`TestResult`] (`knuth::gap`).
+///
+/// Returns an insufficient-data result (NaN p-value) when [`gap_stats`]
+/// returns `None`.
 pub fn gap_test(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> TestResult {
     let Some(stats) = gap_stats(samples, alpha, beta, max_gap) else {
         return TestResult::insufficient(
             "knuth::gap",
-            "need 0 <= alpha < beta <= 1, max_gap > 0, and enough observed gaps",
+            "need 0 <= alpha < beta <= 1, max_gap > 0, and enough gaps for ≥2 Cochran-valid cells",
         );
     };
-    let df = stats.max_gap;
+    let df = stats.cells - 1;
     let p_value = chi2_pvalue(stats.chi_square, df);
     TestResult::with_note(
         "knuth::gap",
         p_value,
         format!(
-            "[{:.3},{:.3}) gaps={}, r={}, χ²={:.4}, df={}",
-            stats.alpha, stats.beta, stats.gaps, stats.max_gap, stats.chi_square, df
+            "[{:.3},{:.3}) gaps={}, r={}, cells={}, χ²={:.4}, df={}",
+            stats.alpha, stats.beta, stats.gaps, stats.max_gap, stats.cells, stats.chi_square, df
         ),
     )
 }
 
+/// Wald–Wolfowitz runs statistics above/below the sample median.
+///
+/// Values equal to the median are discarded.  Returns `None` with fewer
+/// than three usable values or when either side of the median is empty.
 pub fn runs_above_below_median_stats(samples: &[f64]) -> Option<RunsMedianStats> {
     if samples.len() < 3 {
         return None;
@@ -252,6 +331,11 @@ pub fn runs_above_below_median_stats(samples: &[f64]) -> Option<RunsMedianStats>
     })
 }
 
+/// Wald–Wolfowitz runs test as a [`TestResult`] (`knuth::runs_median`),
+/// using the two-sided normal approximation of the run count.
+///
+/// Returns an insufficient-data result (NaN p-value) when
+/// [`runs_above_below_median_stats`] returns `None`.
 pub fn runs_above_below_median_test(samples: &[f64]) -> TestResult {
     let Some(stats) = runs_above_below_median_stats(samples) else {
         return TestResult::insufficient(
@@ -283,21 +367,54 @@ mod tests {
 
     #[test]
     fn permutation_stats_count_non_overlapping_blocks() {
-        let samples = vec![
-            0.1, 0.2, 0.3, 0.3, 0.2, 0.1, 0.2, 0.1, 0.3, 0.1, 0.3, 0.2, 0.2, 0.3, 0.1, 0.3, 0.1,
-            0.2, 0.1, 0.2, 0.3,
+        // 36 blocks of t=3 (Cochran needs ≥ 5·3! = 30): cycle all six orderings.
+        let orderings: [[f64; 3]; 6] = [
+            [0.1, 0.2, 0.3],
+            [0.1, 0.3, 0.2],
+            [0.2, 0.1, 0.3],
+            [0.2, 0.3, 0.1],
+            [0.3, 0.1, 0.2],
+            [0.3, 0.2, 0.1],
         ];
+        let samples: Vec<f64> = (0..36).flat_map(|i| orderings[i % 6]).collect();
         let stats = permutation_stats(&samples, 3).unwrap();
-        assert_eq!(7, stats.blocks);
+        assert_eq!(36, stats.blocks);
+        // Perfectly balanced counts → χ² = 0.
+        assert!(stats.chi_square.abs() < 1e-12);
+    }
+
+    #[test]
+    fn permutation_stats_reject_sub_cochran_block_counts() {
+        // 7 blocks of t=3 < 30 required — must be None, not a bogus χ².
+        let samples = vec![0.1; 21];
+        assert!(permutation_stats(&samples, 3).is_none());
     }
 
     #[test]
     fn gap_stats_ignore_prefix_before_first_hit() {
-        let samples = vec![
-            0.9, 0.8, 0.1, 0.7, 0.1, 0.6, 0.1, 0.5, 0.1, 0.4, 0.1, 0.3, 0.1,
-        ];
+        // Two leading misses, then 41 hits separated by single misses:
+        // 40 gaps of length 1; the prefix must not count.
+        let mut samples = vec![0.9, 0.8];
+        for _ in 0..40 {
+            samples.extend_from_slice(&[0.1, 0.7]);
+        }
+        samples.push(0.1);
         let stats = gap_stats(&samples, 0.0, 0.2, 3).unwrap();
-        assert_eq!(5, stats.gaps);
+        assert_eq!(40, stats.gaps);
+    }
+
+    #[test]
+    fn gap_stats_merge_tail_cells_per_cochran() {
+        // p = 0.25, 40 gaps: expected counts 10, 7.5, 5.6, 4.2, … — cells
+        // r ≥ 3 fall below 5 and must pool into one tail cell (4 cells total).
+        let mut samples = vec![];
+        for _ in 0..40 {
+            samples.extend_from_slice(&[0.1, 0.7]);
+        }
+        samples.push(0.1);
+        let stats = gap_stats(&samples, 0.0, 0.25, 15).unwrap();
+        assert_eq!(40, stats.gaps);
+        assert_eq!(4, stats.cells);
     }
 
     #[test]
