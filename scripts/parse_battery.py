@@ -27,7 +27,10 @@ existing TESTS.md.  Everything else is regenerated.
 
 import argparse
 import math
+import os
+import platform
 import re
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -187,12 +190,40 @@ def extract_aux_from_log(log_text: str, run_date: str, host: str) -> str:
 # Markdown generators
 # ---------------------------------------------------------------------------
 
-def gen_header(run_date: str, host: str, n_bits: int, n_rngs: int) -> str:
+def detect_cpu() -> str:
+    """Best-effort CPU description for the report header."""
+    try:
+        if sys.platform == "darwin":
+            brand = subprocess.check_output(
+                ["sysctl", "-n", "machdep.cpu.brand_string"], text=True
+            ).strip()
+            try:
+                perf = subprocess.check_output(
+                    ["sysctl", "-n", "hw.perflevel0.physicalcpu"], text=True
+                ).strip()
+                eff = subprocess.check_output(
+                    ["sysctl", "-n", "hw.perflevel1.physicalcpu"], text=True
+                ).strip()
+                cores = f"{perf}P+{eff}E cores"
+            except subprocess.CalledProcessError:
+                cores = f"{os.cpu_count()} cores"
+            return f"{brand}, {cores}"
+        if sys.platform.startswith("linux"):
+            with open("/proc/cpuinfo") as f:
+                for line in f:
+                    if line.startswith("model name"):
+                        return f"{line.split(':', 1)[1].strip()}, {os.cpu_count()} cores"
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    return platform.processor() or platform.machine()
+
+
+def gen_header(run_date: str, host: str, cpu: str, n_bits: int, n_rngs: int) -> str:
     mbits = n_bits // 1_000_000
     return f"""\
 # Full Battery Results
 
-Full `run_tests` battery harvested from `{host}` on {run_date}.
+Full `run_tests` battery harvested from `{host}` ({cpu}) on {run_date}.
 
 Sample size: **{mbits:,} Mbit** per generator for NIST; DIEHARD/DIEHARDER
 consume **{mbits:,} M 32-bit words** (plus what the live-drawing tests take
@@ -335,6 +366,9 @@ def main() -> None:
                     help="run date YYYY-MM-DD (default: today)")
     ap.add_argument("--host", default="darby.local",
                     help="machine name (default: darby.local)")
+    ap.add_argument("--cpu", default=None,
+                    help="CPU description for the header "
+                         "(default: auto-detected on this machine)")
     ap.add_argument("--output", default=str(REPO / "TESTS.md"),
                     help="output path (default: TESTS.md)")
     ap.add_argument("--dry-run", action="store_true",
@@ -366,7 +400,7 @@ def main() -> None:
 
     # Assemble new TESTS.md
     parts = [
-        gen_header(args.date, args.host, n_bits, len(blocks)),
+        gen_header(args.date, args.host, args.cpu or detect_cpu(), n_bits, len(blocks)),
         gen_summary_table(blocks),
         theory_section,
         gen_failure_highlights(blocks),
