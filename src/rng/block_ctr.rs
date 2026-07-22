@@ -85,6 +85,15 @@ impl<C: BlockCipher> BlockCtrRng<C> {
     }
 }
 
+impl<C: BlockCipher> Drop for BlockCtrRng<C> {
+    fn drop(&mut self) {
+        // Zeroize the keystream buffer so keystream bytes do not linger in
+        // memory after the RNG is dropped (mirrors AesCtr's Drop).  The
+        // cipher's own key schedule is the wrapped cipher's responsibility.
+        cryptography::zeroize_slice(&mut self.buf);
+    }
+}
+
 impl<C: BlockCipher> Rng for BlockCtrRng<C> {
     fn next_u32(&mut self) -> u32 {
         if self.pos + 4 > self.buf.len() {
@@ -105,18 +114,21 @@ mod tests {
 
     /// Known-answer test: AES-128(key=0, plaintext=0) = 66e94bd4ef8a2c3b884cfa59ca342b2e
     ///
-    /// Source: NIST FIPS 197, Appendix B (AES-128 known-answer vector).
+    /// The well-known zero-key/zero-block AES-128 vector — derivable from
+    /// FIPS 197 and present in OpenSSL's test vectors among many suites.
+    /// (Not an AESAVS vector: AESAVS GFSbox pairs key=0 with nonzero
+    /// plaintexts, and FIPS 197 Appendix B uses a nonzero key/plaintext pair.)
     /// The first u32 from the keystream in little-endian byte order is
     /// u32::from_le_bytes([0x66, 0xe9, 0x4b, 0xd4]) = 0xd44b_e966.
     #[test]
-    fn block_ctr_rng_kat_fips197() {
+    fn block_ctr_rng_kat_zero_key_zero_block() {
         let key = [0u8; 16];
         let cipher = Aes128::new(&key);
         let mut rng = BlockCtrRng::new(cipher, 0);
         assert_eq!(
             rng.next_u32(),
             0xd44b_e966,
-            "First u32 must match FIPS 197 AES-128 KAT: AES(key=0, ctr=0)[0..4] LE"
+            "First u32 must match the zero-key/zero-block AES-128 KAT: AES(key=0, ctr=0)[0..4] LE"
         );
     }
 
@@ -138,7 +150,7 @@ mod tests {
             block0, block1,
             "consecutive CTR blocks must differ"
         );
-        // First word of block 0 is the FIPS 197 KAT value (verified above).
+        // First word of block 0 is the zero-key/zero-block KAT value (verified above).
         assert_eq!(block0[0], 0xd44b_e966);
     }
 }

@@ -195,4 +195,36 @@ mod tests {
         let mut b = Sfc64::new(7, 8, 9);
         assert_eq!(a.next_u32(), (b.next_u64() >> 32) as u32);
     }
+
+    // Known-answer test: first three outputs of Sfc64::new(1, 2, 3),
+    // cross-checked against an independent Python replica of PractRand's
+    // sfc64 (sfc.cpp: shifts 11/3/24, counter = 1, 18 warm-up rounds).
+    #[test]
+    fn sfc64_known_answer() {
+        let mut rng = Sfc64::new(1, 2, 3);
+        let expected: [u64; 3] = [
+            0xbf36_b0b6_738f_81ed,
+            0xcd52_7698_dd82_1546,
+            0x8db8_6d5a_4db4_67e8,
+        ];
+        for &e in &expected {
+            assert_eq!(rng.next_u64(), e, "SFC64 KAT mismatch");
+        }
+    }
+
+    // Known-answer test: first three outputs of Jsf64::new(0xdeadbeef),
+    // cross-checked against an independent Python replica of Jenkins'
+    // smallprng (64-bit rot 7/13/37 variant, a = 0xf1ea5eed, 20 warm-ups).
+    #[test]
+    fn jsf64_known_answer() {
+        let mut rng = Jsf64::new(0xdead_beef);
+        let expected: [u64; 3] = [
+            0x2947_274c_9b14_f76b,
+            0x10c1_0da7_6e5c_d72c,
+            0x10ce_0695_c60a_16ed,
+        ];
+        for &e in &expected {
+            assert_eq!(rng.next_u64(), e, "JSF64 KAT mismatch");
+        }
+    }
 }

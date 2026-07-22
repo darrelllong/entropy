@@ -26,7 +26,8 @@ const PCG32_MULT: u64 = 6_364_136_223_846_793_005;
 
 /// 32-bit PCG using a 64-bit LCG with XSH-RR output permutation.
 ///
-/// Period: 2⁶⁴.  Two independent streams via the `seq` parameter.
+/// Period: 2⁶⁴.  2⁶³ selectable streams via the `seq` parameter (the stream
+/// increment is `(seq << 1) | 1`, so `seq` and `seq + 2⁶³` coincide).
 pub struct Pcg32 {
     state: u64,
     inc: u64, // must be odd; encodes stream selection
@@ -82,12 +83,14 @@ impl Rng for Pcg32 {
 
 // ── PCG64 (128-bit LCG, XSL-RR output → 64 bits) ────────────────────────────
 
-// Multiplier from the PCG reference implementation (pcg128_once_insecure).
+// PCG_DEFAULT_MULTIPLIER_128 from the PCG reference implementation — the
+// multiplier used by the standard pcg64 (XSL-RR) generator.
 const PCG64_MULT: u128 = 47_026_247_687_942_121_848_144_207_491_837_523_525;
 
 /// 64-bit PCG using a 128-bit LCG with XSL-RR output permutation.
 ///
-/// Period: 2¹²⁸.  Two independent streams via the `seq` parameter.
+/// Period: 2¹²⁸.  2¹²⁷ selectable streams via the `seq` parameter (the stream
+/// increment is `(seq << 1) | 1`, so `seq` and `seq + 2¹²⁷` coincide).
 pub struct Pcg64 {
     state: u128,
     inc: u128,

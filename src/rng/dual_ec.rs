@@ -69,6 +69,12 @@ impl DualEcDrbg {
     /// * `seed`   — initial state, interpreted as a big-endian integer.  Should be
     ///   at least `⌈seqlen/8⌉` bytes of high-entropy material.
     /// * `outlen` — output bits per block; must be a positive multiple of 8.
+    ///
+    /// # Panics
+    /// Panics if `outlen` is not a positive multiple of 8, or if `seed` is
+    /// empty or all-zero: `s = 0` is a fixed point of the state update
+    /// (`scalar_mul` returns the point at infinity, whose x-coordinate is 0),
+    /// so the generator would emit an all-zero stream forever.
     pub fn new(
         curve: CurveParams,
         p: AffinePoint,
@@ -81,6 +87,11 @@ impl DualEcDrbg {
             "outlen must be a positive multiple of 8"
         );
         let s = BigUint::from_be_bytes(seed);
+        assert!(
+            !s.is_zero(),
+            "Dual_EC_DRBG: seed must be a nonzero big-endian integer \
+             (s = 0 is a fixed point that emits an all-zero stream)"
+        );
         Self {
             curve,
             p,
@@ -93,6 +104,13 @@ impl DualEcDrbg {
     }
 
     /// P-256 (secp256r1) with NIST SP 800-90 standard Q point.  outlen = 240 bits.
+    ///
+    /// **BACKDOORED.** The P-256 Q point in SP 800-90 Appendix A.1 Table A-1
+    /// is from the NSA-generated table and is the primary suspect point in the
+    /// published Dual_EC analyses.  An adversary holding the discrete-log
+    /// trapdoor scalar e where Q = e·P can recover the full internal state
+    /// from one output block.  Use this constructor only as a negative
+    /// control.  Never use for key material or any security-sensitive purpose.
     ///
     /// Q coordinates from NIST SP 800-90 (June 2006), Appendix A.1, Table A-1.
     pub fn p256(seed: &[u8]) -> Self {
@@ -172,6 +190,11 @@ impl DualEcDrbg {
 
 impl Rng for DualEcDrbg {
     /// Return the next 32-bit word, generating a new block when needed.
+    ///
+    /// Note: words are decoded **big-endian** from the output block, matching
+    /// SP 800-90's big-endian integer encoding — a deliberate deviation from
+    /// the little-endian convention of the crate's other byte-backed
+    /// generators (see [`super::Rng`]).
     fn next_u32(&mut self) -> u32 {
         let remaining = self.buf.len() - self.pos;
         if remaining < 4 {
@@ -232,4 +255,18 @@ fn decode_hex(s: &str) -> Vec<u8> {
         .step_by(2)
         .map(|i| u8::from_str_radix(&cleaned[i..i + 2], 16).expect("valid hex digit"))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zero_seed_rejected() {
+        // s = 0 is a fixed point (all-zero output stream); new() must panic.
+        let r = std::panic::catch_unwind(|| DualEcDrbg::p256(&[0u8; 32]));
+        assert!(r.is_err(), "all-zero seed must be rejected");
+        let r = std::panic::catch_unwind(|| DualEcDrbg::p256(b""));
+        assert!(r.is_err(), "empty seed must be rejected");
+    }
 }

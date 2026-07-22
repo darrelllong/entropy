@@ -17,7 +17,8 @@
 //! # References
 //! * K. Thompson and D. M. Ritchie, *Unix Programmer's Manual*, 7th Edition,
 //!   Bell Laboratories, 1979.  [`rand(3)` source of the 1103515245/12345 parameters
-//!   used in `SystemVRand` and `WindowsMsvcRand`.]
+//!   used in `SystemVRand`.  `WindowsMsvcRand` uses Microsoft's distinct
+//!   214013/2531011 parameters, not this pair.]
 //! * S. K. Park and K. W. Miller, "Random number generators: good ones are
 //!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
 //!   DOI: 10.1145/63039.63042.
@@ -90,6 +91,7 @@ pub struct SystemVRand {
 }
 
 impl SystemVRand {
+    /// Construct from a 32-bit seed (the `srand()` value).
     pub fn new(seed: u32) -> Self {
         Self {
             state: seed,
@@ -97,6 +99,7 @@ impl SystemVRand {
         }
     }
 
+    /// One raw `rand()` step: returns the 15-bit value `(state >> 16) & 0x7fff`.
     pub fn next_raw(&mut self) -> u32 {
         self.state = self.state.wrapping_mul(1_103_515_245).wrapping_add(12_345);
         (self.state >> 16) & 0x7fff
@@ -131,6 +134,7 @@ pub struct WindowsMsvcRand {
 }
 
 impl WindowsMsvcRand {
+    /// Construct from a 32-bit seed (the `srand()` value).
     pub fn new(seed: u32) -> Self {
         Self {
             state: seed,
@@ -138,6 +142,7 @@ impl WindowsMsvcRand {
         }
     }
 
+    /// One raw `rand()` step: returns the 15-bit value `(state >> 16) & 0x7fff`.
     pub fn next_raw(&mut self) -> u32 {
         self.state = self.state.wrapping_mul(214_013).wrapping_add(2_531_011);
         (self.state >> 16) & 0x7fff
@@ -171,6 +176,7 @@ pub struct WindowsVb6Rnd {
 }
 
 impl WindowsVb6Rnd {
+    /// Construct from a seed; only the low 24 bits are kept as state.
     pub fn new(seed: u32) -> Self {
         Self {
             state: seed & 0x00ff_ffff,
@@ -178,6 +184,7 @@ impl WindowsVb6Rnd {
         }
     }
 
+    /// One raw `Rnd` state transition: returns the new 24-bit state.
     pub fn next_raw(&mut self) -> u32 {
         self.state = self
             .state
@@ -187,6 +194,7 @@ impl WindowsVb6Rnd {
         self.state
     }
 
+    /// Faithful `Rnd` return value: the 24-bit state mapped into `[0, 1)`.
     pub fn next_sample(&mut self) -> f64 {
         self.next_raw() as f64 * (1.0 / 16_777_216.0)
     }
@@ -221,6 +229,8 @@ pub struct WindowsDotNetRandom {
 }
 
 impl WindowsDotNetRandom {
+    /// Construct from an `i32` seed exactly as `System.Random(seed)` does,
+    /// including the Knuth-style seed-array initialisation rounds.
     pub fn new(seed: i32) -> Self {
         let mut seed_array = [0i32; 56];
         let subtraction = if seed == i32::MIN {
@@ -266,6 +276,7 @@ impl WindowsDotNetRandom {
         }
     }
 
+    /// One raw `InternalSample()` step: returns a value in `[0, 2³¹ − 1)`.
     pub fn next_raw(&mut self) -> u32 {
         self.inext += 1;
         if self.inext >= 56 {
@@ -289,6 +300,7 @@ impl WindowsDotNetRandom {
         ret as u32
     }
 
+    /// Faithful `Sample()`: the raw value mapped into `[0, 1)`.
     pub fn next_sample(&mut self) -> f64 {
         self.next_raw() as f64 * (1.0 / i32::MAX as f64)
     }
@@ -324,6 +336,9 @@ pub struct BsdRandom {
 }
 
 impl BsdRandom {
+    /// Construct from a 32-bit seed (`srandom()`): seed 0 is mapped to 1,
+    /// the 31-word table is filled Park-Miller style, and 310 warm-up steps
+    /// are discarded, exactly as the C initialiser does.
     pub fn new(seed: u32) -> Self {
         let seed = if seed == 0 { 1 } else { seed };
         let mut state = [0u32; 31];
@@ -346,6 +361,7 @@ impl BsdRandom {
         rng
     }
 
+    /// One raw `random()` step: returns the 31-bit value `(sum >> 1)`.
     pub fn next_raw(&mut self) -> u32 {
         let val = self.state[self.fptr].wrapping_add(self.state[self.rptr]);
         self.state[self.fptr] = val;
@@ -395,6 +411,7 @@ pub struct BsdRandCompat {
 }
 
 impl BsdRandCompat {
+    /// Construct from a 32-bit seed (the `rand_r()` state word).
     pub fn new(seed: u32) -> Self {
         Self {
             state: seed,
@@ -402,6 +419,7 @@ impl BsdRandCompat {
         }
     }
 
+    /// One raw `rand_r()` step: a Park-Miller update returning a 31-bit value.
     pub fn next_raw(&mut self) -> u32 {
         let x = (u64::from(self.state) % 0x7fff_fffe) + 1;
         let hi = x / 127_773;
@@ -443,6 +461,8 @@ const RAND48_C: u64 = 0xB;
 const RAND48_M: u64 = 1 << 48;
 
 impl Rand48 {
+    /// Construct from a seed exactly as `srand48()` does: the seed fills the
+    /// high 32 bits of the 48-bit state and the low 16 bits are set to 0x330E.
     pub fn new(seed: u64) -> Self {
         Self {
             state: (seed << 16) | 0x330E,

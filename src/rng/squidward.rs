@@ -2,14 +2,15 @@
 //!
 //! `x_0 = SHA-256(seed)`, `x_{i+1} = SHA-256(x_i)`.
 //!
-//! Each 256-bit state is consumed as a sequential byte stream.  On `aarch64`
-//! targets with FEAT_SHA2 (Apple Silicon and most modern ARM cores), every
-//! SHA-256 call is dispatched to the hardware `vsha256*` NEON intrinsics via
-//! the `aarch64-alt` crate; other targets fall back to `cryptography::Sha256`.
+//! Each 256-bit state is consumed as a sequential byte stream.  Every SHA-256
+//! call goes through the pure-Rust `cryptography::Sha256` implementation on
+//! all targets.  A pre-publication build carried an optional FEAT_SHA2
+//! hardware fast path via an `aarch64-alt` sub-crate; it was removed for the
+//! published crate.
 //!
 //! Unlike SpongeBob (which uses a SHA3-512 chain and carries 512 bits of state
 //! per step), SHA-256 has no XOF mode.  The state here is kept inline at
-//! 32 bytes — the right size for the SHA-256 hardware path on aarch64.
+//! 32 bytes — exactly one SHA-256 digest.
 //!
 //! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
 //! are used; mixing widths at a refill boundary silently discards up to 7
