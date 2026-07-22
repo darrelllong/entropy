@@ -9,10 +9,13 @@ use rustfft::{num_complex::Complex, FftPlanner};
 
 /// Complementary error function, erfc(x) = 1 − erf(x).
 ///
-/// Uses the rational approximation from W. H. Press et al., *Numerical Recipes*
-/// (3rd ed., 2007), §6.2.2.  Maximum absolute error ≈ 1.2 × 10⁻⁷.
+/// Uses the Chebyshev-fitted rational approximation (`erfcc`) from W. H. Press
+/// et al., *Numerical Recipes in C* (2nd ed., 1992), §6.2.  Fractional error
+/// below 1.2 × 10⁻⁷ per NR; measured absolute error ≤ 2 × 10⁻⁷ near x = 0.
+/// Ample for α = 0.01 verdicts, but very small p-values carry only ~7 digits.
 ///
 /// Used by nearly every NIST SP 800-22 test for its p-value.
+#[must_use]
 pub fn erfc(x: f64) -> f64 {
     let z = x.abs();
     let t = 1.0 / (1.0 + 0.5 * z);
@@ -38,6 +41,7 @@ pub fn erfc(x: f64) -> f64 {
 }
 
 /// Standard normal CDF, Φ(x) = P(Z ≤ x) for Z ~ N(0,1).
+#[must_use]
 pub fn normal_cdf(x: f64) -> f64 {
     0.5 * erfc(-x / SQRT_2)
 }
@@ -46,8 +50,10 @@ pub fn normal_cdf(x: f64) -> f64 {
 
 /// Natural logarithm of the gamma function, ln Γ(x), for x > 0.
 ///
-/// Lanczos approximation from W. H. Press et al., *Numerical Recipes*
-/// (3rd ed., 2007), §6.1.  Accurate to ~15 significant figures.
+/// Six-coefficient Lanczos approximation (`gammln`) from W. H. Press et al.,
+/// *Numerical Recipes in C* (2nd ed., 1992), §6.1.  Relative error in ln Γ
+/// is below 2 × 10⁻¹⁰ per NR (~10 significant figures in Γ).
+#[must_use]
 pub fn lgamma(x: f64) -> f64 {
     const C: [f64; 6] = [
         76.18009172947146,
@@ -77,8 +83,10 @@ pub fn lgamma(x: f64) -> f64 {
 /// Algorithm from W. H. Press et al., *Numerical Recipes* (3rd ed.), §6.2:
 /// series expansion for x < a + 1, Lentz continued-fraction otherwise.
 ///
-/// Returns `f64::NAN` if `a ≤ 0` or `x < 0`; callers treat `NAN` as an
-/// insufficient-data result rather than a statistical verdict.
+/// Returns `f64::NAN` if `a ≤ 0`, `x < 0`, or the expansion fails to converge
+/// (astronomically large `a`); callers treat `NAN` as an insufficient-data
+/// result rather than a statistical verdict.
+#[must_use]
 pub fn igamc(a: f64, x: f64) -> f64 {
     if !(a > 0.0 && x >= 0.0) {
         return f64::NAN;
@@ -86,28 +94,39 @@ pub fn igamc(a: f64, x: f64) -> f64 {
     if x == 0.0 {
         return 1.0;
     }
+    if x.is_infinite() {
+        return 0.0;
+    }
     if x < a + 1.0 {
-        1.0 - gamser(a, x)
+        gamser(a, x).map_or(f64::NAN, |p| 1.0 - p)
     } else {
-        gammcf(a, x)
+        gammcf(a, x).unwrap_or(f64::NAN)
     }
 }
 
+/// Iteration budget for the igamc expansions.  Both the series and the
+/// continued fraction need O(√a) terms when x ≈ a (the chi-square bulk),
+/// so a fixed cap silently loses accuracy for large df: at a = 10⁵ a
+/// 500-iteration cap yields ~11% relative error.  `None` on non-convergence.
+fn igamc_max_iter(a: f64) -> u64 {
+    500 + (10.0 * a.sqrt()) as u64
+}
+
 /// Series expansion for the regularized lower incomplete gamma P(a, x).
-fn gamser(a: f64, x: f64) -> f64 {
+fn gamser(a: f64, x: f64) -> Option<f64> {
     let gln = lgamma(a);
     let mut ap = a;
     let mut del = 1.0 / a;
     let mut sum = del;
-    for _ in 0..500 {
+    for _ in 0..igamc_max_iter(a) {
         ap += 1.0;
         del *= x / ap;
         sum += del;
         if del.abs() < sum.abs() * 1e-13 {
-            break;
+            return Some(sum * (-x + a * x.ln() - gln).exp());
         }
     }
-    sum * (-x + a * x.ln() - gln).exp()
+    None
 }
 
 /// Lentz continued-fraction expansion for Q(a, x).
@@ -116,14 +135,16 @@ fn gamser(a: f64, x: f64) -> f64 {
 /// *Numerical Recipes* (3rd ed.), §6.2.  The key invariant is that d and c
 /// are updated in sequence with the SAME value of `an` — d must not be
 /// touched twice in one iteration, which would corrupt the fraction.
-fn gammcf(a: f64, x: f64) -> f64 {
+fn gammcf(a: f64, x: f64) -> Option<f64> {
     let gln = lgamma(a);
     let fpmin = f64::MIN_POSITIVE / f64::EPSILON;
     let mut b = x + 1.0 - a;
     let mut c = 1.0 / fpmin;
-    let mut d = if b.abs() < fpmin { fpmin } else { 1.0 / b };
+    // Lentz convention: clamp the DENOMINATOR to fpmin, then invert.
+    // (Unreachable here — the x ≥ a + 1 branch guarantees b ≥ 2.)
+    let mut d = 1.0 / if b.abs() < fpmin { fpmin } else { b };
     let mut h = d;
-    for i in 1_u64..=500 {
+    for i in 1_u64..=igamc_max_iter(a) {
         let an = -(i as f64) * (i as f64 - a);
         b += 2.0;
         // Update d: clamp before inverting so we never divide by zero.
@@ -135,10 +156,10 @@ fn gammcf(a: f64, x: f64) -> f64 {
         let del = d * c;
         h *= del;
         if (del - 1.0).abs() < 1e-13 {
-            break;
+            return Some((-x + a * x.ln() - gln).exp() * h);
         }
     }
-    (-x + a * x.ln() - gln).exp() * h
+    None
 }
 
 // ── Kolmogorov-Smirnov ────────────────────────────────────────────────────────
@@ -152,6 +173,7 @@ fn gammcf(a: f64, x: f64) -> f64 {
 ///
 /// # Preconditions
 /// All elements must be finite and non-NaN.  The slice is sorted in place.
+#[must_use]
 pub fn ks_test(samples: &mut [f64]) -> f64 {
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = samples.len();
@@ -184,9 +206,12 @@ const KS_EXACT_MAX_N: usize = 4_999;
 ///   Comparisons. *JASA* 69(347), 730-737.
 /// - Kolmogorov, A.N. (1933). Sulla determinazione empirica di una legge di
 ///   distribuzione. *Giornale dell'Istituto Italiano degli Attuari* 4, 83-91.
+#[must_use]
 pub fn ks_pvalue(d: f64, n: usize) -> f64 {
     if n == 0 {
-        return 0.0;
+        // No sample → no verdict.  NaN follows the crate's insufficient-data
+        // convention (a 0.0 here would report a hard FAIL on empty input).
+        return f64::NAN;
     }
     if d <= 0.0 {
         return 1.0;
@@ -207,12 +232,24 @@ fn ks_pvalue_asymptotic(d: f64, n: usize) -> f64 {
     // Asymptotic series (Kolmogorov 1933)
     let s2 = -2.0 * s * s;
     let mut sum = 0.0_f64;
+    let mut converged = false;
     for k in 1_i64..=100 {
         let term = (-1.0_f64).powi(k as i32 - 1) * (k as f64 * k as f64 * s2).exp();
         sum += term;
-        if term.abs() < 1e-15 * sum.abs() {
+        // `<=` so that a term underflowing to exactly 0 (huge s: every term
+        // vanishes, sum stays 0, true p ≈ 0) counts as converged; the strict
+        // `<` never fired there (0 < 0) and misrouted huge-s inputs into the
+        // small-s fallback below, reporting p = 1 for catastrophic D.
+        if term.abs() <= 1e-15 * sum.abs() {
+            converged = true;
             break;
         }
+    }
+    if !converged {
+        // Terms decay like exp(−2k²s²); for very small s (near-superuniform
+        // samples) the terms stay O(1) and 100 terms are not enough — but
+        // there the true p ≈ 1.
+        return 1.0;
     }
     (2.0 * sum).clamp(0.0, 1.0)
 }
@@ -229,10 +266,14 @@ fn ks_pvalue_exact(d: f64, n: usize) -> f64 {
     let m = 2 * k - 1;
     let h = k as f64 - nf * d;
 
+    // H[i][j] = 1 wherever i − j + 1 ≥ 0: lower triangle PLUS the first
+    // superdiagonal (j = i + 1, where the later (i − j + 1)! divisor is 0! = 1).
+    // Omitting the superdiagonal makes H triangular and collapses the exact
+    // p-value to 1 − n!/nⁿ for every D.
     let mut hmat = vec![0.0; m * m];
     for i in 0..m {
         for j in 0..m {
-            if i >= j {
+            if i + 1 >= j {
                 hmat[i * m + j] = 1.0;
             }
         }
@@ -312,19 +353,12 @@ fn renormalize_matrix(v: &mut [f64], exponent: &mut i32) {
         *x *= 1.0e-140;
     }
     *exponent += 140;
-
-    if v.iter().all(|&x| x == 0.0) {
-        return;
-    }
-    if v.iter().all(|x| x.abs() < 1.0e-140) {
-        v.iter_mut().for_each(|x| *x *= 1.0e140);
-        *exponent -= 140;
-    }
 }
 
 // ── Chi-square p-value (convenience) ─────────────────────────────────────────
 
 /// Chi-square survival function: P(χ²_{df} > chi_sq) = igamc(df/2, chi_sq/2).
+#[must_use]
 pub fn chi2_pvalue(chi_sq: f64, df: usize) -> f64 {
     igamc(df as f64 / 2.0, chi_sq / 2.0)
 }
@@ -336,6 +370,7 @@ pub fn chi2_pvalue(chi_sq: f64, df: usize) -> f64 {
 ///
 /// Uses `rustfft` so the NIST spectral test can analyze the full sequence
 /// length instead of truncating to a radix-2 prefix.
+#[must_use]
 pub fn fft_magnitudes(x: &[f64]) -> Vec<f64> {
     let n = x.len();
     let mut planner = FftPlanner::<f64>::new();
@@ -347,8 +382,10 @@ pub fn fft_magnitudes(x: &[f64]) -> Vec<f64> {
 
 /// Naïve O(n²) DFT of a real sequence, returning magnitudes |X_k| for k = 0..n.
 ///
-/// For the NIST spectral test (SP 800-22 §2.6) the recommended sequence length
-/// is n = 1 000, making the O(n²) cost ~10⁶ multiplications — negligible.
+/// Reference implementation kept to cross-check [`fft_magnitudes`] (which the
+/// NIST spectral test uses); the two agree to machine precision (see tests).
+/// Prefer [`fft_magnitudes`] for anything beyond a few thousand points.
+#[must_use]
 pub fn dft_magnitudes(x: &[f64]) -> Vec<f64> {
     let n = x.len();
     let two_pi_over_n = 2.0 * PI / n as f64;
@@ -373,10 +410,12 @@ pub fn dft_magnitudes(x: &[f64]) -> Vec<f64> {
 ///
 /// `matrix` is a slice of `rows` packed u32 row-words; bit `c` of `matrix[r]`
 /// is the entry at row `r`, column `c`.  Only the low `cols` bits of each word
-/// are used (caller must mask if needed).
+/// are used (caller must mask if needed); `cols` must be ≤ 32.
 ///
 /// Time: O(rows × cols × min(rows,cols)).
+#[must_use]
 pub fn gf2_rank(matrix: &[u32], rows: usize, cols: usize) -> usize {
+    debug_assert!(cols <= 32, "gf2_rank rows are packed u32: cols must be <= 32");
     let mut m = matrix.to_vec();
     let mut rank = 0usize;
     let mut pivot_row = 0usize;
@@ -423,6 +462,31 @@ mod tests {
     fn igamc_boundary() {
         // Q(a, 0) = 1
         assert!((igamc(1.0, 0.0) - 1.0).abs() < 1e-12);
+        // Q(a, ∞) = 0
+        assert_eq!(igamc(1.0, f64::INFINITY), 0.0);
+        // Domain errors → NaN
+        assert!(igamc(0.0, 1.0).is_nan());
+        assert!(igamc(1.0, -1.0).is_nan());
+        assert!(igamc(f64::NAN, 1.0).is_nan());
+    }
+
+    // Golden values from scipy.special.gammaincc / scipy.stats.chi2.sf.
+    #[test]
+    fn igamc_golden_values() {
+        // Series branch (x < a + 1)
+        assert!((igamc(3.0, 2.5) - 0.5438131158833297).abs() < 1e-10);
+        // Continued-fraction branch (x ≥ a + 1)
+        assert!((igamc(0.5, 2.0) - 0.045500263896358445).abs() < 1e-10);
+        // Chi-square mapping: P(χ²₅ > 11.0705) ≈ 0.05
+        assert!((chi2_pvalue(11.0705, 5) - 0.04999995542804364).abs() < 1e-9);
+    }
+
+    // Large shape parameters need O(√a) iterations; a fixed 500-iteration cap
+    // silently returned ~11% relative error at a = 10⁵.
+    #[test]
+    fn igamc_large_shape_parameter() {
+        assert!((igamc(20_000.0, 20_000.0) - 0.49905968376625065).abs() < 1e-6);
+        assert!((igamc(100_000.0, 100_000.0) - 0.4995794778896348).abs() < 1e-6);
     }
 
     #[test]
@@ -436,5 +500,68 @@ mod tests {
     fn ks_pvalue_respects_boundaries() {
         assert_eq!(ks_pvalue(0.0, 10), 1.0);
         assert_eq!(ks_pvalue(1.0, 10), 0.0);
+        // Empty sample → no verdict, not a hard FAIL.
+        assert!(ks_pvalue(0.5, 0).is_nan());
+    }
+
+    // Golden values from scipy.stats.kstwo.sf (the exact two-sided KS law).
+    // These exercise the Marsaglia-Tsang-Wang matrix path, which a triangular
+    // H-matrix bug once collapsed to p ≈ 1 for every input.
+    #[test]
+    fn ks_pvalue_exact_golden_values() {
+        assert!((ks_pvalue(0.1, 100) - 0.2526927570063875).abs() < 1e-5);
+        assert!((ks_pvalue(0.15, 100) - 0.01983924212564203).abs() < 1e-6);
+        assert!((ks_pvalue(0.409, 10) - 0.05022340810547443).abs() < 1e-6);
+        assert!((ks_pvalue(0.05, 1000) - 0.013012074781090332).abs() < 1e-6);
+    }
+
+    // Asymptotic branch (n > 4999): Stephens-corrected series, ~1e-3 class
+    // accuracy in the far tail — assert ballpark, not digits.
+    #[test]
+    fn ks_pvalue_asymptotic_golden_value() {
+        let p = ks_pvalue(0.02, 10_000);
+        assert!((p - 6.616848639387309e-4).abs() < 2e-4, "p = {p}");
+    }
+
+    // The two asymptotic-series non-convergence modes must route oppositely:
+    // huge s (all terms underflow, catastrophic D) → 0; tiny s (terms stay
+    // O(1), near-superuniform sample) → 1.  A constant stream once PASSed
+    // ks_uniform because huge-s fell into the tiny-s fallback.
+    #[test]
+    fn ks_pvalue_asymptotic_extremes() {
+        assert_eq!(ks_pvalue(0.99, 16_000_000), 0.0);
+        assert_eq!(ks_pvalue(1e-9, 100_000), 1.0);
+    }
+
+    #[test]
+    fn lgamma_golden_values() {
+        assert!((lgamma(10.0) - 12.801827480081467).abs() < 1e-8);
+        assert!((lgamma(0.5) - 0.5723649429247004).abs() < 1e-10);
+    }
+
+    #[test]
+    fn erfc_golden_value_tail() {
+        assert!((erfc(2.0) - 0.004677734981047266).abs() < 5e-7);
+    }
+
+    #[test]
+    fn dft_and_fft_agree() {
+        let x: Vec<f64> = (0..64).map(|i| ((i * 37 + 11) % 17) as f64 - 8.0).collect();
+        let slow = dft_magnitudes(&x);
+        let fast = fft_magnitudes(&x);
+        assert_eq!(slow.len(), fast.len());
+        for (s, f) in slow.iter().zip(&fast) {
+            assert!((s - f).abs() < 1e-9, "dft {s} vs fft {f}");
+        }
+    }
+
+    #[test]
+    fn gf2_rank_known_matrices() {
+        // 3×3 identity → rank 3
+        assert_eq!(gf2_rank(&[0b001, 0b010, 0b100], 3, 3), 3);
+        // Dependent rows: r2 = r0 ^ r1 → rank 2
+        assert_eq!(gf2_rank(&[0b011, 0b101, 0b110], 3, 3), 2);
+        // Zero matrix → rank 0
+        assert_eq!(gf2_rank(&[0, 0, 0], 3, 3), 0);
     }
 }

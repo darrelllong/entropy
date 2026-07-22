@@ -18,7 +18,9 @@ pub struct TestResult {
 }
 
 impl TestResult {
-    /// Construct a result with the default significance level.
+    /// Construct a result with no note.  The pass/fail verdict is not stored;
+    /// [`passed`](Self::passed) judges `p_value` against [`ALPHA`] on demand.
+    #[must_use]
     pub fn new(name: &'static str, p_value: f64) -> Self {
         Self {
             name,
@@ -28,6 +30,7 @@ impl TestResult {
     }
 
     /// Construct a result with an explanatory note.
+    #[must_use]
     pub fn with_note(name: &'static str, p_value: f64, note: impl Into<String>) -> Self {
         Self {
             name,
@@ -37,6 +40,7 @@ impl TestResult {
     }
 
     /// A result whose preconditions were not met (n too small, etc.).
+    #[must_use]
     pub fn insufficient(name: &'static str, reason: &str) -> Self {
         Self {
             name,
@@ -46,11 +50,17 @@ impl TestResult {
     }
 
     /// `true` if p_value ≥ alpha (the sequence is not rejected at this level).
+    ///
+    /// A NaN p-value (a skipped test) also returns `false`, so callers that
+    /// must distinguish FAIL from SKIP should check
+    /// [`skipped`](Self::skipped) first.
+    #[must_use]
     pub fn passed(&self) -> bool {
         self.p_value >= ALPHA
     }
 
     /// `true` if the preconditions were not met (`p_value` is NaN).
+    #[must_use]
     pub fn skipped(&self) -> bool {
         self.p_value.is_nan()
     }
@@ -67,6 +77,10 @@ impl fmt::Display for TestResult {
         };
         if self.skipped() {
             write!(f, "[{status}] {:<48}  p = N/A", self.name)?;
+        } else if self.p_value > 0.0 && self.p_value < 1e-6 {
+            // Tiny but non-zero p-values would round to "0.000000"; use
+            // scientific notation so the magnitude of the failure is visible.
+            write!(f, "[{status}] {:<48}  p = {:.3e}", self.name, self.p_value)?;
         } else {
             write!(f, "[{status}] {:<48}  p = {:.6}", self.name, self.p_value)?;
         }
@@ -74,5 +88,30 @@ impl fmt::Display for TestResult {
             write!(f, "  ({n})")?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn display_uses_scientific_notation_for_tiny_p() {
+        let tiny = TestResult::new("t", 3.2e-9);
+        assert!(tiny.to_string().contains("p = 3.200e-9"), "{tiny}");
+        // Exact zero keeps the fixed-decimal form (deliberate).
+        let zero = TestResult::new("t", 0.0);
+        assert!(zero.to_string().contains("p = 0.000000"), "{zero}");
+        // Ordinary p-values keep six decimals.
+        let mid = TestResult::new("t", 0.5);
+        assert!(mid.to_string().contains("p = 0.500000"), "{mid}");
+    }
+
+    #[test]
+    fn skip_pass_fail_triage() {
+        assert!(TestResult::insufficient("t", "why").skipped());
+        assert!(!TestResult::insufficient("t", "why").passed());
+        assert!(TestResult::new("t", 0.5).passed());
+        assert!(!TestResult::new("t", 0.001).passed());
     }
 }
