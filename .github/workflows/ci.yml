@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / ${{ matrix.rust }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust: stable
+          - os: macos-latest
+            rust: stable
+          # MSRV — keep in sync with rust-version in Cargo.toml.
+          - os: ubuntu-latest
+            rust: "1.87"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust ${{ matrix.rust }}
+        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy && rustup default ${{ matrix.rust }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Build (all targets)
+        run: cargo build --all-targets
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test
+      - name: Doc build (deny missing docs)
+        run: RUSTDOCFLAGS="-D missing_docs" cargo doc --no-deps
