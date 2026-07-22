@@ -19,8 +19,13 @@ const TABLE_SIZE: usize = 256 * SAMP_TOTAL;
 /// David Bauer, Dieharder (2006), `dab_bytedistrib`.
 pub fn byte_distribution(words: &[u32]) -> TestResult {
     let tsamples = words.len() / WORDS_PER_TRIAL;
-    if tsamples == 0 {
-        return TestResult::insufficient("dieharder::byte_distribution", "not enough words");
+    // Each of the 9 byte streams is chi-squared over 256 cells with expected
+    // count tsamples/256; Cochran's rule needs that ≥ 5, i.e. tsamples ≥ 1280.
+    if tsamples < 5 * 256 {
+        return TestResult::insufficient(
+            "dieharder::byte_distribution",
+            "need at least 1280 trials (3840 words) for valid χ² expected counts",
+        );
     }
 
     let mut counts = vec![0u32; TABLE_SIZE];

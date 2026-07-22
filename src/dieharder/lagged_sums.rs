@@ -20,7 +20,8 @@ use std::f64::consts::SQRT_2;
 /// # Author
 /// Robert G. Brown, Dieharder (2006), `rgb_lagged_sums`.
 pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
-    let lag = lag.max(1);
+    // lag = 0 is valid in dieharder ("don't throw any away"): every sample is
+    // summed.  stride = lag + 1 handles it naturally; do not coerce.
     let stride = lag + 1;
     let tsamples = words.len() / stride;
 

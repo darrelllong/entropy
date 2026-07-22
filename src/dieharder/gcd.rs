@@ -87,8 +87,9 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
             if i < 2 {
                 0.0
             } else if i == gtblsize - 1 {
-                // Tail: accumulate 6/(π²j²) for j from gtblsize-1 to 100000.
-                (i..=100_000)
+                // Tail: accumulate 6/(π²j²) for j from gtblsize-1 up to (but
+                // excluding) 100000, matching the C's `for (j = i; j < 100000)`.
+                (i..100_000)
                     .map(|j| n * gnorm / (j as f64 * j as f64))
                     .sum()
             } else {
@@ -97,6 +98,11 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
         })
         .collect();
 
+    // NOTE: dropping sub-cutoff cells (rather than pooling them Vtest-style)
+    // is exactly equivalent to the C at N_PAIRS = 100_000 (the bundled tail
+    // stays below the cutoff there too); if N_PAIRS is ever raised, the C
+    // pools weak k-bins into a contributing tail cell and this filter would
+    // need the same treatment.
     let gcd_chi_sq: f64 = gcd_counts
         .iter()
         .zip(gcd_expected.iter())

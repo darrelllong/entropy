@@ -58,8 +58,11 @@ const TARGET_LEN: usize = TARGET_DATA.len(); // 20
 /// # Author
 /// David Bauer, Dieharder (2006), `dab_filltree`.
 pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
-    // Upper bound: each trial may consume at most SIZE*2 words.
-    if words.len() < N_TRIALS * SIZE * 2 {
+    // Cheap upfront floor: mean consumption is ≈ 7.3 words/trial, so demand
+    // 8·N_TRIALS.  (The worst case is SIZE·2 per trial, but requiring that —
+    // 6.4 M words — rejected streams that virtually always suffice; the
+    // mid-trial bail-out below still handles a stream that truly runs dry.)
+    if words.len() < N_TRIALS * 8 {
         return vec![
             TestResult::insufficient("dieharder::fill_tree_count", "not enough words"),
             TestResult::insufficient("dieharder::fill_tree_position", "not enough words"),
@@ -139,7 +142,11 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
     }
 
     // Chi-square 1: fill-count distribution vs TARGET_DATA.
-    let chi_fill: f64 = (start_idx..=end_idx)
+    // C-faithful cell range: `chisq_pearson(counts+start, expected+start,
+    // end-start)` sums start..end EXCLUSIVE (10 cells at these parameters),
+    // with df = cells − 1 = 9.  Including `end` while keeping df = 9 tested an
+    // ~10-dof statistic against χ²₉, biasing p low.
+    let chi_fill: f64 = (start_idx..end_idx)
         .map(|i| {
             let e = expected_fill[i];
             let o = fill_counts[i] as f64;
@@ -173,6 +180,10 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
 }
 
 /// Backward-compatible single-result wrapper.
+///
+/// The two statistics come from the same trials, so the fold uses a
+/// Bonferroni bound (valid under dependence) rather than a bare min,
+/// which would double the false-failure rate.
 pub fn fill_tree(words: &[u32]) -> TestResult {
     let mut results = fill_tree_both(words);
     if results.iter().any(TestResult::skipped) {
@@ -182,8 +193,8 @@ pub fn fill_tree(words: &[u32]) -> TestResult {
     let p_pos = results[1].p_value;
     TestResult::with_note(
         "dieharder::fill_tree",
-        p_fill.min(p_pos),
-        format!("p_fill={p_fill:.4}, p_pos={p_pos:.4}"),
+        (2.0 * p_fill.min(p_pos)).min(1.0),
+        format!("p_fill={p_fill:.4}, p_pos={p_pos:.4} (Bonferroni)"),
     )
 }
 

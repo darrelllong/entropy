@@ -1,9 +1,15 @@
 //! DIEHARDER test 209 — dab_monobit2.
 //!
-//! Faithful port of `dab_monobit2.c`. The reference test tries multiple block
-//! sizes, computes a binomial chi-square p-value for each, then keeps only the
-//! most extreme p-value with the same multiple-test correction used by
-//! `evalMostExtreme()` in `dab_dct.c`.
+//! Port of `dab_monobit2.c`. The reference test tries multiple block sizes,
+//! computes a binomial chi-square p-value for each, then keeps only the most
+//! extreme p-value with a Šidák multiple-test correction (cf. `evalMostExtreme()`
+//! in `dab_dct.c`).
+//!
+//! Deliberate deviation from the C: `evalMostExtreme` maps low-side extremes to
+//! p ≈ 1, which dieharder's harness flags as failure but this crate's one-sided
+//! `p ≥ α` pass rule would report as PASS. Here each per-block p-value is folded
+//! two-sided (`2·min(p, 1−p)`) *before* the Šidák correction, so both failure
+//! directions map to small p while H₀ uniformity is preserved.
 //!
 //! # Author
 //! David Bauer, *Dieharder* (2006), test `dab_monobit2`.
@@ -115,7 +121,11 @@ fn chisq_binomial(observed: &[f64], prob: f64, kmax: usize, nsamp: usize) -> f64
 
     let df = ndof.saturating_sub(1);
     if df == 0 {
-        return f64::NAN;
+        // Fewer than two populated cells.  With a nonzero chi-square this is a
+        // wildly concentrated distribution — catastrophic evidence, not missing
+        // data (the C reaches GSL's Q(0, x > 0) = 0 here).  A zero chi-square
+        // means nothing was measurable at all.
+        return if chi_sq > 0.0 { 0.0 } else { f64::NAN };
     }
     igamc(df as f64 / 2.0, chi_sq / 2.0)
 }
@@ -128,28 +138,23 @@ fn binomial_pdf(k: usize, n: usize, prob: f64) -> f64 {
     log_p.exp()
 }
 
+/// Most-extreme p-value across blocks, two-sided.
+///
+/// Each per-block p is folded two-sided (`2·min(p, 1−p)`, uniform under H₀),
+/// then the minimum fold is Šidák-corrected for the number of usable blocks.
+/// NaN blocks (no measurable statistic) are excluded; all-NaN returns NaN so
+/// the caller reports an insufficient-data result rather than a verdict.
 fn eval_most_extreme(pvalues: &[f64]) -> f64 {
-    let mut extreme = 1.0;
-    let mut sign = 1;
-
-    for &raw_p in pvalues {
-        let mut p = raw_p;
-        let mut cur_sign = -1;
-        if p > 0.5 {
-            p = 1.0 - p;
-            cur_sign = 1;
-        }
-        if p < extreme {
-            extreme = p;
-            sign = cur_sign;
-        }
+    let mut n = 0u32;
+    let mut min_fold = f64::INFINITY;
+    for &p in pvalues.iter().filter(|p| !p.is_nan()) {
+        n += 1;
+        min_fold = min_fold.min(2.0 * p.min(1.0 - p));
     }
-
-    let mut corrected = (1.0 - extreme).powi(pvalues.len() as i32);
-    if sign == 1 {
-        corrected = 1.0 - corrected;
+    if n == 0 {
+        return f64::NAN;
     }
-    corrected
+    1.0 - (1.0 - min_fold).powi(n as i32)
 }
 
 #[cfg(test)]
@@ -158,9 +163,16 @@ mod tests {
     use crate::rng::{ConstantRng, Rng};
 
     #[test]
-    fn eval_most_extreme_matches_reference_shape() {
+    fn eval_most_extreme_two_sided_sidak() {
+        // Folds: 0.4, 0.2, 0.6 → min 0.2 → 1 − 0.8³ = 0.488.
         let p = eval_most_extreme(&[0.2, 0.9, 0.7]);
-        assert!((p - 0.271).abs() < 1e-12);
+        assert!((p - 0.488).abs() < 1e-12);
+        // BOTH extremes must map to small p — a p ≈ 1 block is a failure too.
+        assert!(eval_most_extreme(&[1.0 - 1e-9, 0.5, 0.5]) < 1e-6);
+        assert!(eval_most_extreme(&[1e-9, 0.5, 0.5]) < 1e-6);
+        // NaN blocks are excluded; all-NaN yields NaN (→ SKIP), not a verdict.
+        assert!((eval_most_extreme(&[f64::NAN, 0.5]) - 1.0).abs() < 1e-12);
+        assert!(eval_most_extreme(&[f64::NAN, f64::NAN]).is_nan());
     }
 
     #[test]
@@ -168,11 +180,14 @@ mod tests {
         assert!(auto_ntuple(16_000_000) > 0);
     }
 
+    /// A constant stream concentrates every block's bit-count in one bin;
+    /// that must FAIL (p ≈ 0), not skip and not pass.
     #[test]
-    fn monobit2_returns_finite_pvalue_for_constant_stream() {
+    fn monobit2_fails_constant_stream() {
         let mut rng = ConstantRng::new(0);
         let words = rng.collect_u32s(1_000_000);
         let result = monobit2(&words);
-        assert!(result.p_value.is_finite());
+        assert!(!result.skipped(), "{result}");
+        assert!(result.p_value < 0.01, "{result}");
     }
 }

@@ -143,19 +143,32 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
 }
 
 /// Convenience collapse retained for ad hoc callers.
+///
+/// Reports the worst per-pattern p-value with a Bonferroni correction for the
+/// number of patterns examined (up to Σ 2ⁿ ≈ 510 at `max_bits = 8`).  A bare
+/// minimum would reject a perfect generator with probability
+/// 1 − 0.99⁵¹⁰ ≈ 99% at α = 0.01; Bonferroni stays valid under the dependence
+/// between pattern counts.  Prefer [`bit_distribution_all`] (used by
+/// `run_all`) for the uncollapsed family.
 pub fn bit_distribution(words: &[u32], max_bits: usize) -> TestResult {
     let results = bit_distribution_all(words, max_bits);
-    if results.is_empty() {
+    let scored: Vec<&TestResult> = results.iter().filter(|r| !r.skipped()).collect();
+    if scored.is_empty() {
         return TestResult::insufficient("dieharder::bit_distribution", "not enough data");
     }
-    let worst = results
+    let worst = scored
         .iter()
         .min_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap())
         .unwrap();
+    let m = scored.len() as f64;
     TestResult::with_note(
         "dieharder::bit_distribution",
-        worst.p_value,
-        worst.note.clone().unwrap_or_default(),
+        (m * worst.p_value).min(1.0),
+        format!(
+            "Bonferroni over {} patterns; worst: {}",
+            scored.len(),
+            worst.note.clone().unwrap_or_default()
+        ),
     )
 }
 

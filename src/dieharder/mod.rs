@@ -21,6 +21,17 @@ use crate::{result::TestResult, rng::Rng};
 
 /// Run all unique DIEHARDER tests.
 /// `quick` reduces the O(n²) geometric test parameters for fast iteration.
+///
+/// # Examples
+///
+/// ```no_run
+/// use entropy::{dieharder, rng::Mt19937};
+///
+/// let mut rng = Mt19937::new(5489);
+/// for result in dieharder::run_all(&mut rng, 1_000_000, false) {
+///     println!("{result}");
+/// }
+/// ```
 pub fn run_all(rng: &mut impl Rng, n_u32: usize, quick: bool) -> Vec<TestResult> {
     let words = rng.collect_u32s(n_u32);
     let mut results = vec![
