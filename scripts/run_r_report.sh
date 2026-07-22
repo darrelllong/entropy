@@ -39,7 +39,8 @@ RNGS=(
   # Historical libc / Windows / VBA
   "System V rand()|sysv_rand"
   "rand48 (mrand48)|rand48"
-  "BSD random() / glibc random()|bsd_random"
+  "BSD random()|bsd_random"
+  "Linux glibc rand()/random()|linux_glibc_random"
   "FreeBSD rand_r() compat|bsd_rand_compat"
   "Windows MSVC rand()|windows_msvc_rand"
   "Windows VB6/VBA Rnd()|windows_vb6_rnd"
@@ -48,6 +49,9 @@ RNGS=(
   "ANSI C LCG|ansi_c_lcg"
   "MINSTD (Park-Miller)|lcg_minstd"
   "Borland C++ LCG|borland_lcg"
+  # NOTE: msvc_lcg is byte-identical to windows_msvc_rand (same stream under
+  # two registry names); both rows are kept for registry completeness, at the
+  # cost of one redundant battery slot.
   "MSVC LCG|msvc_lcg"
   # Quality non-cryptographic
   "MT19937|mt19937"
@@ -66,7 +70,7 @@ RNGS=(
   "Twofish-128-CTR|twofish_ctr"
   "Serpent-128-CTR|serpent_ctr"
   "SM4-CTR|sm4_ctr"
-  "Grasshopper-256-CTR|grasshopper_ctr"
+  "Grasshopper-CTR|grasshopper_ctr"
   "CAST-128-CTR|cast128_ctr"
   "SEED-CTR|seed_ctr"
   # Stream ciphers
@@ -91,9 +95,13 @@ cat <<'EOF'
 # R-REPORT — RNG tests via R's standard randomness packages
 
 Each generator below was sampled into a binary stream of little-endian u32
-words. R then read the stream, normalised it to U[0,1), and ran every test
-exposed by the standard R RNG-testing packages (`randtests`, `randtoolbox`,
-`tseries`) plus the goodness-of-fit and autocorrelation tests in `stats`.
+words. R then read the stream, normalised it to U[0,1), and ran the
+randomness tests exposed by the standard R RNG-testing packages that apply
+to a value-level uniform stream — `randtests` (runs, Bartels rank,
+Cox-Stuart, difference-sign, turning-point, Mann-Kendall rank),
+`randtoolbox` (freq, gap, serial, poker, order) — plus `tseries`
+(runs, Jarque-Bera) and the goodness-of-fit and autocorrelation tests in
+`stats` (KS, χ²(256), Ljung-Box).  (`randtoolbox::coll.test` was not run.)
 
 Sample size: **5 000 000 u32 words** for every generator except
 `Dual_EC_DRBG`, which uses **1 000 000** because each block requires two

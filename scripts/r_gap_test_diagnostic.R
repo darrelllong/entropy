@@ -15,8 +15,8 @@
 #
 #   * the raw chi^2 / p-value reported by randtoolbox,
 #   * the top-5 bins by chi^2 contribution,
-#   * the Cochran-trimmed chi^2 / p-value (drop tail bins with expected < 5),
-#   * the same merge-up-from-the-tail variant used by `r_rng_tests.R`.
+#   * the Cochran-trimmed chi^2 / p-value (sparse tail bins with expected < 5
+#     merged into the last safe bin — the same prefix-merge as r_rng_tests.R).
 #
 # This is the script that produced the SpongeBob / Squidward false-positive
 # diagnosis: total chi^2 was dominated by a single observation in a bin
@@ -37,8 +37,11 @@ baseline <- function(N = 5e6, trials = 5L) {
 }
 
 read_u32_stream <- function(path) {
-  fi <- file(path, "rb")
   sz <- file.info(path)$size
+  if (sz %% 4L != 0L)
+    stop(sprintf("input file size %d is not a multiple of 4 bytes: %s", sz, path),
+         call. = FALSE)
+  fi <- file(path, "rb")
   b  <- readBin(fi, what = "raw", n = sz)
   close(fi)
   m   <- matrix(as.numeric(as.integer(b)), nrow = 4L)
@@ -47,13 +50,26 @@ read_u32_stream <- function(path) {
 }
 
 cochran_trim <- function(observed, expected, threshold = 5) {
-  i <- length(expected)
-  while (i > 1L && expected[i] < threshold) {
-    expected[i - 1L] <- expected[i - 1L] + expected[i]
-    observed[i - 1L] <- observed[i - 1L] + observed[i]
-    expected <- expected[-i]
-    observed <- observed[-i]
-    i <- i - 1L
+  # The geometric expected sequence decreases monotonically, so the safe bins
+  # (expected >= threshold) form a contiguous prefix.  Merge the entire sparse
+  # tail into the last safe bin with one O(N) sum — the same prefix-merge used
+  # by r_rng_tests.R.  (The previous pop-from-tail loop was O(N^2) and hung on
+  # CounterRng, whose gap.test result has ~5e6 bins.)
+  observed <- as.numeric(observed)
+  expected <- as.numeric(expected)
+  keep <- which(expected >= threshold)
+  if (length(keep) == 0L) {
+    # Every bin is sparse: collapse to a single bin (the caller reports the
+    # test as undefined for < 2 bins).
+    return(list(observed = sum(observed), expected = sum(expected)))
+  }
+  last_keep <- max(keep)
+  if (last_keep < length(expected)) {
+    tail_idx <- (last_keep + 1L):length(expected)
+    expected[last_keep] <- expected[last_keep] + sum(expected[tail_idx])
+    observed[last_keep] <- observed[last_keep] + sum(observed[tail_idx])
+    expected <- expected[seq_len(last_keep)]
+    observed <- observed[seq_len(last_keep)]
   }
   list(observed = observed, expected = expected)
 }

@@ -12,7 +12,7 @@
 #   scripts/bench_rngs.sh [--preset quick|normal|strict] [--machine <name>] \
 #                         [--confidence-level 0.90] [--force] [name ...]
 #
-#   --machine <name>          subdirectory under stats/ for this machine (default: dyson)
+#   --machine <name>          subdirectory under stats/ for this machine (default: hostname -s)
 #   --confidence-level <val>  CI level, e.g. 0.90 or 0.95 (default: 0.90)
 #   name ...                  optional whitelist; if given, only measure those generators.
 #
@@ -20,7 +20,7 @@
 #   PILOT_BENCH_CLI   path to the pilot bench CLI  (default: ~/pilot-bench/build/cli/bench)
 #   PILOT_RNG_BIN     path to pilot_rng binary      (default: target/release/pilot_rng)
 #   PILOT_PRESET      quick | normal | strict       (default: quick)
-#   PILOT_MACHINE     machine subdirectory name     (default: dyson)
+#   PILOT_MACHINE     machine subdirectory name     (default: hostname -s)
 #   PILOT_CONF_LEVEL  confidence level              (default: 0.90)
 set -euo pipefail
 
@@ -28,19 +28,29 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BENCH="${PILOT_BENCH_CLI:-$HOME/pilot-bench/build/cli/bench}"
 RNG_BIN="${PILOT_RNG_BIN:-$ROOT_DIR/target/release/pilot_rng}"
 PRESET="${PILOT_PRESET:-quick}"
-MACHINE="${PILOT_MACHINE:-dyson}"
+MACHINE="${PILOT_MACHINE:-$(hostname -s 2>/dev/null || hostname)}"
 CONF_LEVEL="${PILOT_CONF_LEVEL:-0.90}"
 FORCE=0
 WHITELIST=()
+MATCHED_NAMES=""
+
+# need_value <flag> <remaining-argc>: die with a clear message when a
+# value-taking flag is the last argument (previously "$1: unbound variable").
+need_value() {
+    if [[ "$2" -lt 2 ]]; then
+        echo "error: $1 requires a value" >&2
+        exit 1
+    fi
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --preset=*) PRESET="${1#--preset=}" ;;
-        --preset)   shift; PRESET="$1" ;;
+        --preset)   need_value "$1" $#; shift; PRESET="$1" ;;
         --machine=*) MACHINE="${1#--machine=}" ;;
-        --machine)  shift; MACHINE="$1" ;;
+        --machine)  need_value "$1" $#; shift; MACHINE="$1" ;;
         --confidence-level=*) CONF_LEVEL="${1#--confidence-level=}" ;;
-        --confidence-level)   shift; CONF_LEVEL="$1" ;;
+        --confidence-level)   need_value "$1" $#; shift; CONF_LEVEL="$1" ;;
         --force)    FORCE=1 ;;
         *)          WHITELIST+=("$1") ;;
     esac
@@ -58,11 +68,13 @@ measure() {
     local rng_name=$1 display=$2 words=$3
     local stat_file="$STATS_DIR/${rng_name}.bench"
 
-    # Apply whitelist filter.
+    # Apply whitelist filter (record matches so unknown names can be
+    # reported at the end instead of silently yielding an empty table).
     if [[ ${#WHITELIST[@]} -gt 0 ]]; then
         local found=0
         for w in "${WHITELIST[@]}"; do [[ "$w" == "$rng_name" ]] && found=1; done
         [[ $found -eq 0 ]] && return
+        MATCHED_NAMES="$MATCHED_NAMES $rng_name"
     fi
 
     # Skip if already measured.
@@ -73,15 +85,29 @@ measure() {
     fi
 
     local out mean ci rounds
-    out=$("$BENCH" run_program \
+    # A single failed generator must not abort the whole sweep under set -e:
+    # log it to stderr and continue with the next one.
+    if ! out=$("$BENCH" run_program \
           --preset "$PRESET" \
           --confidence-level "$CONF_LEVEL" \
           --pi "${rng_name},MW/s,0,1,1" \
           --env "PILOT_RNG_WORDS=${words}" \
-          -- "$RNG_BIN" "$rng_name" 2>&1)
+          -- "$RNG_BIN" "$rng_name" 2>&1); then
+        echo "[err] $rng_name failed:" >&2
+        echo "$out" >&2
+        return
+    fi
     mean=$(  echo "$out" | awk '/Reading mean/{print $5}')
     ci=$(    echo "$out" | awk '/Reading CI/{print $5}')
     rounds=$(echo "$out" | awk '/^Rounds:/{print $2}')
+
+    # Only cache a row when every scraped field is present; otherwise an empty
+    # row would be cached and re-emitted forever on later runs.
+    if [[ -z "$mean" || -z "$ci" || -z "$rounds" ]]; then
+        echo "[err] $rng_name: could not parse pilot-bench output" \
+             "(mean='$mean' ci='$ci' rounds='$rounds'); not caching" >&2
+        return
+    fi
 
     local row
     row=$(printf "| %-36s | %8s | %-8s | %5s |" \
@@ -95,7 +121,10 @@ measure() {
 echo ""
 echo "## RNG throughput benchmark (pilot-bench, preset=$PRESET, machine=$MACHINE)"
 echo ""
-CI_PCT=$(echo "$CONF_LEVEL * 100" | bc | sed 's/\.00$//')
+# bc emits one trailing decimal digit per digit of input scale (0.9 → 90.0,
+# 0.975 → 97.500); strip trailing zeros in the fraction, then a bare dot,
+# so 0.9 → "90" and 0.975 → "97.5".
+CI_PCT=$(echo "$CONF_LEVEL * 100" | bc | sed -E 's/(\.[0-9]*[1-9])0+$/\1/; s/\.0*$//')
 echo "Throughput in MW/s (10⁶ u32 words/s).  CI is ${CI_PCT}%."
 echo ""
 echo "| Generator                            |   MW/s   | ±CI ${CI_PCT}%  | Runs  |"
@@ -114,7 +143,7 @@ measure rand48        "BAD Unix System V mrand48() (seed=1)"          25000000
 measure bsd_random    "BAD Unix BSD random() TYPE_3 (seed=1)"         10000000
 measure linux_glibc_random "BAD Unix Linux glibc rand()/random() (seed=1)" 10000000
 measure bsd_rand_compat "BAD Unix FreeBSD12 rand_r() compat (seed=1)" 10000000
-measure windows_msvc_rand "BAD Windows CRT rand() (seed=1)"           10000000
+measure windows_msvc_rand "BAD Windows CRT rand() (MSVC/UCRT, seed=1)" 10000000
 measure windows_vb6_rnd "BAD Windows VB6/VBA Rnd() (seed=1)"          10000000
 measure windows_dotnet_random "BAD Windows .NET Random(seed=1) compat" 10000000
 measure ansi_c_lcg    "ANSI C sample LCG (seed=1)"                    10000000
@@ -149,3 +178,16 @@ measure constant      "Constant (0xDEAD_DEAD)"                      1000000000
 measure counter       "Counter (0,1,2,...)"                         1000000000
 
 echo ""
+
+# Report whitelist entries that matched nothing — a typo would otherwise
+# produce a silently empty table.
+if [[ ${#WHITELIST[@]} -gt 0 ]]; then
+    unmatched=0
+    for w in "${WHITELIST[@]}"; do
+        case " $MATCHED_NAMES " in
+            *" $w "*) ;;
+            *) echo "[err] unknown generator name: $w" >&2; unmatched=1 ;;
+        esac
+    done
+    [[ $unmatched -eq 1 ]] && exit 1
+fi
