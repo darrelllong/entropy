@@ -9,7 +9,11 @@ repository  = "https://github.com/darrelllong/entropy"
 readme      = "README.md"
 documentation = "https://docs.rs/rng-entropy"
 keywords    = ["randomness", "statistics", "rng", "diehard", "nist"]
-categories  = ["cryptography", "algorithms"]
+categories  = ["algorithms", "development-tools::testing", "science"]
+# MSRV derivation: u32/usize::is_multiple_of (stable 1.87, used throughout,
+# including in a const assert in src/rng/stream_rng.rs) > Option::is_none_or
+# (1.82, src/main.rs) > int div_ceil (1.73) > usize::ilog2 (1.67).
+rust-version = "1.87"
 default-run = "run_tests"
 exclude = [
     "assets/**",
