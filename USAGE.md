@@ -98,11 +98,12 @@ non-random sequences. They must fail every test. Use them as negative controls.
 
 | Type | Notes |
 |------|-------|
-| `Lcg32::ansi_c()` | ANSI C sample LCG (multiplier 1103515245, addend 12345); 15 usable bits per word |
-| `Lcg32::minstd()` | MINSTD (Park–Miller); full 31-bit period but trivially invertible |
-| `Lcg32::new(LcgVariant::Borland, seed)` | Borland C++ `rand()`: a=22695477, c=1, m=2³²; returns `(state >> 16) & 0x7FFF` (15 bits) |
+| `Lcg32::ansi_c()` | ANSI C sample LCG (multiplier 1103515245, addend 12345); the 31-bit raw output is deliberately zero-extended by `next_u32` (bit 31 always 0) as a documented negative control |
+| `Lcg32::minstd()` | MINSTD (Park–Miller); trivially invertible; 31-bit raw output zero-extended like `AnsiC` (negative control); seeds ≡ 0 (mod 2³¹−1) are remapped to 1 to avoid the zero fixed point |
+| `Lcg32::new(LcgVariant::Borland, seed)` | Borland C++ `rand()`: a=22695477, c=1, m=2³²; the 15-bit raws (`(state >> 16) & 0x7FFF`) are packed into full 32-bit words by `next_u32` (same rule as MSVC); the raw C-API value is available via `next_raw()` |
 | `SystemVRand`, `Rand48`, `BsdRandom`, `LinuxLibcRandom`, `BsdRandCompat` | Historical Unix libc variants; various short periods and low-bit weaknesses |
 | `WindowsMsvcRand`, `WindowsVb6Rnd`, `WindowsDotNetRandom` | Historical Windows-family generators; included as negative controls |
+
 **Seeding note.** The internal state of every LCG variant is trivially
 recoverable from a short output window. Never use any of these for key
 derivation, nonce generation, or any purpose where an adversary may observe
@@ -130,8 +131,8 @@ experiment assignments in adversarial environments.
 | `WyRand`              | `WyRand::from_os_rng()`           | 64 bits |
 | `Sfc64`               | `Sfc64::from_os_rng()`            | 256 bits |
 | `Jsf64`               | `Jsf64::from_os_rng()`            | 256 bits |
-| `Pcg32`               | `Pcg32::from_os_rng()`            | 128 bits |
-| `Pcg64`               | `Pcg64::from_os_rng()`            | 128 bits |
+| `Pcg32`               | `Pcg32::from_os_rng()`            | 128 bits (64 state + 64 stream) |
+| `Pcg64`               | `Pcg64::from_os_rng()`            | 256 bits (128 state + 128 stream) |
 | `Xoshiro256`  | `Xoshiro256::from_os_rng()` | 256 bits |
 | `Xoroshiro128`| `Xoroshiro128::from_os_rng()` | 128 bits |
 | `Xorshift32/64`       | `Xorshift32::new(seed)` — seed must be nonzero | 32/64 bits |
@@ -142,7 +143,9 @@ birthday-bound state collisions for very long outputs; prefer Xoshiro256 or
 SFC64 when output lengths exceed a few billion words.
 
 `Mt19937` has a period of 2¹⁹⁹³⁷−1 and passes DIEHARD; it is the default
-generator in NumPy, MATLAB, and R and is well-suited for scientific simulation.
+generator in MATLAB and R (NumPy's legacy `RandomState` also uses it, though
+NumPy's `default_rng` has been PCG64 since NumPy 1.17) and is well-suited for
+scientific simulation.
 Its one limitation is a security property unrelated to simulation quality:
 **the full 624-word state is recoverable from 624 consecutive 32-bit outputs**,
 so it must not be used in any context where an adversary can observe output and
@@ -237,11 +240,14 @@ be used outside the test harness.
 | `DualEcDrbg`    | `DualEcDrbg::p256(&seed)`       | **BACKDOORED** — see below |
 
 **Dual_EC_DRBG.** The NIST P-256 Q point embedded in this standard encodes a
-discrete-log trapdoor (Bernstein et al. 2014; Checkoway et al. 2014). An
-adversary who knows the trapdoor scalar can recover the full internal state from
-32 bytes of output and predict all future and past output. This generator is
-included solely to document that it fails statistical tests and to provide a
-reference implementation of a known-bad design. It must never be used to
+discrete-log trapdoor (Checkoway et al. 2014; Bernstein, Lange, and
+Niederhagen 2016). An adversary who knows the trapdoor scalar can recover the
+full internal state from 30 bytes of output — one P-256 output block — and
+predict all future and past output. This generator is
+included to demonstrate that the backdoor is statistically invisible — it
+*passes* the batteries (196 of 199 NIST slots in the last harvest) while
+being cryptographically compromised — and to provide a reference
+implementation of a known-bad design. It must never be used to
 produce any material in any context. The harness limits it to the NIST battery
 because two P-256 scalar multiplications per 30-byte block make DIEHARD and
 DIEHARDER runs prohibitively slow.

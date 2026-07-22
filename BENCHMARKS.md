@@ -2,6 +2,12 @@
 
 Throughput measured with `pilot-bench` `run_program --preset normal`.
 
+> **Provenance.**  The hardware for each column is described below, but the
+> measurement dates were not recorded; all figures predate the v0.5.0
+> crates.io release and the July 2026 code cleanup.  In particular the
+> Squidward numbers were taken under an earlier build with a hardware
+> SHA-256 fast path that has since been removed (see its entry below).
+
 All results are in millions of 32-bit words per second (`MW/s`); 90% CI shown.
 The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`) with FEAT_SHA2 and
 FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
@@ -103,7 +109,7 @@ throughput spread across the cipher family.
 
 ## Generator Notes
 
-Neither throughput column **certifies quality or safety**. For that, see the
+No throughput column **certifies quality or safety**. For that, see the
 current full-battery results in [TESTS.md](TESTS.md).
 
 ---
@@ -326,12 +332,14 @@ forbidden and rejected at construction.  On Dyson it reaches 1291 MW/s.
 #### `Xoroshiro128 (seeds=1,2)`
 
 Xoroshiro128 is the 128-bit sibling of Xoshiro256 using the same starstar
-scrambler but a two-word xoroshiro recurrence
-$(s_0', s_1') = (s_0 \oplus s_1,\ s_1')$
-with specific rotation constants $a=24$, $b=16$, $c=37$.  It is slightly faster
-than the 256-bit version and uses half the state, at the cost of a shorter period
-($2^{128}-1$) and marginally more failures in our battery (13 vs 5).  Not
-cryptographic; all-zero seed forbidden.
+scrambler but the two-word xoroshiro recurrence: with $t = s_1 \oplus s_0$,
+$s_0' = \mathrm{rotl}(s_0, 24) \oplus t \oplus (t \ll 16)$ and
+$s_1' = \mathrm{rotl}(t, 37)$ (rotation constants $a=24$, $b=16$, $c=37$).  It uses half the
+state of the 256-bit version at the cost of a shorter period ($2^{128}-1$),
+and in this harness it measures somewhat slower (907.1 vs 1291 MW/s on
+Dyson).  Its battery results are statistically indistinguishable from
+Xoshiro256's (6 vs 7 FAILs in the 2026-03 run in [TESTS.md](TESTS.md) —
+within run-to-run noise).  Not cryptographic; all-zero seed forbidden.
 
 #### `WyRand (seed=42)`
 
@@ -394,8 +402,10 @@ blocks, each costing one ChaCha20 core invocation (20 rounds over a
 `/dev/urandom` and macOS `arc4random` work internally.  Output is
 computationally indistinguishable from uniform under the PRF assumption; no
 reseed is implemented here because the scope is the test battery, not a
-long-running daemon.  At 173.2 MW/s on Dyson it is the fastest crypto-grade
-generator in the suite, about 53× faster than HMAC_DRBG.
+long-running daemon.  At 173.2 MW/s on Dyson it is faster than every
+SP 800-90A-style DRBG construction in this section — about 53× faster than
+HMAC_DRBG — though the Rabbit and Salsa20 stream ciphers (and the earlier
+hardware-accelerated Squidward build) measure higher still.
 
 #### `SpongeBob (SHA3-512 chain, seed=00..3f)` **(CSPRNG)**
 
@@ -421,11 +431,14 @@ Squidward is a SHA-256 hash chain, the same design as SpongeBob but with
 SHA-256 replacing SHA3-512.  The state is a single 32-byte digest; each step
 advances by
 $x_{i+1} = \mathrm{SHA\text{-}256}(x_i)$,
-and output is consumed as a sequential byte stream.  On ARM targets that expose
-FEAT_SHA2 hardware acceleration, the implementation detects and uses the
-`vsha256*` NEON intrinsics via the `aarch64-alt` crate, falling back to the
-portable `cryptography::Sha256` path otherwise.  On Dyson (Apple M4) the
-hardware path reaches 240 MW/s.
+and output is consumed as a sequential byte stream.  Every SHA-256 call now
+goes through the pure-Rust `cryptography::Sha256` implementation on all
+targets: a pre-publication build carried an optional FEAT_SHA2 hardware fast
+path via an `aarch64-alt` sub-crate, but it was removed for the published
+crate.  The 240 MW/s Dyson figure in the table was measured under that
+earlier hardware-accelerated build and has not been re-measured; expect the
+current pure-software build to land near the dmz/moore figures' software
+rate on comparable hardware.
 
 #### `HMAC_DRBG SHA-256 (OsRng seed)` **(CSPRNG)**
 
@@ -449,8 +462,8 @@ generate call the state is updated as
 $V \leftarrow (V + \mathrm{SHA\text{-}256}(0\mathrm{x03} \mathbin{\|} V) + C + \mathtt{reseed\_counter}) \bmod 2^{440}$
 using big-endian carry arithmetic.  At 31.19 MW/s on Dyson it is about 9.5×
 faster than HMAC_DRBG because it replaces the two keyed-MAC steps with a
-single hash per output block, and it achieved the best FAIL count of any
-non-trivial generator in the battery (2 FAILs / 734 tests).
+single hash per output block; its full-battery results are in
+[TESTS.md](TESTS.md) (5 FAILs / 738 in the 2026-03 run).
 
 #### `cryptography::CtrDrbgAes256 (seed=00..2f)` **(CSPRNG)**
 
@@ -487,10 +500,12 @@ and run at similar speed to each other, roughly half of Dyson's rate.
 #### `Camellia-128-CTR (key=00..0f)` **(CSPRNG)**
 
 Camellia (NTT and Mitsubishi Electric, 2000) is a 128-bit block cipher with
-the same key sizes, block size, and security margin as AES.  It was a finalist
-in the NESSIE project and is specified in RFC 3713.  The structure is a
-Feistel network with 18 rounds for 128-bit keys plus six key-whitening
-operations (FL/FL$^{-1}$ layers every six rounds).  Without dedicated hardware
+the same key sizes, block size, and security margin as AES.  It was selected
+for the NESSIE portfolio of recommended algorithms (NESSIE had no "finalist"
+stage) and is specified in RFC 3713.  The structure is an 18-round Feistel
+network for 128-bit keys, with $FL/FL^{-1}$ function layers inserted every
+six rounds and input/output whitening by four 64-bit subkeys
+($kw_1$–$kw_4$).  Without dedicated hardware
 acceleration, Camellia-128 runs at 36.2 MW/s on Dyson — roughly one-quarter
 of AES-CTR speed — because the M4's `FEAT_AES` engine does not accelerate it.
 
@@ -539,9 +554,11 @@ or x86 platforms.
 #### `CAST-128-CTR (key=00..0f)` **(CSPRNG)**
 
 CAST-128 (Carlisle Adams and Stafford Tavares, 1996) is a 64-bit block cipher
-with key sizes from 40 to 128 bits, specified in RFC 2144.  It is the cipher
-used by default in PGP 2.x and GnuPG, and it was included in early versions of
-SSH and many other widely deployed protocols.  The structure is a 16-round
+with key sizes from 40 to 128 bits, specified in RFC 2144.  It became the
+default symmetric cipher of PGP 5.x — PGP 2.x used IDEA — and GnuPG long
+used CAST5 as its default; OpenPGP (RFC 2440) lists CAST5 as a
+SHOULD-implement algorithm (its implicit default is TripleDES), and SSH-2
+defines a `cast128-cbc` encryption method (RFC 4253).  The structure is a 16-round
 Feistel network with three rotating S-box types.  At 61.4 MW/s on Dyson it is
 the fastest block-CTR cipher in the suite after AES — its 64-bit block means
 twice as many encryptions per megaword, but each encryption is cheap.
@@ -569,24 +586,28 @@ because its 128-bit integer operations map directly onto SIMD lanes.
 
 #### `Salsa20 (key=00..1f, nonce=00..07)` **(CSPRNG)**
 
-Salsa20 (Bernstein, 2007) is an eSTREAM winner and the predecessor of ChaCha20.
+Salsa20 (Bernstein, 2005) was submitted to eSTREAM and selected for the final
+software portfolio (as Salsa20/12); it is the predecessor of ChaCha20.
 The core is a 20-round ARX (add-rotate-XOR) hash of a 512-bit state consisting
 of four constant words, eight key words, two counter words, and two nonce
-words.  Unlike ChaCha20, Salsa20 indexes its input words in a diagonal rather
-than columnar pattern.  At 201 MW/s on Dyson it runs faster than ChaCha20
+words.  Salsa20 places the four constants on the main diagonal of the 4×4
+word state and alternates column rounds with row rounds; ChaCha places the
+constants in the top row and alternates column rounds with diagonal rounds.
+At 201 MW/s on Dyson it runs faster than ChaCha20
 (173 MW/s) in this harness because the harness wraps it as a `StreamRng`
 (buffered byte stream) rather than as a DRBG with nonce management overhead.
 
 #### `Snow3G (key=00..0f, iv=00..0f)` **(CSPRNG)**
 
-Snow3G (ETSI SAGE, 3GPP TS 35.216, 2006) is the stream cipher underlying the
-3GPP f8 (confidentiality) and f9 (integrity) algorithms used in UMTS and the
-GSMA's Milenage suite.  The generator combines a 32-stage linear feedback
-shift register over GF(2$^{32}$) with a finite state machine whose output
-function uses two 8-bit S-boxes derived from AES.  Key and IV are both 128 bits.
-At 136 MW/s on Dyson it runs at roughly the same speed as Snow3G on moore
-(72.3 MW/s) and dmz (74.2 MW/s), reflecting its single pass of finite-field
-arithmetic per 32-bit output word.
+Snow3G (ETSI SAGE, 3GPP TS 35.216, 2006) is the stream cipher at the base of
+the 3GPP UEA2 (confidentiality) and UIA2 (integrity) algorithms used in UMTS
+(and, as 128-EEA1/128-EIA1, in LTE).  The generator combines a 16-stage
+linear feedback shift register over GF(2$^{32}$) with a three-register finite
+state machine using two S-boxes: $S_1$ is derived from the AES S-box, while
+$S_2$ is based on a Dickson-polynomial construction.  Key and IV are both
+128 bits.  At 136 MW/s on Dyson, 74.2 MW/s on dmz, and 72.3 MW/s on moore,
+its throughput is close to ZUC-128's on every machine, reflecting its single
+pass of finite-field arithmetic per 32-bit output word.
 
 #### `ZUC-128 (key=00..0f, iv=00..0f)` **(CSPRNG)**
 

@@ -10,11 +10,32 @@ It aims to provide a readable, hackable implementation of the major classic batt
 
 This is a serious audit tool, but it is not a magical oracle. Some tests are fully faithful to the published or reference implementations, some are close ports of the Dieharder source, and a small number are still approximate. The project is strongest when it is explicit about which is which.
 
+## Installation
+
+The crate is published on crates.io as [`rng-entropy`](https://crates.io/crates/rng-entropy); the library name is `entropy`:
+
+```sh
+cargo add rng-entropy
+```
+
+Minimal library use — construct a generator and run the NIST SP 800-22 battery on it:
+
+```rust
+use entropy::{nist, rng::Mt19937};
+
+fn main() {
+    let mut rng = Mt19937::new(5489);
+    for result in nist::run_all(&mut rng, 1_000_000) {
+        println!("{result}");
+    }
+}
+```
+
 ## Dependency Note
 
-This repository depends on Darrell Long's [`cryptography`](https://github.com/darrelllong/cryptography) repository via a local Cargo path dependency. It supplies:
+This crate depends on Darrell Long's [`cryptography-rs`](https://crates.io/crates/cryptography-rs) crate from crates.io (`cryptography-rs = "0.5"`; library name `cryptography`, source at [darrelllong/cryptography](https://github.com/darrelllong/cryptography)). It supplies:
 
-- **Block ciphers** used by the CTR-mode RNGs: Camellia-128, Twofish-128, Serpent-128, SM4, Grasshopper-256, CAST-128, SEED.
+- **Block ciphers** used by the CTR-mode RNGs: Camellia-128, Twofish-128, Serpent-128, SM4, Grasshopper (256-bit key), CAST-128, SEED.
 - **Stream ciphers**: Rabbit, Salsa20, Snow3G, ZUC-128.
 - **Elliptic-curve primitives**: P-256 scalar multiplication used by Dual_EC_DRBG.
 - **DRBG**: AES-256-CTR DRBG (`CtrDrbgAes256`).
@@ -45,8 +66,6 @@ The test runner lives in [src/main.rs](src/main.rs) and the library entrypoints 
 - [src/diehard](src/diehard)
 - [src/dieharder](src/dieharder)
 
-The current external audit is in [PEERREVIEW.md](PEERREVIEW.md).
-
 ## Running
 
 ### Full audit (canonical)
@@ -76,8 +95,11 @@ tests/run_battery.sh --test nist::spectral
 tests/run_aux.sh
 ```
 
-Runs the five standalone research probes (Knuth + ApEn, TestU01 Hamming,
-TestU01 Lempel-Ziv, Webster-Tavares, Gorilla) with their default parameters.
+Runs the five standalone research probes with their default parameters:
+`bib_tests` (Knuth permutation/gap/runs-median + NIST ApEn profile),
+`upstream_tests` (TestU01 HammingCorr/HammingIndep + PractRand FPF),
+`testu01_lz` (TestU01 Lempel-Ziv), `webster_tavares` (SAC/BIC avalanche),
+and `gorilla` (Marsaglia-Tsang Gorilla).
 Use the individual binaries for filtered or resized runs:
 
 ```sh
@@ -87,6 +109,11 @@ cargo run --release --bin testu01_lz   -- --rng AES --k 27
 cargo run --release --bin webster_tavares -- --samples 2048
 cargo run --release --bin gorilla      -- --rng AES
 ```
+
+A further standalone binary, `bitplane_complexity`, measures Berlekamp-Massey
+linear complexity on each individual output bit plane across successive
+64-bit outputs (`cargo run --release --bin bitplane_complexity -- --rng Xorshift64`);
+it is not part of `run_aux.sh`.
 
 ### Throughput benchmarks
 
@@ -148,10 +175,10 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | Area | Status |
 |------|--------|
 | NIST SP 800-22: frequency, block_frequency, runs, longest_run, matrix_rank, spectral, serial, approximate_entropy, cumulative_sums, universal, linear_complexity | Faithful or close faithful implementations |
-| Maurer (1992): parametric universal family `L=6..16` | Added alongside the NIST-locked single setting; emits every parameter set that fits the available sample |
+| Maurer (1992): parametric universal family `L=5..16` | Added alongside the NIST single setting (which selects `L` from the sample size over `L=6..16`); emits every parameter set that fits the available sample |
 | NIST SP 800-22: non_overlapping_template | Faithful for all 148 aperiodic 9-bit templates with the standard `N = 8` block setup |
 | NIST SP 800-22: random_excursions, random_excursions_variant | Faithful family outputs; runner emits all per-state results |
-| DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to the Dieharder reference implementation |
+| DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to the Dieharder reference implementation; documented deviations where the crate samples differently (the monkey tests draw disjoint letter fields and use exact iid missing-word moments) |
 | Removed on purpose | See the explicit removed-test list below |
 | DIEHARDER: fill_tree, gcd | Faithful; runner emits both underlying sub-results |
 | DIEHARDER: bit_distribution | Faithful `rgb_bitdist` core statistic with explicit per-width, per-pattern Vtest outputs instead of Brown's random one-pattern collapse |
@@ -159,9 +186,9 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | Webster–Tavares (1985): strict avalanche / bit-independence probe over seeded RNG families | Implemented as a research binary (`webster_tavares`); computes the dependence matrix and avalanche-variable correlations from the paper |
 | Knuth TAOCP Vol. 2 §3.3.2: permutation, gap, and Wald-Wolfowitz runs-above/below-median tests | Implemented as a research binary (`bib_tests`) over uniform `[0,1)` streams |
 | NIST SP 800-22 §2.12 ApEn statistic swept over multiple embedding dimensions `m=2..6` | Implemented as part of `bib_tests`; reveals at which pattern lengths a sequence departs from randomness beyond the single fixed NIST setting |
-| TestU01 (2009): `scomp_LempelZiv` core statistic and official empirical calibration table | Implemented as a research binary (`testu01_lz`); exact per-replication `LZ78` phrase count and TestU01 `μ/σ` normalization, but not yet the full TestU01 goodness-of-fit reporting stack |
-| TestU01 (2009): `sstring_HammingCorr` and `sstring_HammingIndep` core statistics | Implemented as part of `upstream_tests`; faithful TestU01 bit extraction, asymptotic normal `HammingCorr`, and TestU01-style `gofs_MinExpected=10` lumping for the main `HammingIndep` chi-square |
-| PractRand pre-0.95: `FPF(4,14,6)` core statistic | Implemented as part of `upstream_tests`; faithful stride-spaced windowing and exponent/significand bucket counts, but without PractRand's empirical calibration tables/suspicion scores |
+| TestU01 1.2.3 (library, 2009; paper 2007): `scomp_LempelZiv` core statistic and official empirical calibration table | Implemented as a research binary (`testu01_lz`); exact per-replication `LZ78` phrase count and TestU01 `μ/σ` normalization, but not yet the full TestU01 goodness-of-fit reporting stack |
+| TestU01 1.2.3 (library, 2009; paper 2007): `sstring_HammingCorr` and `sstring_HammingIndep` core statistics | Implemented as part of `upstream_tests`; faithful TestU01 bit extraction, asymptotic normal `HammingCorr`, and TestU01-style `gofs_MinExpected=10` lumping for the main `HammingIndep` chi-square |
+| PractRand pre-0.95: `FPF(4,14,6)` core statistic | Implemented as part of `upstream_tests`; parses disjoint codewords (iid samples — a documented deviation from upstream's 16-bit stride-overlapped windows) with per-platter and cross-exponent G-tests, but without PractRand's empirical calibration tables/suspicion scores |
 
 ## Important Caveats
 
@@ -202,7 +229,7 @@ This repository keeps a local reference shelf under [pubs/](pubs) so people can 
 
 Included now:
 
-- standards: `NIST-SP-800-22r1a.pdf`, `NIST-SP-800-90Ar1.pdf`, `NIST-SP-800-90B.pdf`, `NIST-SP-800-90C.pdf`, `NIST-FIPS-140-3.pdf`
+- standards: `NIST-SP-800-22r1a.pdf`, `NIST-SP-800-90Ar1.pdf`, `NIST-SP-800-90B.pdf`, `NIST-SP-800-90C.pdf`, `NIST-FIPS-140-3.pdf`, `NIST-FIPS-197.pdf`, `NIST-SP-800-38A.pdf`, `NIST-FIPS-180-4.pdf`, `NIST-FIPS-202.pdf`
 - classic source and docs: `Diehard.zip`, `diehard-doc.txt`, `diehard-tests.txt`, `dieharder-3.31.1.tgz`, `dieharder-manual.pdf`, `dieharder-tests.txt`
 - core survey and extension papers: `lecuyer-simard-2007-testu01.pdf`, `maurer-1992-universal-test.pdf`, `marsaglia-tsang-2002-difficult-tests.pdf`, `webster-tavares-1985-sbox-design.pdf`, `hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf`
 
@@ -220,15 +247,18 @@ Primary references used by the code and audit:
 Additional suites and tests surveyed (candidates for future implementation):
 
 - L'Ecuyer and Simard, "TestU01: A C Library for Empirical Testing of Random Number Generators," *ACM TOMS* 33(4), 2007 — the current gold standard; BigCrush contains ~106 tests including BirthdaySpacings, Gap, CouponCollector, MaxOft, LempelZiv, HammingCorr, RandomWalk, and LinearComplexity profile tests, many of which catch defects invisible to all three batteries here.
-- Chris Doty-Humphrey (Crow), *PractRand* 0.95, 2018 — streaming suite; BCFN, DC6, FPF, and TMFn tests are designed specifically for small-state generators (xorshift*, PCG) that pass all classic batteries.
+- Chris Doty-Humphrey (Crow), *PractRand* pre-0.95, 2018 — streaming suite; BCFN, DC6, FPF, and TMFn tests are designed specifically for small-state generators (xorshift*, PCG) that pass all classic batteries.
 - Knuth, *The Art of Computer Programming* Vol. 2 §3.3.2 — classical tests not in NIST/Diehard: Gap, Poker (hand-type), Permutation, Wald-Wolfowitz runs above/below median, and the Serial Correlation Coefficient with exact variance.
-- Maurer, "A Universal Statistical Test for Random Bit Generators," *Journal of Cryptology* 5(2), 1992 — the full parametric form (L=10–16) is substantially more sensitive than the fixed NIST implementation.
+- Maurer, "A Universal Statistical Test for Random Bit Generators," *Journal of Cryptology* 5(2), 1992 — the full parametric form (L=10–16) is substantially more sensitive than the single NIST-selected setting.
 - Hellekalek and Wegenkittl, "Empirical Evidence Concerning AES," *ACM Trans. Modeling and Computer Simulation* 13(4), 2003 — Walsh-Hadamard spectral test; sensitive to nonlinear Boolean structure in keystream generators.
-- Golić, "On the Linear Complexity and Multidimensional Distribution of Decimated m-Sequences," *IEEE Trans. Inf. Theory* 43(3), 1997 — decimated linear complexity; directly relevant to stream ciphers and LFSR-based generators.
-- Doganaksoy and Göloglu, "On the Weakness of Non-Dual Bent Functions," *SAC 2005*, LNCS 3897 — L1-norm DFT variant; catches diffuse periodic structure missed by NIST's peak-count statistic.
+- Golić and Živković, "On the Linear Complexity of Nonuniformly Decimated PN-Sequences," *IEEE Trans. Inf. Theory* 34(5), 1988 — decimated linear complexity; directly relevant to stream ciphers and LFSR-based generators.
 - Webster and Tavares, "On the Design of S-Boxes," *CRYPTO 1985* — Strict Avalanche Criterion and Bit Independence Criterion; applicable to seeded PRNGs to test differential output behavior.
 
 The source PDFs, manuals, and source archives live under `pubs/`. Full BibTeX entries and implementation notes are in [BIB.md](BIB.md).
+
+## License
+
+BSD-2-Clause. See [LICENSE](LICENSE).
 
 ---
 

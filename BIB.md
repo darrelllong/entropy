@@ -1,7 +1,8 @@
 # Bibliography
 
 References used or surveyed for this project. Entries marked **[pubs/]** have a local copy in `pubs/`.
-Entries marked **[TODO: library]** still need to be fetched from a library or publisher site.
+Entries marked **[not in pubs/]** have no local copy; entries marked **[TODO: library]** still need
+to be fetched from a library or publisher site.
 
 The point of keeping these files in-tree is auditability: readers should be able to check the implementation claims against the exact standards, manuals, source drops, and papers used here.
 
@@ -105,7 +106,9 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   year    = {1998},
   doi     = {10.1145/272991.272995},
   note    = {[TODO: library] Period 2^{19937}-1; state recovery from 624 consecutive
-             outputs is documented in §3.  Default generator in NumPy, MATLAB, R.}
+             outputs is documented in §3.  Default generator in MATLAB and R;
+             NumPy's legacy RandomState uses it, but NumPy's default_rng has been
+             PCG64 since NumPy 1.17.}
 }
 
 @article{blackman2021xoshiro,
@@ -117,7 +120,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   pages   = {36:1--36:32},
   year    = {2021},
   doi     = {10.1145/3460772},
-  note    = {[pubs/blackman-vigna-2021-scrambled-linear.pdf] Xoshiro256** and
+  note    = {[not in pubs/] Xoshiro256** and
              Xoroshiro128** scrambler definitions.}
 }
 
@@ -128,7 +131,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   institution = {Harvey Mudd College},
   number      = {HMC-CS-2014-0905},
   year        = {2014},
-  note        = {[pubs/oneill-2014-pcg.pdf] PCG32 (XSH-RR) and PCG64 (XSL-RR).}
+  note        = {[not in pubs/] PCG32 (XSH-RR) and PCG64 (XSL-RR).}
 }
 
 @article{marsaglia2003xorshift,
@@ -147,7 +150,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {wyhash and wyrand, version 4.2},
   year   = {2022},
   url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {[pubs/wang-2022-wyhash.pdf] Weyl-sequence counter with 128-bit
+  note   = {[not in pubs/] Weyl-sequence counter with 128-bit
              multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.}
 }
 
@@ -156,7 +159,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {A Small Noncryptographic {PRNG}},
   year   = {2007},
   url    = {http://burtleburtle.net/bob/rand/smallprng.html},
-  note   = {[pubs/jenkins-2007-smallprng.html] JSF64 (Jenkins Small Fast),
+  note   = {[not in pubs/] JSF64 (Jenkins Small Fast),
              four-word 64-bit chaotic generator.}
 }
 
@@ -165,7 +168,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title     = {{ChaCha}, a Variant of {Salsa20}},
   booktitle = {Workshop Record of SASC 2008: The State of the Art of Stream Ciphers},
   year      = {2008},
-  note      = {[pubs/bernstein-2008-chacha.pdf] ChaCha20 stream cipher; 20-round
+  note      = {[not in pubs/] ChaCha20 stream cipher; 20-round
                variant used in Linux /dev/urandom, macOS arc4random, and TLS 1.3.}
 }
 
@@ -192,7 +195,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
              https://www.tuhs.org/Archive/Distributions/Research/V7/}
 }
 
-@incollection{bernstein2015dualec,
+@incollection{bernstein2016dualec,
   author    = {Bernstein, Daniel J. and Lange, Tanja and Niederhagen, Ruben},
   title     = {Dual {EC}: A Standardized Back Door},
   booktitle = {The New Codebreakers: Essays Dedicated to David Kahn on the
@@ -268,7 +271,9 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   title  = {{BADRANDOM}: The Effect and Mitigations for Low Entropy Random Numbers in {TLS}},
   school = {University of California, Santa Cruz},
   year   = {2021},
-  note   = {[pubs/hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf]}
+  note   = {[pubs/hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf]
+            The dissertation year is 2021 (UCSC / ProQuest record); the "2022" in the
+            local filename is a filename artifact, not the publication year.}
 }
 ```
 
@@ -298,7 +303,8 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   author = {Doty-Humphrey, Chris},
   title  = {{PractRand}: Practically Random --- A C++ Library of Statistical Tests for {RNG}s},
   year   = {2018},
-  note   = {[TODO: fetch docs] Version 0.95. Novel tests: BCFN (DFT of Hamming-weight block
+  note   = {[TODO: fetch docs] Version pre-0.95 (the source the crate's FPF port follows).
+             Novel tests: BCFN (DFT of Hamming-weight block
              counts), DC6 (lagged difference patterns for small-state generators), FPF
              (leading-bit frequency chi-square), TMFn (N-dim spectral), streaming linear
              complexity. Source: http://pracrand.sourceforge.net/}
@@ -320,7 +326,9 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   year    = {1992},
   doi     = {10.1007/BF00193563},
   note    = {[pubs/maurer-1992-universal-test.pdf] Full parametric form at L=10--16 is
-             substantially more sensitive than the NIST-locked implementation at L=7.
+             substantially more sensitive than the single NIST-selected setting (SP 800-22
+             chooses L from the sample size over L=6..16; L=7 is only the worked example
+             in §2.9).  The crate's `maurer::` family covers L=5..16.
              Requires the exact asymptotic variance formula from this paper for correct
              p-values at higher L. PDF from author page: https://crypto.ethz.ch/publications/}
 }
@@ -338,19 +346,19 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
                these are in NIST/DIEHARD/DIEHARDER.}
 }
 
-@article{golic1997linear,
-  author  = {Goli\'{c}, Jovan Dj.},
-  title   = {On the Linear Complexity and Multidimensional Distribution of Decimated $m$-Sequences},
+@article{golic1988decimated,
+  author  = {Goli\'{c}, Jovan Dj. and \v{Z}ivkovi\'{c}, Miodrag V.},
+  title   = {On the Linear Complexity of Nonuniformly Decimated {PN}-Sequences},
   journal = {IEEE Transactions on Information Theory},
-  volume  = {43},
-  number  = {3},
-  pages   = {1054--1059},
-  year    = {1997},
-  doi     = {10.1109/18.568717},
-  note    = {[TODO: library] IEEE paywalled; DOI needs verification (10.1109/18.568717 may be
-             incorrect — verify against TIT vol.43 no.3 May 1997 pp.1054-1059 on IEEE Xplore).
+  volume  = {34},
+  number  = {5},
+  pages   = {1077--1079},
+  year    = {1988},
+  note    = {[not in pubs/] IEEE paywalled (DOI not verified; omitted).
              Decimated linear complexity: take every d-th output bit and run Berlekamp-Massey;
-             complexity collapses at specific decimation factors for LFSR-based generators.}
+             complexity collapses at specific decimation factors for LFSR-based generators.
+             (This entry replaces an earlier citation of a 1997 Goli\'{c} single-author
+             TIT paper that could not be verified to exist.)}
 }
 
 @article{hellekalek2003aes,
@@ -367,22 +375,6 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
              Walsh-Hadamard spectral test; sensitive to nonlinear Boolean structure in
              keystream generators. Specifically applied to AES-based PRNGs, making it a
              natural complement to our AesCtr and CryptoCtrDrbg results.}
-}
-
-@inproceedings{doganaksoy2006bent,
-  author    = {Doganaksoy, Ali and G\"{o}loglu, Fatih},
-  title     = {On the Weakness of Non-Dual Bent Functions},
-  booktitle = {Selected Areas in Cryptography (SAC 2005)},
-  series    = {Lecture Notes in Computer Science},
-  volume    = {3897},
-  publisher = {Springer},
-  year      = {2006},
-  pages     = {50--64},
-  doi       = {10.1007/11693383_4},
-  note      = {L1-norm DFT variant: sum of all |DFT coefficients| rather
-               than peak count. Catches diffuse periodic structure across many frequencies
-               that NIST's threshold-exceedance statistic misses.
-               Local copy not available.}
 }
 
 @inproceedings{webster1985sboxes,
@@ -450,8 +442,9 @@ previously missing from this bibliography.
   doi     = {10.2307/2346560},
   note    = {[TODO: library] Covariance matrix and expected proportions for the
              runs-up/down chi-square statistic.  Used verbatim in
-             `src/diehard/runs_float.rs` (constant PSEUDO_INV_COV matrix) and
-             `src/research/knuth.rs` (runs-above/below-median test).
+             `src/diehard/runs_float.rs` (constant PSEUDO_INV_COV matrix).
+             (The runs test in `src/research/knuth.rs` is the distinct
+             Wald-Wolfowitz runs-above/below-median statistic, not this one.)
              See also Knuth TAOCP Vol. 2 §3.3.2.}
 }
 ```
@@ -466,7 +459,6 @@ previously missing from this bibliography.
 | 2 | `practrand` | FPF core implemented; next priority is BCFN and DC6 to catch small-state generators that pass everything else |
 | 3 | `maurer1992universal` | Full parametric universal test at L=10+ |
 | 4 | `knuth1997taocp2` | Poker, Permutation, Wald-Wolfowitz, Serial Correlation |
-| 5 | `golic1997linear` | Decimated linear complexity — relevant to Dual_EC analysis |
-| 6 | `hellekalek2004aes` | Walsh-Hadamard spectral — validates AesCtr / CryptoCtrDrbg |
-| 7 | `doganaksoy2006bent` | L1-norm DFT variant |
-| 8 | `webster1985sboxes` | SAC / bit independence |
+| 5 | `golic1988decimated` | Decimated linear complexity — relevant to Dual_EC analysis |
+| 6 | `hellekalek2003aes` | Walsh-Hadamard spectral — validates AesCtr / CryptoCtrDrbg |
+| 7 | `webster1985sboxes` | SAC / bit independence |

@@ -1,9 +1,22 @@
 # R-REPORT — RNG tests via R's standard randomness packages
 
+> **Staleness note (2026-07).**  This is a dated report (run 2026-04-28).
+> It already reflects the `Lcg32::Borland`/`Lcg32::Msvc` bit-packing fix
+> described in §D, but predates the July 2026 crate fixes (exact-KS p-value
+> H-matrix, NIST serial df pairing, monkey-test iid moments, monobit2
+> folding, universal L-domain/slot changes, MINSTD zero-seed guard).  Those
+> fixes affect the crate's own battery (TESTS.md), not the R-side statistics
+> here; the seed=1 MINSTD stream sampled below is unchanged by the seed
+> guard.
+
 Each generator below was sampled into a binary stream of little-endian u32
-words. R then read the stream, normalised it to U[0,1), and ran every test
-exposed by the standard R RNG-testing packages (`randtests`, `randtoolbox`,
-`tseries`) plus the goodness-of-fit and autocorrelation tests in `stats`.
+words. R then read the stream, normalised it to U[0,1), and ran the
+randomness tests exposed by the standard R RNG-testing packages that apply
+to a value-level uniform stream — `randtests` (runs, Bartels rank,
+Cox-Stuart, difference-sign, turning-point, Mann-Kendall rank),
+`randtoolbox` (freq, gap, serial, poker, order) — plus `tseries`
+(runs, Jarque-Bera) and the goodness-of-fit and autocorrelation tests in
+`stats` (KS, χ²(256), Ljung-Box).  (`randtoolbox::coll.test` was not run.)
 
 Sample size: **5 000 000 u32 words** for every generator except
 `Dual_EC_DRBG`, which uses **1 000 000** because each block requires two
@@ -2568,10 +2581,13 @@ For an i.i.d. uniform sample U₁, …, U_N ~ U(0,1):
   | k  | SE(m̂_k) ≈ |
   |----|-----------|
   | 1  | 1.29 × 10⁻⁴ |
-  | 2  | 1.49 × 10⁻⁴ |
-  | 3  | 1.62 × 10⁻⁴ |
-  | 5  | 1.78 × 10⁻⁴ |
-  | 10 | 1.85 × 10⁻⁴ |
+  | 2  | 1.33 × 10⁻⁴ |
+  | 3  | 1.27 × 10⁻⁴ |
+  | 5  | 1.12 × 10⁻⁴ |
+  | 10 | 0.89 × 10⁻⁴ |
+
+  (The SE peaks near k = 2 and then *decreases* with k: Var(m̂_k) =
+  (1/(2k+1) − 1/(k+1)²)/N → 1/((2k+1)N) as k grows.)
 
   A clean RNG should sit inside ≈ 2 × 10⁻⁴ for every order at this sample
   size.  Anything an order of magnitude larger is a real distributional
@@ -2621,8 +2637,9 @@ expose:
 * linear-complexity / Berlekamp–Massey on the bitstream;
 * birthday-spacings (Marsaglia 1985);
 * overlapping-template / non-overlapping-template;
-* Marsaglia's spectral test on consecutive d-tuples (Marsaglia 1968) —
-  the canonical LCG-killer.
+* the spectral test on consecutive d-tuples (Coveyou–MacPherson 1967;
+  the lattice failure it detects is the one exposed in Marsaglia's 1968
+  "Random Numbers Fall Mainly in the Planes") — the canonical LCG-killer.
 
 The Fourier block I added catches part of the LCG-spectral failure
 mode, but not the d-tuple lattice diagnostic.
@@ -2656,8 +2673,8 @@ re-aggregates bins into a single tail bin until each surviving bin has
 expected ≥ 5 — implemented as an O(N) one-shot merge so it terminates
 even on degenerate streams whose `randtoolbox::gap.test` returns
 length-N observed/expected vectors), both pass cleanly: SpongeBob chi²
-= 19.23 with df = 16, p = 0.257; Squidward chi² = 18.24 with df = 17,
-p = 0.374.  The genuine failures (`ConstantRng`, `CounterRng`,
+= 19.23 with df = 16, p = 0.257; Squidward chi² = 17.76 with df = 16,
+p = 0.338.  The genuine failures (`ConstantRng`, `CounterRng`,
 `ANSI C LCG`, `MINSTD`, `Windows VB6 Rnd()`) all still REJECT because
 their gap distributions diverge from Geometric(0.5) at the per-RNG-
 level rather than only in the tail.
@@ -2746,12 +2763,12 @@ This does **not** mean MT19937 is cryptographically suitable; its
 known failure modes are F₂-linear structure exposed by binary-matrix-
 rank or linear-complexity tests, neither of which R provides.
 
-#### CSPRNGs — 8 block-CTR ciphers + 4 stream ciphers + 5 DRBGs + Dual_EC_DRBG
+#### CSPRNGs — 8 block-CTR ciphers + 4 stream ciphers + 6 DRBGs + Dual_EC_DRBG
 
-All 18 cryptographic generators show 0 or 1 REJECTs in the sample-
-domain table; the 1-REJECT cases (Camellia, HmacDrbg) are spread
-across different tests as expected for 18 generators × 15 tests at
-α = 0.001 (expected spurious REJECTs = 0.27, observed = 2;
+All 19 cryptographic generators show 0 or 1 REJECTs in the sample-
+domain table; the single 1-REJECT case (HmacDrbg, on
+`cox.stuart.test` at p = 0.000826) is expected for 19 generators ×
+15 tests at α = 0.001 (expected spurious REJECTs ≈ 0.29, observed = 1;
 well within Poisson noise).  Spectrally: ξ within ±0.001 of e^(−γ)
 for every CSPRNG, P_max in the expected range, χ²(Exp(1)) and KS
 uniform across the unit interval.
@@ -2766,8 +2783,8 @@ any black-box battery on the output stream alone.
 ### F. Cross-RNG moment table (suspects only)
 
 Threshold for "suspect": max |observed − 1/(k+1)| > 1 × 10⁻³ for any
-k = 1..10 (≈ 5× the SE band at this sample size).  Every other
-generator (36 of 43) sits inside a max moment-error of ≤ 3 × 10⁻⁴ for
+k = 1..10 (≈ 7-8× the SE band at this sample size).  Every other
+generator (38 of 43) sits inside a max moment-error of ≤ 3 × 10⁻⁴ for
 all 10 orders and is omitted.
 
 | RNG | max abs(m̂_k − 1/(k+1)) | mean abs error | mechanism |
@@ -2787,7 +2804,7 @@ LCG-class generators.
 
 Threshold: any of (ξ < 0.55) ∨ (P_max > 25, equivalently Bonferroni
 p_spike < 0.05) ∨ (χ²-vs-Exp(1) p < 0.001) ∨ (KS-vs-Exp(1) p < 0.001).
-Every other generator (35 of 43) lands in the white-noise envelope:
+Every other generator (34 of 43) lands in the white-noise envelope:
 **|ξ − e^(−γ)| < 0.002, P_max ∈ [13, 18], Bonferroni p_spike > 0.04,
 both Exp(1) goodness-of-fit p > 0.04**.
 
