@@ -194,7 +194,9 @@ def gen_header(run_date: str, host: str, n_bits: int, n_rngs: int) -> str:
 
 Full `run_tests` battery harvested from `{host}` on {run_date}.
 
-Sample size: **{mbits:,} Mbit** per generator.
+Sample size: **{mbits:,} Mbit** per generator for NIST; DIEHARD/DIEHARDER
+consume **{mbits:,} M 32-bit words** (plus what the live-drawing tests take
+directly).
 
 Command:
 
