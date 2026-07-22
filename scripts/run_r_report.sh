@@ -9,8 +9,8 @@ R_SCRIPT="$ROOT/scripts/r_rng_tests.R"
 OUT="$ROOT/R-REPORT.md"
 
 if [[ ! -x "$DUMP" ]]; then
-  echo "error: $DUMP not found — run \`cargo build --release --bin dump_rng\` first" >&2
-  exit 1
+  echo "[build] $DUMP not found — building" >&2
+  (cd "$ROOT" && cargo build --quiet --release --bin dump_rng)
 fi
 if [[ ! -r "$R_SCRIPT" ]]; then
   echo "error: $R_SCRIPT missing or unreadable" >&2
@@ -18,6 +18,16 @@ if [[ ! -r "$R_SCRIPT" ]]; then
 fi
 if ! command -v Rscript >/dev/null 2>&1; then
   echo "error: Rscript not on PATH" >&2
+  exit 1
+fi
+# Verify every R package upfront — one clear error beats 44 per-RNG failures.
+MISSING_PKGS=$(Rscript -e '
+  pkgs <- c("moments", "randtests", "randtoolbox", "tseries")
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
+  cat(missing, sep = " ")' 2>/dev/null)
+if [[ -n "$MISSING_PKGS" ]]; then
+  echo "error: missing R package(s): $MISSING_PKGS" >&2
+  echo "  install.packages(c($(echo "$MISSING_PKGS" | sed 's/[^ ]*/"&"/g; s/ /, /g')))" >&2
   exit 1
 fi
 
@@ -100,8 +110,9 @@ randomness tests exposed by the standard R RNG-testing packages that apply
 to a value-level uniform stream — `randtests` (runs, Bartels rank,
 Cox-Stuart, difference-sign, turning-point, Mann-Kendall rank),
 `randtoolbox` (freq, gap, serial, poker, order) — plus `tseries`
-(runs, Jarque-Bera) and the goodness-of-fit and autocorrelation tests in
-`stats` (KS, χ²(256), Ljung-Box).  (`randtoolbox::coll.test` was not run.)
+(runs, Jarque-Bera), the goodness-of-fit and autocorrelation tests in
+`stats` (KS, χ²(256), Ljung-Box), and `moments` for the raw-moment
+diagnostics.  (`randtoolbox::coll.test` was not run.)
 
 Sample size: **5 000 000 u32 words** for every generator except
 `Dual_EC_DRBG`, which uses **1 000 000** because each block requires two
