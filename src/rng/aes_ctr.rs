@@ -3,11 +3,13 @@
 //! Encrypts successive 128-bit counter values under a fixed AES-128 key to
 //! produce a keystream.  Each encrypted block yields four 32-bit output words.
 //!
-//! On `x86` / `x86_64` targets the implementation automatically dispatches to
-//! AES-NI hardware intrinsics (`AESENC` / `AESENCLAST`) via the `x86-alt` crate
-//! when the CPU reports `aes` feature support; all other targets — including
-//! `x86_64` without AES-NI — fall back to the pure-Rust T-table path.  The
-//! T-table path is optimised for throughput, not constant-time behaviour.
+//! The AES core is a pure-Rust T-table implementation on every target: the
+//! encryption tables are computed at compile time from the FIPS 197 S-box and
+//! each block is encrypted with four table lookups per column per round.  The
+//! T-table approach is optimised for throughput, not constant-time behaviour
+//! (table indices are data-dependent).  A pre-publication build carried an
+//! optional AES-NI fast path via an `x86-alt` sub-crate; it was removed for
+//! the published crate.
 //!
 //! Counter mode construction follows NIST SP 800-38A § 6.5.
 //!
@@ -22,7 +24,7 @@
 //!
 //! # Author
 //! Joan Daemen and Vincent Rijmen (Rijndael / AES, 2001);
-//! T-table implementation and x86 AES-NI dispatch by Darrell Long (UC Santa Cruz).
+//! T-table implementation by Darrell Long (UC Santa Cruz).
 
 use super::Rng;
 
@@ -281,8 +283,7 @@ impl AesCtr {
 impl Drop for AesCtr {
     fn drop(&mut self) {
         // Zeroize round keys and keystream buffer so key material does not
-        // linger in memory after the RNG is dropped.  The hw field's own Drop
-        // (Aes128X86::drop) zeroizes the hardware round key schedule separately.
+        // linger in memory after the RNG is dropped.
         cryptography::zeroize_slice(&mut self.rk);
         cryptography::zeroize_slice(&mut self.buf);
     }

@@ -76,12 +76,15 @@ pub use xoshiro::{Xoroshiro128, Xoshiro256};
 /// * **`collect_bits`** — extracts bits **LSB-first** from each 32-bit word:
 ///   bit 0 of word 0 is the first element of the returned slice.
 ///
-/// * **Byte-backed generators** (HMAC_DRBG, Hash_DRBG, ChaCha20, Squidward)
-///   expose a little-endian byte stream: `next_u32` reads 4 bytes in LE order,
-///   `next_u64` reads 8 bytes in LE order, independently of the default
-///   `next_u64` above.  Mixing `next_u32` and `next_u64` at a buffer refill
-///   boundary silently discards up to 7 trailing bytes; see the individual
-///   adapter doc comments for the full caveat.
+/// * **Byte-backed generators** (HMAC_DRBG, Hash_DRBG, ChaCha20, SpongeBob,
+///   Squidward) expose a little-endian byte stream: `next_u32` reads 4 bytes
+///   in LE order, `next_u64` reads 8 bytes in LE order, independently of the
+///   default `next_u64` above.  Mixing `next_u32` and `next_u64` at a buffer
+///   refill boundary silently discards up to 7 trailing bytes; see the
+///   individual adapter doc comments for the full caveat.
+///
+///   Exceptions: `CryptoCtrDrbg` and `DualEcDrbg` decode their byte streams
+///   **big-endian**; see the `next_u32` docs on those types.
 pub trait Rng {
     /// Return the next 32-bit pseudo-random word.
     fn next_u32(&mut self) -> u32;

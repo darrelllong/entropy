@@ -1,23 +1,27 @@
-//! WyRand — Wang Yi's ultra-fast 64-bit PRNG (wyhash v4.2, 2022).
+//! WyRand — Wang Yi's ultra-fast 64-bit PRNG (wyhash final version 3, 2021).
 //!
 //! A single 64-bit counter advanced by a fixed Weyl-sequence increment, mixed
 //! through a 128-bit multiply-xorfolded finaliser.  The multiply step provides
 //! excellent avalanche; the generator passes BigCrush, PractRand > 8 TiB, and
 //! NIST SP 800-22 at typical sample sizes.
 //!
+//! The constants below are the wyhash **final version 3** wyrand parameters —
+//! the classic, most widely deployed variant.  Later releases (v4.2/v4.3)
+//! switched to different constants (`0x2d358dccaa6c78a5` / `0x8bb84b93962eacc9`)
+//! and are deliberately not used here.
+//!
 //! Not cryptographically secure; state is trivially invertible.
 //!
 //! # References
-//! Wang Yi, "wyhash and wyrand", version 4.2, 2022.
+//! Wang Yi, "wyhash and wyrand", final version 3, 2021.
 //! <https://github.com/wangyi-fudan/wyhash>
-//! [pubs/wang-2022-wyhash.pdf]
 //!
 //! # Author
 //! Wang Yi (algorithm); Darrell Long (Rust port).
 
 use super::{OsRng, Rng};
 
-// Weyl-sequence constant (from wyhash v4.2 source).
+// Weyl-sequence constant (from wyhash final v3 source).
 const WYRAND_INC: u64 = 0xa076_1d64_78bd_642f;
 // Mix constant.
 const WYRAND_MIX: u64 = 0xe703_7ed1_a0b4_28db;
@@ -102,5 +106,31 @@ mod tests {
         let mut a = WyRand::new(42);
         let mut b = WyRand::new(42);
         assert_eq!(a.next_u32(), (b.next_u64() >> 32) as u32);
+    }
+
+    // Known-answer test: first three outputs cross-checked against an
+    // independent Python replica of wyhash final v3's wyrand
+    // (seed += 0xa0761d6478bd642f; wymix(seed, seed ^ 0xe7037ed1a0b428db)).
+    #[test]
+    fn wyrand_known_answer() {
+        let mut rng = WyRand::new(12345);
+        let expected: [u64; 3] = [
+            0x3440_f9f4_6981_0c7b,
+            0xc794_9c1f_4870_8594,
+            0xda98_0e92_2b5f_67f8,
+        ];
+        for &e in &expected {
+            assert_eq!(rng.next_u64(), e, "WyRand final v3 KAT mismatch");
+        }
+
+        let mut rng0 = WyRand::new(0);
+        let expected0: [u64; 3] = [
+            0x111c_b3a7_8f59_a58e,
+            0xceab_d938_ff4e_856d,
+            0x61fb_5131_8f47_d2a4,
+        ];
+        for &e in &expected0 {
+            assert_eq!(rng0.next_u64(), e, "WyRand final v3 KAT (seed 0) mismatch");
+        }
     }
 }

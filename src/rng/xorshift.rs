@@ -49,6 +49,7 @@ pub struct Xorshift64 {
 }
 
 impl Xorshift64 {
+    /// Construct from a 64-bit seed.  Seed must be non-zero.
     pub fn new(seed: u64) -> Self {
         assert!(seed != 0, "Xorshift64 seed must be non-zero");
         Self { state: seed }

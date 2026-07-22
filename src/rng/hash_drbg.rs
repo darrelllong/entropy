@@ -67,17 +67,25 @@ impl HashDrbg {
     pub fn from_os_rng() -> Self {
         let mut os = OsRng::new();
         let mut seed = [0u8; SEEDLEN + 16];
-        for chunk in seed.chunks_exact_mut(4) {
-            chunk.copy_from_slice(&os.next_u32().to_le_bytes());
+        {
+            // 71 bytes = 17 whole u32 words + 3 remainder bytes; fill the
+            // remainder from one more next_u32 so every seed byte is entropy.
+            let mut chunks = seed.chunks_exact_mut(4);
+            for chunk in &mut chunks {
+                chunk.copy_from_slice(&os.next_u32().to_le_bytes());
+            }
+            let rem = chunks.into_remainder();
+            let n = rem.len();
+            rem.copy_from_slice(&os.next_u32().to_le_bytes()[..n]);
         }
         // V = Hash_df(entropy_input || nonce, 440 bits)
-        let v = hash_df(&seed, SEEDLEN);
+        let v = hash_df(&seed);
         // C = Hash_df(0x00 || V, 440 bits)
         let c = {
             let mut input = [0u8; 1 + SEEDLEN];
             input[0] = 0x00;
             input[1..].copy_from_slice(&v);
-            hash_df(&input, SEEDLEN)
+            hash_df(&input)
         };
         Self {
             v,
@@ -138,10 +146,13 @@ impl HashDrbg {
 
 // ── Helper: Hash_df (SP 800-90A §10.3.1) ─────────────────────────────────────
 
-/// Derive `out_bytes` bytes from `input` using SHA-256 (seedlen=440 bits).
-fn hash_df(input: &[u8], out_bytes: usize) -> [u8; SEEDLEN] {
-    let bits = (out_bytes * 8) as u32;
-    let num_blocks = out_bytes.div_ceil(OUTLEN);
+/// Derive exactly SEEDLEN (55) bytes from `input` using SHA-256.
+///
+/// The general Hash_df takes a requested bit count; this DRBG only ever asks
+/// for seedlen = 440 bits, so the length is fixed by the return type.
+fn hash_df(input: &[u8]) -> [u8; SEEDLEN] {
+    let bits = (SEEDLEN * 8) as u32;
+    let num_blocks = SEEDLEN.div_ceil(OUTLEN);
     let mut temp = [0u8; OUTLEN * 2]; // enough for 2 SHA-256 blocks (covers 55 B)
     for i in 0..num_blocks {
         let counter = (i + 1) as u8;
@@ -232,7 +243,7 @@ mod tests {
     #[test]
     fn hash_df_length() {
         // Hash_df output must be exactly SEEDLEN bytes.
-        let out = hash_df(b"test input", SEEDLEN);
+        let out = hash_df(b"test input");
         assert_eq!(out.len(), SEEDLEN);
     }
 

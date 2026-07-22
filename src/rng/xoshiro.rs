@@ -7,15 +7,16 @@
 //! | Generator    | State  | Period  | Use case                        |
 //! |--------------|--------|---------|---------------------------------|
 //! | Xoshiro256   | 256 bit| 2²⁵⁶−1 | General purpose, large period   |
-//! | Xoroshiro128 | 128 bit| 2¹²⁸−1 | Tight memory, slightly faster   |
+//! | Xoroshiro128 | 128 bit| 2¹²⁸−1 | Tight memory, comparable speed  |
 //!
-//! Neither is cryptographically secure.  See PEERREVIEW.md for the note on
-//! linear dependencies detectable by linear-complexity tests at extreme depth.
+//! Neither is cryptographically secure, and both carry the linear
+//! dependencies of their underlying LFSR-style state updates, detectable by
+//! linear-complexity tests at extreme depth.
 //!
 //! # References
 //! D. Blackman and S. Vigna, "Scrambled Linear Pseudorandom Number
 //! Generators", *ACM Transactions on Mathematical Software* 47(4), 2021.
-//! DOI: 10.1145/3460772.  [pubs/blackman-vigna-2021-scrambled-linear.pdf]
+//! DOI: 10.1145/3460772.  [BIB.md: blackman2021xoshiro]
 //!
 //! # Author
 //! David Blackman, Sebastiano Vigna (algorithm); Darrell Long (Rust port).
@@ -90,7 +91,8 @@ impl Rng for Xoshiro256 {
 
 /// 128-bit xoroshiro128 generator — starstar scrambler, 64-bit output.
 ///
-/// Period: 2¹²⁸ − 1.  Slightly faster than xoshiro256 with half the state.
+/// Period: 2¹²⁸ − 1.  Half the state of xoshiro256; measured somewhat slower in this crate's
+/// benchmarks (see BENCHMARKS.md) despite the smaller footprint.
 /// Do not seed with all-zeros.
 pub struct Xoroshiro128 {
     s: [u64; 2],
@@ -149,25 +151,29 @@ impl Rng for Xoroshiro128 {
 mod tests {
     use super::*;
 
-    // Reference values from Vigna's C reference implementation.
+    // Known-answer test: first three outputs of xoshiro256** with state
+    // {1, 2, 3, 4}, cross-checked against an independent Python replica of
+    // Vigna's C reference implementation.  (11520, 0, 1509978240 is the
+    // well-known published prefix for this state.)
     #[test]
     fn xoshiro256_reference() {
         let mut rng = Xoshiro256::new(1, 2, 3, 4);
-        // First output: starstar(s[1]) = rotl(s[1]*5,7)*9 = rotl(10,7)*9
-        let v0 = rng.next_u64();
-        // Second call must differ.
-        let v1 = rng.next_u64();
-        assert_ne!(v0, 0);
-        assert_ne!(v0, v1);
+        let expected: [u64; 3] = [0x2d00, 0x0000, 0x5a00_7080];
+        for &e in &expected {
+            assert_eq!(rng.next_u64(), e, "xoshiro256** KAT mismatch");
+        }
     }
 
+    // Known-answer test: first three outputs of xoroshiro128** with state
+    // {1, 2}, cross-checked against an independent Python replica of Vigna's
+    // C reference implementation.
     #[test]
     fn xoroshiro128_reference() {
         let mut rng = Xoroshiro128::new(1, 2);
-        let v0 = rng.next_u64();
-        let v1 = rng.next_u64();
-        assert_ne!(v0, 0);
-        assert_ne!(v0, v1);
+        let expected: [u64; 3] = [0x1680, 0x16_c380_4380, 0x86b5_b3ad_0000_4380];
+        for &e in &expected {
+            assert_eq!(rng.next_u64(), e, "xoroshiro128** KAT mismatch");
+        }
     }
 
     #[test]

@@ -46,6 +46,17 @@ impl CryptoCtrDrbg {
 }
 
 impl Rng for CryptoCtrDrbg {
+    /// Return the next 32-bit word from the DRBG byte stream.
+    ///
+    /// Note: words are decoded **big-endian** — a deliberate deviation from
+    /// the little-endian convention of the crate's other byte-backed
+    /// generators (see [`crate::rng::Rng`]).
+    ///
+    /// Each call draws exactly 4 bytes via `fill_bytes` with no buffering on
+    /// this side, and `next_u64` is not overridden (it assembles two
+    /// `next_u32` calls per the trait default).  The DRBG-invocation cadence
+    /// per word therefore follows whatever internal buffering the sibling
+    /// `cryptography` crate's `CtrDrbgAes256` performs.
     fn next_u32(&mut self) -> u32 {
         let mut out = [0u8; 4];
         self.inner.fill_bytes(&mut out);

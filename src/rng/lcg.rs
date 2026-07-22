@@ -37,10 +37,12 @@ pub enum LcgVariant {
 
 /// A 32-bit Linear Congruential Generator.
 ///
-/// `next_u32` always returns a full 32-bit value: when a variant's raw
-/// output is narrower than 32 bits (e.g. Borland/MSVC `rand()` return only
-/// 15 bits), `next_u32` packs successive raw outputs together.  Use
-/// [`Lcg32::next_raw`] when you want the bit-narrow C API value verbatim.
+/// `next_u32` packs successive raw outputs together for variants whose raw
+/// output is 15 bits wide (Borland/MSVC `rand()`).  The 31-bit AnsiC and
+/// MINSTD raws are deliberately NOT packed: they are zero-extended, leaving
+/// bit 31 always 0, exactly as consuming the C API naïvely would — these
+/// variants serve as negative controls with a documented [0, 2³¹) range
+/// collapse.  Use [`Lcg32::next_raw`] for the bit-narrow C API value verbatim.
 #[derive(Debug, Clone)]
 pub struct Lcg32 {
     state: u64,
@@ -62,11 +64,19 @@ pub struct Lcg32 {
 }
 
 impl Lcg32 {
+    /// Construct the chosen [`LcgVariant`] from a 64-bit seed; the seed is
+    /// reduced to the variant's state range (masked or taken mod m).
     pub fn new(variant: LcgVariant, seed: u64) -> Self {
         let (state, a, c, m, shift, output_mask) = match variant {
             LcgVariant::AnsiC => (seed & 0x7FFF_FFFF, 1_103_515_245, 12_345, 1 << 31, 0, u32::MAX),
             LcgVariant::Minstd => (
-                if seed == 0 { 1 } else { seed % 2_147_483_647 },
+                // Reduce BEFORE the zero guard: MINSTD has c = 0, so a state
+                // of 0 (any seed ≡ 0 mod 2³¹−1, not just seed == 0) would be
+                // a permanent fixed point.
+                match seed % 2_147_483_647 {
+                    0 => 1,
+                    s => s,
+                },
                 16_807,
                 0,
                 2_147_483_647,
@@ -169,5 +179,25 @@ mod tests {
             high_bits_seen != 0,
             "Lcg32::Borland next_u32 left the high 16 bits zero — packing regression"
         );
+    }
+}
+
+#[cfg(test)]
+mod minstd_seed_tests {
+    use super::*;
+
+    /// Regression: a seed that is a nonzero multiple of 2³¹−1 reduced to
+    /// state 0, and with c = 0 the generator was stuck at zero forever.
+    #[test]
+    fn minstd_never_seeds_to_the_zero_fixed_point() {
+        for seed in [0u64, 2_147_483_647, 2 * 2_147_483_647] {
+            let mut rng = Lcg32::new(LcgVariant::Minstd, seed);
+            let a = rng.next_u32();
+            let b = rng.next_u32();
+            assert!(a != 0 || b != 0, "stuck at zero for seed {seed}");
+        }
+        // Known first step from state 1: 16807.
+        let mut rng = Lcg32::new(LcgVariant::Minstd, 2_147_483_647);
+        assert_eq!(rng.next_u32(), 16_807);
     }
 }

@@ -11,6 +11,7 @@ pub struct ConstantRng {
 }
 
 impl ConstantRng {
+    /// Construct a generator that returns `value` from every `next_u32` call.
     pub fn new(value: u32) -> Self {
         Self { value }
     }
@@ -31,6 +32,7 @@ pub struct CounterRng {
 }
 
 impl CounterRng {
+    /// Construct a counter that emits `start, start+1, start+2, …` (wrapping).
     pub fn new(start: u32) -> Self {
         Self { state: start }
     }
