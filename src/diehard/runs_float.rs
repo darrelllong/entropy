@@ -85,13 +85,17 @@ pub fn runs_float_both(rng: &mut impl Rng) -> Vec<TestResult> {
     ]
 }
 
-/// Backward-compatible single-result wrapper (returns min of up/down p-values).
+/// Backward-compatible single-result wrapper.
+///
+/// Combines the up-runs and down-runs KS p-values with a Bonferroni bound
+/// (valid under their dependence — both directions come from the same
+/// sequences); a bare min doubled the false-failure rate at small α.
+/// Prefer [`runs_float_both`] (used by `run_all`) for the uncombined report.
 pub fn runs_float(words: &[u32]) -> TestResult {
     // This wrapper uses the first SEQ_LEN*REPEATS words from the slice.
-    // For the proper two-result version, call runs_float_both.
     let needed = SEQ_LEN * REPEATS;
     if words.len() < needed {
-        return TestResult::insufficient("diehard::runs_up", "not enough words");
+        return TestResult::insufficient("diehard::runs_up_down", "not enough words");
     }
     let (mut up_pvals, mut dn_pvals): (Vec<f64>, Vec<f64>) = (0..REPEATS)
         .map(|rep| {
@@ -100,11 +104,11 @@ pub fn runs_float(words: &[u32]) -> TestResult {
         })
         .map(|(uv, dv)| (igamc(3.0, uv / 2.0), igamc(3.0, dv / 2.0)))
         .unzip();
-    let p = ks_test(&mut up_pvals).min(ks_test(&mut dn_pvals));
+    let p = (2.0 * ks_test(&mut up_pvals).min(ks_test(&mut dn_pvals))).min(1.0);
     TestResult::with_note(
         "diehard::runs_up_down",
         p,
-        format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form"),
+        format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form (Bonferroni)"),
     )
 }
 
