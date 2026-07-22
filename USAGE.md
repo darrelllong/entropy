@@ -245,7 +245,7 @@ Niederhagen 2016). An adversary who knows the trapdoor scalar can recover the
 full internal state from 30 bytes of output — one P-256 output block — and
 predict all future and past output. This generator is
 included to demonstrate that the backdoor is statistically invisible — it
-*passes* the batteries (196 of 199 NIST slots in the last harvest) while
+*passes* the batteries (197 of 200 NIST slots in the last harvest) while
 being cryptographically compromised — and to provide a reference
 implementation of a known-bad design. It must never be used to
 produce any material in any context. The harness limits it to the NIST battery
