@@ -31,6 +31,19 @@ if [[ -n "$MISSING_PKGS" ]]; then
   exit 1
 fi
 
+# Best-effort CPU description for the report header (Linux and macOS).
+cpu_description() {
+    local model cores
+    if command -v lscpu >/dev/null 2>&1; then
+        model=$(lscpu | awk -F': *' '/Model name/{print $2; exit}')
+        cores=$(nproc 2>/dev/null || echo "?")
+    elif command -v sysctl >/dev/null 2>&1; then
+        model=$(sysctl -n machdep.cpu.brand_string 2>/dev/null)
+        cores=$(sysctl -n hw.physicalcpu 2>/dev/null || echo "?")
+    fi
+    echo "${model:-unknown CPU}, ${cores} cores"
+}
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -148,7 +161,7 @@ for (p in pkgs) {
 cat <<EOF
 
 R version: $(Rscript -e 'cat(paste0(R.version$major,".",R.version$minor))' 2>/dev/null)
-Host: $(uname -srm)
+Host: $(hostname -s) — $(uname -srm), $(cpu_description)
 Date: $(date "+%Y-%m-%d %H:%M:%S %Z")
 
 ---

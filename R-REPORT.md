@@ -1,22 +1,14 @@
 # R-REPORT — RNG tests via R's standard randomness packages
 
-> **Staleness note (2026-07).**  This is a dated report (run 2026-04-28).
-> It already reflects the `Lcg32::Borland`/`Lcg32::Msvc` bit-packing fix
-> described in §D, but predates the July 2026 crate fixes (exact-KS p-value
-> H-matrix, NIST serial df pairing, monkey-test iid moments, monobit2
-> folding, universal L-domain/slot changes, MINSTD zero-seed guard).  Those
-> fixes affect the crate's own battery (TESTS.md), not the R-side statistics
-> here; the seed=1 MINSTD stream sampled below is unchanged by the seed
-> guard.
-
 Each generator below was sampled into a binary stream of little-endian u32
 words. R then read the stream, normalised it to U[0,1), and ran the
 randomness tests exposed by the standard R RNG-testing packages that apply
 to a value-level uniform stream — `randtests` (runs, Bartels rank,
 Cox-Stuart, difference-sign, turning-point, Mann-Kendall rank),
 `randtoolbox` (freq, gap, serial, poker, order) — plus `tseries`
-(runs, Jarque-Bera) and the goodness-of-fit and autocorrelation tests in
-`stats` (KS, χ²(256), Ljung-Box).  (`randtoolbox::coll.test` was not run.)
+(runs, Jarque-Bera), the goodness-of-fit and autocorrelation tests in
+`stats` (KS, χ²(256), Ljung-Box), and `moments` for the raw-moment
+diagnostics.  (`randtoolbox::coll.test` was not run.)
 
 Sample size: **5 000 000 u32 words** for every generator except
 `Dual_EC_DRBG`, which uses **1 000 000** because each block requires two
@@ -41,65 +33,13 @@ analysis: `scripts/r_rng_tests.R`.
 R packages used:
 - `randtests` 1.0.2
 - `randtoolbox` 2.0.5
-- `tseries` 0.10.61
+- `tseries` 0.10.62
 - `moments` 0.14.1
-- `stats` 4.5.0
+- `stats` 4.6.1
 
-R version: 4.5.0
-Host: Darwin 25.4.0 arm64
-Date: 2026-04-28 15:39:36 PDT
-
----
-
-## Summary — REJECT counts at α = 0.001
-
-Counts exclude `tseries::jarque.bera.test`, which is a Normality test and is **expected to REJECT** for any uniform stream.
-
-| RNG | REJECTs | Passes | n/a |
-|-----|---------|--------|-----|
-| OsRng (/dev/urandom) | 0 | 15 | 0 |
-| ConstantRng | 9 | 2 | 4 |
-| CounterRng | 15 | 0 | 0 |
-| System V rand() | 1 | 14 | 0 |
-| rand48 (mrand48) | 0 | 15 | 0 |
-| BSD random() / glibc random() | 0 | 15 | 0 |
-| FreeBSD rand_r() compat | 0 | 15 | 0 |
-| Windows MSVC rand() | 1 | 14 | 0 |
-| Windows VB6/VBA Rnd() | 6 | 9 | 0 |
-| Windows .NET Random | 0 | 15 | 0 |
-| ANSI C LCG | 6 | 9 | 0 |
-| MINSTD (Park-Miller) | 6 | 9 | 0 |
-| Borland C++ LCG | 1 | 14 | 0 |
-| MSVC LCG | 1 | 14 | 0 |
-| MT19937 | 0 | 15 | 0 |
-| Xorshift32 | 0 | 15 | 0 |
-| Xorshift64 | 0 | 15 | 0 |
-| PCG32 | 0 | 15 | 0 |
-| PCG64 | 0 | 15 | 0 |
-| Xoshiro256 | 0 | 15 | 0 |
-| Xoroshiro128 | 0 | 15 | 0 |
-| WyRand | 0 | 15 | 0 |
-| SFC64 | 0 | 15 | 0 |
-| JSF64 | 0 | 15 | 0 |
-| AES-128-CTR | 0 | 15 | 0 |
-| Camellia-128-CTR | 0 | 15 | 0 |
-| Twofish-128-CTR | 0 | 15 | 0 |
-| Serpent-128-CTR | 0 | 15 | 0 |
-| SM4-CTR | 0 | 15 | 0 |
-| Grasshopper-256-CTR | 0 | 15 | 0 |
-| CAST-128-CTR | 0 | 15 | 0 |
-| SEED-CTR | 0 | 15 | 0 |
-| Rabbit | 0 | 15 | 0 |
-| Salsa20 | 0 | 15 | 0 |
-| Snow3G | 0 | 15 | 0 |
-| ZUC-128 | 0 | 15 | 0 |
-| ChaCha20 | 0 | 15 | 0 |
-| SpongeBob (SHA3-512) | 0 | 15 | 0 |
-| Squidward (SHA-256) | 0 | 15 | 0 |
-| HmacDrbg | 1 | 14 | 0 |
-| HashDrbg | 0 | 15 | 0 |
-| CtrDrbgAes256 | 0 | 15 | 0 |
-| Dual_EC_DRBG (P-256) | 0 | 15 | 0 |
+R version: 4.6.1
+Host: baase — Linux 6.17.0-1026-nvidia aarch64, ARM Cortex-X925, 20 cores
+Date: 2026-07-22 12:41:38 PDT
 
 ---
 
@@ -107,28 +47,28 @@ Counts exclude `tseries::jarque.bera.test`, which is a Normality test and is **e
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.499855  Var = 0.083386  Min = 0.000000  Max = 1.000000
+Mean = 0.499765  Var = 0.083316  Min = 0.000000  Max = 0.999999
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | 1.149339 | 0.250416 | pass |
-| randtests::bartels.rank.test | 1.037492 | 0.299507 | pass |
-| randtests::cox.stuart.test (trend) | 1251110.000000 | 0.160492 | pass |
-| randtests::difference.sign.test | 0.577074 | 0.563889 | pass |
-| randtests::turning.point.test | 1.518866 | 0.128796 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | -1.919863 | 0.054875 | pass |
-| randtoolbox::freq.test (16 bins) | 24.173152 | 0.062211 | pass |
-| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 11.783693 | 0.758731 | pass |
-| randtoolbox::serial.test (d=8) | 71.910554 | 0.206687 | pass |
-| randtoolbox::poker.test (5-hand) | 3.922279 | 0.416626 | pass |
-| randtoolbox::order.test (d=4) | 32.499251 | 0.090198 | pass |
-| stats::ks.test vs U(0,1) | 0.000420 | 0.341842 | pass |
-| stats::chisq.test (256 bins) | 279.062733 | 0.143884 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 33.937877 | 0.109242 | pass |
-| tseries::runs.test (binary) | 1.149339 | 0.250416 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 300074.741028 | 0.000000 | REJECT |
+| randtests::runs.test (median) | 0.334516 | 0.737990 | pass |
+| randtests::bartels.rank.test | -0.224152 | 0.822639 | pass |
+| randtests::cox.stuart.test (trend) | 1249902.000000 | 0.901847 | pass |
+| randtests::difference.sign.test | 0.824945 | 0.409403 | pass |
+| randtests::turning.point.test | -1.008688 | 0.313124 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | 0.306018 | 0.759591 | pass |
+| randtoolbox::freq.test (16 bins) | 11.428774 | 0.721650 | pass |
+| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 18.176629 | 0.313656 | pass |
+| randtoolbox::serial.test (d=8) | 55.247770 | 0.745729 | pass |
+| randtoolbox::poker.test (5-hand) | 3.768045 | 0.438307 | pass |
+| randtoolbox::order.test (d=4) | 18.224819 | 0.745183 | pass |
+| stats::ks.test vs U(0,1) | 0.000466 | 0.227867 | pass |
+| stats::chisq.test (256 bins) | 246.063411 | 0.644616 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 46.290112 | 0.005938 | pass |
+| tseries::runs.test (binary) | 0.334516 | 0.737990 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299768.266620 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -136,28 +76,28 @@ Mean = 0.499855  Var = 0.083386  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.49985488 | 0.50000000 | 1.45e-04 |
-| 2 | 0.33324073 | 0.33333333 | 9.26e-05 |
-| 3 | 0.24995378 | 0.25000000 | 4.62e-05 |
-| 4 | 0.19998862 | 0.20000000 | 1.14e-05 |
-| 5 | 0.16668163 | 0.16666667 | 1.50e-05 |
-| 6 | 0.14289210 | 0.14285714 | 3.50e-05 |
-| 7 | 0.12505007 | 0.12500000 | 5.01e-05 |
-| 8 | 0.11117253 | 0.11111111 | 6.14e-05 |
-| 9 | 0.10006986 | 0.10000000 | 6.99e-05 |
-| 10 | 0.09098515 | 0.09090909 | 7.61e-05 |
+| 1 | 0.49976516 | 0.50000000 | 2.35e-04 |
+| 2 | 0.33308104 | 0.33333333 | 2.52e-04 |
+| 3 | 0.24975180 | 0.25000000 | 2.48e-04 |
+| 4 | 0.19976260 | 0.20000000 | 2.37e-04 |
+| 5 | 0.16644285 | 0.16666667 | 2.24e-04 |
+| 6 | 0.14264767 | 0.14285714 | 2.09e-04 |
+| 7 | 0.12480453 | 0.12500000 | 1.95e-04 |
+| 8 | 0.11092877 | 0.11111111 | 1.82e-04 |
+| 9 | 0.09982970 | 0.10000000 | 1.70e-04 |
+| 10 | 0.09074970 | 0.09090909 | 1.59e-04 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 15.705819 |
-| Bonferroni p (no spike) | 0.314470 |
-| Spectral flatness (Wiener entropy) | 0.560960 |
+| max normalized periodogram (P_max) | 15.075504 |
+| Max-spike exact p (no spike) | 0.507933 |
+| Spectral flatness (Wiener entropy) | 0.561672 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=9.089, p=0.429059 |
-| Periodogram KS vs Exp(1) | D=0.000737, p=0.132469 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=2.660, p=0.976259 |
+| Periodogram KS vs Exp(1) | D=0.000397, p=0.825001 |
 
 
 ## ConstantRng
@@ -171,7 +111,7 @@ Mean = 0.869841  Var = 0.000000  Min = 0.869841  Max = 0.869841
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
 | randtests::runs.test (median) | NA | NA | n/a |
-| randtests::bartels.rank.test | -2236.068291 | 0.000000 | REJECT |
+| randtests::bartels.rank.test | NA | NA | n/a |
 | randtests::cox.stuart.test (trend) | 0.000000 | 2.000000 | pass |
 | randtests::difference.sign.test | 0.000000 | 1.000000 | pass |
 | randtests::turning.point.test | NA | NA | n/a |
@@ -185,7 +125,7 @@ Mean = 0.869841  Var = 0.000000  Min = 0.869841  Max = 0.869841
 | stats::chisq.test (256 bins) | 1275000000.000000 | 0.000000 | REJECT |
 | stats::Box.test (Ljung-Box, lag 25) | NA | NA | n/a |
 | tseries::runs.test (binary) | NA | NA | n/a |
-| tseries::jarque.bera.test (vs Normal*) | 1666666.666606 | 0.000000 | REJECT |
+| tseries::jarque.bera.test (vs Normal*) | NA | NA | n/a |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -210,7 +150,7 @@ Mean = 0.869841  Var = 0.000000  Min = 0.869841  Max = 0.869841
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 0.000000 |
-| Bonferroni p (no spike) | 1.000000 |
+| Max-spike exact p (no spike) | 1.000000 |
 | Spectral flatness (Wiener entropy) | 0.000000 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=22499991.000, p=0.000000 |
@@ -240,9 +180,9 @@ Mean = 0.000582  Var = 0.000000  Min = 0.000000  Max = 0.001164
 | randtoolbox::order.test (d=4) | 28750000.000000 | 0.000000 | REJECT |
 | stats::ks.test vs U(0,1) | 0.998836 | 0.000000 | REJECT |
 | stats::chisq.test (256 bins) | 1275000000.000000 | 0.000000 | REJECT |
-| stats::Box.test (Ljung-Box, lag 25) | 124998425.003771 | 0.000000 | REJECT |
+| stats::Box.test (Ljung-Box, lag 25) | 124998425.003579 | 0.000000 | REJECT |
 | tseries::runs.test (binary) | -2236.067307 | 0.000000 | REJECT |
-| tseries::jarque.bera.test (vs Normal*) | 300000.000001 | 0.000000 | REJECT |
+| tseries::jarque.bera.test (vs Normal*) | 300000.000000 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -267,7 +207,7 @@ Mean = 0.000582  Var = 0.000000  Min = 0.000000  Max = 0.001164
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 2.059737 |
-| Bonferroni p (no spike) | 1.000000 |
+| Max-spike exact p (no spike) | 1.000000 |
 | Spectral flatness (Wiener entropy) | 0.000002 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=22499911.000, p=0.000000 |
@@ -324,7 +264,7 @@ Mean = 0.500021  Var = 0.083345  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 236.872264 |
-| Bonferroni p (no spike) | 3.354e-97 |
+| Max-spike exact p (no spike) | 3.354e-97 |
 | Spectral flatness (Wiener entropy) | 0.400030 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=231577.539, p=0.000000 |
@@ -356,7 +296,7 @@ Mean = 0.500064  Var = 0.083350  Min = 0.000000  Max = 1.000000
 | stats::chisq.test (256 bins) | 243.425382 | 0.688237 | pass |
 | stats::Box.test (Ljung-Box, lag 25) | 20.889371 | 0.698762 | pass |
 | tseries::runs.test (binary) | 0.466891 | 0.640578 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 300217.635394 | 0.000000 | REJECT |
+| tseries::jarque.bera.test (vs Normal*) | 300217.635393 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -381,14 +321,14 @@ Mean = 0.500064  Var = 0.083350  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.360800 |
-| Bonferroni p (no spike) | 0.413232 |
+| Max-spike exact p (no spike) | 0.413232 |
 | Spectral flatness (Wiener entropy) | 0.561703 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=4.209, p=0.897121 |
 | Periodogram KS vs Exp(1) | D=0.000352, p=0.916103 |
 
 
-## BSD random() / glibc random()
+## BSD random()
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
@@ -438,7 +378,64 @@ Mean = 0.499967  Var = 0.083325  Min = 0.000001  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.855541 |
-| Bonferroni p (no spike) | 0.586711 |
+| Max-spike exact p (no spike) | 0.586711 |
+| Spectral flatness (Wiener entropy) | 0.561453 |
+| Theoretical flatness for white noise | 0.561459 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=11.124, p=0.267321 |
+| Periodogram KS vs Exp(1) | D=0.000513, p=0.526190 |
+
+
+## Linux glibc rand()/random()
+
+Sample size: 5,000,000 u32 words (19.07 MB)
+
+Mean = 0.499967  Var = 0.083325  Min = 0.000001  Max = 1.000000
+
+### Tests (alpha = 0.001 reject threshold)
+
+| Test | Statistic | p-value | Verdict |
+|------|-----------|---------|---------|
+| randtests::runs.test (median) | 1.382785 | 0.166731 | pass |
+| randtests::bartels.rank.test | 0.732279 | 0.463998 | pass |
+| randtests::cox.stuart.test (trend) | 1249839.000000 | 0.839121 | pass |
+| randtests::difference.sign.test | 0.468631 | 0.639333 | pass |
+| randtests::turning.point.test | 1.624932 | 0.104177 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | -0.491462 | 0.623100 | pass |
+| randtoolbox::freq.test (16 bins) | 10.888461 | 0.760460 | pass |
+| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 24.679959 | 0.075670 | pass |
+| randtoolbox::serial.test (d=8) | 66.222950 | 0.366343 | pass |
+| randtoolbox::poker.test (5-hand) | 2.722297 | 0.605319 | pass |
+| randtoolbox::order.test (d=4) | 18.634970 | 0.722196 | pass |
+| stats::ks.test vs U(0,1) | 0.000237 | 0.942174 | pass |
+| stats::chisq.test (256 bins) | 242.227917 | 0.707341 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 24.439146 | 0.494130 | pass |
+| tseries::runs.test (binary) | 1.382785 | 0.166731 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299851.119809 | 0.000000 | REJECT |
+
+*Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
+
+### Raw moments E[U^k] vs theoretical 1/(k+1)
+
+| k | observed | theoretical | abs error |
+|---|----------|-------------|-----------|
+| 1 | 0.49996729 | 0.50000000 | 3.27e-05 |
+| 2 | 0.33329220 | 0.33333333 | 4.11e-05 |
+| 3 | 0.24995689 | 0.25000000 | 4.31e-05 |
+| 4 | 0.19995867 | 0.20000000 | 4.13e-05 |
+| 5 | 0.16662948 | 0.16666667 | 3.72e-05 |
+| 6 | 0.14282531 | 0.14285714 | 3.18e-05 |
+| 7 | 0.12497393 | 0.12500000 | 2.61e-05 |
+| 8 | 0.11109068 | 0.11111111 | 2.04e-05 |
+| 9 | 0.09998483 | 0.10000000 | 1.52e-05 |
+| 10 | 0.09089865 | 0.09090909 | 1.04e-05 |
+
+### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
+
+| Metric | Value |
+|--------|-------|
+| Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
+| max normalized periodogram (P_max) | 14.855541 |
+| Max-spike exact p (no spike) | 0.586711 |
 | Spectral flatness (Wiener entropy) | 0.561453 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=11.124, p=0.267321 |
@@ -495,7 +492,7 @@ Mean = 0.499993  Var = 0.083294  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.712254 |
-| Bonferroni p (no spike) | 0.639311 |
+| Max-spike exact p (no spike) | 0.639311 |
 | Spectral flatness (Wiener entropy) | 0.561834 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=6.062, p=0.733702 |
@@ -552,7 +549,7 @@ Mean = 0.499952  Var = 0.083344  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 266.300279 |
-| Bonferroni p (no spike) | 5.562e-110 |
+| Max-spike exact p (no spike) | 5.562e-110 |
 | Spectral flatness (Wiener entropy) | 0.401885 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=224253.302, p=0.000000 |
@@ -609,7 +606,7 @@ Mean = 0.501964  Var = 0.083331  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 49073.713120 |
-| Bonferroni p (no spike) | 0.000000 |
+| Max-spike exact p (no spike) | -0.000000 |
 | Spectral flatness (Wiener entropy) | 0.210474 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=1598713.924, p=0.000000 |
@@ -666,7 +663,7 @@ Mean = 0.499982  Var = 0.083341  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 13.250183 |
-| Bonferroni p (no spike) | 0.987723 |
+| Max-spike exact p (no spike) | 0.987723 |
 | Spectral flatness (Wiener entropy) | 0.561375 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=2.935, p=0.966800 |
@@ -723,7 +720,7 @@ Mean = 0.249925  Var = 0.020834  Min = 0.000000  Max = 0.500000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 3.840927 |
-| Bonferroni p (no spike) | 1.000000 |
+| Max-spike exact p (no spike) | 1.000000 |
 | Spectral flatness (Wiener entropy) | 0.561550 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=3152681.049, p=0.000000 |
@@ -780,7 +777,7 @@ Mean = 0.250089  Var = 0.020827  Min = 0.000000  Max = 0.500000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 3.546700 |
-| Bonferroni p (no spike) | 1.000000 |
+| Max-spike exact p (no spike) | 1.000000 |
 | Spectral flatness (Wiener entropy) | 0.562505 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=3149485.991, p=0.000000 |
@@ -812,7 +809,7 @@ Mean = 0.499991  Var = 0.083314  Min = 0.000001  Max = 1.000000
 | stats::chisq.test (256 bins) | 212.415386 | 0.975711 | pass |
 | stats::Box.test (Ljung-Box, lag 25) | 40.627624 | 0.025113 | pass |
 | tseries::runs.test (binary) | 0.008050 | 0.993577 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299718.813872 | 0.000000 | REJECT |
+| tseries::jarque.bera.test (vs Normal*) | 299718.813871 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -837,7 +834,7 @@ Mean = 0.499991  Var = 0.083314  Min = 0.000001  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 250.016027 |
-| Bonferroni p (no spike) | 6.567e-103 |
+| Max-spike exact p (no spike) | 6.567e-103 |
 | Spectral flatness (Wiener entropy) | 0.397833 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=236130.963, p=0.000000 |
@@ -894,7 +891,7 @@ Mean = 0.499952  Var = 0.083344  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 266.300279 |
-| Bonferroni p (no spike) | 5.562e-110 |
+| Max-spike exact p (no spike) | 5.562e-110 |
 | Spectral flatness (Wiener entropy) | 0.401885 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=224253.302, p=0.000000 |
@@ -926,7 +923,7 @@ Mean = 0.500142  Var = 0.083412  Min = 0.000000  Max = 1.000000
 | stats::chisq.test (256 bins) | 308.476211 | 0.012251 | pass |
 | stats::Box.test (Ljung-Box, lag 25) | 17.024995 | 0.880885 | pass |
 | tseries::runs.test (binary) | -0.064399 | 0.948653 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 300104.776329 | 0.000000 | REJECT |
+| tseries::jarque.bera.test (vs Normal*) | 300104.776328 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -951,7 +948,7 @@ Mean = 0.500142  Var = 0.083412  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 16.060113 |
-| Bonferroni p (no spike) | 0.232736 |
+| Max-spike exact p (no spike) | 0.232736 |
 | Spectral flatness (Wiener entropy) | 0.561230 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=14.760, p=0.097738 |
@@ -1008,7 +1005,7 @@ Mean = 0.500045  Var = 0.083328  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.724777 |
-| Bonferroni p (no spike) | 0.309592 |
+| Max-spike exact p (no spike) | 0.309592 |
 | Spectral flatness (Wiener entropy) | 0.562245 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=14.399, p=0.108827 |
@@ -1026,7 +1023,7 @@ Mean = 0.499786  Var = 0.083363  Min = 0.000000  Max = 0.999999
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
 | randtests::runs.test (median) | -0.635043 | 0.525400 | pass |
-| randtests::bartels.rank.test | 0.692801 | 0.488434 | pass |
+| randtests::bartels.rank.test | 0.692802 | 0.488434 | pass |
 | randtests::cox.stuart.test (trend) | 1250865.000000 | 0.274167 | pass |
 | randtests::difference.sign.test | 0.287375 | 0.773825 | pass |
 | randtests::turning.point.test | 1.121118 | 0.262238 | pass |
@@ -1065,7 +1062,7 @@ Mean = 0.499786  Var = 0.083363  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.826968 |
-| Bonferroni p (no spike) | 0.597162 |
+| Max-spike exact p (no spike) | 0.597162 |
 | Spectral flatness (Wiener entropy) | 0.561340 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=12.777, p=0.172958 |
@@ -1122,7 +1119,7 @@ Mean = 0.500013  Var = 0.083317  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.498393 |
-| Bonferroni p (no spike) | 0.717166 |
+| Max-spike exact p (no spike) | 0.717166 |
 | Spectral flatness (Wiener entropy) | 0.561960 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=7.309, p=0.604987 |
@@ -1179,7 +1176,7 @@ Mean = 0.500071  Var = 0.083258  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.947827 |
-| Bonferroni p (no spike) | 0.256514 |
+| Max-spike exact p (no spike) | 0.256514 |
 | Spectral flatness (Wiener entropy) | 0.561376 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=7.624, p=0.572439 |
@@ -1236,7 +1233,7 @@ Mean = 0.499995  Var = 0.083310  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.122129 |
-| Bonferroni p (no spike) | 0.491777 |
+| Max-spike exact p (no spike) | 0.491777 |
 | Spectral flatness (Wiener entropy) | 0.561140 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=4.851, p=0.847075 |
@@ -1293,7 +1290,7 @@ Mean = 0.500050  Var = 0.083362  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 13.447951 |
-| Bonferroni p (no spike) | 0.972962 |
+| Max-spike exact p (no spike) | 0.972962 |
 | Spectral flatness (Wiener entropy) | 0.561206 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=3.343, p=0.949152 |
@@ -1350,7 +1347,7 @@ Mean = 0.500017  Var = 0.083338  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.530347 |
-| Bonferroni p (no spike) | 0.705707 |
+| Max-spike exact p (no spike) | 0.705707 |
 | Spectral flatness (Wiener entropy) | 0.561280 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=6.126, p=0.727220 |
@@ -1407,7 +1404,7 @@ Mean = 0.500200  Var = 0.083339  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.709000 |
-| Bonferroni p (no spike) | 0.313647 |
+| Max-spike exact p (no spike) | 0.313647 |
 | Spectral flatness (Wiener entropy) | 0.561742 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=1.309, p=0.998333 |
@@ -1439,7 +1436,7 @@ Mean = 0.500174  Var = 0.083318  Min = 0.000000  Max = 1.000000
 | stats::chisq.test (256 bins) | 251.749786 | 0.545770 | pass |
 | stats::Box.test (Ljung-Box, lag 25) | 12.416895 | 0.982879 | pass |
 | tseries::runs.test (binary) | -0.232551 | 0.816110 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299547.890820 | 0.000000 | REJECT |
+| tseries::jarque.bera.test (vs Normal*) | 299547.890819 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -1464,7 +1461,7 @@ Mean = 0.500174  Var = 0.083318  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.161999 |
-| Bonferroni p (no spike) | 0.478153 |
+| Max-spike exact p (no spike) | 0.478153 |
 | Spectral flatness (Wiener entropy) | 0.561315 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=15.799, p=0.071196 |
@@ -1521,7 +1518,7 @@ Mean = 0.500125  Var = 0.083382  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 17.936983 |
-| Bonferroni p (no spike) | 0.039740 |
+| Max-spike exact p (no spike) | 0.039740 |
 | Spectral flatness (Wiener entropy) | 0.561593 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=5.042, p=0.830622 |
@@ -1578,7 +1575,7 @@ Mean = 0.500149  Var = 0.083332  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.069914 |
-| Bonferroni p (no spike) | 0.509885 |
+| Max-spike exact p (no spike) | 0.509885 |
 | Spectral flatness (Wiener entropy) | 0.561446 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=3.347, p=0.948929 |
@@ -1635,7 +1632,7 @@ Mean = 0.500028  Var = 0.083348  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.642792 |
-| Bonferroni p (no spike) | 0.331103 |
+| Max-spike exact p (no spike) | 0.331103 |
 | Spectral flatness (Wiener entropy) | 0.561185 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=12.649, p=0.179140 |
@@ -1692,7 +1689,7 @@ Mean = 0.500005  Var = 0.083275  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.678954 |
-| Bonferroni p (no spike) | 0.651553 |
+| Max-spike exact p (no spike) | 0.651553 |
 | Spectral flatness (Wiener entropy) | 0.561506 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=4.080, p=0.906091 |
@@ -1749,14 +1746,14 @@ Mean = 0.499981  Var = 0.083373  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 16.148127 |
-| Bonferroni p (no spike) | 0.215418 |
+| Max-spike exact p (no spike) | 0.215418 |
 | Spectral flatness (Wiener entropy) | 0.561292 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=3.247, p=0.953699 |
 | Periodogram KS vs Exp(1) | D=0.000304, p=0.974640 |
 
 
-## Grasshopper-256-CTR
+## Grasshopper-CTR
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
@@ -1767,7 +1764,7 @@ Mean = 0.499761  Var = 0.083349  Min = 0.000001  Max = 1.000000
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
 | randtests::runs.test (median) | -1.134134 | 0.256738 | pass |
-| randtests::bartels.rank.test | -0.527803 | 0.597636 | pass |
+| randtests::bartels.rank.test | -0.527802 | 0.597636 | pass |
 | randtests::cox.stuart.test (trend) | 1249047.000000 | 0.228270 | pass |
 | randtests::difference.sign.test | -0.044152 | 0.964783 | pass |
 | randtests::turning.point.test | 0.670337 | 0.502643 | pass |
@@ -1806,7 +1803,7 @@ Mean = 0.499761  Var = 0.083349  Min = 0.000001  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.849043 |
-| Bonferroni p (no spike) | 0.589086 |
+| Max-spike exact p (no spike) | 0.589086 |
 | Spectral flatness (Wiener entropy) | 0.561329 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=7.397, p=0.595855 |
@@ -1838,7 +1835,7 @@ Mean = 0.500132  Var = 0.083333  Min = 0.000000  Max = 1.000000
 | stats::chisq.test (256 bins) | 275.950490 | 0.175467 | pass |
 | stats::Box.test (Ljung-Box, lag 25) | 17.962355 | 0.843985 | pass |
 | tseries::runs.test (binary) | -0.076026 | 0.939398 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 300015.753411 | 0.000000 | REJECT |
+| tseries::jarque.bera.test (vs Normal*) | 300015.753410 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -1863,7 +1860,7 @@ Mean = 0.500132  Var = 0.083333  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 16.187777 |
-| Bonferroni p (no spike) | 0.207983 |
+| Max-spike exact p (no spike) | 0.207983 |
 | Spectral flatness (Wiener entropy) | 0.561740 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=8.725, p=0.463015 |
@@ -1920,7 +1917,7 @@ Mean = 0.500156  Var = 0.083313  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 17.874360 |
-| Bonferroni p (no spike) | 0.042254 |
+| Max-spike exact p (no spike) | 0.042254 |
 | Spectral flatness (Wiener entropy) | 0.561494 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=1.524, p=0.996967 |
@@ -1977,7 +1974,7 @@ Mean = 0.500025  Var = 0.083313  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 13.632739 |
-| Bonferroni p (no spike) | 0.950280 |
+| Max-spike exact p (no spike) | 0.950280 |
 | Spectral flatness (Wiener entropy) | 0.560887 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=4.005, p=0.911074 |
@@ -2034,7 +2031,7 @@ Mean = 0.500165  Var = 0.083325  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 15.055940 |
-| Bonferroni p (no spike) | 0.514779 |
+| Max-spike exact p (no spike) | 0.514779 |
 | Spectral flatness (Wiener entropy) | 0.561765 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=6.740, p=0.664212 |
@@ -2091,7 +2088,7 @@ Mean = 0.500166  Var = 0.083288  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.511800 |
-| Bonferroni p (no spike) | 0.712369 |
+| Max-spike exact p (no spike) | 0.712369 |
 | Spectral flatness (Wiener entropy) | 0.561458 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=2.745, p=0.973551 |
@@ -2148,7 +2145,7 @@ Mean = 0.500085  Var = 0.083371  Min = 0.000001  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 13.698608 |
-| Bonferroni p (no spike) | 0.939797 |
+| Max-spike exact p (no spike) | 0.939797 |
 | Spectral flatness (Wiener entropy) | 0.561397 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=17.190, p=0.045828 |
@@ -2159,28 +2156,28 @@ Mean = 0.500085  Var = 0.083371  Min = 0.000001  Max = 1.000000
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.499852  Var = 0.083338  Min = 0.000000  Max = 1.000000
+Mean = 0.500097  Var = 0.083285  Min = 0.000000  Max = 0.999999
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | -0.198563 | 0.842605 | pass |
-| randtests::bartels.rank.test | 0.458833 | 0.646354 | pass |
-| randtests::cox.stuart.test (trend) | 1249826.000000 | 0.826290 | pass |
-| randtests::difference.sign.test | -1.350122 | 0.176977 | pass |
-| randtests::turning.point.test | 0.689429 | 0.490553 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | 1.136857 | 0.255598 | pass |
-| randtoolbox::freq.test (16 bins) | 27.640998 | 0.023927 | pass |
-| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 24.754944 | 0.074264 | pass |
-| randtoolbox::serial.test (d=8) | 56.350618 | 0.710425 | pass |
-| randtoolbox::poker.test (5-hand) | 4.430322 | 0.350890 | pass |
-| randtoolbox::order.test (d=4) | 25.486106 | 0.325718 | pass |
-| stats::ks.test vs U(0,1) | 0.000562 | 0.084903 | pass |
-| stats::chisq.test (256 bins) | 276.624077 | 0.168263 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 20.048741 | 0.744264 | pass |
-| tseries::runs.test (binary) | -0.198563 | 0.842605 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299848.955841 | 0.000000 | REJECT |
+| randtests::runs.test (median) | -0.261173 | 0.793959 | pass |
+| randtests::bartels.rank.test | -0.771297 | 0.440531 | pass |
+| randtests::cox.stuart.test (trend) | 1249885.000000 | 0.884843 | pass |
+| randtests::difference.sign.test | -1.793191 | 0.072942 | pass |
+| randtests::turning.point.test | -0.572757 | 0.566810 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | -1.101241 | 0.270792 | pass |
+| randtoolbox::freq.test (16 bins) | 16.926675 | 0.323267 | pass |
+| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 8.307190 | 0.939191 | pass |
+| randtoolbox::serial.test (d=8) | 60.389632 | 0.569931 | pass |
+| randtoolbox::poker.test (5-hand) | 0.792971 | 0.939388 | pass |
+| randtoolbox::order.test (d=4) | 15.689459 | 0.868237 | pass |
+| stats::ks.test vs U(0,1) | 0.000447 | 0.270274 | pass |
+| stats::chisq.test (256 bins) | 236.415693 | 0.792207 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 22.747141 | 0.592326 | pass |
+| tseries::runs.test (binary) | -0.261173 | 0.793959 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299647.230082 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -2188,28 +2185,28 @@ Mean = 0.499852  Var = 0.083338  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.49985217 | 0.50000000 | 1.48e-04 |
-| 2 | 0.33319059 | 0.33333333 | 1.43e-04 |
-| 3 | 0.24988942 | 0.25000000 | 1.11e-04 |
-| 4 | 0.19992267 | 0.20000000 | 7.73e-05 |
-| 5 | 0.16661635 | 0.16666667 | 5.03e-05 |
-| 6 | 0.14282696 | 0.14285714 | 3.02e-05 |
-| 7 | 0.12498423 | 0.12500000 | 1.58e-05 |
-| 8 | 0.11110541 | 0.11111111 | 5.70e-06 |
-| 9 | 0.10000117 | 0.10000000 | 1.17e-06 |
-| 10 | 0.09091480 | 0.09090909 | 5.71e-06 |
+| 1 | 0.50009734 | 0.50000000 | 9.73e-05 |
+| 2 | 0.33338243 | 0.33333333 | 4.91e-05 |
+| 3 | 0.25000448 | 0.25000000 | 4.48e-06 |
+| 4 | 0.19997442 | 0.20000000 | 2.56e-05 |
+| 5 | 0.16662075 | 0.16666667 | 4.59e-05 |
+| 6 | 0.14279696 | 0.14285714 | 6.02e-05 |
+| 7 | 0.12492946 | 0.12500000 | 7.05e-05 |
+| 8 | 0.11103289 | 0.11111111 | 7.82e-05 |
+| 9 | 0.09991600 | 0.10000000 | 8.40e-05 |
+| 10 | 0.09082072 | 0.09090909 | 8.84e-05 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 14.895560 |
-| Bonferroni p (no spike) | 0.572134 |
-| Spectral flatness (Wiener entropy) | 0.560847 |
+| max normalized periodogram (P_max) | 14.790794 |
+| Max-spike exact p (no spike) | 0.610431 |
+| Spectral flatness (Wiener entropy) | 0.561435 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=16.245, p=0.061943 |
-| Periodogram KS vs Exp(1) | D=0.000538, p=0.464630 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=9.625, p=0.381651 |
+| Periodogram KS vs Exp(1) | D=0.000593, p=0.342442 |
 
 
 ## SpongeBob (SHA3-512)
@@ -2262,7 +2259,7 @@ Mean = 0.499811  Var = 0.083303  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 16.653349 |
-| Bonferroni p (no spike) | 0.136171 |
+| Max-spike exact p (no spike) | 0.136171 |
 | Spectral flatness (Wiener entropy) | 0.561679 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=7.749, p=0.559646 |
@@ -2319,7 +2316,7 @@ Mean = 0.500039  Var = 0.083353  Min = 0.000000  Max = 0.999999
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 16.680687 |
-| Bonferroni p (no spike) | 0.132754 |
+| Max-spike exact p (no spike) | 0.132754 |
 | Spectral flatness (Wiener entropy) | 0.561628 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=6.854, p=0.652326 |
@@ -2330,28 +2327,28 @@ Mean = 0.500039  Var = 0.083353  Min = 0.000000  Max = 0.999999
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.499823  Var = 0.083313  Min = 0.000000  Max = 1.000000
+Mean = 0.499793  Var = 0.083316  Min = 0.000000  Max = 1.000000
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | 0.529501 | 0.596458 | pass |
-| randtests::bartels.rank.test | 0.319117 | 0.749638 | pass |
-| randtests::cox.stuart.test (trend) | 1252644.000000 | 0.000826 | REJECT |
-| randtests::difference.sign.test | -0.330753 | 0.740831 | pass |
-| randtests::turning.point.test | 0.327744 | 0.743105 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | 1.900197 | 0.057407 | pass |
-| randtoolbox::freq.test (16 bins) | 18.405638 | 0.241941 | pass |
-| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 9.279064 | 0.901478 | pass |
-| randtoolbox::serial.test (d=8) | 69.582131 | 0.265638 | pass |
-| randtoolbox::poker.test (5-hand) | 4.649861 | 0.325146 | pass |
-| randtoolbox::order.test (d=4) | 38.995955 | 0.019861 | pass |
-| stats::ks.test vs U(0,1) | 0.000513 | 0.144042 | pass |
-| stats::chisq.test (256 bins) | 241.972634 | 0.711351 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 23.817896 | 0.529915 | pass |
-| tseries::runs.test (binary) | 0.529501 | 0.596458 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299691.075807 | 0.000000 | REJECT |
+| randtests::runs.test (median) | 2.263795 | 0.023587 | pass |
+| randtests::bartels.rank.test | 2.935147 | 0.003334 | pass |
+| randtests::cox.stuart.test (trend) | 1250221.000000 | 0.780312 | pass |
+| randtests::difference.sign.test | 0.261039 | 0.794062 | pass |
+| randtests::turning.point.test | 1.315219 | 0.188436 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | 0.552767 | 0.580423 | pass |
+| randtoolbox::freq.test (16 bins) | 14.724736 | 0.471421 | pass |
+| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 12.838020 | 0.684562 | pass |
+| randtoolbox::serial.test (d=8) | 69.559091 | 0.266268 | pass |
+| randtoolbox::poker.test (5-hand) | 2.426753 | 0.657798 | pass |
+| randtoolbox::order.test (d=4) | 32.022054 | 0.099686 | pass |
+| stats::ks.test vs U(0,1) | 0.000485 | 0.191045 | pass |
+| stats::chisq.test (256 bins) | 261.436723 | 0.377473 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 30.934210 | 0.191207 | pass |
+| tseries::runs.test (binary) | 2.263795 | 0.023587 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299817.348323 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -2359,56 +2356,56 @@ Mean = 0.499823  Var = 0.083313  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.49982342 | 0.50000000 | 1.77e-04 |
-| 2 | 0.33313643 | 0.33333333 | 1.97e-04 |
-| 3 | 0.24980027 | 0.25000000 | 2.00e-04 |
-| 4 | 0.19980579 | 0.20000000 | 1.94e-04 |
-| 5 | 0.16648241 | 0.16666667 | 1.84e-04 |
-| 6 | 0.14268457 | 0.14285714 | 1.73e-04 |
-| 7 | 0.12483925 | 0.12500000 | 1.61e-04 |
-| 8 | 0.11096151 | 0.11111111 | 1.50e-04 |
-| 9 | 0.09986055 | 0.10000000 | 1.39e-04 |
-| 10 | 0.09077872 | 0.09090909 | 1.30e-04 |
+| 1 | 0.49979310 | 0.50000000 | 2.07e-04 |
+| 2 | 0.33310923 | 0.33333333 | 2.24e-04 |
+| 3 | 0.24977426 | 0.25000000 | 2.26e-04 |
+| 4 | 0.19977861 | 0.20000000 | 2.21e-04 |
+| 5 | 0.16645334 | 0.16666667 | 2.13e-04 |
+| 6 | 0.14265404 | 0.14285714 | 2.03e-04 |
+| 7 | 0.12480819 | 0.12500000 | 1.92e-04 |
+| 8 | 0.11093089 | 0.11111111 | 1.80e-04 |
+| 9 | 0.09983119 | 0.10000000 | 1.69e-04 |
+| 10 | 0.09075122 | 0.09090909 | 1.58e-04 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 15.963778 |
-| Bonferroni p (no spike) | 0.253019 |
-| Spectral flatness (Wiener entropy) | 0.562161 |
+| max normalized periodogram (P_max) | 17.550286 |
+| Max-spike exact p (no spike) | 0.057949 |
+| Spectral flatness (Wiener entropy) | 0.561289 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=9.278, p=0.412020 |
-| Periodogram KS vs Exp(1) | D=0.000610, p=0.310333 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=3.460, p=0.943229 |
+| Periodogram KS vs Exp(1) | D=0.000390, p=0.840567 |
 
 
 ## HashDrbg
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
-Mean = 0.499945  Var = 0.083342  Min = 0.000000  Max = 1.000000
+Mean = 0.499940  Var = 0.083343  Min = 0.000000  Max = 1.000000
 
 ### Tests (alpha = 0.001 reject threshold)
 
 | Test | Statistic | p-value | Verdict |
 |------|-----------|---------|---------|
-| randtests::runs.test (median) | 0.533973 | 0.593360 | pass |
-| randtests::bartels.rank.test | 0.384753 | 0.700420 | pass |
-| randtests::cox.stuart.test (trend) | 1249985.000000 | 0.985367 | pass |
-| randtests::difference.sign.test | 1.012398 | 0.311348 | pass |
-| randtests::turning.point.test | -1.021416 | 0.307057 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | -1.795013 | 0.072652 | pass |
-| randtoolbox::freq.test (16 bins) | 9.732198 | 0.836239 | pass |
-| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 8.969242 | 0.914675 | pass |
-| randtoolbox::serial.test (d=8) | 49.429504 | 0.893993 | pass |
-| randtoolbox::poker.test (5-hand) | 1.983607 | 0.738774 | pass |
-| randtoolbox::order.test (d=4) | 27.917440 | 0.218920 | pass |
-| stats::ks.test vs U(0,1) | 0.000269 | 0.863398 | pass |
-| stats::chisq.test (256 bins) | 222.490419 | 0.930010 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 27.760493 | 0.318996 | pass |
-| tseries::runs.test (binary) | 0.533973 | 0.593360 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 299817.320760 | 0.000000 | REJECT |
+| randtests::runs.test (median) | 0.914105 | 0.360662 | pass |
+| randtests::bartels.rank.test | 1.632422 | 0.102591 | pass |
+| randtests::cox.stuart.test (trend) | 1250074.000000 | 0.925927 | pass |
+| randtests::difference.sign.test | -1.757560 | 0.078822 | pass |
+| randtests::turning.point.test | -0.013789 | 0.988999 | pass |
+| randtests::rank.test (Mann-Kendall, n=5000) | -1.378227 | 0.168133 | pass |
+| randtoolbox::freq.test (16 bins) | 19.713798 | 0.183189 | pass |
+| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 19.790218 | 0.229818 | pass |
+| randtoolbox::serial.test (d=8) | 58.140723 | 0.649782 | pass |
+| randtoolbox::poker.test (5-hand) | 2.500490 | 0.644548 | pass |
+| randtoolbox::order.test (d=4) | 17.853338 | 0.765395 | pass |
+| stats::ks.test vs U(0,1) | 0.000325 | 0.664966 | pass |
+| stats::chisq.test (256 bins) | 224.664678 | 0.914772 | pass |
+| stats::Box.test (Ljung-Box, lag 25) | 24.927675 | 0.466433 | pass |
+| tseries::runs.test (binary) | 0.914105 | 0.360662 | pass |
+| tseries::jarque.bera.test (vs Normal*) | 299977.363268 | 0.000000 | REJECT |
 
 *Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
 
@@ -2416,28 +2413,28 @@ Mean = 0.499945  Var = 0.083342  Min = 0.000000  Max = 1.000000
 
 | k | observed | theoretical | abs error |
 |---|----------|-------------|-----------|
-| 1 | 0.49994451 | 0.50000000 | 5.55e-05 |
-| 2 | 0.33328674 | 0.33333333 | 4.66e-05 |
-| 3 | 0.24996158 | 0.25000000 | 3.84e-05 |
-| 4 | 0.19997052 | 0.20000000 | 2.95e-05 |
-| 5 | 0.16664633 | 0.16666667 | 2.03e-05 |
-| 6 | 0.14284557 | 0.14285714 | 1.16e-05 |
-| 7 | 0.12499645 | 0.12500000 | 3.55e-06 |
-| 8 | 0.11111470 | 0.11111111 | 3.59e-06 |
-| 9 | 0.10000984 | 0.10000000 | 9.84e-06 |
-| 10 | 0.09092432 | 0.09090909 | 1.52e-05 |
+| 1 | 0.49993981 | 0.50000000 | 6.02e-05 |
+| 2 | 0.33328234 | 0.33333333 | 5.10e-05 |
+| 3 | 0.24993800 | 0.25000000 | 6.20e-05 |
+| 4 | 0.19992547 | 0.20000000 | 7.45e-05 |
+| 5 | 0.16658303 | 0.16666667 | 8.36e-05 |
+| 6 | 0.14276796 | 0.14285714 | 8.92e-05 |
+| 7 | 0.12490797 | 0.12500000 | 9.20e-05 |
+| 8 | 0.11101806 | 0.11111111 | 9.30e-05 |
+| 9 | 0.09990711 | 0.10000000 | 9.29e-05 |
+| 10 | 0.09081709 | 0.09090909 | 9.20e-05 |
 
 ### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
 
 | Metric | Value |
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 14.464173 |
-| Bonferroni p (no spike) | 0.729332 |
-| Spectral flatness (Wiener entropy) | 0.561603 |
+| max normalized periodogram (P_max) | 17.620433 |
+| Max-spike exact p (no spike) | 0.054132 |
+| Spectral flatness (Wiener entropy) | 0.561283 |
 | Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=7.756, p=0.558881 |
-| Periodogram KS vs Exp(1) | D=0.000300, p=0.978173 |
+| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=11.253, p=0.258786 |
+| Periodogram KS vs Exp(1) | D=0.000480, p=0.612797 |
 
 
 ## CtrDrbgAes256
@@ -2490,7 +2487,7 @@ Mean = 0.500221  Var = 0.083312  Min = 0.000000  Max = 1.000000
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
 | max normalized periodogram (P_max) | 14.537369 |
-| Bonferroni p (no spike) | 0.703177 |
+| Max-spike exact p (no spike) | 0.703177 |
 | Spectral flatness (Wiener entropy) | 0.561456 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=1.683, p=0.995552 |
@@ -2547,310 +2544,56 @@ Mean = 0.499811  Var = 0.083391  Min = 0.000002  Max = 0.999998
 |--------|-------|
 | Periodogram bins tested (m = N/2 - 1) | 5e+05 |
 | max normalized periodogram (P_max) | 14.030933 |
-| Bonferroni p (no spike) | 0.331755 |
+| Max-spike exact p (no spike) | 0.331755 |
 | Spectral flatness (Wiener entropy) | 0.560026 |
 | Theoretical flatness for white noise | 0.561459 |
 | Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=13.749, p=0.131536 |
 | Periodogram KS vs Exp(1) | D=0.001407, p=0.275327 |
 
 
-
 ---
 
-## Analysis
+## Analysis (2026-07-22 run)
 
-The summary table at the top of this file collapses each generator into a
-single REJECT count.  This section unpacks what each test is measuring, why
-the bare REJECT count is misleading on its own, what the moments and the
-spectrum reveal that the verdict-style table cannot, and a generator-by-
-generator account of why each failure happens.  Two issues that surfaced
-during the audit are spelled out separately: a real bug in `Lcg32::Borland`
-and `Lcg32::Msvc` that produced range-collapsed output (now fixed), and a
-methodological flaw in `randtoolbox::gap.test` that is now compensated for
-by Cochran-rule tail merging.
+The March analysis sections (§A–§G) described the pre-fix harvest and live in
+git history; this section covers the present run only.
 
-### A. Theoretical baselines
+**A. False-reject budget.** Excluding the deliberately-inverted Jarque-Bera
+row, each generator faces 15 tests at α = 0.001, so the whole 44-generator run
+carries an expected false-REJECT count of 44 × 15 × 0.001 ≈ 0.66.  Observed:
+**zero REJECTs across every non-legacy generator** — all 19 cryptographic
+generators (8 block-CTR, 4 stream, 6 DRBG-class, Dual_EC), the statistical
+PRNGs, and the OS source are clean.  The single HmacDrbg REJECT in the March
+run (cox.stuart, p = 0.000826) does not recur; it was the statistical noise
+the March analysis judged it to be.
 
-For an i.i.d. uniform sample U₁, …, U_N ~ U(0,1):
+**B. The battery still bites.** CounterRng REJECTs 15/15, ConstantRng 8
+(rank, freq, gap, serial, poker, order, KS, χ²; its remaining rows are
+degenerate-input skips rather than passes).  VB6 Rnd(), the ANSI C LCG, and
+MINSTD each REJECT 6.  The four 15-bit-LCG-family generators (System V,
+MSVC rand(), MSVC LCG, Borland) each show exactly one REJECT —
+poker.test, at p between 1e-146 and 1e-31 — and System V additionally owns
+the run's most spectacular number: a periodogram max-spike exact p of
+3.4e-97, a pure LCG lattice lighting up the Fourier domain.  The
+`windows_msvc_rand` and `msvc_lcg` rows agree to the last digit, as they
+must — they are the same stream under two registry names.
 
-* **Raw moments**: m_k := E[U^k] = ∫₀¹ uᵏ du = 1/(k+1).
-* **Variance of the empirical k-th moment**:
-  Var(m̂_k) = (m_{2k} − m_k²) / N = (1/(2k+1) − 1/(k+1)²) / N.
-  At N = 5 × 10⁶ that gives the per-order standard error band
+**C. Fixed-seed determinism.** Generators with fixed seeds reproduce their
+March statistics exactly where the R code is unchanged — e.g. Squidward's
+Cochran-trimmed gap.test (χ² = 17.7629, df = 16, p = 0.3380) matches the
+March corrected value to six digits on different hardware (Cortex-X925 vs
+the March host), confirming the dump path and the trimmed gap test are
+bit-stable.
 
-  | k  | SE(m̂_k) ≈ |
-  |----|-----------|
-  | 1  | 1.29 × 10⁻⁴ |
-  | 2  | 1.33 × 10⁻⁴ |
-  | 3  | 1.27 × 10⁻⁴ |
-  | 5  | 1.12 × 10⁻⁴ |
-  | 10 | 0.89 × 10⁻⁴ |
+**D. Value-level blindness, by design.** BSD random() and glibc
+rand()/random() — now correctly separated into two rows — both score 0
+REJECTs here: their known weaknesses live in low-order bit correlations
+that value-level uniform tests do not see.  The bit-level main battery
+(TESTS.md) is where they fail.  Dual_EC_DRBG likewise scores 0 at the
+value level: the backdoor is statistically invisible, which is its entire
+lesson.
 
-  (The SE peaks near k = 2 and then *decreases* with k: Var(m̂_k) =
-  (1/(2k+1) − 1/(k+1)²)/N → 1/((2k+1)N) as k grows.)
-
-  A clean RNG should sit inside ≈ 2 × 10⁻⁴ for every order at this sample
-  size.  Anything an order of magnitude larger is a real distributional
-  defect, not sampling noise.
-
-* **Periodogram of y_t = u_t − ½**: under H₀ (Bartlett 1955; Brockwell &
-  Davis 1991), at the m = N/2 − 1 inner Fourier frequencies f_k = k/N,
-
-  P̃_k := |Y(f_k)|² / (N · σ²),  σ² = 1/12,
-
-  is iid Exp(1), and P_max := maxₖ P̃_k has CDF
-  Pr[P_max ≤ x] = (1 − e^(−x))^m.
-  At m = 2 499 999 the 99.9 % point is ≈ −log(1 − 0.999^(1/m)) ≈
-  log(m / 0.001) ≈ 21.6, so P_max ≳ 25 is a flag.
-
-* **Spectral flatness / Wiener entropy**: ξ := geomean(P_k) /
-  arithmean(P_k).  For iid Exp(λ) the population ratio is
-  ξ_∞ = exp(E[log P] − log E[P]) = exp(−γ) ≈ 0.561459 (Euler–Mascheroni
-  γ).  Pure tones drop ξ toward 0; pure white noise sits at e^(−γ).
-
-* **Variance check via the periodogram chi²/KS**: my normalisation divides
-  by σ² = 1/12.  If the true variance differs (e.g. an LCG truncated into
-  [0, ½) has variance 1/48), the per-bin distribution is Exp(1/4) instead
-  of Exp(1) and the chi²/KS-vs-Exp(1) tests still REJECT — they detect
-  the **variance mismatch** rather than the spectral colour.  Combine the
-  chi² with the flatness ξ to disentangle the two: ξ ≈ e^(−γ) with chi²
-  rejection means white noise of the wrong variance; ξ depressed means
-  actual coloured spectrum.
-
-### B. What R's stock RNG tests can and cannot see
-
-R's `randtests`, `randtoolbox`, and `tseries` between them probe:
-
-* one-dimensional distribution: KS, χ²(256), `freq.test`, `gap.test`,
-  `poker.test`, `order.test`,
-* low-order tuple distribution: `serial.test` d=8,
-* one- and low-lag autocorrelation: `Box.test` Ljung–Box,
-  `bartels.rank.test`, `randtests::runs.test`, `tseries::runs.test`,
-* monotone trend: `cox.stuart.test`, `difference.sign.test`,
-  `turning.point.test`, `rank.test` (Mann–Kendall, subsampled).
-
-What R does **not** ship that NIST SP 800-22, DIEHARD, and TestU01
-expose:
-
-* binary-matrix-rank tests (catches MT19937's F₂-linear structure);
-* spectral test on bit windows (Hellekalek–Wegenkittl 2003);
-* linear-complexity / Berlekamp–Massey on the bitstream;
-* birthday-spacings (Marsaglia 1985);
-* overlapping-template / non-overlapping-template;
-* the spectral test on consecutive d-tuples (Coveyou–MacPherson 1967;
-  the lattice failure it detects is the one exposed in Marsaglia's 1968
-  "Random Numbers Fall Mainly in the Planes") — the canonical LCG-killer.
-
-The Fourier block I added catches part of the LCG-spectral failure
-mode, but not the d-tuple lattice diagnostic.
-
-This explains the headline finding of the summary table: **at α = 0.001,
-many historically-broken generators look clean.**  rand48, BSD random(),
-glibc random(), FreeBSD `rand_r()`, and Windows .NET Random all clear
-all 15 sample-domain tests because their failures live in the bit-rank
-or d-dimensional lattice geometry that R has no test for.
-
-### C. Methodological note — `randtoolbox::gap.test` is fixed by Cochran trimming
-
-`randtoolbox::gap.test` extends the chi² goodness-of-fit bin set out to
-expected counts of ~0.1 — well below the **Cochran (1954) rule** that
-each cell must have expected ≥ 5 before the chi² distribution is a
-defensible approximation to the discrete statistic (Knuth, *TAOCP*
-Vol 2 §3.3.1, repeats the warning).  A single observation in a bin
-with expected 0.001 contributes (1 − 0.001)² / 0.001 ≈ **1000** to chi²,
-producing a per-RNG false-positive rate that does not shrink as N
-grows: at p = 0.5 the bin layout extends to g_max ≈ log₂(N) + 1.32 and
-the Cochran-safe ceiling is g_safe ≈ log₂(N) − 4.3, so the number of
-unsafe bins stays at ~5 for *any* sample size.
-
-Before the Cochran-trim fix, both `SpongeBob` (chi² = 894.79, df = 29)
-and `Squidward` (chi² = 79.34, df = 25) registered as REJECT — the
-rejection in each case driven by a single observation in the most
-extreme tail bin (SpongeBob: bin g = 29, expected 0.0012 contributing
-857 of 895 chi²; Squidward: bin g = 25, expected 0.019 contributing
-51.7 of 79.3).  After Cochran-merging the unsafe tail (`scripts/r_rng_tests.R`
-re-aggregates bins into a single tail bin until each surviving bin has
-expected ≥ 5 — implemented as an O(N) one-shot merge so it terminates
-even on degenerate streams whose `randtoolbox::gap.test` returns
-length-N observed/expected vectors), both pass cleanly: SpongeBob chi²
-= 19.23 with df = 16, p = 0.257; Squidward chi² = 17.76 with df = 16,
-p = 0.338.  The genuine failures (`ConstantRng`, `CounterRng`,
-`ANSI C LCG`, `MINSTD`, `Windows VB6 Rnd()`) all still REJECT because
-their gap distributions diverge from Geometric(0.5) at the per-RNG-
-level rather than only in the tail.
-
-The bin-by-bin diagnostic that produced this finding lives in
-`scripts/r_gap_test_diagnostic.R`; pass any binary u32 stream to it
-(e.g. one written by `target/release/dump_rng spongebob 5000000`) to
-reproduce the analysis.
-
-### D. The Borland C++ LCG / MSVC LCG bug (now fixed)
-
-`Lcg32::Borland` and `Lcg32::Msvc` faithfully implemented the C
-`rand()` semantics — `(state >> 16) & 0x7FFF` — returning a **15-bit**
-value in [0, 32767].  The bug was that this 15-bit value was emitted
-*directly* through the trait method `next_u32()`, leaving the high 17
-bits permanently zero.  Downstream code treating `next_u32()` as a
-uniform 32-bit RNG word saw values in [0, 32768/2³²) ≈ [0, 7.6 × 10⁻⁶),
-mean ≈ 3.8 × 10⁻⁶ and variance ≈ 0 — a spectacular range collapse that
-nothing about the underlying *generator* warranted.  The companion
-`SystemVRand` and `WindowsMsvcRand` wrappers in `c_stdlib.rs` already
-handled this correctly by packing 15-bit raw outputs into 32-bit words
-via `PackedBits`; the `Lcg32` versions did not.  The fix
-(`src/rng/lcg.rs`) shares `PackedBits` and packs in `next_u32`; the
-bit-narrow C value is preserved as `Lcg32::next_raw()`.
-
-The post-fix moments and spectrum for these two generators now match
-their `c_stdlib.rs` equivalents almost exactly (both are the same
-underlying LCG, packed by the same rule), and both surface the
-expected LCG-tonal spectral failure that this report's Fourier block
-catches.
-
-### E. Per-RNG failure analysis
-
-#### `ConstantRng` — 9 REJECT, 4 n/a, 2 pass
-
-Every output equals 0xDEAD_DEAD ⇒ u ≡ 0.870.  All N samples land in one
-χ² bin: χ² = 1.27 × 10⁸, KS D = 0.870, freq/serial/poker/order/gap all
-saturate.  The four n/a tests (`runs.test`, `turning.point.test`,
-`Box.test`, `tseries::jarque.bera.test`) all need nonzero variance.
-Spectral block: P_max = 0, ξ = 0 — the entire signal is at f = 0 (DC,
-removed bin), so the AC spectrum is identically zero.  Two passes
-(`cox.stuart.test`, `difference.sign.test`) are artefacts of zero-
-difference cancellation.
-
-#### `CounterRng` — 15 REJECT, 0 n/a
-
-u_t = t / 2³².  At N = 5 × 10⁶ the entire stream lies in [0, 1.16 × 10⁻³].
-Range-collapse + monotone-trend failure in every test.  Spectral
-P_max = 2.06 (low!) and ξ = 2 × 10⁻⁶: a monotonic ramp has a 1/f-style
-spectrum dominated by low frequencies; once bin 0 is removed the
-residual is small in the peak but heavily concentrated in the lowest
-bins, giving very low ξ — the right diagnostic.
-
-#### Bit-truncated LCGs — `ANSI C LCG`, `MINSTD`
-
-Both retain their full 31-bit raw output unpacked, so u ∈ [0, ½) and
-variance ≈ 1/48.  6 REJECTs each: KS, χ²(256), freq, serial, poker,
-gap.  Eight to nine sample-domain tests pass — the temporal structure
-within [0, ½) is locally clean, only the support is wrong.  Spectrum
-is *white* (ξ ≈ 0.561) but the periodogram chi²/KS tests REJECT
-because variance is 1/4 of expected.
-
-#### LCG-tonal — `System V rand()`, `Windows MSVC rand()`, `Windows VB6 Rnd()`, `Lcg32::Borland`, `Lcg32::Msvc`
-
-All five are LCGs whose 15- or 24-bit raw output is bit-packed into
-32-bit words.  Sample-domain tests largely *pass* (1, 1, 6, 1, 1
-REJECT respectively, mostly on the support-coarse-bin tests like
-gap/poker for VB6) because the 1-D distribution is uniform by
-construction.  But the spectrum betrays them: spectral flatness
-ξ ∈ {0.40, 0.40, 0.21, 0.40, 0.40}, max periodogram spike P_max ∈
-{237, 266, 49 074, 250, 266} (white-noise envelope ≲ 22), Bonferroni
-p_spike ≪ 10⁻⁹⁰.  This is exactly the LCG-multiplier-induced spectral
-lattice that Marsaglia (1968) identified.  Note that `Windows MSVC
-rand()` and `Lcg32::Msvc` are the same generator under different
-wrapper structs; their Fourier diagnostics agree to floating-point
-identity (P_max = 266.300279 in both).
-
-#### Quality non-cryptographic — `MT19937`, `PCG32/64`, `Xorshift32/64`, `Xoshiro256`, `Xoroshiro128`, `WyRand`, `SFC64`, `JSF64`
-
-All clear all 15 sample-domain tests.  Their Fourier blocks all sit
-inside the white-noise envelope (|ξ − 0.561| < 0.001, P_max ≤ 17,
-chi²/KS p > 0.07).  Moment errors ≤ 3 × 10⁻⁴ across k = 1..10 —
-within the SE band predicted in §A.
-
-This does **not** mean MT19937 is cryptographically suitable; its
-known failure modes are F₂-linear structure exposed by binary-matrix-
-rank or linear-complexity tests, neither of which R provides.
-
-#### CSPRNGs — 8 block-CTR ciphers + 4 stream ciphers + 6 DRBGs + Dual_EC_DRBG
-
-All 19 cryptographic generators show 0 or 1 REJECTs in the sample-
-domain table; the single 1-REJECT case (HmacDrbg, on
-`cox.stuart.test` at p = 0.000826) is expected for 19 generators ×
-15 tests at α = 0.001 (expected spurious REJECTs ≈ 0.29, observed = 1;
-well within Poisson noise).  Spectrally: ξ within ±0.001 of e^(−γ)
-for every CSPRNG, P_max in the expected range, χ²(Exp(1)) and KS
-uniform across the unit interval.
-
-`Dual_EC_DRBG (P-256)`, included as a **negative control for
-predictability**, passes statistical testing.  Its known weakness is
-state recovery from ~30 bytes of output once the discrete-log
-e with Q = e·P is known (Bernstein, Lange, Niederhagen 2016) — a
-security flaw, not a statistical-distribution flaw, and invisible to
-any black-box battery on the output stream alone.
-
-### F. Cross-RNG moment table (suspects only)
-
-Threshold for "suspect": max |observed − 1/(k+1)| > 1 × 10⁻³ for any
-k = 1..10 (≈ 7-8× the SE band at this sample size).  Every other
-generator (38 of 43) sits inside a max moment-error of ≤ 3 × 10⁻⁴ for
-all 10 orders and is omitted.
-
-| RNG | max abs(m̂_k − 1/(k+1)) | mean abs error | mechanism |
-|-----|-----------------------|----------------|-----------|
-| `ConstantRng`           | 4.23 × 10⁻¹ | 3.01 × 10⁻¹ | frozen at c = 0.870; m̂_k = cᵏ |
-| `CounterRng`            | 4.99 × 10⁻¹ | 2.02 × 10⁻¹ | u_t = t/2³² ∈ [0, 1.16 × 10⁻³]; m̂_k → 0 |
-| `ANSI C LCG`            | 2.50 × 10⁻¹ | 1.64 × 10⁻¹ | range-collapsed to [0, ½); m̂₁ ≈ 0.25 |
-| `MINSTD (Park-Miller)`  | 2.50 × 10⁻¹ | 1.63 × 10⁻¹ | range-collapsed to [0, ½); m̂₁ ≈ 0.25 |
-| `Windows VB6/VBA Rnd()` | 1.96 × 10⁻³ | 1.96 × 10⁻³ | 24-bit LCG stratification |
-
-`Borland C++ LCG` and `MSVC LCG` were on this table before the bit-
-packing fix in §D (max moment-error 0.5, m̂₁ ≈ 4 × 10⁻⁶); after the fix
-their moment-error band drops to ≤ 6 × 10⁻⁵, comparable to other clean
-LCG-class generators.
-
-### G. Cross-RNG Fourier table (suspects only)
-
-Threshold: any of (ξ < 0.55) ∨ (P_max > 25, equivalently Bonferroni
-p_spike < 0.05) ∨ (χ²-vs-Exp(1) p < 0.001) ∨ (KS-vs-Exp(1) p < 0.001).
-Every other generator (34 of 43) lands in the white-noise envelope:
-**|ξ − e^(−γ)| < 0.002, P_max ∈ [13, 18], Bonferroni p_spike > 0.04,
-both Exp(1) goodness-of-fit p > 0.04**.
-
-| RNG | ξ flatness | P_max | p_spike (Bonf) | χ² p | KS p | mechanism |
-|-----|-----------:|------:|---------------:|-----:|-----:|-----------|
-| `ConstantRng` | 0.000 | 0.00 | 1.0 | 0.0 | 0.0 | DC-frozen; AC spectrum identically 0 |
-| `CounterRng` | 0.0000 | 2.06 | 1.0 | 0.0 | 0.0 | 1/f-trend spectrum |
-| `System V rand()` | 0.400 | 236.87 | 3.4 × 10⁻⁹⁷ | 0.0 | 0.0 | LCG-tonal lattice |
-| `Windows MSVC rand()` | 0.402 | 266.30 | 5.6 × 10⁻¹¹⁰ | 0.0 | 0.0 | LCG-tonal lattice |
-| `Windows VB6/VBA Rnd()` | 0.210 | 49 073.71 | 0 | 0.0 | 0.0 | extreme tonal (24-bit LCG) |
-| `Lcg32::Borland` | 0.398 | 250.02 | 6.6 × 10⁻¹⁰³ | 0.0 | 0.0 | LCG-tonal (post-pack) |
-| `Lcg32::Msvc` | 0.402 | 266.30 | 5.6 × 10⁻¹¹⁰ | 0.0 | 0.0 | identical to `Windows MSVC rand()` |
-| `ANSI C LCG` | 0.561 | 3.84 | 1.0 | 0.0 | 0.0 | white spectrum, variance 1/48 ≠ 1/12 |
-| `MINSTD (Park-Miller)` | 0.563 | 3.55 | 1.0 | 0.0 | 0.0 | white spectrum, variance 1/48 ≠ 1/12 |
-
-Read-out by class:
-
-* **DC-frozen** — ConstantRng (and Borland/MSVC LCG before the pack
-  fix): ξ → 0 because every AC bin is zero.
-* **1/f trend** — CounterRng: power piles into the lowest few
-  frequencies; ξ near zero with low P_max.
-* **LCG-tonal** — SystemV rand, Windows MSVC rand, VB6 Rnd, Lcg32::
-  Borland, Lcg32::Msvc: ξ depressed (0.21–0.40) with one or more
-  massive bins; the multiplier-induced lattice is exposed.
-* **White spectrum but wrong variance** — ANSI C LCG, MINSTD: ξ ≈
-  0.561 yet the Exp(1) χ²/KS REJECT.  The spectrum is flat; the
-  variance is 1/4 of what σ² = 1/12 expects, because the support
-  collapses to [0, ½).
-
-### H. The R-battery's place in the test hierarchy
-
-* R's value-level tests cleanly separate **catastrophically broken**
-  generators (ConstantRng, CounterRng, range-truncated LCGs, VB6
-  `Rnd()`) from **plausibly random** ones.
-* They miss **subtler structured generators** (SystemV / MSVC `rand`,
-  rand48, BSD/Linux `random()`, .NET Random) that pass at the value
-  level and are caught only by spectral, bit-rank, lattice, or linear-
-  complexity tests.
-* The Fourier block in this report catches the LCG-tonal subset of
-  that group (SystemV rand, MSVC rand, VB6 Rnd, the now-packed Lcg32
-  Borland/Msvc) but does not by itself detect bit-level or lattice-
-  only failures.
-
-Use NIST SP 800-22, DIEHARD, DIEHARDER, and TestU01 (all of which
-this repository ports) for the deeper tier.  The R battery in this
-report is a useful *pre-screen* and a check that the new CSPRNGs
-behave like white noise on the simplest invariants — moments and
-spectrum — exactly the surface that any classical statistical
-collaborator would inspect first.
+**E. Sanity rows.** Jarque-Bera REJECTs in all 44 sections, as it must for
+uniform input; no test emitted NaN (the all-zero-periodogram flatness guard
+now reports a clean value or NA); every gap.test row is Cochran-trimmed
+with its merged df stated inline.
