@@ -16,11 +16,11 @@ pub mod matrix_rank; // §2.5
 pub mod non_overlapping_template; // §2.7
 pub mod overlapping_template; // §2.8
 pub mod random_excursions; // §2.14
-pub mod random_excursions_variant;
+pub mod random_excursions_variant; // §2.15
 pub mod runs; // §2.3
 pub mod serial; // §2.11
 pub mod spectral; // §2.6
-pub mod universal; // §2.9 // §2.15
+pub mod universal; // §2.9
 
 use crate::{result::TestResult, rng::Rng};
 
@@ -29,16 +29,27 @@ use crate::{result::TestResult, rng::Rng};
 /// Uses the recommended default parameters from SP 800-22 §2.  The sequence
 /// length `n` should be at least 1 000 000 for the full battery; 100 000 is
 /// the minimum for most tests.
+///
+/// # Examples
+///
+/// ```no_run
+/// use entropy::{nist, rng::Mt19937};
+///
+/// let mut rng = Mt19937::new(5489);
+/// for result in nist::run_all(&mut rng, 1_000_000) {
+///     println!("{result}");
+/// }
+/// ```
 pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
     let bits = rng.collect_bits(n);
     // Capacity: 12 fixed-result tests
     //         + 148 non-overlapping 9-bit templates (SP 800-22 Appendix E)
     //         +   2 serial sub-tests
-    //         +  11 Maurer parametric settings (L = 6..=16)
+    //         +  12 Maurer parametric settings (L = 5..=16)
     //         +   8 random_excursions states
     //         +  18 random_excursions_variant states
-    //         = 199 total NIST slots
-    let mut results = Vec::with_capacity(199);
+    //         = 200 total NIST slots
+    let mut results = Vec::with_capacity(200);
     results.extend([
         frequency::frequency(&bits),
         block_frequency::block_frequency(&bits, 128),

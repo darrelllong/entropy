@@ -33,10 +33,13 @@ pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
     let big_m = 1032_usize; // SP 800-22 §2.8: M = 1032 for m = 9
     let num_blocks = n / big_m;
 
-    if num_blocks < 5 {
+    // The χ² approximation needs expected counts ≥ 5 in every category:
+    // N·min(πᵢ) ≥ 5 with min(πᵢ) ≈ 0.0704 → N ≥ 72 blocks (n ≥ 74 304).
+    // (NIST recommends n ≥ 10⁶, N = 968.)
+    if num_blocks < 72 {
         return TestResult::insufficient(
             "nist::overlapping_template",
-            "n too small — need ≥ 5 blocks",
+            "n too small — need ≥ 72 blocks of 1032 bits for valid χ² expected counts",
         );
     }
 
@@ -48,7 +51,7 @@ pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
     let template: Vec<u8> = vec![1u8; m];
 
     let mut nu = [0usize; 6];
-    for block in bits.chunks_exact(big_m).take(num_blocks) {
+    for block in bits.chunks_exact(big_m) {
         let w = count_overlapping(block, &template);
         let idx = w.min(k);
         nu[idx] += 1;

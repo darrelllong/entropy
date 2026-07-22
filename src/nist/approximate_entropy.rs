@@ -24,8 +24,13 @@ use std::f64::consts::LN_2;
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.12.
 pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
     let n = bits.len();
-    if m >= 30 || (1usize << m) > n / 10 {
-        return TestResult::insufficient("nist::approximate_entropy", "m too large for n");
+    // §2.12.7: m < log₂ n − 5, i.e. 2^{m+5} ≤ n.  (The φ(m+1) table has
+    // 2^{m+1} cells, so this also keeps both pattern tables well populated.)
+    if n == 0 || m >= 30 || (1usize << (m + 5)) > n {
+        return TestResult::insufficient(
+            "nist::approximate_entropy",
+            "m violates m < log₂ n − 5 (§2.12.7)",
+        );
     }
 
     let phi_m = phi(bits, m, n);
