@@ -1,11 +1,17 @@
 //! DIEHARD Test 7 — Monkey Tests: OPSO, OQSO, DNA.
 //!
-//! These implementations follow the Dieharder reference C closely:
-//! `diehard_opso.c`, `diehard_oqso.c`, and `diehard_dna.c`.
+//! Letter extraction mirrors the Dieharder C (`diehard_opso.c`,
+//! `diehard_oqso.c`, `diehard_dna.c`): letter fields come from fixed bit
+//! positions inside separate 32-bit words, not a unified continuous bitstream.
 //!
-//! The key detail is that the letter fields are extracted from fixed bit
-//! positions inside separate 32-bit words. This is not a unified continuous
-//! bitstream test.
+//! Deliberate deviation from both DIEHARD and Dieharder: every sample here is
+//! built from *disjoint* bit fields, so the 2²¹ samples are mutually
+//! independent, and the missing-words statistic is calibrated with the exact
+//! iid moments (μ ≈ 141 909.19, σ ≈ 290.33) for all three tests.  Canonical
+//! OPSO/OQSO/DNA use overlapping letter words, whose σs are 290/295/339 —
+//! applying those to independent samples would misstate the null distribution
+//! (cf. the comment in Dieharder's `bitstream.c`: "If you use non-overlapping
+//! samples, sigma is 290, not 428").
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -14,12 +20,11 @@ const STREAM: usize = 1 << 21;
 const WORD_SPACE: usize = 1 << 20;
 const BITSET_BYTES: usize = WORD_SPACE / 8;
 
-const OPSO_MEAN: f64 = 141_909.329_955_006_9;
-const OPSO_SIGMA: f64 = 290.462_263_403_8;
-const OQSO_MEAN: f64 = 141_909.600_532_131_6;
-const OQSO_SIGMA: f64 = 294.655_872_365_8;
-const DNA_MEAN: f64 = 141_910.402_604_762_9;
-const DNA_SIGMA: f64 = 337.290_150_690_4;
+// Exact iid missing-words moments for m = 2²¹ independent samples over
+// k = 2²⁰ cells:  μ = k(1−1/k)^m,
+// σ² = k(1−1/k)^m + k(k−1)(1−2/k)^m − k²(1−1/k)^{2m}.
+const MONKEY_MEAN: f64 = 141_909.194_619_809_6;
+const MONKEY_SIGMA: f64 = 290.333_061_196_0;
 
 #[inline]
 fn mark_seen(seen: &mut [u8], index: usize) {
@@ -58,7 +63,7 @@ pub fn opso(words: &[u32]) -> TestResult {
         pair += 1;
     }
 
-    monkey_result("diehard::opso", missing_count(&seen), OPSO_MEAN, OPSO_SIGMA)
+    monkey_result("diehard::opso", missing_count(&seen), MONKEY_MEAN, MONKEY_SIGMA)
 }
 
 /// Overlapping Quadruples Sparse Occupancy (OQSO).
@@ -97,16 +102,18 @@ pub fn oqso(words: &[u32]) -> TestResult {
         boffset += 5;
     }
 
-    monkey_result("diehard::oqso", missing_count(&seen), OQSO_MEAN, OQSO_SIGMA)
+    monkey_result("diehard::oqso", missing_count(&seen), MONKEY_MEAN, MONKEY_SIGMA)
 }
 
 /// DNA test.
 ///
 /// Reference: `diehard_dna.c`
 pub fn dna(words: &[u32]) -> TestResult {
-    // Each group of 10 words yields 16 samples at boffset ∈ {0,2,4,...,30}.
-    // Step must be 2 to keep each 2-bit field aligned within its word;
-    // boffset=31 would yield only 1 meaningful bit (MSB only), never letters 2 or 3.
+    // Each group of 10 words yields 16 samples at boffset ∈ {0,2,4,...,30} —
+    // disjoint 2-bit fields, hence independent samples (see module docs).
+    // Dieharder instead refreshes every 32 samples, stepping boffset by 1 with
+    // cyclic wraparound (`get_bit_ntuple_from_uint`); its overlapping scheme
+    // requires the σ = 337/339 calibration this module deliberately does not use.
     let groups = STREAM.div_ceil(16);
     let words_needed = groups * 10;
     if words.len() < words_needed {
@@ -133,14 +140,14 @@ pub fn dna(words: &[u32]) -> TestResult {
         boffset += 2;
     }
 
-    monkey_result("diehard::dna", missing_count(&seen), DNA_MEAN, DNA_SIGMA)
+    monkey_result("diehard::dna", missing_count(&seen), MONKEY_MEAN, MONKEY_SIGMA)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        dna, mark_seen, missing_count, monkey_result, opso, oqso, BITSET_BYTES, DNA_MEAN,
-        OPSO_MEAN, OQSO_MEAN, STREAM, WORD_SPACE,
+        dna, mark_seen, missing_count, monkey_result, opso, oqso, BITSET_BYTES, MONKEY_MEAN,
+        STREAM, WORD_SPACE,
     };
 
     #[test]
@@ -161,11 +168,14 @@ mod tests {
     }
 
     #[test]
-    fn monkey_means_are_close_to_2_pow_20_exp_neg_2() {
-        let analytical = (WORD_SPACE as f64) * (-2.0f64).exp();
-        assert!((OPSO_MEAN - analytical).abs() < 2.0);
-        assert!((OQSO_MEAN - analytical).abs() < 2.0);
-        assert!((DNA_MEAN - analytical).abs() < 3.0);
+    fn monkey_moments_match_iid_theory() {
+        // Asymptotic check: μ ≈ k·e^{−λ}, σ² ≈ k·e^{−λ}(1 − (1+λ)e^{−λ}), λ = 2.
+        let k = WORD_SPACE as f64;
+        let lambda = 2.0f64;
+        let mu_asym = k * (-lambda).exp();
+        let var_asym = k * (-lambda).exp() * (1.0 - (1.0 + lambda) * (-lambda).exp());
+        assert!((MONKEY_MEAN - mu_asym).abs() < 0.2);
+        assert!((super::MONKEY_SIGMA - var_asym.sqrt()).abs() < 0.01);
     }
 
     #[test]
@@ -178,7 +188,7 @@ mod tests {
 
     #[test]
     fn monkey_result_formats_reasonable_note() {
-        let result = monkey_result("test", 123_456, OPSO_MEAN, 290.0);
+        let result = monkey_result("test", 123_456, MONKEY_MEAN, 290.0);
         assert_eq!(result.name, "test");
         assert!(result.note.unwrap().contains("missing=123456"));
     }

@@ -21,9 +21,24 @@ use crate::{result::TestResult, rng::Rng};
 
 /// Run all unique DIEHARD tests and return results.
 ///
-/// `n_u32` is the number of 32-bit words to consume; 10 000 is sufficient
-/// for most tests; 1 000 000 is recommended for the full battery.
+/// `n_u32` is the number of 32-bit words captured for the slice-based tests;
+/// the hungriest (birthday spacings) needs 2 304 000 words, so anything less
+/// leaves some tests SKIPped — 16 000 000 (as used by `run_tests`) runs
+/// everything comfortably.  The live-drawing tests (parking lot, minimum
+/// distance, 3-D spheres, squeeze, runs, craps) consume additional words
+/// directly from `rng`.
 /// `quick` reduces the O(n²) geometric test parameters for fast iteration.
+///
+/// # Examples
+///
+/// ```no_run
+/// use entropy::{diehard, rng::Mt19937};
+///
+/// let mut rng = Mt19937::new(5489);
+/// for result in diehard::run_all(&mut rng, 16_000_000, false) {
+///     println!("{result}");
+/// }
+/// ```
 pub fn run_all(rng: &mut impl Rng, n_u32: usize, quick: bool) -> Vec<TestResult> {
     let words = rng.collect_u32s(n_u32);
     let mut results = vec![
