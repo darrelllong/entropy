@@ -1,3 +1,6 @@
+//! Webster–Tavares avalanche metrics (SAC dependence matrix and BIC) for the
+//! seeded generators, treating each as a u64 → output mapping.
+
 type Case<'a> = (&'a str, usize, Box<dyn Fn(u64) -> u64 + 'a>);
 
 use entropy::research::webster_tavares::evaluate_u64;
@@ -63,6 +66,18 @@ impl Args {
                 other => die(&format!("unknown option '{other}'")),
             }
             i += 1;
+        }
+
+        // Range checks mirror the asserts in research::webster_tavares::evaluate_u64
+        // so a bad flag dies with the flag's name instead of a library panic.
+        if !(1..=64).contains(&input_bits) {
+            die("--input-bits must be in 1..=64");
+        }
+        if !(1..=64).contains(&output_bits) {
+            die("--output-bits must be in 1..=64");
+        }
+        if samples == 0 {
+            die("--samples must be positive");
         }
 
         Self {
@@ -185,9 +200,12 @@ fn main() {
             32,
             Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::Minstd, seed))),
         ),
+        // The two cases below stretch a u64 through seed_material to fill the
+        // cipher key, so the avalanche input is still only 64 bits wide —
+        // seed_bits is 64, not the 128/384-bit key size.
         (
             "AES-128-CTR",
-            128,
+            64,
             Box::new(|seed| {
                 let key = seed_material::<16>(seed);
                 next_u64_of(AesCtr::new(&key, 0))
@@ -195,7 +213,7 @@ fn main() {
         ),
         (
             "cryptography::CtrDrbgAes256",
-            384,
+            64,
             Box::new(|seed| {
                 let seed_bytes = seed_material::<48>(seed);
                 next_u64_of(CryptoCtrDrbg::new(&seed_bytes))

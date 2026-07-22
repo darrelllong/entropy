@@ -1,3 +1,7 @@
+//! Berlekamp–Massey linear-complexity profile of each of the 64 bit planes of
+//! a generator's output stream — a research probe for detecting linearly
+//! recurrent bit planes (e.g. LFSR-based or low-mixing generators).
+
 type Case<'a> = (&'a str, Box<dyn Fn() -> [usize; 64] + 'a>);
 
 use entropy::nist::linear_complexity::berlekamp_massey;

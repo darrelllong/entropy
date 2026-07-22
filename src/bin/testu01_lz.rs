@@ -1,4 +1,9 @@
-type Case<'a> = (&'a str, Box<dyn Fn() + 'a>);
+//! TestU01 `scomp_LempelZiv` compressibility test run across the seeded RNG
+//! family, with configurable `k`, bit-extraction window, and replications.
+
+// Each case stores its label once; the runner closure receives it back at
+// call time, so the tuple label is the single source of truth.
+type Case<'a> = (&'a str, Box<dyn Fn(&str) + 'a>);
 
 use entropy::research::testu01_lz::{
     lempel_ziv_ks_result, lempel_ziv_sum_result, lempel_ziv_summary,
@@ -76,6 +81,22 @@ impl Args {
             }
             i += 1;
         }
+
+        // Range checks mirror the asserts in research::testu01_lz so a bad
+        // flag dies with the flag's name instead of a library panic.
+        if !(3..=28).contains(&k) {
+            die("--k must be in 3..=28");
+        }
+        if !(1..=32).contains(&s) {
+            die("--s must be in 1..=32");
+        }
+        if r + s > 32 {
+            die("--r plus --s must be <= 32");
+        }
+        if replications == 0 {
+            die("--replications must be positive");
+        }
+
         Self {
             replications,
             k,
@@ -130,83 +151,59 @@ fn main() {
     let cases: Vec<Case<'_>> = vec![
         (
             "MT19937",
-            Box::new(|| run_case("MT19937", Mt19937::new(19650218), &args)),
+            Box::new(|label| run_case(label, Mt19937::new(19650218), &args)),
         ),
         (
             "Xorshift32",
-            Box::new(|| run_case("Xorshift32", Xorshift32::new(1), &args)),
+            Box::new(|label| run_case(label, Xorshift32::new(1), &args)),
         ),
         (
             "Xorshift64",
-            Box::new(|| run_case("Xorshift64", Xorshift64::new(1), &args)),
+            Box::new(|label| run_case(label, Xorshift64::new(1), &args)),
         ),
         (
             "BAD Unix System V rand()",
-            Box::new(|| run_case("BAD Unix System V rand()", SystemVRand::new(1), &args)),
+            Box::new(|label| run_case(label, SystemVRand::new(1), &args)),
         ),
         (
             "BAD Unix System V mrand48()",
-            Box::new(|| run_case("BAD Unix System V mrand48()", Rand48::new(1), &args)),
+            Box::new(|label| run_case(label, Rand48::new(1), &args)),
         ),
         (
             "BAD Unix BSD random()",
-            Box::new(|| run_case("BAD Unix BSD random()", BsdRandom::new(1), &args)),
+            Box::new(|label| run_case(label, BsdRandom::new(1), &args)),
         ),
         (
             "BAD Unix Linux glibc rand()/random()",
-            Box::new(|| {
-                run_case(
-                    "BAD Unix Linux glibc rand()/random()",
-                    LinuxLibcRandom::new(1),
-                    &args,
-                )
-            }),
+            Box::new(|label| run_case(label, LinuxLibcRandom::new(1), &args)),
         ),
         (
             "BAD Windows CRT rand()",
-            Box::new(|| run_case("BAD Windows CRT rand()", WindowsMsvcRand::new(1), &args)),
+            Box::new(|label| run_case(label, WindowsMsvcRand::new(1), &args)),
         ),
         (
             "BAD Windows VB6/VBA Rnd()",
-            Box::new(|| run_case("BAD Windows VB6/VBA Rnd()", WindowsVb6Rnd::new(1), &args)),
+            Box::new(|label| run_case(label, WindowsVb6Rnd::new(1), &args)),
         ),
         (
             "BAD Windows .NET Random(seed)",
-            Box::new(|| {
-                run_case(
-                    "BAD Windows .NET Random(seed)",
-                    WindowsDotNetRandom::new(1),
-                    &args,
-                )
-            }),
+            Box::new(|label| run_case(label, WindowsDotNetRandom::new(1), &args)),
         ),
         (
             "ANSI C sample LCG",
-            Box::new(|| run_case("ANSI C sample LCG", Lcg32::new(LcgVariant::AnsiC, 1), &args)),
+            Box::new(|label| run_case(label, Lcg32::new(LcgVariant::AnsiC, 1), &args)),
         ),
         (
             "LCG MINSTD",
-            Box::new(|| run_case("LCG MINSTD", Lcg32::new(LcgVariant::Minstd, 1), &args)),
+            Box::new(|label| run_case(label, Lcg32::new(LcgVariant::Minstd, 1), &args)),
         ),
         (
             "AES-128-CTR",
-            Box::new(|| {
-                run_case(
-                    "AES-128-CTR",
-                    AesCtr::new(&seed_material::<16>(1), 0),
-                    &args,
-                )
-            }),
+            Box::new(|label| run_case(label, AesCtr::new(&seed_material::<16>(1), 0), &args)),
         ),
         (
             "cryptography::CtrDrbgAes256",
-            Box::new(|| {
-                run_case(
-                    "cryptography::CtrDrbgAes256",
-                    CryptoCtrDrbg::new(&seed_material::<48>(1)),
-                    &args,
-                )
-            }),
+            Box::new(|label| run_case(label, CryptoCtrDrbg::new(&seed_material::<48>(1)), &args)),
         ),
     ];
 
@@ -216,7 +213,7 @@ fn main() {
             continue;
         }
         matched += 1;
-        case();
+        case(label);
     }
     if matched == 0 {
         die("no RNG labels matched --rng filter");

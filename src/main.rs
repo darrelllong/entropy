@@ -1,5 +1,5 @@
 //! Test runner: exercises every test against several RNGs available on macOS,
-//! running each RNG in its own OS thread.
+//! distributing RNGs across a pool of `min(cores, RNG count)` worker threads.
 //!
 //! # Usage
 //!
@@ -8,11 +8,19 @@
 //!
 //! Options:
 //!   --suite nist|diehard|dieharder   Run only this battery (repeatable).
-//!   --test  <name>                   Run only tests whose name contains <name>.
+//!   --test  <name>                   Show only tests whose name contains <name>
+//!                                    (the selected batteries still run in full).
 //!                                    If <name> starts with a known suite prefix
-//!                                    (nist::, diehard::, dieharder::) only that
+//!                                    (nist::, diehard::, dieharder::, or maurer::,
+//!                                    which the NIST battery emits) only that
 //!                                    battery is generated, saving time.
+//!   --rng   <label>                  Run only RNGs whose label contains <label>
+//!                                    (repeatable).
 //!   --quick                          Use reduced sample counts in DIEHARD/DIEHARDER.
+//!   --fail-on-fail                   Exit 1 if any shown test FAILed.
+//!
+//! Exit codes: 0 = ran to completion; 1 = usage error, or FAILs under
+//! `--fail-on-fail`; 2 = an RNG task panicked (results incomplete).
 //!   --help                           Print this message and exit.
 //! ```
 //!
@@ -47,9 +55,13 @@ use std::thread;
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
-// 16 M bits: enough for all Maurer L=6..16 parametric slots and for the
-// signed-random-walk in random_excursions to complete ~3 191 zero-crossing
-// cycles (J = √(2n/π) >> 500 minimum) for any non-degenerate generator.
+// 16 M bits: enough for the signed-random-walk in random_excursions to
+// complete ~3 191 zero-crossing cycles (J = √(2n/π) >> 500 minimum) for any
+// non-degenerate generator, and for every slot of the parametric Maurer
+// family (L=5..16, maurer::universal_l*) to run.  Caveat: at this size the
+// L=15 and L=16 slots run with K ≈ 739 k and ≈ 345 k blocks — far below the
+// K ≥ 1000·2^L (32.8 M / 65.5 M) calibration assumption — so their power is
+// degraded; treat those two slots as indicative only.
 const NIST_N: usize = 16_000_000;
 const DIEHARD_N: usize = 16_000_000;
 
@@ -68,6 +80,7 @@ struct Args {
     suites: HashSet<Suite>,      // empty = all three
     test_filter: Option<String>, // substring match on TestResult::name
     rng_filters: Vec<String>,    // substring match on RNG label
+    fail_on_fail: bool,          // exit nonzero if any shown test FAILed
 }
 
 impl Args {
@@ -76,19 +89,24 @@ impl Args {
         let mut explicit_suites: HashSet<Suite> = HashSet::new();
         let mut test_filter: Option<String> = None;
         let mut rng_filters: Vec<String> = Vec::new();
+        let mut fail_on_fail = false;
 
         let argv: Vec<String> = std::env::args().skip(1).collect();
         let mut i = 0;
         while i < argv.len() {
             match argv[i].as_str() {
                 "--quick" => quick = true,
+                "--fail-on-fail" => fail_on_fail = true,
                 "--help" | "-h" => {
                     print_usage();
                     std::process::exit(0);
                 }
                 "--suite" => {
                     i += 1;
-                    let v = argv.get(i).map(String::as_str).unwrap_or("");
+                    let v = match argv.get(i) {
+                        Some(v) => v.as_str(),
+                        None => die("--suite requires an argument"),
+                    };
                     match v {
                         "nist" => {
                             explicit_suites.insert(Suite::Nist);
@@ -131,7 +149,9 @@ impl Args {
             explicit_suites
         } else if let Some(ref pat) = test_filter {
             let mut inferred = HashSet::new();
-            if pat.starts_with("nist::") {
+            // maurer:: slots are emitted by nist::run_all, so they belong to
+            // the NIST battery for inference purposes.
+            if pat.starts_with("nist::") || pat.starts_with("maurer::") {
                 inferred.insert(Suite::Nist);
             } else if pat.starts_with("dieharder::") {
                 inferred.insert(Suite::Dieharder);
@@ -149,6 +169,7 @@ impl Args {
             suites,
             test_filter,
             rng_filters,
+            fail_on_fail,
         }
     }
 
@@ -168,22 +189,35 @@ impl Args {
 }
 
 fn print_usage() {
-    eprintln!(
-        "Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--rng <label>] [--help]\n\
-         \n\
-         --suite  Run only this battery.  Repeatable: --suite nist --suite diehard.\n\
-         --test   Show only tests whose name contains <name>.\n\
-                  Prefix nist::/diehard::/dieharder:: also limits which battery runs.\n\
-         --rng    Run only RNGs whose label contains <label>. Repeatable.\n\
-         --quick  Reduced sample counts in DIEHARD/DIEHARDER (faster, less sensitive).\n\
-         \n\
-         Examples:\n\
-          run_tests                              # full battery, all RNGs\n\
-          run_tests --suite nist                 # NIST SP 800-22 only\n\
-          run_tests --test nist::frequency       # single test (NIST only generated)\n\
-          run_tests --rng Windows                # only the Windows CRT generator\n\
-          run_tests --test frequency             # all tests containing \"frequency\"\n\
-          run_tests --suite diehard --quick"
+    // NOTE: no `\`-continuations here — they strip the leading whitespace
+    // that indents the flag descriptions' continuation lines.
+    println!(
+        "\
+Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--rng <label>] [--fail-on-fail] [--help]
+
+ --suite         Run only this battery.  Repeatable: --suite nist --suite diehard.
+ --test          Show only tests whose name contains <name>.
+                 The selected batteries still run in full; this filters output.
+                 Prefix nist::/diehard::/dieharder:: (or maurer::, emitted by
+                 the NIST battery) also limits which battery runs.
+ --rng           Run only RNGs whose label contains <label>. Repeatable.
+ --quick         Reduced sample counts in DIEHARD/DIEHARDER (faster, less sensitive).
+ --fail-on-fail  Exit 1 if any shown test FAILed.  Without it, exit 0 only
+                 means the battery ran to completion.  Negative-control RNGs
+                 (BAD…, Constant, Counter, Dual_EC_DRBG) are expected to FAIL,
+                 so combine this with --rng for single-RNG CI runs.
+
+ Exit codes: 0 = ran to completion (tests may still have FAILed unless
+ --fail-on-fail); 1 = usage error, or FAILs with --fail-on-fail;
+ 2 = an RNG task panicked and its results are missing.
+
+ Examples:
+  run_tests                              # full battery, all RNGs
+  run_tests --suite nist                 # NIST SP 800-22 only
+  run_tests --test nist::frequency       # single test (NIST only generated)
+  run_tests --rng Windows                # only the Windows generators
+  run_tests --test frequency             # all tests containing \"frequency\"
+  run_tests --suite diehard --quick"
     );
 }
 
@@ -204,14 +238,17 @@ struct RngResults {
 
 type RunFn = Box<dyn FnOnce() -> RngResults + Send + 'static>;
 
-fn make_runs(args: Args) -> Vec<RunFn> {
+fn make_runs(args: Args) -> Vec<(&'static str, RunFn)> {
     let mut runs = Vec::new();
 
     macro_rules! run {
         ($label:expr, $rng:expr) => {{
             if args.matches_rng($label) {
                 let a = args.clone();
-                runs.push(Box::new(move || run_one($label, $rng, &a)) as RunFn);
+                runs.push((
+                    $label,
+                    Box::new(move || run_one($label, $rng, &a)) as RunFn,
+                ));
             }
         }};
     }
@@ -219,7 +256,10 @@ fn make_runs(args: Args) -> Vec<RunFn> {
         ($label:expr, $rng:expr) => {{
             if args.matches_rng($label) {
                 let a = args.clone();
-                runs.push(Box::new(move || run_nist_only($label, $rng, &a)) as RunFn);
+                runs.push((
+                    $label,
+                    Box::new(move || run_nist_only($label, $rng, &a)) as RunFn,
+                ));
             }
         }};
     }
@@ -339,8 +379,9 @@ fn make_runs(args: Args) -> Vec<RunFn> {
     run!("Counter (0,1,2,…)", CounterRng::new(0));
     // Dual_EC_DRBG: included for reference only.
     // WARNING: This generator is known to be backdoored — the NIST Q point
-    // embeds a discrete-log trapdoor (Bernstein et al., 2014; Checkoway et
-    // al., 2014).  It must never be used to produce key material.  Two P-256
+    // embeds a discrete-log trapdoor (Checkoway et al., 2014; Bernstein,
+    // Lange, and Niederhagen, 2016).  It must never be used to produce key
+    // material.  Two P-256
     // scalar multiplications per 30-byte block make DIEHARD/DIEHARDER
     // prohibitively slow (~2 M scalar mults); NIST suite only.
     let mut dual_ec_seed = [0u8; 32];
@@ -407,13 +448,15 @@ fn main() {
     let runs = make_runs(args.clone());
     let n_rngs = runs.len();
 
-    eprintln!("Running {n_rngs} RNGs across {n_cores} core(s), {n_cores} threads at a time…");
+    let worker_count = n_cores.min(n_rngs);
+    eprintln!("Running {n_rngs} RNGs across {n_cores} core(s), {worker_count} threads at a time…");
 
     let banner = "=".repeat(72);
     let work = Arc::new(Mutex::new(
         runs.into_iter()
             .enumerate()
-            .collect::<VecDeque<(usize, RunFn)>>(),
+            .map(|(idx, (label, task))| (idx, label, task))
+            .collect::<VecDeque<(usize, &'static str, RunFn)>>(),
     ));
     let results = Arc::new(Mutex::new(
         (0..n_rngs)
@@ -421,28 +464,42 @@ fn main() {
             .collect::<Vec<Option<RngResults>>>(),
     ));
 
-    let worker_count = n_cores.min(n_rngs);
+    let any_panicked = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let handles: Vec<_> = (0..worker_count)
         .map(|_| {
             let work = Arc::clone(&work);
             let results = Arc::clone(&results);
+            let any_panicked = Arc::clone(&any_panicked);
             thread::spawn(move || loop {
                 let next = {
                     let mut queue = work.lock().expect("work queue mutex poisoned");
                     queue.pop_front()
                 };
-                let Some((idx, task)) = next else {
+                let Some((idx, label, task)) = next else {
                     break;
                 };
-                let result = task();
-                let mut out = results.lock().expect("results mutex poisoned");
-                out[idx] = Some(result);
+                // A panic in one RNG's task must not abort the whole run —
+                // catch it, report which RNG died, and keep serving the queue
+                // so every completed result is still printed at the end.
+                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(task)) {
+                    Ok(result) => {
+                        let mut out = results.lock().expect("results mutex poisoned");
+                        out[idx] = Some(result);
+                    }
+                    Err(_) => {
+                        any_panicked.store(true, std::sync::atomic::Ordering::Relaxed);
+                        eprintln!("error: RNG '{label}' panicked; its results are omitted");
+                    }
+                }
             })
         })
         .collect();
 
     for handle in handles {
-        handle.join().expect("worker thread panicked");
+        if handle.join().is_err() {
+            any_panicked.store(true, std::sync::atomic::Ordering::Relaxed);
+            eprintln!("error: a worker thread panicked; some results may be missing");
+        }
     }
 
     let all_results = match Arc::try_unwrap(results) {
@@ -450,14 +507,40 @@ fn main() {
         Err(_) => panic!("results still shared after workers finished"),
     };
 
+    let mut total_fail = 0usize;
     for r in all_results.into_iter().flatten() {
-        print_rng_results(&r, &banner, &args);
+        total_fail += print_rng_results(&r, &banner, &args);
+    }
+    // A panicked task means the battery did NOT run to completion — exit
+    // nonzero regardless of --fail-on-fail, upholding the documented
+    // "exit 0 = ran to completion" contract.
+    if any_panicked.load(std::sync::atomic::Ordering::Relaxed) {
+        eprintln!("error: at least one RNG task panicked; results above are incomplete");
+        std::process::exit(2);
+    }
+    if args.fail_on_fail && total_fail > 0 {
+        eprintln!("error: {total_fail} test(s) FAILed and --fail-on-fail was given");
+        std::process::exit(1);
     }
 }
 
 // ── Output ────────────────────────────────────────────────────────────────────
 
-fn print_rng_results(r: &RngResults, banner: &str, args: &Args) {
+/// Format an integer with thousands separators (16000000 → "16,000,000").
+fn group_thousands(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// Print one RNG's block; returns the number of shown tests that FAILed.
+fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
     // Collect only matching results; skip the entire block if nothing matches.
     let matching: Vec<&TestResult> = r
         .nist
@@ -467,7 +550,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) {
         .filter(|t| args.matches(t.name))
         .collect();
     if matching.is_empty() {
-        return;
+        return 0;
     }
 
     println!("\n{banner}");
@@ -477,7 +560,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) {
     if !r.nist.is_empty() {
         let shown: Vec<&TestResult> = r.nist.iter().filter(|t| args.matches(t.name)).collect();
         if !shown.is_empty() {
-            println!("\n  ── NIST SP 800-22 ({} bits) ──", r.nist_n);
+            println!("\n  ── NIST SP 800-22 ({} bits) ──", group_thousands(r.nist_n));
             for t in shown {
                 println!("  {t}");
             }
@@ -486,7 +569,10 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) {
     if !r.diehard.is_empty() {
         let shown: Vec<&TestResult> = r.diehard.iter().filter(|t| args.matches(t.name)).collect();
         if !shown.is_empty() {
-            println!("\n  ── DIEHARD unique tests ({DIEHARD_N} words) ──");
+            println!(
+                "\n  ── DIEHARD unique tests ({} words) ──",
+                group_thousands(DIEHARD_N)
+            );
             for t in shown {
                 println!("  {t}");
             }
@@ -499,7 +585,10 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) {
             .filter(|t| args.matches(t.name))
             .collect();
         if !shown.is_empty() {
-            println!("\n  ── DIEHARDER unique tests ({DIEHARD_N} words) ──");
+            println!(
+                "\n  ── DIEHARDER unique tests ({} words) ──",
+                group_thousands(DIEHARD_N)
+            );
             for t in shown {
                 println!("  {t}");
             }
@@ -520,4 +609,5 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) {
             n_run as f64 * 0.01
         );
     }
+    fail
 }

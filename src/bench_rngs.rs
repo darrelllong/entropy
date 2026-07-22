@@ -1,5 +1,12 @@
 //! RNG throughput benchmark with adaptive 95% confidence intervals.
 //!
+//! This is a quick, self-contained probe over a subset of the registry
+//! (18 of the 43 generators in the main battery) with its own in-process
+//! methodology.  The canonical benchmark path is `pilot_rng` driven by
+//! `scripts/bench_rngs.sh` (pilot-bench), which covers every generator and
+//! caches results under `stats/<machine>/`.  Label strings here may drift
+//! from `src/main.rs`; that is acceptable for this tool.
+//!
 //! For each RNG, generates batches of 10 M u32 words and records throughput
 //! (MW/s) per batch.  Sampling continues until the 95% CI half-width is
 //! ≤5% of the mean (or 200 batches are collected).  Reports mean, 95% CI,
@@ -108,10 +115,6 @@ fn bench<R: Rng>(name: &str, mut rng: R) {
             );
             return;
         }
-
-        if n >= MAX_SAMP {
-            break;
-        }
     }
 }
 
@@ -138,7 +141,10 @@ fn main() {
         "BAD Unix FreeBSD12 rand_r() compat (seed=1)",
         BsdRandCompat::new(1),
     );
-    bench("BAD Windows CRT rand() (seed=1)", WindowsMsvcRand::new(1));
+    bench(
+        "BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)",
+        WindowsMsvcRand::new(1),
+    );
     bench("BAD Windows VB6/VBA Rnd() (seed=1)", WindowsVb6Rnd::new(1));
     bench(
         "BAD Windows .NET Random(seed=1) compat",

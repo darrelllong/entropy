@@ -100,6 +100,11 @@ fn dispatch(name: &str, n: u64) -> Result<io::Result<()>, ()> {
         "ansi_c_lcg" => dump(Lcg32::ansi_c(), n),
         "lcg_minstd" => dump(Lcg32::minstd(), n),
         "borland_lcg" => dump(Lcg32::new(LcgVariant::Borland, 1), n),
+        // NOTE: byte-identical to "windows_msvc_rand" (same constants
+        // 214013/2531011, same seed, same 15-bit packing) — kept as a separate
+        // name so the parameterized-LCG view and the libc-wrapper view can be
+        // addressed independently, but consumers testing both are testing the
+        // same stream twice.
         "msvc_lcg" => dump(Lcg32::new(LcgVariant::Msvc, 1), n),
         "aes_ctr" => dump(AesCtr::with_nist_key(), n),
         "camellia_ctr" => dump(BlockCtrRng::new(Camellia128::new(&K16), 0), n),
@@ -143,11 +148,13 @@ fn print_usage(stream: &mut dyn Write) {
 
 fn main() {
     let argv: Vec<String> = std::env::args().skip(1).collect();
-    if argv.iter().any(|a| a == "--help" || a == "-h") {
+    // Flags are only honored as the sole leading argument — `dump_rng osrng
+    // --list`-style trailing flags fall through to normal parsing and error.
+    if argv.first().is_some_and(|a| a == "--help" || a == "-h") {
         print_usage(&mut io::stdout());
         return;
     }
-    if argv.iter().any(|a| a == "--list") {
+    if argv.first().is_some_and(|a| a == "--list") {
         let stdout = io::stdout();
         let mut out = stdout.lock();
         for n in NAMES {
@@ -171,7 +178,7 @@ fn main() {
     match dispatch(&name, count) {
         Ok(Ok(())) => {}
         Ok(Err(e)) if e.kind() == ErrorKind::BrokenPipe => {
-            // Consumer closed stdin early — normal for `head`/R early-stop.
+            // Consumer closed our stdout early — normal for `head`/R early-stop.
         }
         Ok(Err(e)) => {
             eprintln!("dump_rng: write error: {e}");

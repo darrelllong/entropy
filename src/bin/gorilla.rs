@@ -1,3 +1,6 @@
+//! Marsaglia–Tsang Gorilla test (JSS 7(3), 2002) over all 32 bit positions of
+//! each seeded generator, with a per-bit table and a KS aggregate p-value.
+
 use entropy::research::marsaglia_tsang::{gorilla_aggregate_ks, gorilla_all, GorillaBitResult};
 use entropy::rng::{
     AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
@@ -87,37 +90,63 @@ fn summarize(results: &[GorillaBitResult]) -> (f64, f64, usize, f64) {
 
 fn main() {
     let args = Args::parse();
-    let cases: Vec<(&str, Vec<GorillaBitResult>)> = vec![
-        ("MT19937", with_rng(Mt19937::new(19650218))),
-        ("Xorshift32", with_rng(Xorshift32::new(1))),
-        ("Xorshift64", with_rng(Xorshift64::new(1))),
-        ("BAD Unix System V rand()", with_rng(SystemVRand::new(1))),
-        ("BAD Unix System V mrand48()", with_rng(Rand48::new(1))),
-        ("BAD Unix BSD random()", with_rng(BsdRandom::new(1))),
+    // Lazy closures (matching the sibling binaries): each case generates
+    // ~268 MB of stream and a full 32-bit-position Gorilla pass, so the
+    // --rng filter must be consulted BEFORE any work is done.
+    type Case = (&'static str, Box<dyn Fn() -> Vec<GorillaBitResult>>);
+    let cases: Vec<Case> = vec![
+        ("MT19937", Box::new(|| with_rng(Mt19937::new(19650218)))),
+        ("Xorshift32", Box::new(|| with_rng(Xorshift32::new(1)))),
+        ("Xorshift64", Box::new(|| with_rng(Xorshift64::new(1)))),
+        (
+            "BAD Unix System V rand()",
+            Box::new(|| with_rng(SystemVRand::new(1))),
+        ),
+        (
+            "BAD Unix System V mrand48()",
+            Box::new(|| with_rng(Rand48::new(1))),
+        ),
+        (
+            "BAD Unix BSD random()",
+            Box::new(|| with_rng(BsdRandom::new(1))),
+        ),
         (
             "BAD Unix Linux glibc rand()/random()",
-            with_rng(LinuxLibcRandom::new(1)),
+            Box::new(|| with_rng(LinuxLibcRandom::new(1))),
         ),
-        ("BAD Windows CRT rand()", with_rng(WindowsMsvcRand::new(1))),
-        ("BAD Windows VB6/VBA Rnd()", with_rng(WindowsVb6Rnd::new(1))),
+        (
+            "BAD Windows CRT rand()",
+            Box::new(|| with_rng(WindowsMsvcRand::new(1))),
+        ),
+        (
+            "BAD Windows VB6/VBA Rnd()",
+            Box::new(|| with_rng(WindowsVb6Rnd::new(1))),
+        ),
         (
             "BAD Windows .NET Random(seed)",
-            with_rng(WindowsDotNetRandom::new(1)),
+            Box::new(|| with_rng(WindowsDotNetRandom::new(1))),
         ),
         (
             "ANSI C sample LCG",
-            with_rng(Lcg32::new(LcgVariant::AnsiC, 1)),
+            Box::new(|| with_rng(Lcg32::new(LcgVariant::AnsiC, 1))),
         ),
-        ("LCG MINSTD", with_rng(Lcg32::new(LcgVariant::Minstd, 1))),
+        (
+            "LCG MINSTD",
+            Box::new(|| with_rng(Lcg32::new(LcgVariant::Minstd, 1))),
+        ),
         (
             "AES-128-CTR",
-            with_rng(AesCtr::new(&seed_material::<16>(1), 0)),
+            Box::new(|| with_rng(AesCtr::new(&seed_material::<16>(1), 0))),
         ),
         (
             "cryptography::CtrDrbgAes256",
-            with_rng(CryptoCtrDrbg::new(&seed_material::<48>(1))),
+            Box::new(|| with_rng(CryptoCtrDrbg::new(&seed_material::<48>(1)))),
         ),
     ];
+
+    if !cases.iter().any(|(label, _)| args.matches_rng(label)) {
+        die("no RNG labels matched --rng filter");
+    }
 
     println!(
         "{:<40} {:>9} {:>9} {:>9} {:>10} {:>10}",
@@ -125,20 +154,16 @@ fn main() {
     );
     println!("{}", "-".repeat(95));
 
-    let mut matched = 0usize;
-    for (label, results) in cases {
+    for (label, run) in cases {
         if !args.matches_rng(label) {
             continue;
         }
-        matched += 1;
+        let results = run();
         let (min_p, max_p, worst_bit, worst_abs_z) = summarize(&results);
         let agg_ks_p = gorilla_aggregate_ks(&results);
         println!(
             "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3} {:>10.6}",
             label, min_p, max_p, worst_bit, worst_abs_z, agg_ks_p
         );
-    }
-    if matched == 0 {
-        die("no RNG labels matched --rng filter");
     }
 }

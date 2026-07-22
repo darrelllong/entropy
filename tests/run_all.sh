@@ -47,17 +47,6 @@ mkdir -p "$LOG_DIR"
 HOST_TAG="$(hostname -s 2>/dev/null || hostname)"
 LOG="$LOG_DIR/run_all-${HOST_TAG}-$(date +%Y%m%d-%H%M%S).log"
 
-# Tee everything (stdout + stderr) to the log.
-exec > >(tee "$LOG") 2>&1
-
-cargo build --quiet --release \
-    --bin run_tests \
-    --bin bib_tests \
-    --bin upstream_tests \
-    --bin testu01_lz \
-    --bin webster_tavares \
-    --bin gorilla
-
 BIN="$ROOT_DIR/target/release"
 SEP=$(printf '=%.0s' {1..72})
 
@@ -65,24 +54,40 @@ section() {
     printf '\n%s\n%s\n%s\n\n' "$SEP" "$1" "$SEP"
 }
 
-section "run_tests  (NIST SP 800-22 · DIEHARD · DIEHARDER)"
-"$BIN/run_tests" "$@"
+run_all() {
+    cargo build --quiet --release \
+        --bin run_tests \
+        --bin bib_tests \
+        --bin upstream_tests \
+        --bin testu01_lz \
+        --bin webster_tavares \
+        --bin gorilla
 
-section "bib_tests  (Knuth + NIST ApEn profile m=2..6)"
-"$BIN/bib_tests"
+    section "run_tests  (NIST SP 800-22 · DIEHARD · DIEHARDER)"
+    "$BIN/run_tests" "$@"
 
-section "upstream_tests  (TestU01 HammingCorr/HammingIndep · PractRand FPF)"
-"$BIN/upstream_tests"
+    section "bib_tests  (Knuth + NIST ApEn profile m=2..6)"
+    "$BIN/bib_tests"
 
-section "testu01_lz  (TestU01 Lempel-Ziv  k=25  replications=10)"
-"$BIN/testu01_lz"
+    section "upstream_tests  (TestU01 HammingCorr/HammingIndep · PractRand FPF)"
+    "$BIN/upstream_tests"
 
-section "webster_tavares  (SAC / BIC avalanche  samples=4096  bits=32)"
-"$BIN/webster_tavares"
+    section "testu01_lz  (TestU01 Lempel-Ziv  k=25  replications=10)"
+    "$BIN/testu01_lz"
 
-section "gorilla  (Marsaglia-Tsang Gorilla  all 32 bit positions)"
-"$BIN/gorilla"
+    section "webster_tavares  (SAC / BIC avalanche  samples=4096  bits=32)"
+    "$BIN/webster_tavares"
 
-printf '\nLog saved to %s\n' "$LOG"
-printf 'To regenerate TESTS.md:\n'
-printf '  python3 scripts/parse_battery.py %s\n' "$LOG"
+    section "gorilla  (Marsaglia-Tsang Gorilla  all 32 bit positions)"
+    "$BIN/gorilla"
+
+    printf '\nLog saved to %s\n' "$LOG"
+    printf 'To regenerate TESTS.md:\n'
+    printf '  python3 scripts/parse_battery.py %s\n' "$LOG"
+}
+
+# Tee everything (stdout + stderr) to the log.  A plain pipeline — not
+# `exec > >(tee ...)` — so the shell waits for tee to drain before exiting
+# and the tail of the log cannot be lost.  With `set -o pipefail` the
+# script's exit status is still run_all's.  (bash 3.2 compatible.)
+run_all "$@" 2>&1 | tee "$LOG"
