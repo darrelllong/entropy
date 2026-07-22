@@ -44,8 +44,12 @@ const EXPECTED_LOG_GAP_STATS: [(f64, f64); 17] = [
     (15.167378763638, 3.421308343033),
 ];
 
-const PARAMETRIC_LS: [usize; 11] = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-const PARAMETRIC_NAMES: [&str; 11] = [
+// L = 5 is included for research use: Maurer (1992) tabulates it, but NIST
+// SP 800-22 Rev 1a defines the test only for L ∈ [6, 16], so the `nist::`
+// wrapper below never selects it.
+const PARAMETRIC_LS: [usize; 12] = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+const PARAMETRIC_NAMES: [&str; 12] = [
+    "maurer::universal_l05",
     "maurer::universal_l06",
     "maurer::universal_l07",
     "maurer::universal_l08",
@@ -62,7 +66,9 @@ const PARAMETRIC_NAMES: [&str; 11] = [
 /// Choose L automatically based on n.
 fn choose_l(n: usize) -> usize {
     // From Table 2 in SP 800-22 §2.9.7 and the NIST reference C implementation.
-    // These thresholds are n_min = (Q + K) * L = 10*2^L * L + 1000*L.
+    // These thresholds are n_min = (Q + K) * L = 10*2^L * L + 1000*2^L * L.
+    // Rev 1a defines the test only for L ∈ [6, 16]; smaller L is available
+    // through the `maurer::` parametric family, not the NIST-named wrapper.
     match n {
         n if n >= 1_059_061_760 => 16,
         n if n >= 496_435_200 => 15,
@@ -75,8 +81,7 @@ fn choose_l(n: usize) -> usize {
         n if n >= 2_068_480 => 8,
         n if n >= 904_960 => 7,
         n if n >= 387_840 => 6,
-        n if n >= 165_120 => 5,
-        _ => 0, // too small
+        _ => 0, // below the NIST-defined domain
     }
 }
 
@@ -88,7 +93,10 @@ pub fn universal(bits: &[u8]) -> TestResult {
     let n = bits.len();
     let l = choose_l(n);
     if l == 0 {
-        return TestResult::insufficient("nist::universal", "n too small for all supported L values (need ≥ 165120)");
+        return TestResult::insufficient(
+            "nist::universal",
+            "n below the NIST-defined domain (need ≥ 387840 bits for L = 6)",
+        );
     }
 
     let q = 10 * (1usize << l); // initialisation blocks
@@ -189,7 +197,7 @@ mod tests {
     fn parametric_family_marks_unavailable_l_values_as_skipped() {
         let bits = vec![0u8; 1_000_000];
         let results = universal_parametric_all(&bits);
-        assert_eq!(results.len(), 11);
+        assert_eq!(results.len(), 12);
         assert!(results
             .iter()
             .any(|r| r.name == "maurer::universal_l10" && !r.skipped()));

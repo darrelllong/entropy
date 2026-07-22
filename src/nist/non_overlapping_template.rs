@@ -76,7 +76,6 @@ pub fn non_overlapping_template_raw(bits: &[u8], template: &[u8]) -> TestResult 
 
     let chi_sq: f64 = bits
         .chunks_exact(big_m)
-        .take(num_blocks)
         .map(|block| {
             let w = count_non_overlapping(block, template);
             (w as f64 - mu).powi(2) / sigma2

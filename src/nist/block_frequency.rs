@@ -13,6 +13,10 @@ use crate::{math::igamc, result::TestResult};
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.2.
 pub fn block_frequency(bits: &[u8], m: usize) -> TestResult {
     let n = bits.len();
+    // §2.2.7 also suggests M > 0.01n (equivalently N < 100).  Like the NIST
+    // reference implementation (which runs M = 128 at n = 10⁶, N = 7812), we
+    // deliberately do not enforce that selection rule: large N only makes the
+    // χ² reference distribution more exact, not less.
     if n < 100 || m < 20 || m > n {
         return TestResult::insufficient("nist::block_frequency", "n < 100 or m out of range");
     }
@@ -22,7 +26,6 @@ pub fn block_frequency(bits: &[u8], m: usize) -> TestResult {
     // χ² = 4M · Σ (π_j − 0.5)²  where π_j = (ones in block j) / M
     let chi_sq: f64 = bits
         .chunks_exact(m)
-        .take(num_blocks)
         .map(|block| {
             let ones: f64 = block.iter().map(|&b| b as f64).sum();
             let pi_j = ones / m as f64;

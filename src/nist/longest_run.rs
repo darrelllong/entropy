@@ -35,7 +35,7 @@ pub fn longest_run(bits: &[u8]) -> TestResult {
     let num_blocks = n / m;
     let mut freq = vec![0usize; k + 1];
 
-    for block in bits.chunks_exact(m).take(num_blocks) {
+    for block in bits.chunks_exact(m) {
         let longest = longest_run_of_ones(block);
         let idx = if longest < v_min {
             0

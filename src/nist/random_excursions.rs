@@ -12,24 +12,44 @@ use crate::{math::igamc, result::TestResult};
 /// States tested: x ∈ {-4,-3,-2,-1,+1,+2,+3,+4}.
 const STATES: [i32; 8] = [-4, -3, -2, -1, 1, 2, 3, 4];
 
-/// Run all 8 random excursions sub-tests and return the one with the
-/// smallest p-value (most likely to fail).
+/// Run all 8 random excursions sub-tests and report the worst state's
+/// p-value with a Bonferroni correction for the 8 states examined
+/// (valid under their dependence — all states share one walk).
 ///
-/// Callers that want per-state results should use [`random_excursions_all`].
+/// Callers that want per-state results should use [`random_excursions_all`]
+/// (which `run_all` uses).
 ///
 /// # Reference
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.14.
 pub fn random_excursions(bits: &[u8]) -> TestResult {
     let results = random_excursions_all(bits);
+    let m = results.len() as f64;
     results
         .into_iter()
         .min_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|worst| {
+            if worst.skipped() {
+                worst
+            } else {
+                TestResult::with_note(
+                    "nist::random_excursions",
+                    (m * worst.p_value).min(1.0),
+                    format!(
+                        "Bonferroni over {m} states; worst: {}",
+                        worst.note.unwrap_or_default()
+                    ),
+                )
+            }
+        })
         .unwrap_or_else(|| TestResult::insufficient("nist::random_excursions", "J < 500"))
 }
 
 /// Run all 8 sub-tests and return a result for each state.
 pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
-    // Build the random walk partial sums S.
+    // Build the random walk partial sums S' = 0, S₁, …, Sₙ, 0.  Append the
+    // closing zero only when Sₙ ≠ 0: if the walk already ends at zero, an
+    // unconditional append would create a spurious empty cycle, inflating J
+    // and every state's ν₀ by 1 relative to the STS reference.
     let walk: Vec<i32> = {
         let mut s = 0i32;
         let mut w = vec![0i32];
@@ -37,7 +57,9 @@ pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
             s += if b == 1 { 1 } else { -1 };
             w.push(s);
         }
-        w.push(0);
+        if s != 0 {
+            w.push(0);
+        }
         w
     };
 
@@ -52,10 +74,12 @@ pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
 
     let j = zero_positions.len() - 1; // number of complete cycles
 
-    if j < 500 {
+    // §2.14.4 step 3 (as in sts): J must be at least max(0.005·√n, 500).
+    let j_min = (0.005 * (bits.len() as f64).sqrt()).max(500.0);
+    if (j as f64) < j_min {
         return vec![TestResult::insufficient(
             "nist::random_excursions",
-            &format!("J={j} < 500"),
+            &format!("J={j} < {j_min:.0}"),
         )];
     }
 

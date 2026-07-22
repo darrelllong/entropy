@@ -57,7 +57,7 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
     let mut nu = [0usize; 7];
     let sign = if m.is_multiple_of(2) { 1.0 } else { -1.0 };
 
-    for block in bits.chunks_exact(m).take(num_blocks) {
+    for block in bits.chunks_exact(m) {
         let l = berlekamp_massey(block) as f64;
         let t = sign * (l - mu) + 2.0 / 9.0;
         let idx = if t <= -2.5 {
