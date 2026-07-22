@@ -39,10 +39,10 @@ REPO = Path(__file__).parent.parent
 # are added or removed, rather than in prose strings throughout the file).
 # ---------------------------------------------------------------------------
 
-NIST_SLOTS      = 199   # 12 fixed + 148 non_overlapping + 2 serial + 11 Maurer + 8 RE + 18 REV
+NIST_SLOTS      = 200   # 12 fixed + 148 non_overlapping + 2 serial + 12 Maurer (L=5..16) + 8 RE + 18 REV
 DIEHARD_SLOTS   = 17    # see src/diehard/mod.rs
 DIEHARDER_SLOTS = 522   # see src/dieharder/mod.rs
-FULL_SLOTS      = NIST_SLOTS + DIEHARD_SLOTS + DIEHARDER_SLOTS   # 738
+FULL_SLOTS      = NIST_SLOTS + DIEHARD_SLOTS + DIEHARDER_SLOTS   # 739
 
 # Random excursions emit 8 per-state results; variant emits 18.
 RE_STATES       = 8
@@ -51,7 +51,7 @@ EXCURSION_TOTAL = RE_STATES + REV_STATES   # 26 individual results when active
 
 # When excursions skip, both families collapse to 1 SKIP each → 26 − 2 = 24 fewer slots.
 EXCURSION_SKIP_SAVINGS = EXCURSION_TOTAL - 2   # 24
-SKIPPED_SLOTS   = FULL_SLOTS - EXCURSION_SKIP_SAVINGS   # 714
+SKIPPED_SLOTS   = FULL_SLOTS - EXCURSION_SKIP_SAVINGS   # 715
 
 # Minimum zero-crossing cycles for the excursion families to run.
 EXCURSION_J_MIN = 500
