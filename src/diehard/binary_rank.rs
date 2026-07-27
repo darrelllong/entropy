@@ -184,7 +184,8 @@ fn rank_test(
 /// the matrix-count formula instead of reusing the 32×32 constants.
 fn theoretical_probs(rows: usize, cols: usize) -> (f64, f64, f64, f64) {
     match (rows, cols) {
-        // Probabilities from diehard_rank_32x32.c, bins [rank≤29, 30, 31, 32].
+        // Probabilities from diehard_rank_32x32.c, in tuple order
+        // (rank=32, 31, 30, ≤29) — matching the docstring above.
         (32, 32) => (0.2887880952, 0.5775761902, 0.1283502644, 0.0052854502),
         (31, 31) => {
             let full = gf2_rank_probability(31, 31, 31);

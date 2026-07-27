@@ -67,6 +67,12 @@ pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
     // Non-overlapping template: all 148 aperiodic 9-bit templates (SP 800-22 §2.7, Appendix E).
     results.extend(non_overlapping_template::non_overlapping_all(&bits));
     // Serial has two p-values; emit both rather than collapsing to min.
+    // m = 3 is a fixed, size-independent default (unlike `universal`, which
+    // scales L with n): the publication permits m up to ⌊log₂ n⌋ − 2 ≈ 21 at
+    // this n, and a larger m would catch some weak linear generators STS misses
+    // at its own defaults, but a fixed m keeps the slot comparable across runs
+    // and sample sizes.  Callers wanting higher power can invoke
+    // `serial::serial_both` directly with a larger m.
     results.extend(serial::serial_both(&bits, 3));
     // Maurer's original parametric family is useful beyond the single NIST-picked setting.
     results.extend(universal::universal_parametric_all(&bits));

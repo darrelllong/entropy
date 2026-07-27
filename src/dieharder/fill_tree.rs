@@ -100,7 +100,11 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
 
     let mut rot_amount = 0u32;
     for j in 0..N_TRIALS {
-        let mut array = [0.0f64; SIZE];
+        // Empty slots are NaN, not 0.0.  Dieharder's C uses 0.0 as the "empty"
+        // sentinel, which silently mishandles a generator that emits the word
+        // mapping to 0.0 (that node reads as empty forever); NaN cannot collide
+        // with any real sample in [0, 1).
+        let mut array = [f64::NAN; SIZE];
         let mut word_count = 0usize;
 
         let fail_pos = loop {
@@ -114,13 +118,16 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
             word_idx += 1;
             word_count += 1;
 
-            // Rotate and normalise to (0, 1).
+            // Rotate and normalise to [0, 1).  (Division by 2³² keeps the
+            // half-open interval, matching ks_uniform/lagged_sums; the tree
+            // only ever compares samples to one another, so the exact scale is
+            // immaterial to the result.)
             let rotated = if rot_amount == 0 {
                 v
             } else {
                 v.rotate_left(rot_amount)
             };
-            let x = rotated as f64 / u32::MAX as f64;
+            let x = rotated as f64 / 4_294_967_296.0;
 
             if word_count > SIZE * 2 {
                 // Should never happen with a non-degenerate RNG.
@@ -200,16 +207,19 @@ pub fn fill_tree(words: &[u32]) -> TestResult {
 
 /// Binary search-tree insertion into a flat double array.
 ///
-/// Mirrors the C `insert()` from `dab_filltree.c`:
+/// Mirrors the C `insert()` from `dab_filltree.c`, with one deliberate
+/// correction: empty slots are `NaN`, not `0.0`.  The C uses `0.0` as its
+/// "empty" sentinel, which cannot distinguish an empty slot from one holding
+/// the sample `0.0`; `NaN` is disjoint from every real sample in `[0, 1)`.
 ///   - Start at index `START_VAL` with step `(START_VAL+1)/2`.
-///   - If slot is empty (0.0), place `x` there and return `None` (success).
+///   - If slot is empty (`NaN`), place `x` there and return `None` (success).
 ///   - Else move left or right, halve the step.
 ///   - If step reaches 0, return `Some(i)` (collision at position i).
 fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
     let mut i = START_VAL;
     let mut d = START_VAL.div_ceil(2); // = 8
     while d > 0 {
-        if array[i] == 0.0 {
+        if array[i].is_nan() {
             array[i] = x;
             return None; // success
         }
@@ -221,4 +231,23 @@ fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
         d /= 2;
     }
     Some(i) // collision: return position
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{tree_insert, SIZE, START_VAL};
+
+    /// Regression (Grok issue 1): a sample of exactly 0.0 must occupy its node,
+    /// not read back as "empty".  With the old 0.0 sentinel a later insert
+    /// routing through the same node would silently overwrite the stored 0.0.
+    #[test]
+    fn zero_sample_occupies_its_slot() {
+        let mut array = [f64::NAN; SIZE];
+        assert_eq!(tree_insert(0.0, &mut array), None); // placed at START_VAL
+        assert_eq!(array[START_VAL], 0.0);
+        // A larger value routes right (0.0 < 0.5) into a different empty node,
+        // so the stored 0.0 is not overwritten.
+        assert_eq!(tree_insert(0.5, &mut array), None);
+        assert_eq!(array[START_VAL], 0.0, "0.0 slot must remain occupied");
+    }
 }

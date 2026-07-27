@@ -4,6 +4,15 @@
 //! has autocorrelation at distance `lag`, the sum will deviate from the
 //! normal distribution expected for independent samples.
 //!
+//! # Deviation from Dieharder
+//! Dieharder's `rgb_lagged_sums` accumulates many single-sum p-values and runs
+//! an outer KS over them.  This port reports the **single-run core normal
+//! deviate** (`erfc(|z|/√2)`) instead, so its power and null distribution
+//! differ from `dieharder -d rgb_lagged_sums`: at 16 M words one sum is very
+//! sharp, so a badly autocorrelated generator still fails hard, but a mild
+//! autocorrelation may not track Dieharder's outcome one-to-one.  Compare
+//! qualitatively, not slot-for-slot.
+//!
 //! # Author
 //! Robert G. Brown, *Dieharder* (2006), test `rgb_lagged_sums`.
 
