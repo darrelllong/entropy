@@ -234,6 +234,10 @@ struct RngResults {
     nist: Vec<TestResult>,
     diehard: Vec<TestResult>,
     dieharder: Vec<TestResult>,
+    /// True when this generator is *intrinsically* restricted to the NIST
+    /// suite (e.g. Dual_EC, too slow for DIEHARD/DIEHARDER), as opposed to a
+    /// user `--suite`/`--test` filter that happened to select NIST only.
+    nist_only: bool,
 }
 
 type RunFn = Box<dyn FnOnce() -> RngResults + Send + 'static>;
@@ -417,6 +421,7 @@ fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
         nist,
         diehard,
         dieharder,
+        nist_only: false,
     }
 }
 
@@ -433,6 +438,7 @@ fn run_nist_only<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResu
         nist,
         diehard: vec![],
         dieharder: vec![],
+        nist_only: true,
     }
 }
 
@@ -596,10 +602,10 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
     }
 
     // Make an intrinsic suite restriction explicit rather than silently
-    // omitting the empty blocks (e.g. Dual_EC runs NIST-only for cost).
-    let nist_shown = r.nist.iter().any(|t| args.matches(t.name));
-    let dh_shown = r.diehard.iter().chain(&r.dieharder).any(|t| args.matches(t.name));
-    if nist_shown && !dh_shown && r.diehard.is_empty() && r.dieharder.is_empty() {
+    // omitting the empty blocks (e.g. Dual_EC runs NIST-only for cost).  Gated
+    // on the intrinsic `nist_only` flag, not on empty blocks, so it does NOT
+    // fire for every generator when the user passes `--suite nist`.
+    if r.nist_only && r.nist.iter().any(|t| args.matches(t.name)) {
         println!("\n  (DIEHARD/DIEHARDER not run for this generator — NIST suite only.)");
     }
 

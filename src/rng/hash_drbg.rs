@@ -357,4 +357,26 @@ mod tests {
         );
         assert_eq!(returned, expected);
     }
+
+    /// Exercises the `generate` path *with* non-empty additional input (the
+    /// KAT above uses empty input, leaving the §10.1.1.5 step-2
+    /// `w = Hash(0x02‖V‖add)` update untested).  Golden bits reproduced by the
+    /// same from-spec Hash_DRBG replica.
+    #[test]
+    fn hash_drbg_sha256_additional_input_kat() {
+        let entropy: Vec<u8> = (0x00u8..0x37).collect();
+        let nonce: Vec<u8> = (0x40u8..0x50).collect();
+        let a1: Vec<u8> = (0x00u8..0x20).collect();
+        let a2: Vec<u8> = (0x20u8..0x40).collect();
+        let mut drbg = HashDrbg::from_entropy(&entropy, &nonce, &[]);
+        let _ = drbg.generate(128, &a1);
+        let returned = drbg.generate(128, &a2);
+        let expected = hex(
+            "7c23e42fbae910f79d028ad1a146c8f2fd20f13b0fe4e4f36a343aec343c1922\
+             a0e4b759736a94fa132ef5a5f0c2e0bb48915028d064c87f925462dbd2d84018\
+             6666941fc85130bea189d5afdea3be87c0c8800990b99a5966dc3ee4f1dbcac7\
+             8733e896af59437d15623c165f64011b1399e0d7c9222977fc2ef9aeacdfa23e",
+        );
+        assert_eq!(returned, expected);
+    }
 }
