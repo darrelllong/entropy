@@ -9,8 +9,11 @@
 //! - Seeds K and V from 384 bits of OS entropy (entropy_input=32 B,
 //!   nonce=16 B) with an empty personalization string.
 //! - Generates output in 32-byte blocks (one HMAC invocation per block).
-//! - Implements the standard `HMAC_DRBG_Update` and `Generate` procedures
-//!   without additional input or explicit reseed (suitable for the test battery).
+//! - The streaming [`Rng`] path uses no additional input and no explicit
+//!   reseed (suitable for the test battery); the discrete
+//!   [`generate`](HmacDrbg::generate) method implements the standard
+//!   `HMAC_DRBG_Update` and `Generate` procedures *with* optional additional
+//!   input.
 //!
 //! The streaming [`Rng`] path re-keys after every 32-byte block, so a long
 //! `next_u32` stream is a *sequence* of one-block Generate calls, not a single
@@ -284,6 +287,28 @@ mod tests {
              d54fbb978a15b5c443c9ec21036d2460b6f73ebad0dc2aba6e624abf07745bc1\
              07694bb7547bb0995f70de25d6b29e2d3011bb19d27676c07162c8b5ccde0668\
              961df86803482cb37ed6d5c0bb8d50cf1f50d476aa0458bdaba806f48be9dcb8",
+        );
+        assert_eq!(returned, expected);
+    }
+
+    /// Exercises the `generate` path *with* non-empty additional input (the
+    /// DRBGVS KAT above uses empty input, leaving the two extra Update rounds
+    /// untested).  Additional inputs 0x00..0x1f then 0x20..0x3f; golden bits
+    /// reproduced by the same from-spec HMAC_DRBG replica.
+    #[test]
+    fn hmac_drbg_sha256_additional_input_kat() {
+        let entropy = hex("ca851911349384bffe89de1cbdc46e6831e44d34a4fb935ee285dd14b71a7488");
+        let nonce = hex("659ba96c601dc69fc902940805ec0ca8");
+        let a1: Vec<u8> = (0x00u8..0x20).collect();
+        let a2: Vec<u8> = (0x20u8..0x40).collect();
+        let mut drbg = HmacDrbg::from_entropy(&entropy, &nonce, &[]);
+        let _ = drbg.generate(128, &a1);
+        let returned = drbg.generate(128, &a2);
+        let expected = hex(
+            "f3acf1a72ab1036b7bd95ffd8c2d8e87944ecaef836e6911b17400fca3d69bc4\
+             87f4db662fd6578e103230450a29e6941d0aec3e1db90451c18f6d659870420c\
+             b445f361ba2f63e872d89c0a5b835493fec0d0e7e2d9ab4859afb652bbcc350a\
+             27589fac10944dee9b34870798d5bb9ee024218642d74fa3c5833666a9b745ec",
         );
         assert_eq!(returned, expected);
     }
