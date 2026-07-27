@@ -21,6 +21,13 @@ audit path or `tests/run_aux.sh` for the auxiliary suite alone.
 
 Notes:
 
+**Reproducibility.**  Generators with a fixed seed (the ciphers, the `BAD…`
+family, `Constant`/`Counter`) reproduce these results exactly on any machine.
+The rows labeled **`(OsRng seed)`** / **`(OsRng key)`** are deliberately seeded
+from operating-system entropy — testing each algorithm as it would be deployed
+— so their specific per-slot PASS/FAIL pattern varies from run to run; read
+those rows as indicative of the algorithm, not as a reproducible fixture.
+
 **Why result counts vary across generators.**
 
 The battery total differs from run to run because several test families are
