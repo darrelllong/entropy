@@ -29,8 +29,9 @@
 //! | P-384  | 384    | 368    |
 //! | P-521  | 521    | 504    |
 //!
-//! **Performance note:** Each output block requires two scalar multiplications
-//! (s·P and t·Q), making Dual_EC_DRBG orders of magnitude slower than
+//! **Performance note:** Each output block requires three scalar
+//! multiplications (t = x(s·P), the output from x(t·Q), and the next state
+//! x(t·P)), making Dual_EC_DRBG orders of magnitude slower than
 //! hash- or cipher-based DRBGs.  This implementation is suitable for research
 //! and statistical testing, not high-throughput applications.
 //!
@@ -255,6 +256,18 @@ fn decode_hex(s: &str) -> Vec<u8> {
         .step_by(2)
         .map(|i| u8::from_str_radix(&cleaned[i..i + 2], 16).expect("valid hex digit"))
         .collect()
+}
+
+impl Drop for DualEcDrbg {
+    /// Wipe the buffered output and overwrite the state scalar on drop.
+    ///
+    /// The `BigUint` heap storage is owned by the bignum type and not scrubbed
+    /// in place here; Dual_EC_DRBG is a research negative control demonstrating
+    /// a backdoor, not a construction that protects live key material.
+    fn drop(&mut self) {
+        cryptography::zeroize_slice(&mut self.buf);
+        self.s = BigUint::from_be_bytes(&[0u8]);
+    }
 }
 
 #[cfg(test)]

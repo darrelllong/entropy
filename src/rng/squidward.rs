@@ -105,6 +105,13 @@ fn sha256(data: &[u8]) -> [u8; BLOCK] {
     Sha256::digest(data)
 }
 
+impl Drop for Squidward {
+    /// Wipe the hash-chain state on drop.
+    fn drop(&mut self) {
+        cryptography::zeroize_slice(&mut self.state);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

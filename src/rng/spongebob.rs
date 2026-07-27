@@ -104,6 +104,13 @@ impl Rng for SpongeBob {
     }
 }
 
+impl Drop for SpongeBob {
+    /// Wipe the sponge state on drop.
+    fn drop(&mut self) {
+        cryptography::zeroize_slice(&mut self.state);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
