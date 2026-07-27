@@ -36,3 +36,20 @@ jobs:
         run: cargo test
       - name: Doc build (deny missing docs)
         run: RUSTDOCFLAGS="-D missing_docs" cargo doc --no-deps
+
+  scripts:
+    name: scripts (python + shell)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax (py_compile)
+        run: |
+          files=$(git ls-files '*.py')
+          [ -n "$files" ] && python3 -m py_compile $files
+      - name: Shell syntax (bash -n)
+        run: |
+          for f in $(git ls-files '*.sh'); do bash -n "$f"; done
+      - name: BENCHMARKS.md is a fixed point of make_benchmarks.py
+        run: |
+          python3 scripts/make_benchmarks.py
+          git diff --exit-code -- BENCHMARKS.md
