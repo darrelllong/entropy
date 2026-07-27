@@ -8,7 +8,9 @@
 //! One block is generated per [`BlockCipher::encrypt`] call; the counter is
 //! incremented (wrapping) after each block.  The keystream bytes are consumed
 //! in little-endian order to match the conventions used by the rest of this
-//! crate's byte-backed generators.
+//! crate's byte-backed generators.  (The dedicated [`super::AesCtr`] instead
+//! decodes words big-endian to match the NIST vectors, so the two present the
+//! same AES keystream as different word streams — see `AesCtr`'s docs.)
 //!
 //! # Invariants
 //!

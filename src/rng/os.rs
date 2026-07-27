@@ -17,6 +17,15 @@ const BUF_LEN: usize = 256;
 /// On macOS, `/dev/urandom` and `/dev/random` are both backed by the same
 /// Fortuna-based CSPRNG since macOS 10.12.
 ///
+/// # Platform support
+/// `OsRng` is **Unix-only**: it reads the `/dev/urandom` character device
+/// directly (no `unsafe`, no `getrandom` dependency).  On a non-Unix target
+/// (e.g. Windows) construction panics with a clear message rather than reading
+/// entropy — the crate as a whole is developed and run on Unix.  A portable
+/// build would depend on the `getrandom` crate; that dependency choice is left
+/// to the consumer.  Generators that do not seed from the OS (`Mt19937`, the
+/// LCG family, the fixed-seed ciphers, …) work on every platform.
+///
 /// # Early-boot entropy warning
 /// `/dev/urandom` on Linux does **not** block if the kernel entropy pool is
 /// not yet fully initialized (e.g., early in the boot sequence or inside a
@@ -44,10 +53,18 @@ impl OsRng {
     /// Open `/dev/urandom`.
     ///
     /// # Panics
-    /// Panics if `/dev/urandom` cannot be opened (non-Unix platform).
+    /// Panics if `/dev/urandom` cannot be opened — normal on non-Unix targets,
+    /// where `OsRng` is unsupported (see the type-level Platform support note).
     pub fn new() -> Self {
+        let file = File::open("/dev/urandom").unwrap_or_else(|e| {
+            panic!(
+                "OsRng: cannot open /dev/urandom ({e}). OsRng is Unix-only; on \
+                 other platforms use a non-OS generator or add a getrandom-based \
+                 entropy source."
+            )
+        });
         Self {
-            file: File::open("/dev/urandom").expect("cannot open /dev/urandom"),
+            file,
             buf: [0u8; BUF_LEN],
             pos: BUF_LEN, // force a refill on first use
         }
