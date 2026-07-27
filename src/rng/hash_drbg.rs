@@ -9,6 +9,10 @@
 //! with V, delivering 32 bytes per SHA-256 call.  After each generate
 //! request V and C are updated per §10.1.1.5.
 //!
+//! The streaming [`Rng`] path batches `GENERATE_BLOCKS` blocks per refill;
+//! for a CAVP-conformant single `Generate(N bits)` (exactly ⌈N/32⌉ blocks then
+//! one update) use [`HashDrbg::generate`], the path the known-answer test uses.
+//!
 //! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
 //! per block are used; mixing widths at a refill boundary silently discards
 //! up to 7 trailing bytes before refilling.
@@ -94,6 +98,68 @@ impl HashDrbg {
             buf: [0u8; GENERATE_SIZE],
             offset: GENERATE_SIZE, // force refill on first use
         }
+    }
+
+    /// Instantiate deterministically from explicit entropy input, nonce, and
+    /// personalization string (SP 800-90A §10.1.1.2, seed_material =
+    /// entropy_input ‖ nonce ‖ personalization_string).
+    ///
+    /// Exposed for known-answer testing and reproducible discrete use; the
+    /// battery uses [`from_os_rng`](Self::from_os_rng).
+    #[must_use]
+    pub fn from_entropy(entropy_input: &[u8], nonce: &[u8], personalization: &[u8]) -> Self {
+        let mut seed =
+            Vec::with_capacity(entropy_input.len() + nonce.len() + personalization.len());
+        seed.extend_from_slice(entropy_input);
+        seed.extend_from_slice(nonce);
+        seed.extend_from_slice(personalization);
+        let v = hash_df(&seed);
+        let c = {
+            let mut input = [0u8; 1 + SEEDLEN];
+            input[0] = 0x00;
+            input[1..].copy_from_slice(&v);
+            hash_df(&input)
+        };
+        Self {
+            v,
+            c,
+            reseed_counter: 1,
+            buf: [0u8; GENERATE_SIZE],
+            offset: GENERATE_SIZE,
+        }
+    }
+
+    /// SP 800-90A §10.1.1.5 Generate: produce exactly `nbytes` as a single
+    /// discrete Generate call — Hashgen emits ⌈nbytes/32⌉ blocks, then V is
+    /// updated once.  This is the CAVP-conformant path.
+    ///
+    /// It deliberately differs from the streaming [`Rng`] path (which batches
+    /// `GENERATE_BLOCKS` blocks per refill); see the module docs.
+    pub fn generate(&mut self, nbytes: usize, additional_input: &[u8]) -> Vec<u8> {
+        assert!(
+            self.reseed_counter < (1u64 << 48),
+            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.1 Table 2)"
+        );
+        if !additional_input.is_empty() {
+            // §10.1.1.5 step 2: w = Hash(0x02 ‖ V ‖ additional_input);
+            //                   V = (V + w) mod 2^seedlen.
+            let mut input = Vec::with_capacity(1 + SEEDLEN + additional_input.len());
+            input.push(0x02);
+            input.extend_from_slice(&self.v);
+            input.extend_from_slice(additional_input);
+            let w = Sha256::digest(&input);
+            add_bytes_mod(&mut self.v, &w);
+        }
+        // Hashgen(nbytes) with a local counter starting at V.
+        let mut data = self.v;
+        let mut out = Vec::with_capacity(nbytes);
+        while out.len() < nbytes {
+            out.extend_from_slice(&Sha256::digest(&data));
+            add1_mod2seedlen(&mut data);
+        }
+        out.truncate(nbytes);
+        self.finalise_generate();
+        out
     }
 
     /// Produce GENERATE_BLOCKS Hashgen blocks (§10.1.1.4) into buf, then
@@ -221,6 +287,15 @@ impl Rng for HashDrbg {
     }
 }
 
+impl Drop for HashDrbg {
+    /// Wipe V, C, and the buffered Hashgen output on drop.
+    fn drop(&mut self) {
+        cryptography::zeroize_slice(&mut self.v);
+        cryptography::zeroize_slice(&mut self.c);
+        cryptography::zeroize_slice(&mut self.buf);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,5 +327,34 @@ mod tests {
         let mut v = [0xffu8; SEEDLEN];
         add1_mod2seedlen(&mut v);
         assert!(v.iter().all(|&b| b == 0)); // 2^440 ≡ 0
+    }
+
+    fn hex(s: &str) -> Vec<u8> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
+    }
+
+    /// Hash_DRBG SHA-256 known-answer test (no reseed, empty personalization
+    /// and additional input, two Generate calls of 1024 bits, the second
+    /// returned).  Entropy input = bytes 0x00..0x36, nonce = 0x40..0x4f.  The
+    /// expected bits were independently reproduced from the SP 800-90A §10.1.1
+    /// pseudocode by a separate replica, cross-implementation-validating the
+    /// Hashgen counter, Hash_df, and V/C update arithmetic.
+    #[test]
+    fn hash_drbg_sha256_spec_replica_kat() {
+        let entropy: Vec<u8> = (0x00u8..0x37).collect();
+        let nonce: Vec<u8> = (0x40u8..0x50).collect();
+        let mut drbg = HashDrbg::from_entropy(&entropy, &nonce, &[]);
+        let _ = drbg.generate(128, &[]); // first Generate — discarded
+        let returned = drbg.generate(128, &[]);
+        let expected = hex(
+            "55338e1e62a2de3b061dd4c932ee89d2d1b9db8192cf88db37b50106080c10e1\
+             56a147c3a0d0ba4045e2d21e39fad4e5aa155c4a19effdda2426531733b1ba59\
+             e45e3e2aef109fe85482169f3ce7182131763c05395074d127c8ee8603ff0713\
+             ae9f99215a344fb2dfea4c30e34f078d601c103300c077c5945cfdd1a1991001",
+        );
+        assert_eq!(returned, expected);
     }
 }

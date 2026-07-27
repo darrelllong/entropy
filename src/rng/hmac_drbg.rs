@@ -12,6 +12,12 @@
 //! - Implements the standard `HMAC_DRBG_Update` and `Generate` procedures
 //!   without additional input or explicit reseed (suitable for the test battery).
 //!
+//! The streaming [`Rng`] path re-keys after every 32-byte block, so a long
+//! `next_u32` stream is a *sequence* of one-block Generate calls, not a single
+//! multi-block Generate.  For a CAVP-conformant single `Generate(N bits)` (no
+//! intermediate re-keying, one Update at the end) use
+//! [`HmacDrbg::generate`]; that is the path the known-answer test exercises.
+//!
 //! # Reseed interval
 //! SP 800-90A §10.1.2 Table 2 specifies a reseed interval of 2⁴⁸ generate
 //! calls for 256-bit security strength.  This implementation tracks the call
@@ -71,6 +77,60 @@ impl HmacDrbg {
         };
         drbg_update(&mut drbg.k, &mut drbg.v, Some(&seed));
         drbg
+    }
+
+    /// Instantiate deterministically from explicit entropy input, nonce, and
+    /// personalization string (SP 800-90A §10.1.2.3, seed_material =
+    /// entropy_input ‖ nonce ‖ personalization_string).
+    ///
+    /// Exposed for known-answer testing and reproducible discrete use; the
+    /// battery uses [`from_os_rng`](Self::from_os_rng).
+    #[must_use]
+    pub fn from_entropy(entropy_input: &[u8], nonce: &[u8], personalization: &[u8]) -> Self {
+        let mut drbg = Self {
+            k: [0x00u8; OUT],
+            v: [0x01u8; OUT],
+            buf: [0u8; OUT],
+            offset: OUT,
+            reseed_counter: 1,
+        };
+        let mut seed =
+            Vec::with_capacity(entropy_input.len() + nonce.len() + personalization.len());
+        seed.extend_from_slice(entropy_input);
+        seed.extend_from_slice(nonce);
+        seed.extend_from_slice(personalization);
+        drbg_update(&mut drbg.k, &mut drbg.v, Some(&seed));
+        drbg
+    }
+
+    /// SP 800-90A §10.1.2.5 Generate: produce `nbytes` as a single discrete
+    /// Generate call — output blocks are produced WITHOUT intermediate
+    /// re-keying, then one `Update` runs at the end.  This is the
+    /// CAVP-conformant path.
+    ///
+    /// It deliberately differs from the streaming [`Rng`] path (which re-keys
+    /// after every 32-byte block for incremental forward secrecy, so a long
+    /// `next_u32` stream is a sequence of one-block Generates, not one big
+    /// Generate — see the module docs).
+    pub fn generate(&mut self, nbytes: usize, additional_input: &[u8]) -> Vec<u8> {
+        assert!(
+            self.reseed_counter < (1u64 << 48),
+            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.2 Table 2)"
+        );
+        let add = (!additional_input.is_empty()).then_some(additional_input);
+        if let Some(a) = add {
+            drbg_update(&mut self.k, &mut self.v, Some(a));
+        }
+        let mut out = Vec::with_capacity(nbytes);
+        while out.len() < nbytes {
+            let mac = hmac_sha256(&self.k, &self.v);
+            self.v.copy_from_slice(&mac);
+            out.extend_from_slice(&self.v);
+        }
+        out.truncate(nbytes);
+        drbg_update(&mut self.k, &mut self.v, add);
+        self.reseed_counter += 1;
+        out
     }
 
     fn refill(&mut self) {
@@ -161,6 +221,16 @@ impl Rng for HmacDrbg {
     }
 }
 
+impl Drop for HmacDrbg {
+    /// Wipe the key, working value, and buffered output on drop, matching the
+    /// hygiene `AesCtr`/`BlockCtrRng` apply to their secret material.
+    fn drop(&mut self) {
+        cryptography::zeroize_slice(&mut self.k);
+        cryptography::zeroize_slice(&mut self.v);
+        cryptography::zeroize_slice(&mut self.buf);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,5 +257,34 @@ mod tests {
         let mut b = HmacDrbg::from_os_rng();
         // With 256-bit entropy it's astronomically unlikely these collide.
         assert_ne!(a.next_u64(), b.next_u64());
+    }
+
+    fn hex(s: &str) -> Vec<u8> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
+    }
+
+    /// NIST DRBGVS HMAC_DRBG SHA-256 known-answer test: PredictionResistance =
+    /// False, no reseed, empty personalization and additional input,
+    /// ReturnedBitsLen = 1024 (two Generate calls, the second returned).  The
+    /// expected bits match the published vector (prefix `e528e9ab…`) and were
+    /// independently reproduced by a from-spec SP 800-90A replica.  This pins
+    /// the HMAC_DRBG_Update / Generate math, not just "output advances".
+    #[test]
+    fn hmac_drbg_sha256_nist_drbgvs_kat() {
+        let entropy = hex("ca851911349384bffe89de1cbdc46e6831e44d34a4fb935ee285dd14b71a7488");
+        let nonce = hex("659ba96c601dc69fc902940805ec0ca8");
+        let mut drbg = HmacDrbg::from_entropy(&entropy, &nonce, &[]);
+        let _ = drbg.generate(128, &[]); // first Generate — discarded per DRBGVS
+        let returned = drbg.generate(128, &[]);
+        let expected = hex(
+            "e528e9abf2dece54d47c7e75e5fe302149f817ea9fb4bee6f4199697d04d5b89\
+             d54fbb978a15b5c443c9ec21036d2460b6f73ebad0dc2aba6e624abf07745bc1\
+             07694bb7547bb0995f70de25d6b29e2d3011bb19d27676c07162c8b5ccde0668\
+             961df86803482cb37ed6d5c0bb8d50cf1f50d476aa0458bdaba806f48be9dcb8",
+        );
+        assert_eq!(returned, expected);
     }
 }

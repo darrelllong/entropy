@@ -63,3 +63,37 @@ impl Rng for CryptoCtrDrbg {
         u32::from_be_bytes(out)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Deterministic-output regression pin for this adapter.  The CTR_DRBG
+    /// algorithm itself is validated by the sibling `cryptography` crate; this
+    /// guards the adapter's own contract — the fixed test seed, the
+    /// big-endian word decoding, and the pinned crate version producing a
+    /// stable stream.  A flipped endianness, a changed `fill_bytes` cadence, or
+    /// a behavioural change in `CtrDrbgAes256` would all trip it.
+    #[test]
+    fn ctr_drbg_test_seed_output_is_stable() {
+        let mut r = CryptoCtrDrbg::with_test_seed();
+        let got: Vec<u32> = (0..6).map(|_| r.next_u32()).collect();
+        assert_eq!(
+            got,
+            [
+                0x0615_5023, 0x7bad_a89b, 0xd8ec_6ea3, 0x9ed7_5d53, 0xb370_2781,
+                0xca89_6921,
+            ]
+        );
+    }
+
+    /// The adapter decodes big-endian: the first word's bytes must be the
+    /// first four keystream bytes in big-endian order (documents the deliberate
+    /// deviation from the crate's LE convention).
+    #[test]
+    fn ctr_drbg_decodes_big_endian() {
+        let mut r = CryptoCtrDrbg::with_test_seed();
+        let w = r.next_u32();
+        assert_eq!(w.to_be_bytes()[0], 0x06, "high byte first ⇒ big-endian");
+    }
+}

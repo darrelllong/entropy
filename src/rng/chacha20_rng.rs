@@ -109,6 +109,14 @@ impl Rng for ChaCha20Rng {
     }
 }
 
+impl Drop for ChaCha20Rng {
+    /// Wipe the buffered keystream on drop.  (The ChaCha20 key/nonce live
+    /// inside `cipher`, whose own storage is managed by the cryptography crate.)
+    fn drop(&mut self) {
+        cryptography::zeroize_slice(&mut self.buf);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
