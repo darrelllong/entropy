@@ -223,6 +223,15 @@ fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
 /// produced by encrypting a 128-bit big-endian counter.  Four words are
 /// dispensed per AES block; the counter is incremented after each block.
 ///
+/// # Word endianness
+/// This dedicated `AesCtr` decodes each 32-bit word **big-endian**, so its
+/// words line up with the NIST SP 800-38A test vectors.  Note the generic
+/// [`BlockCtrRng`](crate::rng::BlockCtrRng) — which can also run AES — decodes
+/// its keystream **little-endian** (the crate's byte-backed convention).  The
+/// two therefore expose the *same* keystream bytes as *different* word streams;
+/// statistical results are unaffected, but bit-plane/differential probes are
+/// not directly comparable between them.
+///
 /// AES path is the pure-Rust T-table implementation. The previous
 /// build had an optional AES-NI fast path via the `x86-alt` sub-crate;
 /// it has been removed for the published crate.

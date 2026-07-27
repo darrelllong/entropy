@@ -381,9 +381,9 @@ fn make_runs(args: Args) -> Vec<(&'static str, RunFn)> {
     // WARNING: This generator is known to be backdoored — the NIST Q point
     // embeds a discrete-log trapdoor (Checkoway et al., 2014; Bernstein,
     // Lange, and Niederhagen, 2016).  It must never be used to produce key
-    // material.  Two P-256
+    // material.  Three P-256
     // scalar multiplications per 30-byte block make DIEHARD/DIEHARDER
-    // prohibitively slow (~2 M scalar mults); NIST suite only.
+    // prohibitively slow (~3 M scalar mults); NIST suite only.
     let mut dual_ec_seed = [0u8; 32];
     dual_ec_seed[31] = 1; // seed = 0x00…01 — INSECURE TEST SEED, DO NOT COPY
     run_nist!("Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)", DualEcDrbg::p256(&dual_ec_seed));
@@ -595,6 +595,14 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
         }
     }
 
+    // Make an intrinsic suite restriction explicit rather than silently
+    // omitting the empty blocks (e.g. Dual_EC runs NIST-only for cost).
+    let nist_shown = r.nist.iter().any(|t| args.matches(t.name));
+    let dh_shown = r.diehard.iter().chain(&r.dieharder).any(|t| args.matches(t.name));
+    if nist_shown && !dh_shown && r.diehard.is_empty() && r.dieharder.is_empty() {
+        println!("\n  (DIEHARD/DIEHARDER not run for this generator — NIST suite only.)");
+    }
+
     let pass = matching.iter().filter(|t| t.passed()).count();
     let fail = matching
         .iter()
@@ -604,8 +612,25 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
     println!("\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP");
     let n_run = matching.iter().filter(|t| !t.skipped()).count();
     if n_run > 0 {
+        // Many slots share a name: the 148 non-overlapping templates and the
+        // up-to-510 bit-distribution patterns are correlated sub-tests, not
+        // independent trials, so the naive n·α count would overstate the
+        // expected noise.  Report the family count and frame the estimate as an
+        // upper bound read family-wise.
+        let families: std::collections::HashSet<&str> = matching
+            .iter()
+            .filter(|t| !t.skipped())
+            .map(|t| t.name)
+            .collect();
         println!(
-            "  (At α=0.01, expect ~{:.0} false FAILs by chance for a perfect RNG with {n_run} tests)",
+            "  ({n_run} run slots spanning {} distinct test families; \
+             `non_overlapping_template` and `bit_distribution` each contribute \
+             many correlated slots.)",
+            families.len()
+        );
+        println!(
+            "  (At α=0.01 a perfect RNG fails ~{:.0} isolated slots by chance; a \
+             whole family failing together is the real signal.)",
             n_run as f64 * 0.01
         );
     }
