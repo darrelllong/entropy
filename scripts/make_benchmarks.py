@@ -55,32 +55,31 @@ def parse_bench(path: Path) -> tuple[str, str] | None:
         text = path.read_text()
     except OSError:
         return None
-    # | display | mean | ±ci | runs |
+    # | display | mean | ±ci | runs | — parse from the RIGHT so a pipe in the
+    # display cell (cell 0) cannot shift the mean/ci columns.  mean, ci, runs
+    # are always the last three cells.
     cells = [c.strip() for c in text.strip().strip("|").split("|")]
-    if len(cells) < 3:
+    if len(cells) < 4:
         return None
-    return cells[1], cells[2]
+    return cells[-3], cells[-2]  # (mean, ci) — passed through verbatim
 
 
 def discover_machines(stats_root: Path) -> list[tuple[str, str]]:
-    dirs = {p.name for p in stats_root.iterdir() if p.is_dir()}
+    if not stats_root.is_dir():
+        return []
+    # Only count a subdirectory as a machine if it actually holds bench data;
+    # an empty or stray dir (stats/archive/, stats/.git/) must not become a
+    # column of em-dashes.
+    dirs = {
+        p.name
+        for p in stats_root.iterdir()
+        if p.is_dir() and not p.name.startswith(".") and any(p.glob("*.bench"))
+    }
     ordered = [(name, hdr) for name, hdr in KNOWN_MACHINES if name in dirs]
     listed = {name for name, _ in ordered}
     extra = sorted(dirs - listed)
     ordered.extend((name, f"{name} MW/s") for name in extra)
     return ordered
-
-
-def fmt_ci(ci: str) -> str:
-    """Normalise a ±CI token to 3 significant figures, keeping the ± sign."""
-    m = re.match(r"±\s*([\d.eE+-]+)", ci)
-    if not m:
-        return ci
-    try:
-        val = float(m.group(1))
-    except ValueError:
-        return ci
-    return f"±{float(f'{val:.3g}')}"
 
 
 def gen_table(stats_root: Path, generators: list[tuple[str, str]],
@@ -95,15 +94,23 @@ def gen_table(stats_root: Path, generators: list[tuple[str, str]],
             if data is None:
                 cells.extend(["—", "—"])
             else:
+                # Pass mean and CI through verbatim: the .bench file is the
+                # source of record, so the table must not silently reround it.
                 mean, ci = data
-                cells.extend([mean, fmt_ci(ci)])
+                cells.extend([mean, ci])
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n"
 
 
 def splice(benchmarks_md: str, table: str) -> str:
-    """Replace the table between '## Results' and the next '## ' heading."""
-    m = re.search(r"(^## Results\s*\n)(.*?)(?=^## )", benchmarks_md,
+    """Replace the body between the '## Results' heading and the next section.
+
+    Deterministic and idempotent: the heading capture is exactly the heading
+    line (no trailing blank lines), and the body is always rebuilt as one blank
+    line, the table, one blank line — regardless of the current spacing, so
+    repeated runs are byte-identical.
+    """
+    m = re.search(r"(^## Results[^\n]*\n)(.*?)(?=^## |\Z)", benchmarks_md,
                   re.MULTILINE | re.DOTALL)
     if not m:
         raise SystemExit("error: '## Results' section not found in BENCHMARKS.md")

@@ -192,30 +192,56 @@ def extract_aux_from_log(log_text: str, run_date: str, host: str) -> str:
 
 def detect_cpu() -> str:
     """Best-effort CPU description for the report header."""
+    ncpu = os.cpu_count() or "?"
     try:
         if sys.platform == "darwin":
             brand = subprocess.check_output(
-                ["sysctl", "-n", "machdep.cpu.brand_string"], text=True
+                ["sysctl", "-n", "machdep.cpu.brand_string"],
+                text=True, stderr=subprocess.DEVNULL,
             ).strip()
             try:
                 perf = subprocess.check_output(
-                    ["sysctl", "-n", "hw.perflevel0.physicalcpu"], text=True
+                    ["sysctl", "-n", "hw.perflevel0.physicalcpu"],
+                    text=True, stderr=subprocess.DEVNULL,
                 ).strip()
                 eff = subprocess.check_output(
-                    ["sysctl", "-n", "hw.perflevel1.physicalcpu"], text=True
+                    ["sysctl", "-n", "hw.perflevel1.physicalcpu"],
+                    text=True, stderr=subprocess.DEVNULL,
                 ).strip()
                 cores = f"{perf}P+{eff}E cores"
             except subprocess.CalledProcessError:
-                cores = f"{os.cpu_count()} cores"
+                cores = f"{ncpu} cores"
             return f"{brand}, {cores}"
         if sys.platform.startswith("linux"):
-            with open("/proc/cpuinfo") as f:
-                for line in f:
-                    if line.startswith("model name"):
-                        return f"{line.split(':', 1)[1].strip()}, {os.cpu_count()} cores"
+            # x86 lists "model name"; ARM commonly does not, so fall back to
+            # lscpu's "Model name" and finally to the arch, always with a count.
+            for line in _read_lines("/proc/cpuinfo"):
+                if line.startswith("model name"):
+                    return f"{line.split(':', 1)[1].strip()}, {ncpu} cores"
+            try:
+                out = subprocess.check_output(
+                    ["lscpu"], text=True, stderr=subprocess.DEVNULL
+                )
+                for line in out.splitlines():
+                    if line.startswith("Model name:"):
+                        model = line.split(":", 1)[1].strip()
+                        if model and model != "-":
+                            return f"{model}, {ncpu} cores"
+            except (OSError, subprocess.CalledProcessError):
+                pass
+            return f"{platform.machine()}, {ncpu} cores"
     except (OSError, subprocess.CalledProcessError):
         pass
-    return platform.processor() or platform.machine()
+    base = platform.processor() or platform.machine()
+    return f"{base}, {ncpu} cores"
+
+
+def _read_lines(path: str) -> list[str]:
+    try:
+        with open(path) as f:
+            return f.readlines()
+    except OSError:
+        return []
 
 
 def gen_header(run_date: str, host: str, cpu: str, n_bits: int, n_rngs: int) -> str:
@@ -243,6 +269,13 @@ separately in `## Auxiliary Probes`; use `tests/run_all.sh` for the combined
 audit path or `tests/run_aux.sh` for the auxiliary suite alone.
 
 Notes:
+
+**Reproducibility.**  Generators with a fixed seed (the ciphers, the `BAD…`
+family, `Constant`/`Counter`) reproduce these results exactly on any machine.
+The rows labeled **`(OsRng seed)`** / **`(OsRng key)`** are deliberately seeded
+from operating-system entropy — testing each algorithm as it would be deployed
+— so their specific per-slot PASS/FAIL pattern varies from run to run; read
+those rows as indicative of the algorithm, not as a reproducible fixture.
 
 **Why result counts vary across generators.**
 
@@ -382,11 +415,14 @@ def main() -> None:
         print("error: no generator blocks found in log", file=sys.stderr)
         sys.exit(1)
 
-    # Infer sample size from the first NIST header in the log
+    # Infer sample size from the first NIST header in the log.  The header
+    # prints the count with thousands separators — "NIST SP 800-22 (16,000,000
+    # bits)" — so the digit class must accept commas (the plain \d+ matched
+    # only "16" and silently fell back to the default).
     n_bits = 16_000_000  # default
-    m = re.search(r"NIST SP 800-22 \((\d+) bits\)", log_text)
+    m = re.search(r"NIST SP 800-22 \(([\d,]+) bits\)", log_text)
     if m:
-        n_bits = int(m.group(1))
+        n_bits = int(m.group(1).replace(",", ""))
 
     # Read existing TESTS.md for stable hand-written sections
     tests_path = Path(args.output)
