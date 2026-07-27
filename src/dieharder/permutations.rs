@@ -52,7 +52,16 @@ pub fn permutations(rng: &mut impl Rng, t: usize) -> TestResult {
 /// Lexicographic rank of the ordering permutation of `window`.
 fn perm_rank(window: &[f64], t: usize) -> usize {
     let mut order: Vec<usize> = (0..t).collect();
-    order.sort_unstable_by(|&a, &b| window[a].partial_cmp(&window[b]).unwrap());
+    // The permutation test assumes continuous i.i.d. uniforms with no ties, but
+    // 32-bit words can collide exactly.  Break equal values by index so the
+    // ordering is a stable total order (deterministic rank) rather than
+    // depending on sort implementation details.
+    order.sort_unstable_by(|&a, &b| {
+        window[a]
+            .partial_cmp(&window[b])
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.cmp(&b))
+    });
 
     // Lehmer code → factorial number system rank.
     let mut rank = 0usize;
