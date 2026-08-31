@@ -41,5 +41,9 @@ name = "entropy"
 path = "src/lib.rs"
 
 [dependencies]
-cryptography-rs = "0.5"
+# Side-by-side sibling checkout, matching how cryptography-rs itself takes
+# rust-mp: the path serves local development, the version takes over when
+# published. 0.7 pulls rump's `wipe` feature transitively, so `BigUint`
+# scrubs its limbs on drop.
+cryptography-rs = { version = "0.7", path = "../cryptography" }
 rustfft         = "6.2"

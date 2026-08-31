@@ -33,7 +33,7 @@ fn main() {
 
 ## Dependency Note
 
-This crate depends on Darrell Long's [`cryptography-rs`](https://crates.io/crates/cryptography-rs) crate from crates.io (`cryptography-rs = "0.5"`; library name `cryptography`, source at [darrelllong/cryptography](https://github.com/darrelllong/cryptography)). It supplies:
+This crate depends on Darrell Long's [`cryptography-rs`](https://crates.io/crates/cryptography-rs) crate (`cryptography-rs = { version = "0.7", path = "../cryptography" }`; library name `cryptography`, source at [darrelllong/cryptography](https://github.com/darrelllong/cryptography) — the sibling checkout serves local development, the published version takes over otherwise). It supplies:
 
 - **Block ciphers** used by the CTR-mode RNGs: Camellia-128, Twofish-128, Serpent-128, SM4, Grasshopper (256-bit key), CAST-128, SEED.
 - **Stream ciphers**: Rabbit, Salsa20, Snow3G, ZUC-128.
