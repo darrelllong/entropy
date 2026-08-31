@@ -70,12 +70,12 @@ impl<C: BlockCipher> BlockCtrRng<C> {
     fn refill(&mut self) {
         let block_len = C::BLOCK_LEN;
         let ctr_bytes = self.counter.to_be_bytes(); // always 16 bytes
-        // Right-justify the counter into the block: copy the least-significant
-        // `copy_len` bytes of ctr_bytes into the tail of the block.
-        // For BLOCK_LEN == 16, copy_len == 16 and the full counter is used.
-        // For BLOCK_LEN < 16, only the low BLOCK_LEN bytes are used and the
-        // high counter bits are truncated — the effective counter wraps at
-        // 2^(8 * BLOCK_LEN) blocks.
+                                                    // Right-justify the counter into the block: copy the least-significant
+                                                    // `copy_len` bytes of ctr_bytes into the tail of the block.
+                                                    // For BLOCK_LEN == 16, copy_len == 16 and the full counter is used.
+                                                    // For BLOCK_LEN < 16, only the low BLOCK_LEN bytes are used and the
+                                                    // high counter bits are truncated — the effective counter wraps at
+                                                    // 2^(8 * BLOCK_LEN) blocks.
         let copy_len = block_len.min(16);
         for b in &mut self.buf {
             *b = 0;
@@ -148,10 +148,7 @@ mod tests {
         // Read block 1.
         let block1: Vec<u32> = (0..4).map(|_| rng.next_u32()).collect();
         // AES(key=0, ctr=0) ≠ AES(key=0, ctr=1): these are deterministic and unequal.
-        assert_ne!(
-            block0, block1,
-            "consecutive CTR blocks must differ"
-        );
+        assert_ne!(block0, block1, "consecutive CTR blocks must differ");
         // First word of block 0 is the zero-key/zero-block KAT value (verified above).
         assert_eq!(block0[0], 0xd44b_e966);
     }

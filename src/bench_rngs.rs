@@ -16,9 +16,9 @@
 //!   cargo run --release --bin bench_rngs
 
 use entropy::rng::{
-    AesCtr, BsdRandCompat, BsdRandom, ConstantRng, CounterRng, Lcg32,
-    LinuxLibcRandom, Mt19937, OsRng, Rand48, Rng, SpongeBob, SystemVRand, WindowsDotNetRandom,
-    WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
+    AesCtr, BsdRandCompat, BsdRandom, ConstantRng, CounterRng, Lcg32, LinuxLibcRandom, Mt19937,
+    OsRng, Rand48, Rng, SpongeBob, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    WindowsVb6Rnd, Xorshift32, Xorshift64,
 };
 use std::time::Instant;
 

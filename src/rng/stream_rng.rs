@@ -135,16 +135,20 @@ mod tests {
         }
         // pos is now 64 == CHUNK; the next call triggers a refill.
         let v = rng.next_u32(); // triggers refill here
-        // Verify the post-refill value matches the known keystream continuation.
-        // RFC 4503 §A.2: Stream[8..15] = 06 F4 ED 36 0F 52 A6 11
-        // bytes [16..19] = 1C 78 E5 1B  (not in RFC but deterministic)
-        // We assert the value is deterministic across calls to detect regressions.
+                                // Verify the post-refill value matches the known keystream continuation.
+                                // RFC 4503 §A.2: Stream[8..15] = 06 F4 ED 36 0F 52 A6 11
+                                // bytes [16..19] = 1C 78 E5 1B  (not in RFC but deterministic)
+                                // We assert the value is deterministic across calls to detect regressions.
         let key2 = [0u8; 16];
         let iv2 = [0u8; 8];
         let mut rng2 = StreamRng::new(Rabbit::new(&key2, &iv2));
         for _ in 0..16 {
             let _ = rng2.next_u32();
         }
-        assert_eq!(v, rng2.next_u32(), "post-boundary value must be deterministic");
+        assert_eq!(
+            v,
+            rng2.next_u32(),
+            "post-boundary value must be deterministic"
+        );
     }
 }

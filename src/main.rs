@@ -42,12 +42,11 @@ use cryptography::{
     Snow3g, Twofish128, Zuc128,
 };
 use entropy::rng::{
-    AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng,
-    ConstantRng, CounterRng, CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32,
-    LcgVariant,
-    LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward,
-    StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand,
-    Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
+    AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
+    CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom,
+    Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
+    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32,
+    Xorshift64, Xoshiro256,
 };
 use entropy::seed::{IV16, IV8, K16, K32};
 use entropy::{diehard, dieharder, nist, result::TestResult};
@@ -249,10 +248,7 @@ fn make_runs(args: Args) -> Vec<(&'static str, RunFn)> {
         ($label:expr, $rng:expr) => {{
             if args.matches_rng($label) {
                 let a = args.clone();
-                runs.push((
-                    $label,
-                    Box::new(move || run_one($label, $rng, &a)) as RunFn,
-                ));
+                runs.push(($label, Box::new(move || run_one($label, $rng, &a)) as RunFn));
             }
         }};
     }
@@ -390,7 +386,10 @@ fn make_runs(args: Args) -> Vec<(&'static str, RunFn)> {
     // prohibitively slow (~3 M scalar mults); NIST suite only.
     let mut dual_ec_seed = [0u8; 32];
     dual_ec_seed[31] = 1; // seed = 0x00…01 — INSECURE TEST SEED, DO NOT COPY
-    run_nist!("Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)", DualEcDrbg::p256(&dual_ec_seed));
+    run_nist!(
+        "Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)",
+        DualEcDrbg::p256(&dual_ec_seed)
+    );
 
     if runs.is_empty() {
         die("no RNG labels matched --rng filter");
@@ -566,7 +565,10 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
     if !r.nist.is_empty() {
         let shown: Vec<&TestResult> = r.nist.iter().filter(|t| args.matches(t.name)).collect();
         if !shown.is_empty() {
-            println!("\n  ── NIST SP 800-22 ({} bits) ──", group_thousands(r.nist_n));
+            println!(
+                "\n  ── NIST SP 800-22 ({} bits) ──",
+                group_thousands(r.nist_n)
+            );
             for t in shown {
                 println!("  {t}");
             }

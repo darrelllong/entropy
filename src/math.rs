@@ -2,8 +2,8 @@
 //!
 //! All functions are pure Rust, no external crates.  Algorithms are cited inline.
 
-use std::f64::consts::{PI, SQRT_2};
 use rustfft::{num_complex::Complex, FftPlanner};
+use std::f64::consts::{PI, SQRT_2};
 
 // ── erfc ──────────────────────────────────────────────────────────────────────
 
@@ -415,7 +415,10 @@ pub fn dft_magnitudes(x: &[f64]) -> Vec<f64> {
 /// Time: O(rows × cols × min(rows,cols)).
 #[must_use]
 pub fn gf2_rank(matrix: &[u32], rows: usize, cols: usize) -> usize {
-    debug_assert!(cols <= 32, "gf2_rank rows are packed u32: cols must be <= 32");
+    debug_assert!(
+        cols <= 32,
+        "gf2_rank rows are packed u32: cols must be <= 32"
+    );
     let mut m = matrix.to_vec();
     let mut rank = 0usize;
     let mut pivot_row = 0usize;

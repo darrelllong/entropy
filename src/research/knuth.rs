@@ -186,9 +186,7 @@ pub fn gap_stats(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> Opti
     }
 
     // Cell probabilities: P(gap = r) = p(1−p)^r for r < max_gap; tail pooled.
-    let mut probs: Vec<f64> = (0..max_gap)
-        .map(|r| p * (1.0 - p).powi(r as i32))
-        .collect();
+    let mut probs: Vec<f64> = (0..max_gap).map(|r| p * (1.0 - p).powi(r as i32)).collect();
     probs.push((1.0 - p).powi(max_gap as i32));
 
     // Cochran's rule: every cell needs expected count ≥ 5.  The interior

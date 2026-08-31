@@ -26,7 +26,11 @@ pub fn serial(bits: &[u8], m: usize) -> TestResult {
     // smaller p-value (most conservative) as the single reported verdict.
     let r1 = results[0].clone();
     let r2 = results[1].clone();
-    if r1.p_value <= r2.p_value { r1 } else { r2 }
+    if r1.p_value <= r2.p_value {
+        r1
+    } else {
+        r2
+    }
 }
 
 /// Run the serial test; returns the two p-values as separate `TestResult`s.

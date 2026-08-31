@@ -240,10 +240,10 @@ fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
 /// `2b7e1516 28aed2a6 abf71588 09cf4f3c`.
 /// Default counter: all zeros.
 pub struct AesCtr {
-    rk: [u32; 44],     // T-table round keys
-    counter: u128,     // 128-bit counter, incremented after each block
-    buf: [u32; 4],     // current keystream block, as four big-endian u32s
-    pos: usize,        // index of next word to return (0..4); 4 = exhausted
+    rk: [u32; 44], // T-table round keys
+    counter: u128, // 128-bit counter, incremented after each block
+    buf: [u32; 4], // current keystream block, as four big-endian u32s
+    pos: usize,    // index of next word to return (0..4); 4 = exhausted
 }
 
 impl AesCtr {

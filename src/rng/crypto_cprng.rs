@@ -81,7 +81,11 @@ mod tests {
         assert_eq!(
             got,
             [
-                0x0615_5023, 0x7bad_a89b, 0xd8ec_6ea3, 0x9ed7_5d53, 0xb370_2781,
+                0x0615_5023,
+                0x7bad_a89b,
+                0xd8ec_6ea3,
+                0x9ed7_5d53,
+                0xb370_2781,
                 0xca89_6921,
             ]
         );

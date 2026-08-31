@@ -50,9 +50,9 @@ use super::{OsRng, Rng};
 
 const SEEDLEN: usize = 55; // 440 bits — Table 2, SHA-256 row
 const OUTLEN: usize = 32; // SHA-256 output = 256 bits = 32 bytes
-// Number of Hashgen blocks per generate call.  SP 800-90A §10.1.1.4 says
-// all blocks are produced from a local data variable before the §10.1.1.5
-// update is applied; GENERATE_BLOCKS controls the batch size.
+                          // Number of Hashgen blocks per generate call.  SP 800-90A §10.1.1.4 says
+                          // all blocks are produced from a local data variable before the §10.1.1.5
+                          // update is applied; GENERATE_BLOCKS controls the batch size.
 const GENERATE_BLOCKS: usize = 8;
 const GENERATE_SIZE: usize = OUTLEN * GENERATE_BLOCKS; // 256 bytes
 

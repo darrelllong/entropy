@@ -55,7 +55,13 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
         for _ in 0..SAMPLES {
             // Precondition (line 36) guarantees the iterator has enough words.
             let mut birthdays: Vec<u32> = (0..M)
-                .map(|_| (word_iter.next().expect("birthday_spacings: word iterator exhausted (precondition failed)") >> offset) & (YEAR - 1))
+                .map(|_| {
+                    (word_iter
+                        .next()
+                        .expect("birthday_spacings: word iterator exhausted (precondition failed)")
+                        >> offset)
+                        & (YEAR - 1)
+                })
                 .collect();
             birthdays.sort_unstable();
 
