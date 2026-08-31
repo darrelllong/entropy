@@ -261,9 +261,12 @@ fn decode_hex(s: &str) -> Vec<u8> {
 impl Drop for DualEcDrbg {
     /// Wipe the buffered output and overwrite the state scalar on drop.
     ///
-    /// The `BigUint` heap storage is owned by the bignum type and not scrubbed
-    /// in place here; Dual_EC_DRBG is a research negative control demonstrating
-    /// a backdoor, not a construction that protects live key material.
+    /// The `BigUint` heap storage is scrubbed by the bignum type itself: the
+    /// cryptography crate enables rump's `wipe` feature, so the replaced
+    /// state scalar volatile-wipes its limbs when it drops. The explicit
+    /// overwrite here is belt-and-suspenders; Dual_EC_DRBG is a research
+    /// negative control demonstrating a backdoor, not a construction that
+    /// protects live key material.
     fn drop(&mut self) {
         cryptography::zeroize_slice(&mut self.buf);
         self.s = BigUint::from_be_bytes(&[0u8]);
