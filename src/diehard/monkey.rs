@@ -63,7 +63,12 @@ pub fn opso(words: &[u32]) -> TestResult {
         pair += 1;
     }
 
-    monkey_result("diehard::opso", missing_count(&seen), MONKEY_MEAN, MONKEY_SIGMA)
+    monkey_result(
+        "diehard::opso",
+        missing_count(&seen),
+        MONKEY_MEAN,
+        MONKEY_SIGMA,
+    )
 }
 
 /// Overlapping Quadruples Sparse Occupancy (OQSO).
@@ -102,7 +107,12 @@ pub fn oqso(words: &[u32]) -> TestResult {
         boffset += 5;
     }
 
-    monkey_result("diehard::oqso", missing_count(&seen), MONKEY_MEAN, MONKEY_SIGMA)
+    monkey_result(
+        "diehard::oqso",
+        missing_count(&seen),
+        MONKEY_MEAN,
+        MONKEY_SIGMA,
+    )
 }
 
 /// DNA test.
@@ -140,7 +150,12 @@ pub fn dna(words: &[u32]) -> TestResult {
         boffset += 2;
     }
 
-    monkey_result("diehard::dna", missing_count(&seen), MONKEY_MEAN, MONKEY_SIGMA)
+    monkey_result(
+        "diehard::dna",
+        missing_count(&seen),
+        MONKEY_MEAN,
+        MONKEY_SIGMA,
+    )
 }
 
 #[cfg(test)]

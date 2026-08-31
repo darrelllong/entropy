@@ -25,8 +25,11 @@ fn list_returns_one_name_per_line_and_no_blanks() {
         .arg("--list")
         .output()
         .expect("spawn dump_rng --list");
-    assert!(out.status.success(), "--list failed: {}",
-            String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "--list failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let names: Vec<&str> = std::str::from_utf8(&out.stdout)
         .expect("UTF-8 stdout")
         .lines()
@@ -34,8 +37,11 @@ fn list_returns_one_name_per_line_and_no_blanks() {
     assert!(!names.is_empty(), "--list returned no names");
     for n in &names {
         assert!(!n.is_empty(), "blank name in --list output");
-        assert!(n.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
-                "non-canonical name {n:?}");
+        assert!(
+            n.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
+            "non-canonical name {n:?}"
+        );
     }
 }
 
@@ -48,11 +54,17 @@ fn every_listed_name_dumps_4_words() {
             .args([name, "4"])
             .output()
             .unwrap_or_else(|e| panic!("spawn {name}: {e}"));
-        assert!(r.status.success(),
-                "{name} exited nonzero: stderr={}",
-                String::from_utf8_lossy(&r.stderr));
-        assert_eq!(r.stdout.len(), 16, "{name} produced {} bytes (expected 16)",
-                   r.stdout.len());
+        assert!(
+            r.status.success(),
+            "{name} exited nonzero: stderr={}",
+            String::from_utf8_lossy(&r.stderr)
+        );
+        assert_eq!(
+            r.stdout.len(),
+            16,
+            "{name} produced {} bytes (expected 16)",
+            r.stdout.len()
+        );
     }
 }
 
@@ -101,27 +113,32 @@ fn fixed_seed_first_words_are_stable() {
             .args([name, &count.to_string()])
             .output()
             .unwrap_or_else(|e| panic!("spawn {name}: {e}"));
-        assert!(r.status.success(),
-                "{name} exited nonzero: stderr={}",
-                String::from_utf8_lossy(&r.stderr));
-        let got = r.stdout.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        assert!(
+            r.status.success(),
+            "{name} exited nonzero: stderr={}",
+            String::from_utf8_lossy(&r.stderr)
+        );
+        let got = r
+            .stdout
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
         assert_eq!(got, expected_hex, "{name} first-words drift");
     }
     // Counter (seed=0): little-endian u32 = 0, 1, 2, 3.
-    check("counter", 4,
-          "00000000010000000200000003000000");
+    check("counter", 4, "00000000010000000200000003000000");
     // Constant (value=0xDEAD_DEAD): four LE copies.
-    check("constant", 4,
-          "addeaddeaddeaddeaddeaddeaddeadde");
+    check("constant", 4, "addeaddeaddeaddeaddeaddeaddeadde");
     // PCG64 with (state=1, seq=1): 8 LE u32s.
-    check("pcg64", 8,
-          "f05505c0842f69d4b0090fbb04c96ae212028683ed01361c27a04f5e8de230b9");
+    check(
+        "pcg64",
+        8,
+        "f05505c0842f69d4b0090fbb04c96ae212028683ed01361c27a04f5e8de230b9",
+    );
     // MT19937 seed=19650218.
-    check("mt19937", 4,
-          "5eb99d8ad605bd1c932ffbf86ff1cfe6");
+    check("mt19937", 4, "5eb99d8ad605bd1c932ffbf86ff1cfe6");
     // Xorshift32 seed=1.
-    check("xorshift32", 4,
-          "2120040001060804c5a8cc9d4f995512");
+    check("xorshift32", 4, "2120040001060804c5a8cc9d4f995512");
 }
 
 #[test]

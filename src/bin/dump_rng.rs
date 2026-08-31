@@ -20,9 +20,9 @@ use cryptography::{
 use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
     CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom,
-    Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng,
-    SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128,
-    Xorshift32, Xorshift64, Xoshiro256,
+    Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
+    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32,
+    Xorshift64, Xoshiro256,
 };
 use entropy::seed::{IV16, IV8, K16, K32};
 
@@ -170,7 +170,10 @@ fn main() {
     let count: u64 = match argv[1].parse() {
         Ok(c) => c,
         Err(_) => {
-            eprintln!("dump_rng: count must be a non-negative integer, got {:?}", argv[1]);
+            eprintln!(
+                "dump_rng: count must be a non-negative integer, got {:?}",
+                argv[1]
+            );
             std::process::exit(2);
         }
     };

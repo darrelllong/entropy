@@ -30,7 +30,11 @@ pub fn random_excursions_variant(bits: &[u8]) -> TestResult {
     let m = results.len() as f64;
     results
         .into_iter()
-        .min_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap_or(std::cmp::Ordering::Equal))
+        .min_by(|a, b| {
+            a.p_value
+                .partial_cmp(&b.p_value)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
         .map(|worst| {
             if worst.skipped() {
                 worst

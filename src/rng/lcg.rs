@@ -13,8 +13,8 @@
 //!   DOI: 10.1145/63039.63042.
 //!   [MINSTD: a=16807, c=0, m=2³¹−1]
 
-use super::Rng;
 use super::c_stdlib::PackedBits;
+use super::Rng;
 
 /// Which parameter set to use.
 #[derive(Debug, Clone, Copy)]
@@ -68,7 +68,14 @@ impl Lcg32 {
     /// reduced to the variant's state range (masked or taken mod m).
     pub fn new(variant: LcgVariant, seed: u64) -> Self {
         let (state, a, c, m, shift, output_mask) = match variant {
-            LcgVariant::AnsiC => (seed & 0x7FFF_FFFF, 1_103_515_245, 12_345, 1 << 31, 0, u32::MAX),
+            LcgVariant::AnsiC => (
+                seed & 0x7FFF_FFFF,
+                1_103_515_245,
+                12_345,
+                1 << 31,
+                0,
+                u32::MAX,
+            ),
             LcgVariant::Minstd => (
                 // Reduce BEFORE the zero guard: MINSTD has c = 0, so a state
                 // of 0 (any seed ≡ 0 mod 2³¹−1, not just seed == 0) would be
@@ -85,7 +92,14 @@ impl Lcg32 {
             ),
             // Borland and MSVC return 15-bit values: `(state >> 16) & 0x7FFF`.
             LcgVariant::Borland => (seed & 0xFFFF_FFFF, 22_695_477, 1, 1u64 << 32, 16, 0x7FFF),
-            LcgVariant::Msvc => (seed & 0xFFFF_FFFF, 214_013, 2_531_011, 1u64 << 32, 16, 0x7FFF),
+            LcgVariant::Msvc => (
+                seed & 0xFFFF_FFFF,
+                214_013,
+                2_531_011,
+                1u64 << 32,
+                16,
+                0x7FFF,
+            ),
         };
         let raw_bits = output_mask.count_ones();
         Self {
