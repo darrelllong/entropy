@@ -23,11 +23,31 @@ jobs:
           # MSRV — keep in sync with rust-version in Cargo.toml.
           - os: ubuntu-latest
             rust: "1.87"
+    defaults:
+      run:
+        working-directory: entropy
     steps:
+      # The trio builds side-by-side: this crate's Cargo.toml takes
+      # cryptography-rs from ../cryptography, which in turn takes rust-mp
+      # from ../rump. Neither is on crates.io at the required version, so
+      # the siblings are checked out next to this repository exactly as
+      # they live on a development machine.
       - uses: actions/checkout@v4
+        with:
+          path: entropy
+      - uses: actions/checkout@v4
+        with:
+          repository: darrelllong/cryptography
+          path: cryptography
+      - uses: actions/checkout@v4
+        with:
+          repository: darrelllong/rump
+          path: rump
       - name: Install Rust ${{ matrix.rust }}
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy && rustup default ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: entropy
       - name: Build (all targets)
         run: cargo build --all-targets
       - name: Clippy (deny warnings)
@@ -36,7 +56,6 @@ jobs:
         run: cargo test
       - name: Doc build (deny missing docs)
         run: RUSTDOCFLAGS="-D missing_docs" cargo doc --no-deps
-
   scripts:
     name: scripts (python + shell)
     runs-on: ubuntu-latest
