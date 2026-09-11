@@ -100,10 +100,14 @@ mod tests {
 
     #[test]
     fn msb_first_ordering() {
-        // Word 0x8000_0001: bits MSB-first are 1,0,0,...,0,1.
-        // After 20 bits the pattern includes the leading 1 in the high position.
-        // Just verify the function runs without panic on a small word slice.
-        let words = [0x8000_0001u32, 0u32];
-        let _ = count_missing_20bit_words_streaming(&words, 33);
+        // Bits read MSB-first from [0xF000_0000, 0] start 1111 then zeros, so
+        // the five 20-bit windows ending at bits 20..=24 are 0xF0000, 0xE0000,
+        // 0xC0000, 0x80000 and 0: five words seen.  An LSB-first reader would
+        // see 24 zero bits and one word.  (Counts replicated in Python.)
+        let words = [0xF000_0000u32, 0u32];
+        assert_eq!(
+            TOTAL_WORDS - 5,
+            count_missing_20bit_words_streaming(&words, WINDOW + 4)
+        );
     }
 }
