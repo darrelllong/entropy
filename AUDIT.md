@@ -1115,7 +1115,6 @@ Recipes.
   input reported as SKIP with exit code 2 rather than cycled or padded, and
   the corpus sha256 and per-step consumption in the output, about 172 MB at
   the default sizes.  It is being built.
-  <!-- PENDING corpus adapter -->
 - `wipe-opt-in` (41f93ca) turns on cryptography-rs's opt-in `wipe` feature,
   which that crate is introducing for rump's limb scrubbing (item B).  It
   passes fmt, clippy, tests, docs and 1.87 against a copy of cryptography's
@@ -1209,7 +1208,6 @@ of items 7–41; each carries a note above.
   and Failure Highlights stay one line per generator.
 - **Open:**
   - The finite byte-corpus input (Follow-up), which is being built.
-    <!-- PENDING corpus adapter -->
   - The `wipe` feature waits on cryptography, whose main is still 342989a
     (Follow-up).
   - Coverage: SFC64 and PractRand's FPF truncation rule are unverified, and
