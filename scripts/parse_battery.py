@@ -47,14 +47,11 @@ DIEHARD_SLOTS   = 17    # see src/diehard/mod.rs
 DIEHARDER_SLOTS = 522   # see src/dieharder/mod.rs
 FULL_SLOTS      = NIST_SLOTS + DIEHARD_SLOTS + DIEHARDER_SLOTS   # 739
 
-# Random excursions emit 8 per-state results; variant emits 18.
+# Random excursions emit 8 per-state results; variant emits 18.  When the
+# walk is too short they still emit all 26, as SKIP.
 RE_STATES       = 8
 REV_STATES      = 18
-EXCURSION_TOTAL = RE_STATES + REV_STATES   # 26 individual results when active
-
-# When excursions skip, both families collapse to 1 SKIP each → 26 − 2 = 24 fewer slots.
-EXCURSION_SKIP_SAVINGS = EXCURSION_TOTAL - 2   # 24
-SKIPPED_SLOTS   = FULL_SLOTS - EXCURSION_SKIP_SAVINGS   # 715
+EXCURSION_TOTAL = RE_STATES + REV_STATES   # 26
 
 # Minimum zero-crossing cycles for the excursion families to run.
 EXCURSION_J_MIN = 500
@@ -284,26 +281,24 @@ conditionally skipped based on properties of the sample, not the generator.
 
 The battery has **{FULL_SLOTS} test slots** at this sample size:
 
-- **{FULL_SLOTS} results** — the "full active battery" outcome: the signed-random-walk
-  tests (`random_excursions` and `random_excursions_variant`) completed
-  successfully (J ≥ {EXCURSION_J_MIN} zero-crossing cycles).  At {mbits} Mbit the expected
-  cycle count is J ≈ {int(math.sqrt(2 * n_bits / math.pi))} (= √(2n/π)),
-  which is comfortably above the threshold for well-behaved generators.
-
-- **{SKIPPED_SLOTS} results** — {EXCURSION_SKIP_SAVINGS} fewer slots than the full battery.  The excursion
-  families normally emit {RE_STATES} + {REV_STATES} = {EXCURSION_TOTAL} individual per-state results; when the
-  signed random walk produces fewer than J = {EXCURSION_J_MIN} complete zero-crossing cycles
-  both families are each collapsed to a single family-level SKIP entry,
-  yielding {EXCURSION_TOTAL} − 2 = {EXCURSION_SKIP_SAVINGS} fewer slots.  Degenerate generators (Constant,
-  Counter, ANSI C LCG, MINSTD) always land here; a handful of non-degenerate
-  generators can too, depending on their random seed.
+- **{FULL_SLOTS} results** — every generator except `Dual_EC_DRBG`.  Some slots report
+  SKIP rather than PASS or FAIL, depending on the sample:
+  - the {RE_STATES} + {REV_STATES} = {EXCURSION_TOTAL} per-state `random_excursions` and
+    `random_excursions_variant` slots skip when the signed random walk completes
+    fewer than J = {EXCURSION_J_MIN} zero-crossing cycles.  At {mbits} Mbit the expected
+    cycle count is J ≈ {int(math.sqrt(2 * n_bits / math.pi))} (= √(2n/π)), comfortably above
+    the threshold for well-behaved generators.  Degenerate generators (Constant,
+    Counter, ANSI C LCG, MINSTD) always skip them; a handful of others can,
+    depending on their random seed.
+  - the parametric Maurer slots skip for any `L` whose sample holds fewer than
+    K = 1000·2^L test blocks (at 16 Mbit, L = 11..16).
 
 - **{NIST_SLOTS} results** — `Dual_EC_DRBG` only: three P-256 scalar multiplications per
   30-byte output block make DIEHARD and DIEHARDER prohibitively slow, so only
   the NIST SP 800-22 suite is run.
 
 **Expected false positives.**  At α = 0.01, a perfect generator should fail
-roughly 1% of tests by chance.  With {SKIPPED_SLOTS}–{FULL_SLOTS} active tests, the expected
+roughly 1% of tests by chance.  With up to {FULL_SLOTS} active tests, the expected
 false-fail count is approximately 7.  Isolated failures below that threshold
 are noise, not structure.
 """
