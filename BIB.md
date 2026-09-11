@@ -60,6 +60,26 @@ The point of keeping these files in-tree is auditability: readers should be able
   note        = {[pubs/NIST-SP-800-90Ar1.pdf]}
 }
 
+@techreport{nist800-90-2006,
+  author      = {{National Institute of Standards and Technology}},
+  title       = {Recommendation for Random Number Generation Using Deterministic Random Bit Generators},
+  institution = {NIST},
+  number      = {SP 800-90},
+  year        = {2006},
+  month       = jun,
+  note        = {Original edition, withdrawn March 2007 by SP 800-90 Revised. Specifies Dual\_EC\_DRBG. [pubs/NIST-SP-800-90-2006.pdf]}
+}
+
+@techreport{nist800-90-2007,
+  author      = {{National Institute of Standards and Technology}},
+  title       = {Recommendation for Random Number Generation Using Deterministic Random Bit Generators (Revised)},
+  institution = {NIST},
+  number      = {SP 800-90 Revised},
+  year        = {2007},
+  month       = mar,
+  note        = {Specifies Dual\_EC\_DRBG (section 10.3, Appendix A.1). Superseded by SP 800-90A (January 2012). [pubs/NIST-SP-800-90-2007.pdf]}
+}
+
 @techreport{nist800-90b,
   author      = {{National Institute of Standards and Technology}},
   title       = {Recommendation for the Entropy Sources Used for Random Bit Generation},
