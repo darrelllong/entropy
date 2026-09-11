@@ -188,7 +188,7 @@ fn roll_dice(rng: &mut impl Rng) -> u32 {
 fn uniform_bounded(rng: &mut impl Rng, bound: u32) -> u32 {
     let scale = u32::MAX / bound;
     // Bounded redraws.  An honest generator exhausts 16 retries with
-    // probability (4/2³²)¹⁶ ≈ 10⁻¹⁴⁷; but a degenerate generator stuck in the
+    // probability (4/2³²)¹⁶ ≈ 3 × 10⁻¹⁴⁵; but a degenerate generator stuck in the
     // redraw zone (e.g. `ConstantRng::new(u32::MAX)`) must not hang the
     // battery — fall through to the clamped quotient and let the statistics
     // fail it.

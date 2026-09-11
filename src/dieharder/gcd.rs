@@ -226,12 +226,12 @@ mod tests {
         }
     }
 
-    /// KPROB entries carry at most ten decimals, so the 41 of them sum to 1
-    /// only within 41 × 5 × 10⁻¹¹; k = 0 steps is impossible.
+    /// KPROB entries carry at most eleven decimal places, so the 41 of them
+    /// sum to 1 only within 41 × 5 × 10⁻¹²; k = 0 steps is impossible.
     #[test]
     fn kprob_sums_to_one() {
         let sum: f64 = KPROB.iter().sum();
-        assert!((sum - 1.0).abs() <= 41.0 * 5e-11, "sum = {sum}");
+        assert!((sum - 1.0).abs() <= 41.0 * 5e-12, "sum = {sum}");
         assert_eq!(KPROB[0], 0.0);
     }
 

@@ -381,8 +381,9 @@ pub fn chi2_pvalue(chi_sq: f64, df: usize) -> f64 {
 /// - df = (number of scored cells) − 1.
 ///
 /// Returns `Some((p_value, df, chi_sq))`, or `None` if the slices differ in
-/// length, are empty, or fewer than two cells are scored (the C would then
-/// evaluate Q(0, χ²/2), which tests nothing).
+/// length, are empty, or fewer than two cells are scored.  `Vtest.c` has no
+/// such guard: with one scored cell it evaluates Q(0, χ²/2), and with none its
+/// unsigned `ndof − 1` wraps around; neither is a test.
 #[must_use]
 pub fn vtest_pvalue(observed: &[u32], expected: &[f64], cutoff: f64) -> Option<(f64, usize, f64)> {
     if observed.len() != expected.len() || observed.is_empty() {
