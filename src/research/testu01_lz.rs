@@ -28,6 +28,26 @@ const LZ_SIGMA: [f64; 29] = [
     3.36, 4.2, 5.4, 6.8, 9.1, 10.9, 14.7, 19.1, 25.2, 33.5, 44.546, 58.194, 75.513,
 ];
 
+/// Reservation factor applied to `LZ_MU[k]` by [`trie_reservation`].
+const TRIE_RESERVE_FACTOR: f64 = 9.0 / 8.0;
+
+/// Trie nodes reserved for an `n_bits`-bit stream: `LZ_MU[k] · 9/8 + 2` for
+/// `n_bits = 2^k`, a multiple of the expected phrase count.
+///
+/// The trie holds the root plus one node per inserted phrase, and inserted
+/// phrases are distinct non-empty strings whose lengths sum to at most
+/// `n_bits`.  No stream can therefore need more nodes than one plus the
+/// number of shortest distinct strings that fit in `n_bits` bits.  That worst
+/// case is at most 1.13 · `LZ_MU[k]` phrases (at k = 3) and under
+/// 1.05 · `LZ_MU[k]` for k ≥ 4, so for every `k` in the table the
+/// reservation is never outgrown.  Lengths that are not a power of two
+/// (tests only) use the entry for ⌊log2 n_bits⌋ and let the vector grow.
+fn trie_reservation(n_bits: usize) -> usize {
+    let k = n_bits.checked_ilog2().map_or(0, |k| k as usize);
+    let mu = LZ_MU.get(k).copied().unwrap_or(0.0);
+    (mu * TRIE_RESERVE_FACTOR) as usize + 2
+}
+
 #[derive(Debug, Clone)]
 struct TrieNode {
     left: Option<usize>,
@@ -74,7 +94,7 @@ pub struct LempelZivSummary {
 
 fn lz78_count_blocks(blocks: &[u32], n_bits: usize, s: usize) -> usize {
     let k_max = 1u32 << (s - 1);
-    let mut nodes = Vec::with_capacity(n_bits / 4 + 1);
+    let mut nodes = Vec::with_capacity(trie_reservation(n_bits));
     nodes.push(TrieNode {
         left: None,
         right: None,
@@ -248,7 +268,84 @@ pub fn lempel_ziv_ks_result(summary: &LempelZivSummary) -> TestResult {
 
 #[cfg(test)]
 mod tests {
-    use super::lz78_count_blocks;
+    use super::{lempel_ziv_replication, lz78_count_blocks, trie_reservation, LZ_MU};
+    use crate::rng::Xorshift32;
+
+    /// Marsaglia's example xorshift32 seed; any non-zero seed would do.
+    const XORSHIFT_SEED: u32 = 2_463_534_242;
+
+    /// Worst-case LZ78 phrase count for an `n`-bit string: take every
+    /// distinct string of length 1, then of length 2, and so on, while they
+    /// fit in `n` bits.
+    fn max_lz78_phrases(n: usize) -> usize {
+        let (mut count, mut len, mut rem) = (0usize, 1usize, n);
+        loop {
+            let avail = 1usize << len;
+            let fit = rem / len;
+            if fit <= avail {
+                return count + fit;
+            }
+            count += avail;
+            rem -= avail * len;
+            len += 1;
+        }
+    }
+
+    /// Regression: the trie reserved `n_bits/4 + 1` nodes (256 MiB at
+    /// k = 25, 2 GiB at k = 28).  The reservation now tracks `LZ_MU` and must
+    /// still hold the root plus the worst-case phrase count.
+    #[test]
+    fn trie_reservation_tracks_lz_mu_and_covers_worst_case() {
+        for (k, &mu) in LZ_MU.iter().enumerate().skip(3) {
+            let n = 1usize << k;
+            let reserve = trie_reservation(n);
+            assert!(
+                reserve > max_lz78_phrases(n),
+                "k = {k}: {reserve} nodes cannot hold the worst case"
+            );
+            assert!(
+                (reserve as f64) < 1.2 * mu + 2.0,
+                "k = {k}: {reserve} nodes over-reserve"
+            );
+        }
+    }
+
+    /// LZ78 parses derived by hand (MSB first), pinning the end-of-stream
+    /// rule: a trailing partial phrase counts only if its trie node has a
+    /// child.
+    /// - `0100110`: 0 | 1 | 00 | 11 | 0…, and "0" has the child "00": 5.
+    /// - `01001111`: 0 | 1 | 00 | 11 | 11…, and "11" is a leaf: 4.
+    /// - `01001101`: 0 | 1 | 00 | 11 | 01, a phrase ending with the stream: 5.
+    #[test]
+    fn lz78_hand_parses_pin_end_of_stream_rule() {
+        // One 8-bit field per string; the 7-bit stream ignores the last bit.
+        assert_eq!(5, lz78_count_blocks(&[0b0100_1100], 7, 8));
+        assert_eq!(4, lz78_count_blocks(&[0b0100_1111], 8, 8));
+        assert_eq!(5, lz78_count_blocks(&[0b0100_1101], 8, 8));
+        // The same strings split across 4-bit fields.
+        assert_eq!(5, lz78_count_blocks(&[0b0100, 0b1100], 7, 4));
+        assert_eq!(4, lz78_count_blocks(&[0b0100, 0b1111], 8, 4));
+        assert_eq!(5, lz78_count_blocks(&[0b0100, 0b1101], 8, 4));
+    }
+
+    /// Pins words drawn and phrase counts for Xorshift32 streams, including
+    /// `s` that does not divide `2^k`, so a change to the trie cannot change
+    /// the statistic.  Reference: an independent Python LZ78 counter over the
+    /// same `unif01_StripB` bit stream, built on a set of phrase strings
+    /// rather than a trie.
+    #[test]
+    fn replication_phrase_counts_match_independent_replica() {
+        for (k, r, s, words, phrases) in [
+            (10, 0, 30, 35, 176),
+            (13, 3, 7, 1171, 989),
+            (16, 1, 31, 2115, 6044),
+        ] {
+            let mut rng = Xorshift32::new(XORSHIFT_SEED);
+            let rep = lempel_ziv_replication(&mut rng, k, r, s);
+            assert_eq!(words, rep.words, "k = {k}, r = {r}, s = {s}");
+            assert_eq!(phrases, rep.phrase_count, "k = {k}, r = {r}, s = {s}");
+        }
+    }
 
     #[test]
     fn lz78_counts_constant_zero_stream_reasonably() {
