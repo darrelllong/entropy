@@ -62,19 +62,33 @@ const PI: [f64; 7] = [
     0.010417, 0.031250, 0.125000, 0.500000, 0.250000, 0.062500, 0.020833,
 ];
 
+/// The theoretical mean μ of SP 800-22 §2.10.4 step (3), which the
+/// publication numbers (1):
+///
+/// μ = M/2 + (9 + (−1)^{M+1})/36 − (M/3 + 2/9)/2^M.
+///
+/// The middle term is 8/36 for even M and 10/36 for odd M, the (4 + r)/18
+/// with r = M mod 2 in §3.10's ξ.  With this μ every Tᵢ lies within
+/// (M/3 + 2/9)/2^M of an integer, which is why the class boundaries sit at
+/// half-integers.
+///
+/// STS 2.1.2's `linearComplexity.c` adds (9 + (−1)^M)/36 instead, which moves
+/// every Tᵢ down by 1/18; that never crosses a boundary, so its class counts
+/// are the ones this μ gives.
+fn mean(m: usize) -> f64 {
+    let pow_neg1_m_plus_1 = if m.is_multiple_of(2) {
+        -1.0_f64
+    } else {
+        1.0_f64
+    };
+    m as f64 / 2.0 + (9.0 + pow_neg1_m_plus_1) / 36.0
+        - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32)
+}
+
 /// ν₀, …, ν₆ of §2.10.4 step (5): how many M-bit blocks of `bits` put Tᵢ in
 /// each class.
 fn class_counts(bits: &[u8], m: usize) -> [usize; 7] {
-    // Theoretical mean μ = M/2 + (9 + (−1)^M)/36 − (M/3 + 2/9)/2^M.
-    // SP 800-22 §2.10.4 and NIST STS linear.c: the numerator is (9 + (−1)^M),
-    // which is 10 for even M and 8 for odd M — NOT (9 + M%2).
-    let pow_neg1_m = if m.is_multiple_of(2) {
-        1.0_f64
-    } else {
-        -1.0_f64
-    };
-    let mu = m as f64 / 2.0 + (9.0 + pow_neg1_m) / 36.0
-        - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32);
+    let mu = mean(m);
 
     // Category boundaries for T = (−1)^M (L − μ) + 2/9.
     // Six categories: T ≤ −2.5, (−2.5,−1.5], (−1.5,−0.5], (−0.5,0.5],
@@ -247,11 +261,15 @@ mod tests {
         l
     }
 
-    /// SP 800-22 §2.10.4 step (2): the block 1101011110001 (M = 13) has
-    /// Lᵢ = 4.
+    /// SP 800-22 §2.10.4: the block 1101011110001 (M = 13) has Lᵢ = 4, and
+    /// M = 13 gives μ = 6.777222 and Tᵢ = 2.999444.
     #[test]
     fn matches_section_2_10_4_example() {
         assert_eq!(berlekamp_massey(&bits("1101011110001")), 4);
+        let mu = mean(13);
+        assert!((mu - 6.777222).abs() < 1e-6, "μ = {mu}");
+        let t = -(4.0 - mu) + 2.0 / 9.0;
+        assert!((t - 2.999444).abs() < 1e-6, "T = {t}");
     }
 
     /// The scratch-buffer loop returns what the cloning loop returned, on
