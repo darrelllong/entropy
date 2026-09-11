@@ -618,14 +618,19 @@ underweight.
   Marsaglia's (2004) distribution, $x + \mathrm{errfix}(32, x)$ for
   $x = \mathrm{ADinf}(A)$, up to $x^* = 0.9995$ ($A \approx 6.61$).  Above
   that, by the crate's own documented departure, chosen from simulation, the
-  upper tail is $(1-x)\,(1-\mathrm{errfix}(32, x^*)/(1-x^*))$: the limiting
-  tail scaled by $1.0521$, which overstates the simulated $n = 32$ tail by
-  $0.9$–$3.5\%$ for $6.61 < A \le 12$, largest at the switch.  The probe prints
-  $A$ and $1-\Pr(A_{32} < A)$, so small values fail.  The ADKS values the
-  paper prints came from `tuftests.c`'s `ad32` fit, which differs from the
-  2004 distribution by up to $0.0056$.  The aggregate detects positional
-  asymmetries and bit-plane correlations invisible to the standard
-  birthday-problem tests.
+  upper tail is $(1-x)\,(1-\mathrm{errfix}(32, x^*)/(1-x^*))$, the limiting
+  tail scaled by $1.0521$.  The probe prints $A$ and $1-\Pr(A_{32} < A)$, so
+  small values fail.  Against simulation the tail errors are mostly
+  positive, so p-values are mostly conservative, and understatements of up
+  to about $1\%$ occur at some $A$; the errors are largest just past the
+  switch, $+2.46 \pm 0.14\%$ at $A = 6.62$ for $n = 32$.  For $n = 32$ and
+  $4 < A \le 12$, one $10^9$-sample run puts the printed tail between
+  $0.04\%$ below and $3.5\%$ above the simulated one; beyond $A \approx 10$
+  the sign is unresolved ($+1.69 \pm 1.41\%$ at $A = 11$, $+1.32 \pm 2.37\%$
+  at $A = 12$).  The ADKS values the paper prints came from `tuftests.c`'s
+  `ad32` fit, which differs from the 2004 distribution by up to $0.0056$.
+  The aggregate detects positional asymmetries and bit-plane correlations
+  invisible to the standard birthday-problem tests.
 
 - **Multi-scale approximate entropy (ApEn)**.  A sweep of the NIST SP 800-22
   §2.12 bit-level ApEn statistic over embedding dimensions $m = 2,\dots,6$
