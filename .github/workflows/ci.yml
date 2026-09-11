@@ -20,8 +20,10 @@ jobs:
             rust: stable
           - os: macos-latest
             rust: stable
-          # MSRV — keep in sync with rust-version in Cargo.toml.
+          # MSRV on both hosts — keep in sync with rust-version in Cargo.toml.
           - os: ubuntu-latest
+            rust: "1.87"
+          - os: macos-latest
             rust: "1.87"
     defaults:
       run:
@@ -32,16 +34,33 @@ jobs:
       # from ../rump. Neither is on crates.io at the required version, so
       # the siblings are checked out next to this repository exactly as
       # they live on a development machine.
+      #
+      # Both siblings are pinned, by full SHA, to the commits this crate is
+      # verified against (cryptography 342989a, rump 3ff885c), so a push to
+      # either repository cannot change what CI builds.  These pins must move
+      # together with any change here that needs newer siblings, and as a
+      # pair, since cryptography takes rump by path.
+      #
+      # Pinning has a cost.  The siblings' own downstream jobs build this
+      # crate's main against their HEAD but run only `cargo test`, on
+      # ubuntu-latest with stable, so a sibling push that breaks this crate's
+      # clippy -D warnings, docs, 1.87 build or macOS build is caught by no CI
+      # until the pins move.  Moving them therefore means first running this
+      # whole matrix locally against the new sibling commits: fmt, clippy,
+      # tests and docs, on stable and on 1.87, on Linux and on macOS.  There
+      # is deliberately no scheduled or unpinned job to catch it sooner.
       - uses: actions/checkout@v4
         with:
           path: entropy
       - uses: actions/checkout@v4
         with:
           repository: darrelllong/cryptography
+          ref: 342989abf5f9b8da585843a4a01e5435dddc4bc3
           path: cryptography
       - uses: actions/checkout@v4
         with:
           repository: darrelllong/rump
+          ref: 3ff885c5d585fb3f2768bb37a1ac44e106d714f3
           path: rump
       - name: Install Rust ${{ matrix.rust }}
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt && rustup default ${{ matrix.rust }}

@@ -5,6 +5,18 @@
 //! generator", *ACM Transactions on Modeling and Computer Simulation* 8(1),
 //! pp. 3–30, January 1998.  Period = 2^19937 − 1.
 //!
+//! The recurrence and the tempering are those of §2.1 of the paper.  Seeding
+//! is `init_genrand` from the authors' reference code `mt19937ar.c`, whose
+//! initialization, "improved 2002/1/26", replaced the multiplier 69069 of the
+//! paper's Appendix C `sgenrand` with 1812433253.  Like `genrand_int32` there,
+//! [`Mt19937`] twists all 624 words at once.
+//!
+//! # References
+//! * M. Matsumoto and T. Nishimura, 1998, as above.
+//!   [pubs/matsumoto-nishimura-1998-mersenne-twister.pdf]
+//! * M. Matsumoto and T. Nishimura, `mt19937ar.c`, and `mt19937ar.out`, the
+//!   output its `main` prints.  [pubs/mt19937ar.c] [pubs/mt19937ar.out]
+//!
 //! # Author
 //! Makoto Matsumoto and Takuji Nishimura (1998).
 
@@ -23,16 +35,12 @@ pub struct Mt19937 {
 }
 
 impl Mt19937 {
-    /// Initialise with a 32-bit seed.
+    /// Initialise with a 32-bit seed, as `init_genrand` in `mt19937ar.c` does.
     pub fn new(seed: u32) -> Self {
-        let mut mt = [0u32; N];
-        mt[0] = seed;
-        for i in 1..N {
-            mt[i] = 1_812_433_253_u32
-                .wrapping_mul(mt[i - 1] ^ (mt[i - 1] >> 30))
-                .wrapping_add(i as u32);
-        }
-        let mut rng = Self { mt, idx: N };
+        let mut rng = Self {
+            mt: init_genrand(seed),
+            idx: N,
+        };
         rng.generate(); // pre-twist so the first output is fully conditioned
         rng
     }
@@ -49,6 +57,18 @@ impl Mt19937 {
         }
         self.idx = 0;
     }
+}
+
+/// `init_genrand` from `mt19937ar.c`: the state array for a 32-bit seed.
+fn init_genrand(seed: u32) -> [u32; N] {
+    let mut mt = [0u32; N];
+    mt[0] = seed;
+    for i in 1..N {
+        mt[i] = 1_812_433_253_u32
+            .wrapping_mul(mt[i - 1] ^ (mt[i - 1] >> 30))
+            .wrapping_add(i as u32);
+    }
+    mt
 }
 
 impl Rng for Mt19937 {
@@ -74,10 +94,11 @@ mod tests {
     /// `init_genrand(19650218)` then `genrand_int32`, the battery's seed.
     /// 19650218 is the constant `init_by_array` seeds with internally; the
     /// `mt19937ar.out` table shipped with mt19937ar.c is `init_by_array`
-    /// output, so it is not the source of these values.  They come from an
-    /// independent replica of Matsumoto & Nishimura's reference
-    /// `init_genrand`/`genrand_int32`, and libc++ `std::mt19937(19650218)`
-    /// agrees.
+    /// output, so it is not the source of these values (the last test below
+    /// pins that table).  They first came from an independent replica of
+    /// Matsumoto & Nishimura's reference `init_genrand`/`genrand_int32`; the
+    /// functions compiled from [pubs/mt19937ar.c] agree for 5000 outputs, and
+    /// libc++ `std::mt19937(19650218)` agrees.
     #[test]
     fn known_output_seed_19650218() {
         let mut rng = Mt19937::new(19650218);
@@ -92,9 +113,10 @@ mod tests {
     /// the default of C++ `std::mt19937`.  The first ten outputs come from an
     /// independent replica of the reference `init_genrand`/`genrand_int32`
     /// (cross-checked by running CPython's C twister from the replica's
-    /// initial state, and against libc++ `std::mt19937`).  The 10 000th
-    /// output is the value the C++ standard ([rand.predef]) requires of a
-    /// default-constructed `mt19937`.
+    /// initial state, against libc++ `std::mt19937`, and against the functions
+    /// compiled from [pubs/mt19937ar.c], which agree for 5000 outputs).  The
+    /// 10 000th output is the value the C++ standard ([rand.predef]) requires
+    /// of a default-constructed `mt19937`.
     #[test]
     fn known_output_init_genrand_5489() {
         const DEFAULT_SEED: u32 = 5489;
@@ -118,5 +140,65 @@ mod tests {
             let _ = rng.next_u32();
         }
         assert_eq!(rng.next_u32(), OUTPUT_10000);
+    }
+
+    /// The check output that ships with the reference code: `main` in
+    /// [pubs/mt19937ar.c] seeds with `init_by_array({0x123, 0x234, 0x345,
+    /// 0x456}, 4)` and prints 1000 `genrand_int32` outputs, the first block of
+    /// [pubs/mt19937ar.out].  `init_by_array` is transcribed below because the
+    /// crate does not expose it; `init_genrand`, the twist and the tempering
+    /// are the crate's own.
+    #[test]
+    fn init_by_array_reproduces_mt19937ar_out() {
+        const INIT_KEY: [u32; 4] = [0x123, 0x234, 0x345, 0x456];
+        const FIRST_FIVE: [u32; 5] = [
+            1_067_595_299,
+            955_945_823,
+            477_289_528,
+            4_107_218_783,
+            4_228_976_476,
+        ];
+        const OUTPUTS_996_TO_1000: [u32; 5] = [
+            2_643_151_863,
+            3_896_204_135,
+            2_416_995_901,
+            1_397_735_321,
+            3_460_025_646,
+        ];
+        let mut rng = init_by_array(&INIT_KEY);
+        let outputs: Vec<u32> = (0..1000).map(|_| rng.next_u32()).collect();
+        assert_eq!(outputs[..5], FIRST_FIVE);
+        assert_eq!(outputs[995..], OUTPUTS_996_TO_1000);
+    }
+
+    /// `init_by_array` from mt19937ar.c, as revised there on 2004/2/26.
+    fn init_by_array(key: &[u32]) -> Mt19937 {
+        let mut mt = init_genrand(19_650_218);
+        let (mut i, mut j) = (1usize, 0usize);
+        for _ in 0..N.max(key.len()) {
+            mt[i] = (mt[i] ^ (mt[i - 1] ^ (mt[i - 1] >> 30)).wrapping_mul(1_664_525))
+                .wrapping_add(key[j])
+                .wrapping_add(j as u32);
+            i += 1;
+            j += 1;
+            if i >= N {
+                mt[0] = mt[N - 1];
+                i = 1;
+            }
+            if j >= key.len() {
+                j = 0;
+            }
+        }
+        for _ in 0..N - 1 {
+            mt[i] = (mt[i] ^ (mt[i - 1] ^ (mt[i - 1] >> 30)).wrapping_mul(1_566_083_941))
+                .wrapping_sub(i as u32);
+            i += 1;
+            if i >= N {
+                mt[0] = mt[N - 1];
+                i = 1;
+            }
+        }
+        mt[0] = UPPER_MASK; // MSB is 1, assuring a non-zero initial array
+        Mt19937 { mt, idx: N }
     }
 }

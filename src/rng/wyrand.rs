@@ -1,29 +1,33 @@
-//! WyRand — Wang Yi's ultra-fast 64-bit PRNG (wyhash final version 3, 2021).
+//! WyRand — Wang Yi's ultra-fast 64-bit PRNG, with the wyrand constants of
+//! wyhash final versions 2 and 4.
 //!
 //! A single 64-bit counter advanced by a fixed Weyl-sequence increment, mixed
 //! through a 128-bit multiply-xorfolded finaliser.  The multiply step provides
 //! excellent avalanche; the generator passes BigCrush, PractRand > 8 TiB, and
 //! NIST SP 800-22 at typical sample sizes.
 //!
-//! The constants below are the wyhash **final version 3** wyrand parameters —
-//! the classic, most widely deployed variant.  Later releases (v4.2/v4.3)
-//! switched to different constants (`0x2d358dccaa6c78a5` / `0x8bb84b93962eacc9`)
-//! and are deliberately not used here.
+//! The constants below are the ones `wyrand` uses in
+//! `old_versions/wyhash_final2.h` and `old_versions/wyhash_final4.h` of the
+//! wyhash repository.  The repository's current `wyhash.h`, final version
+//! 4.3, switched to `0x2d358dccaa6c78a5` / `0x8bb84b93962eacc9`; that variant
+//! is deliberately not used here.
 //!
 //! Not cryptographically secure; state is trivially invertible.
 //!
 //! # References
-//! Wang Yi, "wyhash and wyrand", final version 3, 2021.
-//! <https://github.com/wangyi-fudan/wyhash>
+//! Wang Yi, "wyhash and wyrand", <https://github.com/wangyi-fudan/wyhash>,
+//! commit e4764a0b637d.  [pubs/wyhash-e4764a0b637d.tar.gz]
+//! [`wyrand` in `old_versions/wyhash_final2.h` and
+//! `old_versions/wyhash_final4.h`]
 //!
 //! # Author
 //! Wang Yi (algorithm); Darrell Long (Rust port).
 
 use super::{OsRng, Rng};
 
-// Weyl-sequence constant (from wyhash final v3 source).
+// Weyl-sequence increment: `_wyp[0]` in wyhash_final2.h and wyhash_final4.h.
 const WYRAND_INC: u64 = 0xa076_1d64_78bd_642f;
-// Mix constant.
+// Mix constant: `_wyp[1]` there.
 const WYRAND_MIX: u64 = 0xe703_7ed1_a0b4_28db;
 
 /// Ultra-fast 64-bit PRNG based on a Weyl sequence and 128-bit multiply mix.
@@ -109,8 +113,10 @@ mod tests {
     }
 
     // Known-answer test: first three outputs cross-checked against an
-    // independent Python replica of wyhash final v3's wyrand
-    // (seed += 0xa0761d6478bd642f; wymix(seed, seed ^ 0xe7037ed1a0b428db)).
+    // independent Python replica of wyrand
+    // (seed += 0xa0761d6478bd642f; wymix(seed, seed ^ 0xe7037ed1a0b428db)) and
+    // against `wyrand` compiled from wyhash_final2.h and wyhash_final4.h in
+    // pubs/wyhash-e4764a0b637d.tar.gz (5000 outputs at seeds 0, 42 and 12345).
     #[test]
     fn wyrand_known_answer() {
         let mut rng = WyRand::new(12345);
@@ -120,7 +126,7 @@ mod tests {
             0xda98_0e92_2b5f_67f8,
         ];
         for &e in &expected {
-            assert_eq!(rng.next_u64(), e, "WyRand final v3 KAT mismatch");
+            assert_eq!(rng.next_u64(), e, "WyRand KAT mismatch");
         }
 
         let mut rng0 = WyRand::new(0);
@@ -130,7 +136,7 @@ mod tests {
             0x61fb_5131_8f47_d2a4,
         ];
         for &e in &expected0 {
-            assert_eq!(rng0.next_u64(), e, "WyRand final v3 KAT (seed 0) mismatch");
+            assert_eq!(rng0.next_u64(), e, "WyRand KAT (seed 0) mismatch");
         }
     }
 }

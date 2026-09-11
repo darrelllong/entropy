@@ -12,10 +12,16 @@
 //! # References
 //! * M. E. O'Neill, "PCG: A Family of Simple Fast Space-Efficient
 //!   Statistically Good Algorithms for Random Number Generation", Harvey Mudd
-//!   College Technical Report HMC-CS-2014-0905, 2014.  (Not in `pubs/`.)
-//! * M. E. O'Neill, pcg-c, the reference C implementation:
-//!   `include/pcg_variants.h` and the `test-high` expected outputs.
-//!   <https://github.com/imneme/pcg-c>
+//!   College Technical Report HMC-CS-2014-0905, 2014.
+//!   [pubs/oneill-2014-pcg.pdf]  [§6.3.1 defines the PCG-XSH-RR output
+//!   function, §6.3.3 PCG-XSL-RR]
+//! * M. E. O'Neill, pcg-c, the reference C implementation, commit
+//!   83252d9c23df.  <https://github.com/imneme/pcg-c>
+//!   [pubs/pcg-c-83252d9c23df.tar.gz]  [In `include/pcg_variants.h`,
+//!   `pcg32_random_r` is `pcg_setseq_64_xsh_rr_32_random_r` and
+//!   `pcg64_random_r` is `pcg_setseq_128_xsl_rr_64_random_r`, seeded by
+//!   `pcg_setseq_64_srandom_r` and `pcg_setseq_128_srandom_r`;
+//!   `test-high/expected` holds the known answers pinned below]
 //!
 //! # Author
 //! Melissa E. O'Neill (algorithm); Darrell Long (Rust port).
@@ -24,6 +30,7 @@ use super::{OsRng, Rng};
 
 // ── PCG32 (64-bit LCG, XSH-RR output → 32 bits) ─────────────────────────────
 
+// PCG_DEFAULT_MULTIPLIER_64 in pcg_variants.h.
 const PCG32_MULT: u64 = 6_364_136_223_846_793_005;
 
 /// 32-bit PCG using a 64-bit LCG with XSH-RR output permutation.
@@ -43,10 +50,11 @@ impl Pcg32 {
     pub fn new(state: u64, seq: u64) -> Self {
         let inc = (seq << 1) | 1;
         let mut rng = Self { state: 0, inc };
-        // Mirror the reference C initialiser exactly:
-        //   pcg32_random_r(rng);  // advance from 0
+        // Mirror pcg_setseq_64_srandom_r in pcg_variants.h exactly:
+        //   rng->state = 0U;  rng->inc = (initseq << 1u) | 1u;
+        //   pcg_setseq_64_step_r(rng);  // advance from 0
         //   rng->state += initstate;
-        //   pcg32_random_r(rng);  // mix in the seed
+        //   pcg_setseq_64_step_r(rng);  // mix in the seed
         rng.step();
         rng.state = rng.state.wrapping_add(state);
         rng.step();
@@ -64,7 +72,8 @@ impl Pcg32 {
     fn step(&mut self) -> u32 {
         let old = self.state;
         self.state = old.wrapping_mul(PCG32_MULT).wrapping_add(self.inc);
-        // XSH-RR: xorshift high bits, then rotate right.
+        // XSH-RR (pcg_output_xsh_rr_64_32; O'Neill 2014, §6.3.1) on the state
+        // before the advance: xorshift high bits, then rotate right.
         let xorshifted = (((old >> 18) ^ old) >> 27) as u32;
         let rot = (old >> 59) as u32;
         xorshifted.rotate_right(rot)
@@ -85,8 +94,9 @@ impl Rng for Pcg32 {
 
 // ── PCG64 (128-bit LCG, XSL-RR output → 64 bits) ────────────────────────────
 
-// PCG_DEFAULT_MULTIPLIER_128 from the PCG reference implementation — the
-// multiplier used by the standard pcg64 (XSL-RR) generator.
+// PCG_DEFAULT_MULTIPLIER_128 in pcg_variants.h, written there as
+// PCG_128BIT_CONSTANT(2549297995355413924ULL, 4865540595714422341ULL): the
+// multiplier of pcg64 (XSL-RR).
 const PCG64_MULT: u128 = 47_026_247_687_942_121_848_144_207_491_837_523_525;
 
 /// 64-bit PCG using a 128-bit LCG with XSL-RR output permutation.
@@ -126,8 +136,9 @@ impl Pcg64 {
     #[inline]
     fn step(&mut self) -> u64 {
         self.state = self.state.wrapping_mul(PCG64_MULT).wrapping_add(self.inc);
-        // XSL-RR on the advanced state: xor the two 64-bit halves, then rotate
-        // right by the top 6 bits.
+        // XSL-RR (pcg_output_xsl_rr_128_64; O'Neill 2014, §6.3.3) on the
+        // advanced state: xor the two 64-bit halves, then rotate right by the
+        // top 6 bits.
         let state = self.state;
         let xsl = ((state >> 64) as u64) ^ (state as u64);
         let rot = (state >> 122) as u32;
@@ -156,8 +167,12 @@ impl Rng for Pcg64 {
 mod tests {
     use super::*;
 
-    // Reference values from the PCG32 demo (seed=42, seq=54):
-    // https://www.pcg-random.org/using-pcg-c-basic.html
+    /// pcg-c's published output: `test-high/check-pcg32.c` seeds
+    /// `pcg32_srandom_r(&rng, 42u, 54u)`, and round 1 of
+    /// `test-high/expected/check-pcg32.out` lists these six values.  That
+    /// check, built from [pubs/pcg-c-83252d9c23df.tar.gz], reproduces its
+    /// expected file, and the tarball's `pcg32_random_r` agrees with this
+    /// generator for 5000 outputs.
     #[test]
     fn pcg32_reference_sequence() {
         let mut rng = Pcg32::new(42, 54);
@@ -177,11 +192,13 @@ mod tests {
     }
 
     /// pcg-c's published output: `test-high/check-pcg64.c` seeds
-    /// `pcg64_srandom_r(&rng, 42u, 54u)`, and
-    /// `test-high/expected/check-pcg64.out` lists these first six values.  An
-    /// independent replica of `pcg_setseq_128_xsl_rr_64_random_r` reproduces
-    /// them.  Permuting the state before the advance instead emits one extra
-    /// value first and shifts the whole stream by one.
+    /// `pcg64_srandom_r(&rng, 42u, 54u)`, and round 1 of
+    /// `test-high/expected/check-pcg64.out` lists these six values.  That
+    /// check, built from [pubs/pcg-c-83252d9c23df.tar.gz], reproduces its
+    /// expected file, and the tarball's `pcg64_random_r` agrees with this
+    /// generator for 5000 outputs at seeds (42, 54) and (1, 1).  Permuting the
+    /// state before the advance instead emits one extra value first and shifts
+    /// the whole stream by one.
     #[test]
     fn pcg64_reference_sequence() {
         let expected: [u64; 6] = [

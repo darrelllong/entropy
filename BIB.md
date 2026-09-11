@@ -188,16 +188,18 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   number  = {14},
   year    = {2003},
   doi     = {10.18637/jss.v008.i14},
-  note    = {32-bit and 64-bit Xorshift generators; listing 1 defines xorshift32. [pubs/marsaglia-2003-xorshift-rngs.pdf]}
+  note    = {32-bit and 64-bit Xorshift generators; section 3 (p. 4) gives xor(), the 32-bit [13,17,5] generator,
+             whose middle step is misprinted as y=(y>>17) without the xor, and xor64() with [13,7,17]. [pubs/marsaglia-2003-xorshift-rngs.pdf]}
 }
 
 @misc{wangyi2022wyhash,
   author = {Wang, Yi},
-  title  = {wyhash and wyrand, version 4.2},
+  title  = {wyhash and wyrand},
   year   = {2022},
   url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8) Weyl-sequence counter with 128-bit
-             multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.}
+  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8, whose wyhash.h is final version 4.3) Weyl-sequence counter with 128-bit
+             multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.  src/rng/wyrand.rs uses the
+             wyrand constants of old\_versions/wyhash\_final2.h and wyhash\_final4.h, not those of 4.3.}
 }
 
 @misc{jenkins2007smallprng,
@@ -273,9 +275,10 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   author = {Thompson, Ken and Ritchie, Dennis M.},
   title  = {Unix Programmer's Manual, 7th Edition},
   year   = {1979},
-  note   = {Bell Laboratories. rand(3) entry defines the LCG parameters
-             a=1103515245, c=12345 that became the de facto ANSI C / System V
-             rand() implementation.  Available at
+  note   = {Bell Laboratories. The rand(3) entry describes a multiplicative
+             congruential generator with period 2^{32} returning 0 to 2^{15}-1;
+             it does not print the a=1103515245, c=12345 parameters that
+             SystemVRand and LcgVariant::AnsiC use.  Available at
              https://www.tuhs.org/Archive/Distributions/Research/V7/ [pubs/v7-unix-programmers-manual-vol1.pdf]}
 }
 
@@ -663,14 +666,14 @@ previously missing from this bibliography.
   author       = {{The GNU C Library contributors}},
   title        = {{GNU} C Library 2.40, stdlib/random.c, stdlib/random\_r.c and stdlib/rand.c},
   howpublished = {https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz},
-  note         = {The srandom/random implementation LinuxLibcRandom emulates. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], [pubs/glibc-2.40-rand.c], whose rand() returns (int) \_\_random(), license [pubs/glibc-2.40-COPYING.LIB]}
+  note         = {The srandom/random implementation LinuxLibcRandom emulates: \_\_initstate\_r and \_\_random\_r compiled from random\_r.c match it, and its TYPE\_0 generator matches LcgVariant::AnsiC for every seed whose low 32 bits are nonzero, which covers 1 to 2^{32}-1. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], [pubs/glibc-2.40-rand.c], whose rand() returns (int) \_\_random(), license [pubs/glibc-2.40-COPYING.LIB]}
 }
 
 @misc{freebsd-libc-random,
   author       = {{The FreeBSD Project}},
   title        = {{FreeBSD} libc stdlib/random.c and stdlib/rand.c},
   howpublished = {https://github.com/freebsd/freebsd-src, commit 0d022baa047aea6499e394d2cd8d097820ecf486},
-  note         = {BSD random() and rand\_r() reference implementations. [pubs/freebsd-0d022baa047a-random.c], [pubs/freebsd-0d022baa047a-rand.c]}
+  note         = {rand\_r() and random() at this commit. BsdRandCompat matches rand\_r(); random() seeds through parkmiller32, which shifts each word by one around the Park-Miller step, so its stream differs from BsdRandom's, which follows glibc. [pubs/freebsd-0d022baa047a-random.c], [pubs/freebsd-0d022baa047a-rand.c]}
 }
 ```
 

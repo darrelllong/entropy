@@ -57,7 +57,7 @@
 
 use cryptography::{vt::BigUint, Sha256};
 
-use super::{OsRng, Rng};
+use super::{ByteBuffered, OsRng, Rng};
 
 const SEEDLEN: usize = 55; // 440 bits — Table 2, SHA-256 row
 const SEEDLEN_BITS: usize = SEEDLEN * 8;
@@ -173,19 +173,6 @@ impl HashDrbg {
         out
     }
 
-    /// Produce GENERATE_BLOCKS Hashgen blocks (§10.1.1.4) into buf, then
-    /// update V once per §10.1.1.4.  The local data counter is snapshotted
-    /// from V and incremented only within this call, not stored in the struct.
-    fn refill(&mut self) {
-        self.check_reseed_interval();
-        let buf = &mut self.buf;
-        hashgen(&self.v, GENERATE_BLOCKS, |i, block| {
-            buf[i * OUTLEN..(i + 1) * OUTLEN].copy_from_slice(block);
-        });
-        self.offset = 0;
-        self.finalise_generate();
-    }
-
     /// SP 800-90A Rev. 1 §10.1.1.4 step 1: "If reseed_counter >
     /// reseed_interval, then return an indication that a reseed is
     /// required."  No reseed is implemented, so the indication is a panic.
@@ -214,15 +201,27 @@ impl HashDrbg {
         );
         self.reseed_counter = self.reseed_counter.wrapping_add(1);
     }
+}
 
-    fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
-        const { assert!(N <= OUTLEN, "chunk larger than SHA-256 output") }
-        if self.offset + N > GENERATE_SIZE {
-            self.refill();
-        }
-        let out = self.buf[self.offset..self.offset + N].try_into().unwrap();
-        self.offset += N;
-        out
+impl ByteBuffered<GENERATE_SIZE> for HashDrbg {
+    fn buffer(&self) -> &[u8; GENERATE_SIZE] {
+        &self.buf
+    }
+
+    fn offset_mut(&mut self) -> &mut usize {
+        &mut self.offset
+    }
+
+    /// Produce GENERATE_BLOCKS Hashgen blocks (§10.1.1.4) into buf, then
+    /// update V once per §10.1.1.4.  The local data counter is snapshotted
+    /// from V and incremented only within this call, not stored in the struct.
+    fn refill(&mut self) {
+        self.check_reseed_interval();
+        let buf = &mut self.buf;
+        hashgen(&self.v, GENERATE_BLOCKS, |i, block| {
+            buf[i * OUTLEN..(i + 1) * OUTLEN].copy_from_slice(block);
+        });
+        self.finalise_generate();
     }
 }
 
@@ -324,6 +323,7 @@ impl Drop for HashDrbg {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rng::hex;
 
     #[test]
     fn hash_drbg_nonzero() {
@@ -398,13 +398,6 @@ mod tests {
         hashgen(&[0xffu8; SEEDLEN], 2, |i, b| blocks.push((i, b.to_vec())));
         assert_eq!(blocks[0], (0, Sha256::digest(&[0xffu8; SEEDLEN]).to_vec()));
         assert_eq!(blocks[1], (1, Sha256::digest(&[0u8; SEEDLEN]).to_vec()));
-    }
-
-    fn hex(s: &str) -> Vec<u8> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
-            .collect()
     }
 
     /// Hash_DRBG SHA-256 known-answer test (no reseed, empty personalization
