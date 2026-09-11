@@ -10,10 +10,12 @@
 //! are statistically independent.
 //!
 //! # References
-//! M. E. O'Neill, "PCG: A Family of Simple Fast Space-Efficient Statistically
-//! Good Algorithms for Random Number Generation", Harvey Mudd College
-//! Technical Report HMC-CS-2014-0905, 2014.
-//! [pubs/oneill-2014-pcg.pdf]
+//! * M. E. O'Neill, "PCG: A Family of Simple Fast Space-Efficient
+//!   Statistically Good Algorithms for Random Number Generation", Harvey Mudd
+//!   College Technical Report HMC-CS-2014-0905, 2014.  (Not in `pubs/`.)
+//! * M. E. O'Neill, pcg-c, the reference C implementation:
+//!   `include/pcg_variants.h` and the `test-high` expected outputs.
+//!   <https://github.com/imneme/pcg-c>
 //!
 //! # Author
 //! Melissa E. O'Neill (algorithm); Darrell Long (Rust port).
@@ -91,6 +93,10 @@ const PCG64_MULT: u128 = 47_026_247_687_942_121_848_144_207_491_837_523_525;
 ///
 /// Period: 2¹²⁸.  2¹²⁷ selectable streams via the `seq` parameter (the stream
 /// increment is `(seq << 1) | 1`, so `seq` and `seq + 2¹²⁷` coincide).
+///
+/// Each output permutes the state *after* the LCG advance, as O'Neill's
+/// reference 128-bit generator (`pcg_setseq_128_xsl_rr_64_random_r` in
+/// pcg-c) does; [`Pcg32`] permutes the state before it, as its reference does.
 pub struct Pcg64 {
     state: u128,
     inc: u128,
@@ -119,11 +125,12 @@ impl Pcg64 {
 
     #[inline]
     fn step(&mut self) -> u64 {
-        let old = self.state;
-        self.state = old.wrapping_mul(PCG64_MULT).wrapping_add(self.inc);
-        // XSL-RR: xor the two 64-bit halves, then rotate right by top 6 bits.
-        let xsl = ((old >> 64) as u64) ^ (old as u64);
-        let rot = (old >> 122) as u32;
+        self.state = self.state.wrapping_mul(PCG64_MULT).wrapping_add(self.inc);
+        // XSL-RR on the advanced state: xor the two 64-bit halves, then rotate
+        // right by the top 6 bits.
+        let state = self.state;
+        let xsl = ((state >> 64) as u64) ^ (state as u64);
+        let rot = (state >> 122) as u32;
         xsl.rotate_right(rot)
     }
 }
@@ -167,6 +174,26 @@ mod tests {
         let mut a = Pcg32::new(1, 1);
         let mut b = Pcg32::new(1, 2);
         assert_ne!(a.next_u32(), b.next_u32());
+    }
+
+    /// pcg-c's published output: `test-high/check-pcg64.c` seeds
+    /// `pcg64_srandom_r(&rng, 42u, 54u)`, and
+    /// `test-high/expected/check-pcg64.out` lists these first six values.  An
+    /// independent replica of `pcg_setseq_128_xsl_rr_64_random_r` reproduces
+    /// them.  Permuting the state before the advance instead emits one extra
+    /// value first and shifts the whole stream by one.
+    #[test]
+    fn pcg64_reference_sequence() {
+        let expected: [u64; 6] = [
+            0x86b1_da1d_7206_2b68,
+            0x1304_aa46_c985_3d39,
+            0xa367_0e9e_0dd5_0358,
+            0xf909_0e52_9a7d_ae00,
+            0xc85b_9fd8_3799_6f2c,
+            0x6061_21f8_e391_9196,
+        ];
+        let mut rng = Pcg64::new(42, 54);
+        assert_eq!(expected.map(|_| rng.next_u64()), expected);
     }
 
     #[test]

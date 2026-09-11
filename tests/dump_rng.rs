@@ -129,11 +129,12 @@ fn fixed_seed_first_words_are_stable() {
     check("counter", 4, "00000000010000000200000003000000");
     // Constant (value=0xDEAD_DEAD): four LE copies.
     check("constant", 4, "addeaddeaddeaddeaddeaddeaddeadde");
-    // PCG64 with (state=1, seq=1): 8 LE u32s.
+    // PCG64 with (state=1, seq=1): the high halves of the first 8 outputs as
+    // LE u32s, from an independent replica of pcg-c's pcg64.
     check(
         "pcg64",
         8,
-        "f05505c0842f69d4b0090fbb04c96ae212028683ed01361c27a04f5e8de230b9",
+        "842f69d4b0090fbb04c96ae212028683ed01361c27a04f5e8de230b91b1ed6e0",
     );
     // MT19937 seed=19650218.
     check("mt19937", 4, "5eb99d8ad605bd1c932ffbf86ff1cfe6");
