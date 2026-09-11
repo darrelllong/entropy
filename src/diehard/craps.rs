@@ -13,6 +13,10 @@
 //! derived analytically for this exact 22-cell layout, so the statistic is
 //! self-consistent; it is simply one cell finer than the original.
 //!
+//! Each die is `1 + gsl_rng_uniform_int(rng, 6)`, as in Dieharder's
+//! `diehard_craps.c`, so the high bits of each word pick the face (see
+//! [`uniform_bounded`]).
+//!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
@@ -170,19 +174,31 @@ fn roll_dice(rng: &mut impl Rng) -> u32 {
     d1 + d2
 }
 
+/// Uniform integer in `0..bound` from the high bits of one word.
+///
+/// Dieharder's `diehard_craps.c` rolls each die as
+/// `1 + gsl_rng_uniform_int(rng, 6)`.  GSL's routine (GSL itself is not in
+/// `pubs/`) divides the word by scale = ⌊range / bound⌋, with range = 2³² − 1
+/// for a 32-bit generator, and redraws while the quotient reaches `bound`;
+/// for dice, scale = 715 827 882 and the top four words are redrawn.
+/// Marsaglia's `tests.txt` instead floats the word to [0, 1) and takes the
+/// integer part of 6u, which is also a high-bit map and agrees with GSL's on
+/// every word but a dozen next to the face boundaries and the four redrawn
+/// ones.
 fn uniform_bounded(rng: &mut impl Rng, bound: u32) -> u32 {
-    let zone = u32::MAX - (u32::MAX % bound);
-    // Bounded rejection sampling.  An honest generator exhausts 16 retries with
+    let scale = u32::MAX / bound;
+    // Bounded redraws.  An honest generator exhausts 16 retries with
     // probability (4/2³²)¹⁶ ≈ 10⁻¹⁴⁷; but a degenerate generator stuck in the
-    // rejection zone (e.g. `ConstantRng::new(u32::MAX)`) must not hang the
-    // battery — fall through to the biased modulo and let the statistics fail it.
+    // redraw zone (e.g. `ConstantRng::new(u32::MAX)`) must not hang the
+    // battery — fall through to the clamped quotient and let the statistics
+    // fail it.
     for _ in 0..16 {
-        let v = rng.next_u32();
-        if v < zone {
-            return v % bound;
+        let k = rng.next_u32() / scale;
+        if k < bound {
+            return k;
         }
     }
-    rng.next_u32() % bound
+    (rng.next_u32() / scale).min(bound - 1)
 }
 
 /// Exact P(game takes exactly k throws) for k = 1..=22 (k=22 means ≥22).
@@ -262,15 +278,17 @@ mod tests {
         throws: usize,
     }
 
+    /// GSL's divisor for a die: ⌊(2³² − 1) / 6⌋.
+    const DIE_SCALE: u32 = u32::MAX / 6;
+
     impl Rng for StuckPoint {
         fn next_u32(&mut self) -> u32 {
-            // Two draws per throw; values are below the rejection zone, so
-            // `uniform_bounded` returns them modulo 6 directly.
+            // Two draws per throw; the word k·scale is face k + 1.
             let die = self.throws % 2;
             let value = if self.throws < 2 {
-                [0u32, 2][die] // first throw: 1 + 3 = 4
+                [0, 2 * DIE_SCALE][die] // first throw: 1 + 3 = 4
             } else {
-                [0u32, 3][die] // every later throw: 1 + 4 = 5
+                [0, 3 * DIE_SCALE][die] // every later throw: 1 + 4 = 5
             };
             self.throws += 1;
             value
@@ -297,6 +315,64 @@ mod tests {
         let results = craps_both(&mut rng);
         assert!(results.iter().all(|r| !r.skipped()));
         assert!(results.iter().all(|r| r.p_value < 1e-10), "{results:?}");
+    }
+
+    /// Plays back a fixed list of words and counts the draws.
+    struct Script {
+        words: &'static [u32],
+        draws: usize,
+    }
+
+    impl Rng for Script {
+        fn next_u32(&mut self) -> u32 {
+            let word = self.words[self.draws];
+            self.draws += 1;
+            word
+        }
+    }
+
+    /// Faces from a Python replica of GSL's `gsl_rng_uniform_int(r, 6)` for a
+    /// 32-bit generator: k = ⌊x / 715 827 882⌋.  Words 7 and 715 827 882 give
+    /// k = 1 and k = 0 under the old low-bit `x % 6`.
+    #[test]
+    fn die_face_is_the_gsl_quotient() {
+        assert_eq!(DIE_SCALE, 715_827_882);
+        let cases = [
+            (0, 0),
+            (7, 0),
+            (715_827_881, 0),
+            (715_827_882, 1),
+            (2_147_483_647, 3),
+            (2_147_483_648, 3),
+            (4_294_967_291, 5),
+        ];
+        for (word, face) in cases {
+            assert_eq!(
+                uniform_bounded(&mut ConstantRng::new(word), 6),
+                face,
+                "word {word}"
+            );
+        }
+    }
+
+    /// Words 4 294 967 292..=u32::MAX give quotient 6 and are redrawn, as in
+    /// GSL; a generator that never leaves that zone gets 16 redraws and then
+    /// the clamped quotient.
+    #[test]
+    fn die_redraws_the_top_words() {
+        let mut rng = Script {
+            words: &[4_294_967_292, u32::MAX, 2_147_483_648],
+            draws: 0,
+        };
+        assert_eq!(uniform_bounded(&mut rng, 6), 3);
+        assert_eq!(rng.draws, 3);
+
+        let mut stuck = Script {
+            words: &[u32::MAX; 17],
+            draws: 0,
+        };
+        assert_eq!(uniform_bounded(&mut stuck, 6), 5);
+        assert_eq!(stuck.draws, 17);
     }
 
     #[test]
