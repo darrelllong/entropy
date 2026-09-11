@@ -1008,35 +1008,45 @@ neighbouring repositories' audits say about this crate.
   for every window was wrong (item L).
 
 **Additions to `pubs/`** (f098126, f5ecb2a, ffb3aee, e018c34, be5c958,
-69741ff).  Fifty files, each listed with its origin and retrieval date in
-`pubs/SOURCES.tsv`, which also gives sha256 for the DIEHARD archives and for
-the files repacked or extracted from larger downloads:
+69741ff, 86749f1).  Fifty-four files, each listed with its origin and
+retrieval date in `pubs/SOURCES.tsv`, which also gives sha256 for the DIEHARD
+archives and for the files repacked or extracted from larger downloads:
 
 - DIEHARD: the Fortran, f2c and Wang archives of the method paragraph, and
   PDFs of Marsaglia's extract of the Marsaglia–Zaman 1993 monkey-test paper
   and of his 1984 keynote, converted from the PostScript in the f2c archive.
 - Test suites: NIST STS 2.1.2's sources and constants (repacked without its
   generator outputs and experiments, keeping `data.e`, `data.pi`, `data.sqrt2` and
-  `data.sqrt3`), the TestU01 2009 tree, and Kim–Umeno–Hasegawa 2004.
+  `data.sqrt3`), the TestU01 2009 tree, Kim–Umeno–Hasegawa 2004, and
+  Hellekalek–Wegenkittl 2003 on AES.
 - Library generators: glibc 2.40's `random_r.c`, `random.c` and `rand.c`
   with its license, FreeBSD's `rand.c` and `random.c`, and GSL 2.8's `rng/`.
 - Generator references: Matsumoto–Nishimura 1998 with `mt19937ar.c` and
   `mt19937ar.out`; O'Neill 2014 and pcg-c; Blackman–Vigna with six of
   Vigna's C files; wyhash; Jenkins' small-PRNG page; Marsaglia's xorshift
-  paper; the V7 manual.
+  paper; the V7 manual; Park–Miller 1988; and L'Ecuyer–Simard 1999.
 - Stream ciphers: the ChaCha and Salsa20 papers, RFC 8439, RFC 4503 and the
   eSTREAM Rabbit description, and ETSI/SAGE's SNOW 3G and ZUC specifications
   with their Document 3 test data.
 - Statistics: Marsaglia and Marsaglia 2004 on the Anderson–Darling
   distribution with `ADinf.c` and `AnDarl.c`; the `tuftests.c` attached to
   Marsaglia–Tsang 2002; Marsaglia 2004 on the normal distribution with its
-  `sources.c`; Marsaglia–Tsang–Wang 2003 on the Kolmogorov distribution; and
-  Wald–Wolfowitz 1940.
+  `sources.c`; Marsaglia–Tsang–Wang 2003 on the Kolmogorov distribution;
+  Wald–Wolfowitz 1940; and Pincus 1991 on approximate entropy.
 - DRBGs: Bernstein–Lange–Niederhagen 2015 on Dual_EC, and the CAVP
   `HMAC_DRBG.rsp` from NIST's no-reseed DRBG test vectors (item 39).
 
-PractRand, Hamano–Kaneko 2007, Numerical Recipes and TAOCP are still not in
-`pubs/`.
+dl.acm.org and pnas.org answer scripts with a browser challenge, so the
+three ACM papers are the Internet Archive's captures of the ACM Digital
+Library's PDFs, and Pincus is Europe PMC's copy (86749f1).  BIB.md now
+also dates the wyhash snapshot, a 2026-03-23 commit, and says its 2022 is
+the year of final version 4 (f7b53fe).
+
+Still not in `pubs/`: PractRand; Hamano–Kaneko 2007, whose publisher's
+site answers scripts with a human-verification page; Killmann et al. 2004,
+of which no public copy was found; and the paywalled or print-only
+Golić–Živković 1988, Massey 1969, Grafton 1981, TAOCP and Numerical
+Recipes.
 
 **Cross-repository findings.**
 
@@ -1070,9 +1080,11 @@ PractRand, Hamano–Kaneko 2007, Numerical Recipes and TAOCP are still not in
   uncommitted tree with rump 3ff885c.  The committed 342989a has no such
   feature, so the manifest cannot resolve against it; the branch waits until
   cryptography publishes the feature, and the CI pins (item 40) move with it.
-- An uncommitted rump change (F3 in the cryptography audit) alters
-  `to_be_bytes_padded`; the `store_mod_seedlen` doc in `hash_drbg.rs` needs
-  updating when it lands.
+- rump's F3 change from the cryptography audit, which makes
+  `to_be_bytes_padded` encode once instead of copying an unpadded encoding,
+  is committed as rump d30a7bc.  CI still pins rump 3ff885c, where the
+  `store_mod_seedlen` doc in `hash_drbg.rs` is right; that doc changes when
+  the pin moves.
 
 ## Verified correct
 
