@@ -73,7 +73,7 @@ enum Suite {
     Dieharder,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Args {
     quick: bool,
     suites: HashSet<Suite>,      // empty = all three
@@ -82,64 +82,71 @@ struct Args {
     fail_on_fail: bool,          // exit nonzero if any shown test FAILed
 }
 
+/// What the command line asks `run_tests` to do.
+#[derive(Debug)]
+enum Command {
+    /// Run the batteries with these options.
+    Run(Args),
+    /// Print the usage message and exit 0.
+    Help,
+}
+
 impl Args {
+    /// Parse `std::env::args`: print usage and exit 0 on `--help`, and exit 1
+    /// on a usage error.
     fn parse() -> Self {
+        match Self::parse_from(std::env::args().skip(1)) {
+            Ok(Command::Run(args)) => args,
+            Ok(Command::Help) => {
+                print_usage();
+                std::process::exit(0);
+            }
+            Err(msg) => die(&msg),
+        }
+    }
+
+    /// Parse the options that follow the program name.  Nothing is printed
+    /// and nothing exits, so option handling can be unit-tested; a usage
+    /// error comes back as `Err(message)`.
+    fn parse_from<I: IntoIterator<Item = String>>(argv: I) -> Result<Command, String> {
         let mut quick = false;
         let mut explicit_suites: HashSet<Suite> = HashSet::new();
         let mut test_filter: Option<String> = None;
         let mut rng_filters: Vec<String> = Vec::new();
         let mut fail_on_fail = false;
 
-        let argv: Vec<String> = std::env::args().skip(1).collect();
-        let mut i = 0;
-        while i < argv.len() {
-            match argv[i].as_str() {
+        let mut argv = argv.into_iter();
+        while let Some(arg) = argv.next() {
+            match arg.as_str() {
                 "--quick" => quick = true,
                 "--fail-on-fail" => fail_on_fail = true,
-                "--help" | "-h" => {
-                    print_usage();
-                    std::process::exit(0);
-                }
+                "--help" | "-h" => return Ok(Command::Help),
                 "--suite" => {
-                    i += 1;
-                    let v = match argv.get(i) {
-                        Some(v) => v.as_str(),
-                        None => die("--suite requires an argument"),
+                    let v = argv.next().ok_or("--suite requires an argument")?;
+                    let suite = match v.as_str() {
+                        "nist" => Suite::Nist,
+                        "diehard" => Suite::Diehard,
+                        "dieharder" => Suite::Dieharder,
+                        other => {
+                            return Err(format!(
+                                "unknown suite '{other}' — use: nist, diehard, dieharder"
+                            ));
+                        }
                     };
-                    match v {
-                        "nist" => {
-                            explicit_suites.insert(Suite::Nist);
-                        }
-                        "diehard" => {
-                            explicit_suites.insert(Suite::Diehard);
-                        }
-                        "dieharder" => {
-                            explicit_suites.insert(Suite::Dieharder);
-                        }
-                        other => die(&format!(
-                            "unknown suite '{other}' — use: nist, diehard, dieharder"
-                        )),
-                    }
+                    explicit_suites.insert(suite);
                 }
                 "--test" => {
-                    i += 1;
-                    match argv.get(i) {
-                        Some(v) => test_filter = Some(v.clone()),
-                        None => die("--test requires an argument"),
-                    }
+                    test_filter = Some(argv.next().ok_or("--test requires an argument")?);
                 }
                 "--rng" => {
-                    i += 1;
-                    match argv.get(i) {
-                        Some(v) => rng_filters.push(v.clone()),
-                        None => die("--rng requires an argument"),
-                    }
+                    rng_filters.push(argv.next().ok_or("--rng requires an argument")?);
                 }
-                other => die(&format!(
-                    "unknown option '{other}' — run with --help for usage"
-                )),
+                other => {
+                    return Err(format!(
+                        "unknown option '{other}' — run with --help for usage"
+                    ));
+                }
             }
-            i += 1;
         }
 
         // If --suite was not given but --test has a suite prefix, infer the suite
@@ -163,13 +170,13 @@ impl Args {
             HashSet::new() // empty = all three
         };
 
-        Args {
+        Ok(Command::Run(Args {
             quick,
             suites,
             test_filter,
             rng_filters,
             fail_on_fail,
-        }
+        }))
     }
 
     fn run_suite(&self, s: &Suite) -> bool {
@@ -640,4 +647,109 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
         );
     }
     fail
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(argv: &[&str]) -> Result<Command, String> {
+        Args::parse_from(argv.iter().map(|a| a.to_string()))
+    }
+
+    fn run_args(argv: &[&str]) -> Args {
+        match parse(argv) {
+            Ok(Command::Run(args)) => args,
+            other => panic!("expected options to run for {argv:?}, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn no_options_select_every_suite_and_rng() {
+        let a = run_args(&[]);
+        assert!(!a.quick && !a.fail_on_fail);
+        assert!(a.suites.is_empty() && a.test_filter.is_none() && a.rng_filters.is_empty());
+        for suite in [Suite::Nist, Suite::Diehard, Suite::Dieharder] {
+            assert!(a.run_suite(&suite));
+        }
+        assert!(a.matches("nist::frequency") && a.matches_rng("PCG64 (OsRng seed)"));
+    }
+
+    #[test]
+    fn flags_and_repeatable_options() {
+        let a = run_args(&[
+            "--quick",
+            "--fail-on-fail",
+            "--suite",
+            "nist",
+            "--suite",
+            "dieharder",
+            "--rng",
+            "PCG",
+            "--rng",
+            "Xorshift",
+            "--test",
+            "frequency",
+        ]);
+        assert!(a.quick && a.fail_on_fail);
+        assert!(a.run_suite(&Suite::Nist) && a.run_suite(&Suite::Dieharder));
+        assert!(!a.run_suite(&Suite::Diehard));
+        assert_eq!(a.rng_filters, ["PCG", "Xorshift"]);
+        assert_eq!(a.test_filter.as_deref(), Some("frequency"));
+        assert!(a.matches("nist::frequency") && !a.matches("nist::runs"));
+    }
+
+    #[test]
+    fn test_prefix_infers_the_suite_unless_suite_is_given() {
+        for (pattern, suite) in [
+            ("nist::runs", Suite::Nist),
+            ("maurer::universal_l7", Suite::Nist),
+            ("diehard::craps", Suite::Diehard),
+            ("dieharder::gcd", Suite::Dieharder),
+        ] {
+            let a = run_args(&["--test", pattern]);
+            assert_eq!(a.suites, HashSet::from([suite]), "{pattern}");
+        }
+        assert!(run_args(&["--test", "frequency"]).suites.is_empty());
+        let a = run_args(&["--suite", "diehard", "--test", "nist::runs"]);
+        assert_eq!(a.suites, HashSet::from([Suite::Diehard]));
+    }
+
+    #[test]
+    fn help_and_usage_errors() {
+        for argv in [
+            &["--help"][..],
+            &["-h"][..],
+            &["--quick", "--help", "--bogus"][..],
+        ] {
+            assert!(matches!(parse(argv), Ok(Command::Help)), "{argv:?}");
+        }
+        for (argv, message) in [
+            (&["--suite"][..], "--suite requires an argument"),
+            (&["--test"][..], "--test requires an argument"),
+            (&["--rng"][..], "--rng requires an argument"),
+            (&["--suite", "testu01"][..], "unknown suite 'testu01'"),
+            (&["--bogus"][..], "unknown option '--bogus'"),
+            (&["--bogus", "--help"][..], "unknown option '--bogus'"),
+        ] {
+            let err = parse(argv).expect_err("usage error");
+            assert!(err.contains(message), "{argv:?}: {err}");
+        }
+    }
+
+    #[test]
+    fn group_thousands_separates_every_three_digits() {
+        for (n, grouped) in [
+            (0, "0"),
+            (7, "7"),
+            (999, "999"),
+            (1_000, "1,000"),
+            (65_536, "65,536"),
+            (100_000, "100,000"),
+            (1_234_567, "1,234,567"),
+            (16_000_000, "16,000,000"),
+        ] {
+            assert_eq!(group_thousands(n), grouped);
+        }
+    }
 }
