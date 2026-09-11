@@ -31,15 +31,18 @@
 //! draws the key and nonce from the OS entropy source; a stream built with
 //! [`ChaCha20Rng::new`] is only as secret as the key passed in.
 //!
-//! **Output limit.** ChaCha20 uses a 32-bit block counter; with 64 bytes per
-//! block the keystream repeats after 2³² × 64 = **256 GiB** of output, the
-//! limit RFC 8439 §2.3 states.  `cryptography::ChaCha20` wraps the counter
-//! from 2³² − 1 to 0, so a stream started at counter `c` reaches block 0 after
-//! 2³² − `c` blocks.  A long-running process that exhausts this limit will
-//! silently wrap and repeat output.  No reseed or counter-exhaustion check is
-//! implemented here; for applications that may produce more than a few GiB
-//! from a single key, either reseed manually by constructing a fresh
-//! `ChaCha20Rng::from_os_rng()` or use the OS CSPRNG directly.
+//! **Output limit.** ChaCha20 uses a 32-bit block counter, so RFC 8439 §2.3
+//! limits one key and nonce to 2³² blocks, 2³⁸ bytes or **256 GiB**, and a
+//! stream started at counter `c` has 2³² − `c` of them.  `ChaCha20Rng` counts
+//! the blocks it takes and panics ("ChaCha20Rng: block counter exhausted")
+//! before it asks `cryptography::ChaCha20` for one more, rather than wrap to
+//! block 0 and repeat keystream.  Because the check comes first, the panic
+//! and its message are the same whether the cipher wraps its counter or
+//! refuses to.  The test battery takes 16 million words from a generator plus
+//! what its live-drawing tests draw (see TESTS.md), nowhere near 2³² blocks.
+//! No reseed is implemented; for applications that may produce more than a
+//! few GiB from a single key, construct a fresh `ChaCha20Rng::from_os_rng()`
+//! or use the OS CSPRNG directly.
 //!
 //! **Backtracking resistance.** No forward secrecy is provided.  Compromising
 //! the process memory reveals the cipher state, which determines all future
@@ -68,13 +71,21 @@ use super::{ByteBuffered, OsRng, Rng};
 
 const BLOCK_BYTES: usize = 64;
 
+/// Blocks one key and nonce address under RFC 8439 §2.3's 32-bit counter.
+const BLOCKS_PER_NONCE: u64 = 1 << 32;
+
 /// ChaCha20 stream cipher used as a CSPRNG.
 ///
-/// Generates 64 bytes per ChaCha20 core invocation.
+/// Generates 64 bytes per ChaCha20 core invocation.  A read that needs a block
+/// past counter 2³² − 1 panics rather than repeat keystream; see the module
+/// docs.
 pub struct ChaCha20Rng {
     cipher: ChaCha20,
     buf: [u8; BLOCK_BYTES],
     offset: usize,
+    /// Blocks the cipher may still produce: 2³² less the initial counter,
+    /// less one per refill.
+    blocks_left: u64,
 }
 
 impl ChaCha20Rng {
@@ -84,13 +95,15 @@ impl ChaCha20Rng {
     /// The first `next_u32` returns word 0 of the block at `counter`; the
     /// module docs give the full byte-to-word order.  The same inputs always
     /// give the same stream, so this is the constructor for reproducible runs
-    /// and known-answer tests.
+    /// and known-answer tests.  The stream holds 2³² − `counter` blocks, and
+    /// the read that would need one more panics.
     #[must_use]
     pub fn new(key: &[u8; 32], nonce: &[u8; 12], counter: u32) -> Self {
         Self {
             cipher: ChaCha20::with_counter(key, nonce, counter),
             buf: [0u8; BLOCK_BYTES],
             offset: BLOCK_BYTES, // force a refill on first use
+            blocks_left: BLOCKS_PER_NONCE - u64::from(counter),
         }
     }
 
@@ -120,7 +133,15 @@ impl ByteBuffered<BLOCK_BYTES> for ChaCha20Rng {
         &mut self.offset
     }
 
+    /// Take the next block, refusing before the cipher is asked for a block
+    /// past counter 2³² − 1.
     fn refill(&mut self) {
+        assert!(
+            self.blocks_left > 0,
+            "ChaCha20Rng: block counter exhausted; RFC 8439 allows 2^32 blocks \
+             per key and nonce, and another block would repeat keystream"
+        );
+        self.blocks_left -= 1;
         self.buf = self.cipher.keystream_block();
     }
 }
@@ -286,16 +307,27 @@ mod tests {
         }
     }
 
-    /// `cryptography::ChaCha20` wraps the 32-bit block counter, so the block
-    /// after counter 2³² − 1 is the block at counter 0.
+    /// RFC 8439 §2.3 allows one key and nonce 2³² blocks.  Started at the last
+    /// counter value, `new` serves exactly one block: sixteen words, equal to
+    /// the cipher's own block at counter 2³² − 1.
     #[test]
-    fn block_counter_wraps_to_zero() {
-        let mut wrapping = ChaCha20Rng::new(&K32, &[0u8; 12], u32::MAX);
-        let _ = word_bytes(&mut wrapping, 16);
-        let mut from_zero = ChaCha20Rng::new(&K32, &[0u8; 12], 0);
-        assert_eq!(
-            word_bytes(&mut wrapping, 16),
-            word_bytes(&mut from_zero, 16)
-        );
+    fn last_counter_value_serves_one_block() {
+        let mut rng = ChaCha20Rng::new(&K32, &[0u8; 12], u32::MAX);
+        let block = ChaCha20::with_counter(&K32, &[0u8; 12], u32::MAX).keystream_block();
+        assert_eq!(word_bytes(&mut rng, 16), block);
+    }
+
+    /// The seventeenth read from that stream would need the block after
+    /// counter 2³² − 1, so it panics with this module's message instead of
+    /// wrapping to block 0 and repeating keystream.  The check runs before the
+    /// cipher is asked for that block, so the panic is the same whether
+    /// `cryptography::ChaCha20` wraps its counter or panics with its own
+    /// message.
+    #[test]
+    #[should_panic(expected = "ChaCha20Rng: block counter exhausted")]
+    fn read_past_the_last_counter_value_panics() {
+        let mut rng = ChaCha20Rng::new(&K32, &[0u8; 12], u32::MAX);
+        let _ = word_bytes(&mut rng, 16);
+        let _ = rng.next_u32();
     }
 }
