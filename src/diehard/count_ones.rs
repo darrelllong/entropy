@@ -25,7 +25,9 @@
 //! `phi(z)` (line 817), a CDF value, where this module reports the two-sided
 //! erfc(|z|/√2).
 //!
-//! This crate keeps only the stream variant.  Dieharder rates its byte
+//! The default battery keeps only the stream variant.
+//! [`crate::diehard::historical::count_ones_bytes`] runs DIEHARD's byte
+//! variant, all 25 of `wknt1s`'s bit windows, on request.  Dieharder rates its byte
 //! variant, `diehard_count_1s_byte`, "Good" (`list_tests.c` lines 31–36).  Its
 //! author calls that test "LESS stringent than the stream version overall"
 //! but says it "might reveal problems with specific offsets ignored by the
