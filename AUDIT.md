@@ -349,8 +349,23 @@ M. **The March removal of three DIEHARD tests rested on wrong reasons** —
    CONFIRMED by computation and by `diehard.f` itself run on a good
    generator (`jtbl` replaced by gfortran's RNG).
    **Fixed:** the `count_ones` doc no longer says Dieharder retired the byte
-   variant (c413022).  README.md:200-209 still gives the old reasons.
-   <!-- PENDING historical suite -->
+   variant (c413022).  README.md's "Removed On Purpose" became "Historical
+   DIEHARD Tests", an inventory giving each test's removal at 3b41af8, the
+   reason given then and the evaluation above (61e3481, 9127df3).  The three
+   tests are back in the opt-in `--suite diehard-historical` (d09336c,
+   c94cb7f, a85d049, 0148cc4, 4c24045): OPERM5 as Dieharder 3.31.1 corrects
+   it, overlapping sums as `diehard.f` computes them, and count-the-1s
+   scoring Q5 − Q4 on each of DIEHARD's 25 byte windows with fresh words.
+   No default run includes the suite: `--quick` on MT19937 and AES, and
+   `--suite nist` on Xorshift32, print the same bytes at 67c3509 and at
+   7691ac9.  On null streams overlapping sums rejects 0.977% at 0.01 and
+   0.095% at 0.001 over 100 000 streams, and the count-the-1s window
+   p-values reject 1.042% at 0.01 (sd 0.020%).  Review found that
+   `--test diehard-historical::…` ran the whole default battery and exited
+   0; a `--test` pattern that matches no result name, or none the selection
+   runs, now exits 1 (524e2bc, 7691ac9).  Review also had the goldens split
+   into tight regression pins and fidelity checks at the Fortran's printed
+   precision (adc24ae).  Merged at 7691ac9.
 
 N. **`math::erfc` was good only to about 10⁻⁷** — `src/math.rs:12-41`.
    `erfc`, and `normal_cdf` through it, was Numerical Recipes' `erfcc`,
@@ -447,8 +462,14 @@ N. **`math::erfc` was good only to about 10⁻⁷** — `src/math.rs:12-41`.
     probabilities, reports each window's lower tail 1 − exp(−χ²/2),
     summarizes the 25 with Anderson–Darling, and starts each window where
     `jkreset` leaves it (item L).  Sweeping all 25 windows, each on fresh
-    words, belongs to the historical suite.
-    <!-- PENDING historical suite -->
+    words, belongs to the historical suite, which now does it (d672935) and
+    reports all 25 window results with their Anderson–Darling summary
+    (65231c6).  Review showed that the summary alone hides a broken window:
+    with window 8 broken, that window's p fell below 10⁻¹⁰ in all 1 000
+    streams while the summary fell below 0.01 in 8.2%.  Over 10 000 null
+    streams the window p-values reject 1.012% at 0.01 and 0.096% at 0.001,
+    and the summary 1.05% and 0.11%.  The default battery keeps its single
+    window.
 
 11. **Webster–Tavares BIC masks degenerate linear maps** —
     `src/research/webster_tavares.rs:50-54`.  A never/always-flipping
@@ -985,7 +1006,9 @@ neighbouring repositories' audits say about this crate.
   branches the reviewers conceded every finding up to a last round of
   documentation and tolerance fixes, which were checked against the
   reviewers' figures before merging.  `ci-release-tests` adds one CI step,
-  whose command the Linux runs below execute.
+  whose command the Linux runs below execute.  The historical DIEHARD suite
+  (`diehard-historical`) was merged after its reviewer conceded every
+  finding, over three rounds.
 - *Staging.*  Each merge was made on `merge-staging` and verified there
   against `git archive` copies of the committed sibling crates, cryptography
   342989a and rump 3ff885c, which is what CI builds: `cargo fmt --check`,
@@ -998,7 +1021,9 @@ neighbouring repositories' audits say about this crate.
   83a841c (erfc and research) with 395 and 398, which shows `erfc`'s
   ε-scaled test tolerances hold on glibc's libm, and main 93e6621 with 397
   and 400.  The earlier staging commit 489dc5a passed with 387 and 390.
-  fd6df95, main's tip, changes only TESTS.md.
+  b724f16, the historical suite merged with main 67c3509, passed with 422
+  and 430; after it, main up to dbdb345 changes only USAGE.md, BIB.md and
+  `pubs/`.
 - *DIEHARD fidelity review.*  A read-only review compared every DIEHARD
   module with `diehard.f`.  It ran gfortran 16.2 builds of the Fortran as an
   oracle on 4 000 000 words, built with `-fno-automatic`, without which
@@ -1064,8 +1089,9 @@ Recipes.
   things.  The first is an inventory of the historical DIEHARD
   implementations, with each one's revision and the reason it was disabled,
   and an evaluation of any disputed statistic before a test is restored;
-  item M is that evaluation.
-  <!-- PENDING historical suite -->
+  item M is that evaluation.  Both are done: README.md's "Historical
+  DIEHARD Tests" is the inventory, and `--suite diehard-historical` restores
+  the three tests with the 25-window 6×8 sweep (items M and 10).
   The second is a finite byte-corpus adapter with an explicit contract for
   word endianness, bit order, partial words, consumption and short input,
   verified against a generated stream.  A design exists: sequential and
@@ -1110,17 +1136,17 @@ contract is implemented in `run_tests`.
 
 ## Status after the 2026-09-11 follow-up
 
-Items 1–6, A–L and N are fixed or documented (B withdrawn), and so are most
-of items 7–41; each carries a note above.  Item M waits on the historical
-DIEHARD suite.
+Items 1–6 and A–N are fixed or documented (B withdrawn), and so are most
+of items 7–41; each carries a note above.
 
-- **Merged** (main at 67c3509): `audit-nist` (79f48b4), `audit-rng`
+- **Merged** (main at dbdb345): `audit-nist` (79f48b4), `audit-rng`
   (fd36369), `fix-dotnet` (601ab91), `kat-etsi` (ccf18e7), `audit-diehard`
   (e410409, 229e104), `fix-hex-literals` (1e26fd5), `math-erfc` with the
   re-pinned goldens (89eb68b, 83a841c, 93e6621), `audit-research` (956976b,
   d6555c8, 72580dc, 00c2a2c), `docs-tests-theory` (0a417eb),
   `ci-release-tests` (3a2bf85), the regenerated TESTS.md (fd6df95), and the
-  research modules' comments on their p-value caps (67c3509).
+  research modules' comments on their p-value caps (67c3509),
+  `diehard-historical` (7691ac9), and `pubs-free-copies` (dbdb345).
 - **Kept for fidelity to the cited reference:** the Dieharder fill-tree
   off-by-one (14); SP 800-22's four-decimal longest-run tables for M = 128
   and M = 10⁴, the latter also STS's (15); both MSVC `rand()` types (35);
@@ -1129,8 +1155,8 @@ DIEHARD suite.
   sizes (L).
 - **Kept by choice and documented:** fresh words for each birthday window
   (27); KS summaries with upper-tail or two-sided p-values where DIEHARD
-  reports Anderson–Darling and CDF values (L); the 6×8 test's single window
-  (10); the Gorilla aggregate's scaled upper tail and shared words (17); the
+  reports Anderson–Darling and CDF values (L); the default 6×8 test's single
+  window (10), which the historical suite sweeps over all 25; the Gorilla aggregate's scaled upper tail and shared words (17); the
   unused public test functions (34); the serial test's n ≥ 1000 floor and
   TAOCP's leading gap in the Knuth gap test (41); and SKIP where STS writes
   P = 0 below the random-excursion cycle gate.
@@ -1167,13 +1193,9 @@ DIEHARD suite.
   10⁻⁷ (N).  OS-seeded generators differ from the previous run by chance,
   and Failure Highlights stay one line per generator.
 - **Open:**
-  - The historical DIEHARD suite: the three removed tests (M), DIEHARD's
-    25-window 6×8 sweep (10) and an inventory in place of README's
-    "Removed On Purpose".  `diehard-historical` is under review fixes.
-    <!-- PENDING historical suite -->
   - The finite byte-corpus input (Follow-up), which is being built.
     <!-- PENDING corpus adapter -->
-  - The `wipe` feature waits on cryptography (Follow-up), and BIB.md dates
-    wyhash 2022 where the `pubs/` snapshot is a March 2026 commit.
+  - The `wipe` feature waits on cryptography, whose main is still 342989a
+    (Follow-up).
   - Coverage: SFC64 and PractRand's FPF truncation rule are unverified, and
     §2.9.8's input is unavailable (Test coverage).
