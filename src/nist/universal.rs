@@ -17,7 +17,8 @@
 //!   *Journal of Cryptology* 5(2), pp. 89–105, 1992.
 //!   DOI: 10.1007/BF00193563.
 //!   [pubs/maurer-1992-universal-test.pdf]
-//!   [Table I: E[f_TU] and Var[log₂ Aₙ] for L = 1..16; eq. (13): c(L, K)]
+//!   [Table I: expected value of f_TU and variance of log₂ Aₙ for L = 1..16;
+//!   eq. (13): c(L, K)]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
