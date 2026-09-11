@@ -1,10 +1,11 @@
 //! Golden p-values for every DIEHARD and DIEHARDER test at a fixed seed.
 //!
 //! These are regression values.  Each one was produced by this crate's own
-//! code (the tree at commit a14efeb, in a debug build on aarch64-apple-darwin,
-//! and reproduced within the tolerance below by debug and release builds on
-//! aarch64-apple-darwin and x86_64-apple-darwin) and is pinned here so that a
-//! change to any statistic, sample layout or p-value routine fails a test.  They are not reference values from
+//! code in a debug build on aarch64-apple-darwin, reproduced within the
+//! tolerances below by debug and release builds on aarch64-apple-darwin and
+//! x86_64-apple-darwin, and pinned here so that a change to any statistic,
+//! sample layout or p-value routine fails a test.  An adversarial review also
+//! ran the first version on x86_64 Linux with glibc.  They are not reference values from
 //! Marsaglia's DIEHARD or Brown's Dieharder C, and passing says nothing about
 //! whether a statistic is right, only that it has not moved.  An intended
 //! change to a statistic must update this table and say so in its commit.
@@ -42,6 +43,15 @@ const SEED: u32 = 5489;
 /// about 1e-15 of a rounding boundary.
 const TOL: f64 = 1e-12;
 
+/// Tolerance for `binary_rank_31x31` only.  Its cell probabilities come from
+/// `gf2_rank_probability`, which sums about 90 `ln` terms, and its tail cell
+/// is 1 − P(31) − P(30) − P(29), so its p-value is far more sensitive to libm
+/// rounding than the others.  An adversarial review shifted every `exp`,
+/// `ln`, `cos`, `sin` and `powf` result by one ulp: this p-value moved 8.2e-11
+/// with upward shifts and 3.7e-10 with downward ones, while every other
+/// golden stayed within 1e-12.  1e-8 is about 27 times the larger move.
+const RANK_31X31_TOL: f64 = 1e-8;
+
 /// 9 bit offsets × 500 trials × 512 birthdays, the hungriest slice test.
 const BIRTHDAY_WORDS: usize = 9 * 500 * 512;
 /// 40 000 matrices of 32 rows.
@@ -70,6 +80,9 @@ const BYTE_DISTRIBUTION_WORDS: usize = 3 * 5 * 256;
 const DCT_WORDS: usize = 5_000 * 256;
 /// The fewest words that give monobit2 one block size (pairs of words).
 const MONOBIT2_WORDS: usize = 404;
+/// The fewest words that give monobit2 two block sizes (2 and 4 words), so
+/// the flat layout's second segment and level 1's short first block are used.
+const MONOBIT2_TWO_LEVEL_WORDS: usize = 1_140;
 /// Eight words per trial for 100 000 trials.
 const FILL_TREE_WORDS: usize = 8 * 100_000;
 /// The fewest words for which every pattern of widths 1 to 8 is scored.
@@ -103,11 +116,15 @@ fn at_gate(test: fn(&[u32]) -> TestResult, len: usize) -> TestResult {
 }
 
 fn check(results: &[TestResult], want: &[Golden]) {
+    check_within(results, want, TOL);
+}
+
+fn check_within(results: &[TestResult], want: &[Golden], tol: f64) {
     assert_eq!(results.len(), want.len(), "{results:?}");
     for (r, w) in results.iter().zip(want) {
         assert_eq!(r.name, w.name);
         assert!(
-            (r.p_value - w.p).abs() <= TOL,
+            (r.p_value - w.p).abs() <= tol,
             "{}: p = {:?}, pinned {:?}",
             r.name,
             r.p_value,
@@ -151,7 +168,7 @@ fn binary_rank_32x32() {
 
 #[test]
 fn binary_rank_31x31() {
-    check(
+    check_within(
         &[at_gate(
             diehard::binary_rank::binary_rank_31x31,
             RANK_31X31_WORDS,
@@ -161,6 +178,7 @@ fn binary_rank_31x31() {
             p: 0.5968570813626384,
             note: "31×31, N=40000, χ²=1.8839",
         }],
+        RANK_31X31_TOL,
     );
 }
 
@@ -431,6 +449,30 @@ fn monobit2() {
 }
 
 #[test]
+fn monobit2_two_block_sizes() {
+    let words = words();
+    let fewer = dieharder::monobit2::monobit2(&words[..MONOBIT2_TWO_LEVEL_WORDS - 1]);
+    assert!(
+        fewer
+            .note
+            .as_deref()
+            .unwrap_or_default()
+            .contains("ntuple=1"),
+        "{fewer}"
+    );
+    check(
+        &[dieharder::monobit2::monobit2(
+            &words[..MONOBIT2_TWO_LEVEL_WORDS],
+        )],
+        &[Golden {
+            name: "dieharder::monobit2",
+            p: 0.4668723553694596,
+            note: "tsamples=1140, ntuple=2, block_sizes=2..4",
+        }],
+    );
+}
+
+#[test]
 fn fill_tree_both() {
     let words = words();
     let short = dieharder::fill_tree::fill_tree_both(&words[..FILL_TREE_WORDS - 1]);
@@ -573,8 +615,14 @@ fn permutations() {
 
 #[test]
 fn gcd_both() {
+    let both = dieharder::gcd::gcd_both(&mut fresh());
+    // `gcd` returns `gcd_both`'s first result, so it is checked against that
+    // rather than pinned twice.
+    let first = dieharder::gcd::gcd(&mut fresh());
+    assert_eq!(first.p_value.to_bits(), both[0].p_value.to_bits());
+    assert_eq!(first.note, both[0].note);
     check(
-        &dieharder::gcd::gcd_both(&mut fresh()),
+        &both,
         &[
             Golden {
                 name: "dieharder::gcd_distribution",
@@ -587,17 +635,5 @@ fn gcd_both() {
                 note: "pairs=100000, χ²=27.3366",
             },
         ],
-    );
-}
-
-#[test]
-fn gcd() {
-    check(
-        &[dieharder::gcd::gcd(&mut fresh())],
-        &[Golden {
-            name: "dieharder::gcd_distribution",
-            p: 0.6591561083913493,
-            note: "pairs=100000, gtblsize=24, χ²=17.8392",
-        }],
     );
 }
