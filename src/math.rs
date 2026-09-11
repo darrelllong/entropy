@@ -172,8 +172,8 @@ fn gammcf(a: f64, x: f64) -> Option<f64> {
 /// Distribution", *Journal of Statistical Software* 8(18), 2003.
 ///
 /// Returns NaN, the crate's insufficient-data value, if any sample is NaN:
-/// such a sample has no place in the empirical distribution.  The slice is
-/// sorted in place.
+/// such a sample has no place in the empirical distribution.  Otherwise the
+/// slice is sorted in place.
 #[must_use]
 pub fn ks_test(samples: &mut [f64]) -> f64 {
     if samples.iter().any(|x| x.is_nan()) {

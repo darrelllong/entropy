@@ -168,7 +168,8 @@ mod tests {
 
     /// The fixed-array counts give bit-identical results to the `HashMap`
     /// counts on 10⁶ bits of Mt19937 seed 1, whose walk has J = 1302 and
-    /// reaches ±875, so every tested state and the out-of-range branch run.
+    /// spans −875 to +261, so every tested state and the out-of-range branch
+    /// run.
     #[test]
     fn fixed_array_matches_hashmap_counts() {
         let bits = Mt19937::new(1).collect_bits(1_000_000);

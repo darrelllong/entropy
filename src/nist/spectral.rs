@@ -10,7 +10,7 @@
 //! the forms SP 800-22 Rev. 1a prints in §2.6.4 and §3.6.  The publication
 //! does not say where these forms come from; §3.6 lists Kim, Umeno and
 //! Hasegawa's "Corrections of the NIST Statistical Test Suite for Randomness"
-//! and Killman et al.'s note on the DFT test among its references.
+//! and Killmann et al.'s note on the DFT test among its references.
 //!
 //! Minimum recommended sequence length: n ≥ 1 000.
 //!
@@ -20,7 +20,7 @@
 //! * S. Kim, K. Umeno and A. Hasegawa, "Corrections of the NIST Statistical
 //!   Test Suite for Randomness," Cryptology ePrint Archive, Report 2004/018,
 //!   2004.  [Cited in §3.6]
-//! * W. Killman, J. Schüth, W. Thumser and I. Uludag, "A Note Concerning the
+//! * W. Killmann, J. Schüth, W. Thumser and I. Uludag, "A Note Concerning the
 //!   DFT Test in NIST Special Publication 800-22," T-Systems, Systems
 //!   Integration, July 2004.  [Cited in §3.6]
 

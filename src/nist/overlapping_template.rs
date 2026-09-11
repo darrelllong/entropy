@@ -12,7 +12,7 @@
 //!   [pubs/NIST-SP-800-22r1a.pdf]
 //! * K. Hamano and T. Kaneko, "The Correction of the Overlapping Template
 //!   Matching Test Included in NIST Randomness Test Suite," *IEICE
-//!   Transactions of Electronics, Communications and Computer Sciences*
+//!   Transactions on Fundamentals of Electronics, Communications and Computer Sciences*
 //!   E90-A(9), pp. 1788–1792, 2007.  [Source of the π values, per §3.8]
 
 use crate::{math::igamc, result::TestResult};
