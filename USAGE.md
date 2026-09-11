@@ -24,8 +24,11 @@ cargo run --release -- --test diehard_historical::operm5_dieharder --rng PCG64
 cargo run --release -- --suite diehard --suite diehard-historical --rng AES
 ```
 
-Running every suite, the default, never includes it, and `--test` selects it
-only through the `diehard_historical::` prefix. Its tests read one capture of
+Running every suite, the default, never includes it. Without `--suite`, a
+`--test` pattern that starts with `diehard_historical::`, or with its alias
+`diehard-historical::`, selects it. A pattern that matches no result name, or
+only results of suites the selection does not run, is a usage error: nothing
+runs and `run_tests` exits 1. The suite's tests read one capture of
 16 000 000 words and report 53 results per generator, and `--quick` does not
 change them. Each result name states its variant:
 
