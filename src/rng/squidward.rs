@@ -26,7 +26,7 @@
 
 use cryptography::Sha256;
 
-use super::{OsRng, Rng};
+use super::{ByteBuffered, OsRng, Rng};
 
 const BLOCK: usize = 32;
 
@@ -64,21 +64,20 @@ impl Squidward {
         let seed: [u8; BLOCK] = core::array::from_fn(|i| i as u8);
         Self::from_seed(&seed)
     }
+}
 
-    fn refill(&mut self) {
-        self.state = sha256(&self.state);
-        self.offset = 0;
+impl ByteBuffered<BLOCK> for Squidward {
+    fn buffer(&self) -> &[u8; BLOCK] {
+        &self.state
     }
 
-    #[inline]
-    fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
-        const { assert!(N <= BLOCK, "chunk larger than Squidward state") }
-        if self.offset + N > BLOCK {
-            self.refill();
-        }
-        let out = self.state[self.offset..self.offset + N].try_into().unwrap();
-        self.offset += N;
-        out
+    fn offset_mut(&mut self) -> &mut usize {
+        &mut self.offset
+    }
+
+    /// Re-hash the previous 32-byte state.
+    fn refill(&mut self) {
+        self.state = sha256(&self.state);
     }
 }
 

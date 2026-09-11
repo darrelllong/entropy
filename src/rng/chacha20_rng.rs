@@ -46,7 +46,7 @@
 
 use cryptography::ChaCha20;
 
-use super::{OsRng, Rng};
+use super::{ByteBuffered, OsRng, Rng};
 
 const BLOCK_BYTES: usize = 64;
 
@@ -72,29 +72,25 @@ impl ChaCha20Rng {
         for chunk in nonce.chunks_exact_mut(4) {
             chunk.copy_from_slice(&os.next_u32().to_le_bytes());
         }
-        let cipher = ChaCha20::new(&key, &nonce);
-        let mut rng = Self {
-            cipher,
+        Self {
+            cipher: ChaCha20::new(&key, &nonce),
             buf: [0u8; BLOCK_BYTES],
-            offset: BLOCK_BYTES,
-        };
-        rng.refill();
-        rng
+            offset: BLOCK_BYTES, // force a refill on first use
+        }
+    }
+}
+
+impl ByteBuffered<BLOCK_BYTES> for ChaCha20Rng {
+    fn buffer(&self) -> &[u8; BLOCK_BYTES] {
+        &self.buf
+    }
+
+    fn offset_mut(&mut self) -> &mut usize {
+        &mut self.offset
     }
 
     fn refill(&mut self) {
         self.buf = self.cipher.keystream_block();
-        self.offset = 0;
-    }
-
-    fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
-        const { assert!(N <= BLOCK_BYTES, "chunk larger than ChaCha20 block") }
-        if self.offset + N > BLOCK_BYTES {
-            self.refill();
-        }
-        let out = self.buf[self.offset..self.offset + N].try_into().unwrap();
-        self.offset += N;
-        out
     }
 }
 

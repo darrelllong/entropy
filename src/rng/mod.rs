@@ -142,6 +142,54 @@ pub trait Rng {
     }
 }
 
+// ── Byte-buffered generators ─────────────────────────────────────────────────
+
+/// Read path shared by the generators that serve words from a buffer of
+/// output bytes: `ChaCha20Rng`, `HashDrbg`, `HmacDrbg`, `SpongeBob`,
+/// `Squidward` and `StreamRng`.
+///
+/// An implementor owns a `LEN`-byte buffer and a read offset into it and says
+/// how to refill the buffer; [`take_bytes`](Self::take_bytes) does the rest.
+/// An offset of `LEN` marks the buffer exhausted, so a constructor that sets
+/// it there defers the first refill to the first read.
+trait ByteBuffered<const LEN: usize> {
+    /// The buffered output bytes.
+    fn buffer(&self) -> &[u8; LEN];
+
+    /// The read offset into [`buffer`](Self::buffer).
+    fn offset_mut(&mut self) -> &mut usize;
+
+    /// Overwrite the whole buffer with the generator's next `LEN` bytes.
+    fn refill(&mut self);
+
+    /// The next `N` bytes.  When fewer than `N` remain, they are discarded
+    /// and the buffer is refilled first; that is how mixing `next_u32` and
+    /// `next_u64` at a refill boundary drops up to 7 bytes.
+    #[inline]
+    fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
+        const { assert!(N <= LEN, "read wider than the byte buffer") }
+        if *self.offset_mut() + N > LEN {
+            self.refill();
+            *self.offset_mut() = 0;
+        }
+        let at = *self.offset_mut();
+        *self.offset_mut() = at + N;
+        let mut out = [0u8; N];
+        out.copy_from_slice(&self.buffer()[at..at + N]);
+        out
+    }
+}
+
+/// Decode a hex string, two digits per byte, as the known-answer tests
+/// print their vectors.
+#[cfg(test)]
+fn hex(s: &str) -> Vec<u8> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     /// Every `Drop` impl in this module clears state through

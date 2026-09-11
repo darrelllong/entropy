@@ -57,7 +57,7 @@
 
 use cryptography::{Hmac, Sha256};
 
-use super::{OsRng, Rng};
+use super::{ByteBuffered, OsRng, Rng};
 
 const OUT: usize = 32; // HMAC-SHA-256 output length (bytes)
 
@@ -147,17 +147,6 @@ impl HmacDrbg {
         out
     }
 
-    fn refill(&mut self) {
-        self.check_reseed_interval();
-        // Generate step: advance V, buffer it, then re-key per §10.1.2.5.
-        let mac = hmac_sha256(&self.k, &self.v);
-        self.v.copy_from_slice(&mac);
-        self.buf = self.v;
-        drbg_update(&mut self.k, &mut self.v, None);
-        self.reseed_counter += 1;
-        self.offset = 0;
-    }
-
     /// SP 800-90A Rev. 1 §10.1.2.5 step 1: "If reseed_counter >
     /// reseed_interval, then return an indication that a reseed is
     /// required."  No reseed is implemented, so the indication is a panic.
@@ -168,15 +157,26 @@ impl HmacDrbg {
              SP 800-90A Rev. 1 §10.1.2.5 step 1 requires a reseed"
         );
     }
+}
 
-    fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
-        const { assert!(N <= OUT, "chunk larger than HMAC-SHA-256 output") }
-        if self.offset + N > OUT {
-            self.refill();
-        }
-        let out = self.buf[self.offset..self.offset + N].try_into().unwrap();
-        self.offset += N;
-        out
+impl ByteBuffered<OUT> for HmacDrbg {
+    fn buffer(&self) -> &[u8; OUT] {
+        &self.buf
+    }
+
+    fn offset_mut(&mut self) -> &mut usize {
+        &mut self.offset
+    }
+
+    /// One streaming Generate: advance V, buffer it, then re-key per
+    /// §10.1.2.5.
+    fn refill(&mut self) {
+        self.check_reseed_interval();
+        let mac = hmac_sha256(&self.k, &self.v);
+        self.v.copy_from_slice(&mac);
+        self.buf = self.v;
+        drbg_update(&mut self.k, &mut self.v, None);
+        self.reseed_counter += 1;
     }
 }
 
@@ -266,6 +266,7 @@ impl Drop for HmacDrbg {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rng::hex;
 
     #[test]
     fn hmac_drbg_nonzero() {
@@ -289,13 +290,6 @@ mod tests {
         let mut b = HmacDrbg::from_os_rng();
         // With 256-bit entropy it's astronomically unlikely these collide.
         assert_ne!(a.next_u64(), b.next_u64());
-    }
-
-    fn hex(s: &str) -> Vec<u8> {
-        (0..s.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
-            .collect()
     }
 
     /// NIST DRBGVS HMAC_DRBG SHA-256 known-answer test: PredictionResistance =

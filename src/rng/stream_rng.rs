@@ -46,7 +46,7 @@
 
 use cryptography::StreamCipher;
 
-use super::Rng;
+use super::{ByteBuffered, Rng};
 
 const CHUNK: usize = 64;
 // Required invariant: CHUNK % 8 == 0.
@@ -80,32 +80,31 @@ impl<C: StreamCipher> StreamRng<C> {
             pos: CHUNK,
         }
     }
+}
+
+impl<C: StreamCipher> ByteBuffered<CHUNK> for StreamRng<C> {
+    fn buffer(&self) -> &[u8; CHUNK] {
+        &self.buf
+    }
+
+    fn offset_mut(&mut self) -> &mut usize {
+        &mut self.pos
+    }
 
     fn refill(&mut self) {
         self.buf = [0u8; CHUNK];
         // fill() XORs keystream into buf; starting from zeros gives raw keystream.
         self.cipher.fill(&mut self.buf);
-        self.pos = 0;
     }
 }
 
 impl<C: StreamCipher> Rng for StreamRng<C> {
     fn next_u32(&mut self) -> u32 {
-        if self.pos + 4 > CHUNK {
-            self.refill();
-        }
-        let w = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into().unwrap());
-        self.pos += 4;
-        w
+        u32::from_le_bytes(self.take_bytes::<4>())
     }
 
     fn next_u64(&mut self) -> u64 {
-        if self.pos + 8 > CHUNK {
-            self.refill();
-        }
-        let w = u64::from_le_bytes(self.buf[self.pos..self.pos + 8].try_into().unwrap());
-        self.pos += 8;
-        w
+        u64::from_le_bytes(self.take_bytes::<8>())
     }
 }
 
