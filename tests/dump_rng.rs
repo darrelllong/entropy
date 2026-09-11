@@ -128,7 +128,7 @@ fn fixed_seed_first_words_are_stable() {
     }
     // Counter (seed=0): little-endian u32 = 0, 1, 2, 3.
     check("counter", 4, "00000000010000000200000003000000");
-    // Constant (value=0xDEAD_DEAD): four LE copies.
+    // Constant (value = entropy::seed::CONSTANT_RNG_WORD): four LE copies.
     check("constant", 4, "addeaddeaddeaddeaddeaddeaddeadde");
     // PCG64 with (state=1, seq=1): the high halves of the first 8 outputs as
     // LE u32s, from an independent replica of pcg-c's pcg64.
@@ -141,6 +141,12 @@ fn fixed_seed_first_words_are_stable() {
     check("mt19937", 4, "5eb99d8ad605bd1c932ffbf86ff1cfe6");
     // Xorshift32 seed=1.
     check("xorshift32", 4, "2120040001060804c5a8cc9d4f995512");
+    // JSF64 at entropy::seed::JSF64_PROBE_SEED: a regression pin captured from
+    // dump_rng at 19efccd, whose output is byte-identical to 229e104.  The
+    // first three words are the high halves of the first three
+    // `jsf64_known_answer` outputs in src/rng/sfc.rs, whose seed has the same
+    // value.
+    check("jsf64", 4, "4c274729a70dc1109506ce10e60d46d2");
 }
 
 #[test]

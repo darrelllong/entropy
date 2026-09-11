@@ -30,7 +30,7 @@ use entropy::rng::{
     WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32,
     Xorshift64, Xoshiro256,
 };
-use entropy::seed::{IV16, IV8, K16, K32};
+use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
 
 /// Canonical list of supported names.  Tests and `--list` use this directly.
 pub const NAMES: &[&str] = &[
@@ -132,13 +132,13 @@ fn dispatch(name: &str, n: u64) -> Result<io::Result<()>, ()> {
         "xoroshiro128" => dump(Xoroshiro128::new(1, 2), n),
         "wyrand" => dump(WyRand::new(42), n),
         "sfc64" => dump(Sfc64::new(1, 2, 3), n),
-        "jsf64" => dump(Jsf64::new(0xdead_beef), n),
+        "jsf64" => dump(Jsf64::new(JSF64_PROBE_SEED), n),
         "chacha20" => dump(ChaCha20Rng::from_os_rng(), n),
         "hmac_drbg" => dump(HmacDrbg::from_os_rng(), n),
         "hash_drbg" => dump(HashDrbg::from_os_rng(), n),
         "crypto_ctr_drbg" => dump(CryptoCtrDrbg::with_test_seed(), n),
         "dual_ec_p256" => dump(DualEcDrbg::p256(b"entropy-r-report"), n),
-        "constant" => dump(ConstantRng::new(0xDEAD_DEAD), n),
+        "constant" => dump(ConstantRng::new(CONSTANT_RNG_WORD), n),
         "counter" => dump(CounterRng::new(0), n),
         _ => return Err(()),
     };

@@ -157,6 +157,16 @@ impl Rng for Xoroshiro128 {
 mod tests {
     use super::*;
 
+    /// xoshiro256** at the arbitrary nonzero state the equal-seed tests share.
+    fn xoshiro256_fixed() -> Xoshiro256 {
+        Xoshiro256::new(0xdead, 0xbeef, 0xcafe, 0xbabe)
+    }
+
+    /// xoroshiro128** at the arbitrary nonzero state the equal-seed test uses.
+    fn xoroshiro128_fixed() -> Xoroshiro128 {
+        Xoroshiro128::new(0xdead_beef, 0xcafe_babe)
+    }
+
     // Known-answer test: first three outputs of xoshiro256** with state
     // {1, 2, 3, 4}, cross-checked against an independent Python replica of
     // Vigna's C reference implementation and against `next()` compiled from
@@ -186,8 +196,7 @@ mod tests {
 
     #[test]
     fn xoshiro256_next_u32_high_bits() {
-        let mut a = Xoshiro256::new(0xdead, 0xbeef, 0xcafe, 0xbabe);
-        let mut b = Xoshiro256::new(0xdead, 0xbeef, 0xcafe, 0xbabe);
+        let (mut a, mut b) = (xoshiro256_fixed(), xoshiro256_fixed());
         assert_eq!(a.next_u32(), (b.next_u64() >> 32) as u32);
     }
 
@@ -199,8 +208,7 @@ mod tests {
 
     #[test]
     fn xoshiro256_deterministic() {
-        let mut a = Xoshiro256::new(0xdead, 0xbeef, 0xcafe, 0xbabe);
-        let mut b = Xoshiro256::new(0xdead, 0xbeef, 0xcafe, 0xbabe);
+        let (mut a, mut b) = (xoshiro256_fixed(), xoshiro256_fixed());
         for _ in 0..10 {
             assert_eq!(a.next_u64(), b.next_u64());
         }
@@ -208,8 +216,7 @@ mod tests {
 
     #[test]
     fn xoroshiro128_deterministic() {
-        let mut a = Xoroshiro128::new(0xdead_beef, 0xcafe_babe);
-        let mut b = Xoroshiro128::new(0xdead_beef, 0xcafe_babe);
+        let (mut a, mut b) = (xoroshiro128_fixed(), xoroshiro128_fixed());
         for _ in 0..10 {
             assert_eq!(a.next_u64(), b.next_u64());
         }

@@ -75,6 +75,11 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Tests
         run: cargo test
+      - name: Release tests, including the release-only ones
+        # Tests marked #[cfg_attr(debug_assertions, ignore)] are too slow
+        # unoptimized; debug `cargo test` above skips them.
+        if: matrix.rust == 'stable'
+        run: cargo test --release -- --include-ignored
       - name: Doc build (deny missing docs)
         run: RUSTDOCFLAGS="-D missing_docs" cargo doc --no-deps
   scripts:
