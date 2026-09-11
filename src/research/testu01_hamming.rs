@@ -8,10 +8,21 @@
 //! - `sstring_HammingCorr`
 //! - `sstring_HammingIndep`
 //!
-//! It follows TestU01's bit extraction convention (`unif01_StripB` style:
-//! keep the `s` most significant bits after dropping the first `r` bits)
-//! and TestU01's `gofs_MinExpected = 10.0` lumping rule for the main
-//! Hamming-independence chi-square.
+//! Bit extraction.  Each generator call yields one 32-bit word, from which the
+//! `unif01_StripB` rule keeps bits `r + 1 ..= r + s`, counted from the most
+//! significant end, as an `s`-bit field (L'Ecuyer and Simard 2007, p. 22).
+//! An `L`-bit block is filled from ⌈L/s⌉ successive fields.  When `s` divides
+//! `L`, the block's Hamming weight is that of the next `L` bits of the
+//! concatenated field stream, which is how the paper describes TestU01's bit
+//! tests (§5, p. 16).  Otherwise the block's last field contributes only its
+//! `L mod s` least significant bits, the rest of that field is discarded, and
+//! the next block starts on a fresh word; in particular, every block with
+//! `L < s` reads a single word.  That case is not claimed to match TestU01's
+//! own packing, since `sstring.c` is not in `pubs/`.  The `upstream_tests`
+//! defaults (`s = 10`, `L = 300`) take the divisible path.
+//!
+//! The main Hamming-independence chi-square lumps cells by TestU01's
+//! `gofs_MinExpected = 10.0` rule.
 
 use super::strip_b;
 use crate::{
@@ -371,8 +382,51 @@ pub fn hamming_indep_block_result(summary: &HammingIndepSummary, k: usize) -> Te
 
 #[cfg(test)]
 mod tests {
-    use super::{binomial_probs, hamming_corr, hamming_indep};
-    use crate::rng::{ConstantRng, Xorshift32};
+    use super::{binomial_probs, bit_chunks, hamming_corr, hamming_indep, next_block_weight};
+    use crate::rng::{ConstantRng, Rng, Xorshift32};
+
+    /// Replays a fixed list of words.
+    struct SequenceRng {
+        words: Vec<u32>,
+        next: usize,
+    }
+
+    impl Rng for SequenceRng {
+        fn next_u32(&mut self) -> u32 {
+            let word = self.words[self.next % self.words.len()];
+            self.next += 1;
+            word
+        }
+    }
+
+    /// Top-aligns 4-bit fields so that `strip_b(word, 0, 4)` returns them.
+    fn fields_as_words(fields: &[u32]) -> SequenceRng {
+        SequenceRng {
+            words: fields.iter().map(|f| f << 28).collect(),
+            next: 0,
+        }
+    }
+
+    /// Pins the extraction the module docs describe when `s` does not divide
+    /// `L`: a block keeps only the low `L mod s` bits of its last field and
+    /// the next block starts on a fresh word.
+    #[test]
+    fn block_tail_keeps_low_field_bits_and_discards_the_rest() {
+        // s = 4, L = 6.  Blocks: 1111 + (00)11 = 6, then 1100 + (00)01 = 3.
+        // Consecutive 6-bit blocks of the concatenated stream
+        // 1111 0011 1100 0001 would weigh 4 and 4.
+        let mut rng = fields_as_words(&[0b1111, 0b0011, 0b1100, 0b0001]);
+        let mut chunks = bit_chunks(&mut rng, 0, 4);
+        assert_eq!(Some(6), next_block_weight(&mut chunks, 6));
+        assert_eq!(Some(3), next_block_weight(&mut chunks, 6));
+
+        // s = 4, L = 2: one word per block, low two bits.  Blocks: (11)00 = 0,
+        // then (00)11 = 2; the concatenated stream 1100 0011 would give 2, 0.
+        let mut rng = fields_as_words(&[0b1100, 0b0011]);
+        let mut chunks = bit_chunks(&mut rng, 0, 4);
+        assert_eq!(Some(0), next_block_weight(&mut chunks, 2));
+        assert_eq!(Some(2), next_block_weight(&mut chunks, 2));
+    }
 
     /// Marsaglia's example xorshift32 seed; any non-zero seed would do.
     const XORSHIFT_SEED: u32 = 2_463_534_242;
