@@ -37,13 +37,15 @@ use std::f64::consts::SQRT_2;
 /// agree with the printed digits to within one unit in the last place (σ²
 /// for L = 8 is 3.23866…, which both tables print as 3.238).
 ///
-/// They are the values themselves to about 10⁻¹²: with p = 2^−L, μ is
-/// Σ_{i≥1} p(1 − p)^{i−1} log₂ i and σ² is Σ_{i≥1} p(1 − p)^{i−1} (log₂ i)² − μ²,
-/// and a direct evaluation of both agrees with every L = 6..16 entry to
-/// 10⁻¹¹ (`constants_match_maurer_series`).  STS 2.1.2's `universal.c` uses
-/// the printed digits instead (6.1962507 and 3.125 for L = 7), which is why
-/// STS and SP 800-22 Appendix B report P-value = 0.282568 for 10⁶ bits of e
-/// where this module gives 0.282591.
+/// With p = 2^−L, μ is Σ_{i≥1} p(1 − p)^{i−1} log₂ i and σ² is
+/// Σ_{i≥1} p(1 − p)^{i−1} (log₂ i)² − μ².  The L = 6..16 entries are those
+/// sums, but not to all 12 decimals: against an accurate evaluation
+/// (`constants_match_maurer_series`) μ is within 4 × 10⁻¹¹ and σ² within
+/// 6 × 10⁻¹⁰, the worst of each at L = 16, and σ² is off by more than 10⁻¹¹
+/// at every L ≥ 11.  STS 2.1.2's `universal.c` uses the printed digits
+/// instead (6.1962507 and 3.125 for L = 7), which is why STS and SP 800-22
+/// Appendix B report P-value = 0.282568 for 10⁶ bits of e where this module
+/// gives 0.282591.
 const EXPECTED_LOG_GAP_STATS: [(f64, f64); 17] = [
     (0.0, 0.0), // L=0 unused
     (0.7326495, 0.690),
@@ -267,24 +269,96 @@ mod tests {
         }
     }
 
-    /// The L = 6..16 entries against the series for μ and σ² in the table's
-    /// doc, summed over i ≤ 45·2^L; the tail left out weighs
-    /// (1 − 2^−L)^{45·2^L} < e^−45.
+    /// Neumaier's compensated running sum: the rounding error of each addition
+    /// is carried separately, so the order of the terms does not matter.
+    #[derive(Default)]
+    struct CompensatedSum {
+        sum: f64,
+        compensation: f64,
+    }
+
+    impl CompensatedSum {
+        fn add(&mut self, term: f64) {
+            let next = self.sum + term;
+            self.compensation += if self.sum.abs() >= term.abs() {
+                (self.sum - next) + term
+            } else {
+                (term - next) + self.sum
+            };
+            self.sum = next;
+        }
+
+        fn value(&self) -> f64 {
+            self.sum + self.compensation
+        }
+    }
+
+    /// μ and σ² of the table's doc for block length `l`: with p = 2^−L, the
+    /// sums over i ≤ 45·2^L of p(1 − p)^{i−1} log₂ i and of
+    /// p(1 − p)^{i−1} (log₂ i)², less μ² for σ².  The tail left out weighs
+    /// (1 − p)^{45·2^L} < e^−45.
+    fn maurer_series(l: usize) -> (f64, f64) {
+        let p = 2f64.powi(-(l as i32));
+        let ln_q = (-p).ln_1p();
+        let mut mean = CompensatedSum::default();
+        let mut second = CompensatedSum::default();
+        for i in 1..=(45usize << l) {
+            let w = p * ((i - 1) as f64 * ln_q).exp();
+            let lg = (i as f64).log2();
+            mean.add(w * lg);
+            second.add(w * lg * lg);
+        }
+        let mean = mean.value();
+        (mean, second.value() - mean * mean)
+    }
+
+    /// The same sums for L = 6..16, as (μ, σ²), evaluated over the same
+    /// i ≤ 45·2^L in 40-digit decimal arithmetic (Python `decimal`).
+    const DECIMAL_SERIES: [(f64, f64); 11] = [
+        (5.217705249861323, 2.9540323993817217),
+        (6.196250654101877, 3.1253918686088884),
+        (7.183665553492268, 3.238662160971426),
+        (8.176424757913649, 3.3112008794777728),
+        (9.172324308195728, 3.3564569069687407),
+        (10.170032291924027, 3.3840870306566133),
+        (11.168764874404863, 3.4006541450941707),
+        (12.168070314223677, 3.4104380091402215),
+        (13.167692567127945, 3.4161418217073805),
+        (14.16748844859603, 3.419430397502266),
+        (15.167378763677508, 3.421308342471886),
+    ];
+
+    /// The L = 6..16 table entries against an accurate evaluation of their
+    /// series.  `maurer_series` agrees with `DECIMAL_SERIES` to 3.1 × 10⁻¹⁴
+    /// as measured, and is held to 10⁻¹² here.  The table does not reach
+    /// that.  Its measured worst gaps, both at L = 16, are 4.0 × 10⁻¹¹ in μ
+    /// and 5.6 × 10⁻¹⁰ in σ², and σ² misses by more than 10⁻¹¹ at every
+    /// L ≥ 11, so the tolerances are the ones the table meets.  Summing the
+    /// terms first to last in plain f64 reproduces the table to about
+    /// 2.5 × 10⁻¹², so the entries were probably made that way.
     #[test]
     fn constants_match_maurer_series() {
+        const MU_TOLERANCE: f64 = 5e-11;
+        const VARIANCE_TOLERANCE: f64 = 6e-10;
         for (l, &(mu, var)) in EXPECTED_LOG_GAP_STATS.iter().enumerate().skip(6) {
-            let p = 2f64.powi(-(l as i32));
-            let ln_q = (-p).ln_1p();
-            let (mut mean, mut second) = (0.0, 0.0);
-            for i in 1..=(45usize << l) {
-                let w = p * ((i - 1) as f64 * ln_q).exp();
-                let lg = (i as f64).log2();
-                mean += w * lg;
-                second += w * lg * lg;
-            }
-            assert!((mean - mu).abs() < 1e-11, "μ for L = {l}: {mean}");
-            let variance = second - mean * mean;
-            assert!((variance - var).abs() < 1e-11, "σ² for L = {l}: {variance}");
+            let (mean, variance) = maurer_series(l);
+            let (decimal_mean, decimal_variance) = DECIMAL_SERIES[l - 6];
+            assert!(
+                (mean - decimal_mean).abs() < 1e-12,
+                "series μ, L = {l}: {mean}"
+            );
+            assert!(
+                (variance - decimal_variance).abs() < 1e-12,
+                "series σ², L = {l}: {variance}"
+            );
+            assert!(
+                (mean - mu).abs() < MU_TOLERANCE,
+                "μ, L = {l}: {mu} vs {mean}"
+            );
+            assert!(
+                (variance - var).abs() < VARIANCE_TOLERANCE,
+                "σ², L = {l}: {var} vs {variance}"
+            );
         }
     }
 
