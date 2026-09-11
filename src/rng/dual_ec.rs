@@ -22,7 +22,7 @@
 //!   out = rightmost(outlen, r)  // least-significant outlen bits
 //! ```
 //!
-//! **Output lengths** (SP 800-90 Table 4):
+//! **Output lengths** (the `outlen` SP 800-90 specifies for each curve):
 //! | Curve  | seqlen | outlen |
 //! |--------|--------|--------|
 //! | P-256  | 256    | 240    |
@@ -69,13 +69,25 @@ impl DualEcDrbg {
     /// * `q`      — secondary point; determines output.  NIST values may be backdoored.
     /// * `seed`   — initial state, interpreted as a big-endian integer.  Should be
     ///   at least `⌈seqlen/8⌉` bytes of high-entropy material.
-    /// * `outlen` — output bits per block; must be a positive multiple of 8.
+    /// * `outlen` — output bits per block; a multiple of 8 in
+    ///   `32..=max_outlen(curve)`.  The lower bound is what the [`Rng`] path
+    ///   needs to assemble 32-bit words across block boundaries.  The upper
+    ///   bound is 240 / 368 / 504 bits for P-256 / P-384 / P-521, the
+    ///   `max_outlen` SP 800-90 gives for those curves and the `outlen` the
+    ///   constructors below use.  It is computed as
+    ///   `8·⌊(seedlen − (13 + log₂ h)) / 8⌋` with `seedlen` the bit length
+    ///   of the group order; for other curves that rule is an extrapolation.
+    ///   The standard drops those leading bits of `x(t·Q)` because a raw
+    ///   x-coordinate is not uniformly distributed.  With the trapdoor they
+    ///   cost only about 2¹⁶ guesses, which is the backdoor described in the
+    ///   module documentation.  No edition of SP 800-90 that contains
+    ///   Dual_EC_DRBG is in `pubs/`.
     ///
     /// # Panics
-    /// Panics if `outlen` is not a positive multiple of 8, or if `seed` is
-    /// empty or all-zero: `s = 0` is a fixed point of the state update
-    /// (`scalar_mul` returns the point at infinity, whose x-coordinate is 0),
-    /// so the generator would emit an all-zero stream forever.
+    /// Panics if `outlen` is not a multiple of 8 in `32..=max_outlen`, or if
+    /// `seed` is empty or all-zero: `s = 0` is a fixed point of the state
+    /// update (`scalar_mul` returns the point at infinity, whose x-coordinate
+    /// is 0), so the generator would emit an all-zero stream forever.
     pub fn new(
         curve: CurveParams,
         p: AffinePoint,
@@ -83,9 +95,10 @@ impl DualEcDrbg {
         seed: &[u8],
         outlen: usize,
     ) -> Self {
+        let max_outlen = max_outlen(&curve);
         assert!(
-            outlen > 0 && outlen.is_multiple_of(8),
-            "outlen must be a positive multiple of 8"
+            outlen.is_multiple_of(8) && (32..=max_outlen).contains(&outlen),
+            "outlen must be a multiple of 8 in 32..={max_outlen} for this curve"
         );
         let s = BigUint::from_be_bytes(seed);
         assert!(
@@ -180,11 +193,12 @@ impl DualEcDrbg {
 
         // r = x(t · Q)  — compute output value
         let r_point = self.curve.scalar_mul(&self.q, &t);
-        let r_bytes = to_be_padded(&r_point.x, self.curve.coord_len);
 
-        // rightmost(outlen, r): the least-significant outlen bits = last outlen/8 bytes
-        let skip = r_bytes.len() - self.outlen / 8;
-        self.buf = r_bytes[skip..].to_vec();
+        // rightmost(outlen, r) = r mod 2^outlen, as outlen/8 big-endian bytes
+        self.buf = r_point
+            .x
+            .low_bits(self.outlen)
+            .to_be_bytes_padded(self.outlen / 8);
         self.pos = 0;
     }
 }
@@ -224,38 +238,21 @@ impl Rng for DualEcDrbg {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/// Zero-pad `x` to exactly `len` bytes in big-endian.
-fn to_be_padded(x: &BigUint, len: usize) -> Vec<u8> {
-    let raw = x.to_be_bytes();
-    if raw.len() >= len {
-        // Truncate to the least-significant `len` bytes (should never lose information).
-        raw[raw.len() - len..].to_vec()
-    } else {
-        let mut out = vec![0u8; len];
-        out[len - raw.len()..].copy_from_slice(&raw);
-        out
-    }
+/// Largest admissible `outlen`: `8·⌊(seedlen − (13 + log₂ h)) / 8⌋`, with
+/// `seedlen` the bit length of the group order `n`.  The rule reproduces
+/// the `max_outlen` SP 800-90 gives for P-256, P-384 and P-521 (240, 368,
+/// 504); no edition containing Dual_EC_DRBG is in `pubs/`.
+fn max_outlen(curve: &CurveParams) -> usize {
+    let seedlen = curve.n.bits();
+    let hidden = 13 + curve.h.ilog2() as usize;
+    8 * (seedlen.saturating_sub(hidden) / 8)
 }
 
-/// Construct an [`AffinePoint`] from two lowercase hex strings (no spaces).
+/// Construct an [`AffinePoint`] from two hexadecimal coordinate strings,
+/// parsed by rump.
 fn point_from_hex(x_hex: &str, y_hex: &str) -> AffinePoint {
-    let x = BigUint::from_be_bytes(&decode_hex(x_hex));
-    let y = BigUint::from_be_bytes(&decode_hex(y_hex));
-    AffinePoint::new(x, y)
-}
-
-/// Decode a lowercase hex string (may span multiple `&str` pieces after concat)
-/// to a `Vec<u8>`.  Strips whitespace; panics on invalid hex.
-fn decode_hex(s: &str) -> Vec<u8> {
-    let cleaned: String = s.chars().filter(|c| !c.is_whitespace()).collect();
-    assert!(
-        cleaned.len().is_multiple_of(2),
-        "hex string must have even length"
-    );
-    (0..cleaned.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&cleaned[i..i + 2], 16).expect("valid hex digit"))
-        .collect()
+    let coord = |hex: &str| BigUint::from_str_radix(hex, 16).expect("valid hex coordinate");
+    AffinePoint::new(coord(x_hex), coord(y_hex))
 }
 
 impl Drop for DualEcDrbg {
@@ -269,7 +266,7 @@ impl Drop for DualEcDrbg {
     /// protects live key material.
     fn drop(&mut self) {
         cryptography::zeroize_slice(&mut self.buf);
-        self.s = BigUint::from_be_bytes(&[0u8]);
+        self.s = BigUint::zero();
     }
 }
 
@@ -284,5 +281,106 @@ mod tests {
         assert!(r.is_err(), "all-zero seed must be rejected");
         let r = std::panic::catch_unwind(|| DualEcDrbg::p256(b""));
         assert!(r.is_err(), "empty seed must be rejected");
+    }
+
+    /// P-256 instance with Q = 3·G rather than Q = P, so an output block is
+    /// not simply the next state.  Tests built on it check bookkeeping only;
+    /// the P and Q roles are pinned by `p256_seed_one_kat`.
+    fn p256_with_outlen(outlen: usize) -> DualEcDrbg {
+        let curve = cryptography::vt::p256();
+        let p = curve.base_point();
+        let q = curve.scalar_mul(&p, &BigUint::from_be_bytes(&[3]));
+        DualEcDrbg::new(curve, p, q, &[1u8; 32], outlen)
+    }
+
+    /// The `max_outlen` values SP 800-90 gives for the three NIST curves.
+    #[test]
+    fn max_outlen_matches_sp800_90() {
+        assert_eq!(max_outlen(&cryptography::vt::p256()), 240);
+        assert_eq!(max_outlen(&cryptography::vt::p384()), 368);
+        assert_eq!(max_outlen(&cryptography::vt::p521()), 504);
+    }
+
+    /// Regression: `new` accepted any positive multiple of 8 for `outlen`,
+    /// then `next_u32` panicked on the first draw for `outlen < 32`, and
+    /// nothing stopped `outlen` from exceeding the standard's `max_outlen`.
+    #[test]
+    fn outlen_bounds_enforced_at_construction() {
+        for bad in [0usize, 8, 12, 16, 24, 248, 256, 264] {
+            let r = std::panic::catch_unwind(|| p256_with_outlen(bad));
+            assert!(r.is_err(), "outlen {bad} must be rejected");
+        }
+        for ok in [32usize, 40, 240] {
+            let mut g = p256_with_outlen(ok);
+            let _ = g.next_u32();
+            let _ = g.next_u32();
+        }
+    }
+
+    /// `next_u32` splices words across block boundaries.  With 5-byte
+    /// blocks the unread-byte count before each draw cycles 0, 1, 2, 3, 4,
+    /// so three words in five straddle a boundary, carrying one, two or
+    /// three saved bytes, and the word stream must equal the big-endian
+    /// parse of the concatenated raw blocks.
+    #[test]
+    fn next_u32_splices_words_across_block_boundaries() {
+        let mut words = p256_with_outlen(40);
+        let mut blocks = p256_with_outlen(40);
+        let mut raw = Vec::new();
+        for _ in 0..8 {
+            blocks.generate_block();
+            raw.extend_from_slice(&blocks.buf);
+        }
+        assert_eq!(raw.len(), 40);
+        for chunk in raw.chunks_exact(4) {
+            let want = u32::from_be_bytes(chunk.try_into().unwrap());
+            assert_eq!(words.next_u32(), want);
+        }
+    }
+
+    /// Known-answer test for the battery's instantiation (P-256, outlen 240,
+    /// seed 0x00…01): the first two 30-byte blocks as fifteen big-endian
+    /// words, one of which straddles the block boundary.  Values come from an
+    /// independent Python replica of the generate step using textbook affine
+    /// P-256 arithmetic, so the rump-parsed Q, the scalar multiplications,
+    /// and the `rightmost(outlen)` truncation are all pinned.
+    #[test]
+    fn p256_seed_one_kat() {
+        let mut seed = [0u8; 32];
+        seed[31] = 1;
+        let mut g = DualEcDrbg::p256(&seed);
+        let want: [u32; 15] = [
+            0x6094_1c3f,
+            0x56bc_e106,
+            0x3354_0ae7,
+            0xf66e_bd30,
+            0x89f8_6f37,
+            0x7b57_ff7f,
+            0x6160_eda7,
+            0x69ab_d54f,
+            0x68fd_16fd,
+            0x3310_f42a,
+            0xe84a_0c29,
+            0xe8d2_5773,
+            0x4686_ceb7,
+            0x4975_d10c,
+            0xdbcf_afbd,
+        ];
+        let got: Vec<u32> = want.iter().map(|_| g.next_u32()).collect();
+        assert_eq!(got, want);
+    }
+
+    /// The SP 800-90 Q literals for all three curves parse (via rump) to
+    /// valid points on their curves.
+    #[test]
+    fn nist_q_points_are_on_their_curves() {
+        let seed = [1u8; 66];
+        for g in [
+            DualEcDrbg::p256(&seed[..32]),
+            DualEcDrbg::p384(&seed[..48]),
+            DualEcDrbg::p521(&seed),
+        ] {
+            assert!(!g.q.infinity && g.curve.is_on_curve(&g.q));
+        }
     }
 }
