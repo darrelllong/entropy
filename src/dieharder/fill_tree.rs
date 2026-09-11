@@ -66,10 +66,11 @@ const TARGET_LEN: usize = TARGET_DATA.len(); // 20
 /// # Author
 /// David Bauer, Dieharder (2006), `dab_filltree`.
 pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
-    // Cheap upfront floor: mean consumption is ≈ 7.3 words/trial, so demand
-    // 8·N_TRIALS.  (The worst case is SIZE·2 per trial, but requiring that —
-    // 6.4 M words — rejected streams that virtually always suffice; the
-    // mid-trial bail-out below still handles a stream that truly runs dry.)
+    // Cheap upfront floor: mean consumption is ≈ 7.5 words/trial, so demand
+    // 8·N_TRIALS.  (The worst case is 16 words per trial, see `tree_insert`,
+    // but requiring that — 1.6 M words — would reject streams that virtually
+    // always suffice; the out-of-words check below still handles a stream
+    // that truly runs dry.)
     if words.len() < N_TRIALS * 8 {
         return vec![
             TestResult::insufficient("dieharder::fill_tree_count", "not enough words"),
@@ -136,11 +137,6 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
                 v.rotate_left(rot_amount)
             };
             let x = rotated as f64 / 4_294_967_296.0;
-
-            if word_count > SIZE * 2 {
-                // Should never happen with a non-degenerate RNG.
-                break 0;
-            }
 
             if let Some(pos) = tree_insert(x, &mut array) {
                 break pos;
@@ -223,6 +219,14 @@ pub fn fill_tree(words: &[u32]) -> TestResult {
 ///   - If slot is empty (`NaN`), place `x` there and return `None` (success).
 ///   - Else move left or right, halve the step.
 ///   - If step reaches 0, return `Some(i)` (collision at position i).
+///
+/// A trial therefore ends within 16 inserts.  The search path, with steps
+/// 8, 4, 2, 1 from `START_VAL`, reaches only the 15 slots 1, 3, …, 29; every insert
+/// that does not collide fills one of them with a non-NaN sample, so by the
+/// 16th insert the whole path is occupied and it collides.  The C needed an
+/// `i > size * 2` bail-out because its 0.0 sentinel lets a stream of 0.0
+/// samples refill the root forever; with the NaN sentinel that cannot happen,
+/// so this port has no bail-out.
 fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
     let mut i = START_VAL;
     let mut d = START_VAL.div_ceil(2); // = 8
@@ -243,7 +247,56 @@ fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{tree_insert, SIZE, START_VAL};
+    use super::{fill_tree_both, tree_insert, N_TRIALS, SIZE, START_VAL};
+    use crate::rng::{Mt19937, Rng};
+
+    /// Inserting 1/16 … 15/16 in level order fills slots 1, 3, …, 29, the
+    /// only ones the search path reaches; the next insert must collide.
+    /// Slots and collision positions replicated in Python.
+    #[test]
+    fn fifteen_inserts_fill_every_reachable_slot() {
+        let mut array = [f64::NAN; SIZE];
+        for k in [8, 4, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15] {
+            assert_eq!(
+                tree_insert(f64::from(k) / 16.0, &mut array),
+                None,
+                "k = {k}"
+            );
+        }
+        let filled: Vec<usize> = (0..SIZE).filter(|&i| !array[i].is_nan()).collect();
+        assert_eq!(filled, (1..=29).step_by(2).collect::<Vec<_>>());
+        assert_eq!(tree_insert(0.0, &mut array), Some(0));
+        assert_eq!(tree_insert(0.99, &mut array), Some(30));
+    }
+
+    /// No trial needs more than 16 words, which is why the removed
+    /// `word_count > 2·SIZE` bail-out could never fire.
+    #[test]
+    fn every_trial_collides_within_sixteen_words() {
+        let mut rng = Mt19937::new(5489);
+        let mut longest = 0;
+        for _ in 0..N_TRIALS {
+            let mut array = [f64::NAN; SIZE];
+            let mut words = 1;
+            while tree_insert(rng.next_f64(), &mut array).is_none() {
+                words += 1;
+            }
+            longest = longest.max(words);
+        }
+        assert!(longest <= 16, "longest trial took {longest} words");
+    }
+
+    /// An all-zero stream is the case the C's bail-out existed for.  Here
+    /// every trial collides on its fifth word at position 0 (replicated in
+    /// Python), so both statistics are scored and fail.
+    #[test]
+    fn all_zero_stream_is_scored_and_fails() {
+        let words = vec![0u32; N_TRIALS * 8];
+        for r in fill_tree_both(&words) {
+            assert!(!r.skipped(), "{r}");
+            assert!(r.p_value < 1e-10, "{r}");
+        }
+    }
 
     /// Regression (Grok issue 1): a sample of exactly 0.0 must occupy its node,
     /// not read back as "empty".  With the old 0.0 sentinel a later insert
