@@ -72,10 +72,13 @@ const P6X8_FIVE: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0;
 /// `diehard_rank_6x8.c`, whose `binary_rank(mtx, 6, 8)` (`rank.c`) reads the
 /// eight columns from bit 0 upward, even though its comment speaks of the
 /// leftmost byte.  It does not match DIEHARD: Marsaglia forms rows from "a
-/// specified byte" (`tests.txt`) and repeats the test for 25 byte positions,
-/// combining the 25 p-values with a KS test (`diehard.exe` in
-/// `pubs/Diehard.zip`: "TEST SUMMARY, 25 tests on 100,000 random 6x8
-/// matrices").
+/// specified byte" (`tests.txt`) and repeats the test for 25 overlapping
+/// 8-bit windows, bits 1–8 through 25–32, combining the 25 p-values with a
+/// KS test (`diehard.exe` in `pubs/Diehard.zip`: "TEST SUMMARY, 25 tests on
+/// 100,000 random 6x8 matrices").
+///
+/// The chi-square uses three cells, rank ≤ 4, 5 and 6 (df 2).  Dieharder's
+/// `diehard_rank_6x8.c` also scores rank 3 on its own (4 cells, df 3).
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -401,6 +404,15 @@ mod tests {
         for test in RANK_TESTS {
             assert!(test(&[]).skipped());
             assert!(test(&[0; 100]).skipped());
+        }
+    }
+
+    /// One word short of a full set of matrices must skip: 32x32 and 31x31
+    /// need 40 000 matrices, 6x8 needs 100 000.
+    #[test]
+    fn one_word_short_of_the_matrices_skips() {
+        for (test, needed) in RANK_TESTS.iter().zip([1_280_000usize, 1_240_000, 600_000]) {
+            assert!(test(&vec![0; needed - 1]).skipped(), "needed {needed}");
         }
     }
 
