@@ -24,13 +24,13 @@ use std::f64::consts::LN_2;
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.12.
 pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
     let n = bits.len();
-    // §2.12.7: "Choose m and n such that m < log2 n − 5", i.e. 2^{m+5} < n.
+    // §2.12.7: "Choose m and n such that m < ⌊log2 n⌋ − 5", i.e. n ≥ 2^{m+6}.
     // (The φ(m+1) table has 2^{m+1} cells, so this also keeps both pattern
     // tables well populated.)
-    if n == 0 || m >= 30 || (1usize << (m + 5)) >= n {
+    if n == 0 || m >= 30 || n < (1usize << (m + 6)) {
         return TestResult::insufficient(
             "nist::approximate_entropy",
-            "m violates m < log₂ n − 5 (§2.12.7)",
+            "m violates m < ⌊log₂ n⌋ − 5 (§2.12.7)",
         );
     }
 
@@ -81,26 +81,27 @@ mod tests {
     use super::*;
     use crate::nist::test_vectors::{bits, EPSILON_100};
 
-    /// §2.12.7 requires m < log₂ n − 5, which excludes n = 2^{m+5} itself.
+    /// §2.12.7 reads "m < ⌊log₂ n⌋ − 5", so n = 2^{m+6} − 1 is the largest
+    /// length that must be skipped and n = 2^{m+6} the smallest that runs.
     #[test]
-    fn m_gate_is_strict_at_n_equal_2_to_the_m_plus_5() {
+    fn m_gate_follows_the_floor_in_section_2_12_7() {
         for m in [2usize, 10] {
-            let boundary = 1usize << (m + 5);
+            let boundary = 1usize << (m + 6);
             let stream: Vec<u8> = bits(EPSILON_100)
                 .into_iter()
                 .cycle()
-                .take(boundary + 1)
+                .take(boundary)
                 .collect();
-            let at = approximate_entropy(&stream[..boundary], m);
-            let above = approximate_entropy(&stream, m);
-            assert!(at.skipped(), "m = {m}, n = {boundary}: {at}");
-            assert!(!above.skipped(), "m = {m}, n = {}: {above}", boundary + 1);
+            let below = approximate_entropy(&stream[..boundary - 1], m);
+            let at = approximate_entropy(&stream, m);
+            assert!(below.skipped(), "m = {m}, n = {}: {below}", boundary - 1);
+            assert!(!at.skipped(), "m = {m}, n = {boundary}: {at}");
         }
     }
 
     /// SP 800-22 §2.12.8: m = 2, n = 100 gives ApEn(2) = 0.665393,
     /// χ² = 5.550792 and P-value = 0.235301.  The example itself is outside
-    /// the §2.12.7 gate (2 ≥ log₂ 100 − 5), so the statistic is checked
+    /// the §2.12.7 gate (2 ≥ ⌊log₂ 100⌋ − 5 = 1), so the statistic is checked
     /// through φ.
     #[test]
     fn phi_reproduces_section_2_12_8_example() {
