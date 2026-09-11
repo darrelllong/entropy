@@ -79,8 +79,8 @@ fn min_dist_cubed(points: &[(f64, f64, f64)]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::min_dist_cubed;
-    use crate::rng::{Mt19937, Rng};
+    use super::{min_dist_cubed, spheres_3d};
+    use crate::rng::{ConstantRng, Mt19937, Rng};
 
     /// Per-pair square root and cube, the scan as first written.
     fn per_pair_cube_min(points: &[(f64, f64, f64)]) -> f64 {
@@ -135,5 +135,12 @@ mod tests {
             points.push(points[0]);
             assert_eq!(min_dist_cubed(&points), 0.0, "n = {n} with a duplicate");
         }
+    }
+
+    /// Every point coincides, so r³ = 0 in every repeat.
+    #[test]
+    fn constant_generator_fails() {
+        let r = spheres_3d(&mut ConstantRng::new(0), true);
+        assert!(!r.skipped() && !r.passed(), "{r}");
     }
 }

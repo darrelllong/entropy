@@ -150,7 +150,7 @@ fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str)
 
 #[cfg(test)]
 mod tests {
-    use super::{hamming_letter, ALPHA_SIZE, LETTER_PROBS};
+    use super::{count_ones_stream, hamming_letter, ALPHA_SIZE, LETTER_PROBS, N_SAMPLES, WORD_LEN};
 
     /// Counting the 256 bytes by letter must reproduce the table, and the
     /// dyadic entries sum to exactly 1.
@@ -165,5 +165,14 @@ mod tests {
             assert_eq!(*p, f64::from(n) / 256.0);
         }
         assert_eq!(LETTER_PROBS.iter().sum::<f64>(), 1.0);
+    }
+
+    #[test]
+    fn short_inputs_skip_and_constant_input_fails() {
+        let needed = (N_SAMPLES + WORD_LEN - 1).div_ceil(4);
+        assert!(count_ones_stream(&[]).skipped());
+        assert!(count_ones_stream(&vec![0; needed - 1]).skipped());
+        let r = count_ones_stream(&vec![0; needed]);
+        assert!(!r.skipped() && !r.passed(), "{r}");
     }
 }

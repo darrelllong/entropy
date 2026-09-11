@@ -81,3 +81,16 @@ fn min_dist_squared(points: &[(f64, f64)]) -> f64 {
     }
     min_sq
 }
+
+#[cfg(test)]
+mod tests {
+    use super::minimum_distance_2d;
+    use crate::rng::ConstantRng;
+
+    /// Every point coincides, so d² = 0 in every repeat.
+    #[test]
+    fn constant_generator_fails() {
+        let r = minimum_distance_2d(&mut ConstantRng::new(0), true);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+    }
+}

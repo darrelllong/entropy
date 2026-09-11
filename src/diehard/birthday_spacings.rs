@@ -135,3 +135,25 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
         format!("m={M}, year=2^24, samples={SAMPLES}"),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{birthday_spacings, M, SAMPLES};
+
+    /// Words needed: 500 trials of 512 birthdays at each of 9 bit offsets.
+    const NEEDED: usize = 9 * SAMPLES * M;
+
+    #[test]
+    fn short_inputs_skip() {
+        assert!(birthday_spacings(&[]).skipped());
+        assert!(birthday_spacings(&vec![0; NEEDED - 1]).skipped());
+    }
+
+    /// Every birthday is day 0, so every trial has exactly one repeated
+    /// interval value.
+    #[test]
+    fn constant_input_fails() {
+        let r = birthday_spacings(&vec![0; NEEDED]);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+    }
+}

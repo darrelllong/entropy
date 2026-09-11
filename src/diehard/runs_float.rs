@@ -207,3 +207,26 @@ fn quadratic_form(counts: &[usize; RUN_MAX], n: usize) -> f64 {
     }
     v / nf
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{runs_float, runs_float_both, REPEATS, SEQ_LEN};
+    use crate::rng::ConstantRng;
+
+    #[test]
+    fn short_inputs_skip() {
+        assert!(runs_float(&[]).skipped());
+        assert!(runs_float(&vec![0; SEQ_LEN * REPEATS - 1]).skipped());
+    }
+
+    /// A constant sequence never rises: every step closes a length-1 up-run
+    /// and the single down-run never closes.
+    #[test]
+    fn constant_input_fails() {
+        let r = runs_float(&vec![0; SEQ_LEN * REPEATS]);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+        for r in runs_float_both(&mut ConstantRng::new(0)) {
+            assert!(!r.skipped() && !r.passed(), "{r}");
+        }
+    }
+}

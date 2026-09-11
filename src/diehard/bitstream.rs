@@ -78,7 +78,9 @@ fn count_missing_20bit_words_streaming(words: &[u32], bits_needed: usize) -> usi
 
 #[cfg(test)]
 mod tests {
-    use super::{count_missing_20bit_words_streaming, STREAM_LEN, TOTAL_WORDS, WINDOW};
+    use super::{
+        bitstream, count_missing_20bit_words_streaming, REPEATS, STREAM_LEN, TOTAL_WORDS, WINDOW,
+    };
 
     #[test]
     fn uses_exact_number_of_overlapping_windows() {
@@ -109,5 +111,14 @@ mod tests {
             TOTAL_WORDS - 5,
             count_missing_20bit_words_streaming(&words, WINDOW + 4)
         );
+    }
+
+    #[test]
+    fn short_inputs_skip_and_constant_input_fails() {
+        let needed = REPEATS * (STREAM_LEN + WINDOW - 1).div_ceil(32);
+        assert!(bitstream(&[]).skipped());
+        assert!(bitstream(&vec![0; needed - 1]).skipped());
+        let r = bitstream(&vec![0; needed]);
+        assert!(!r.skipped() && !r.passed(), "{r}");
     }
 }

@@ -86,7 +86,8 @@ fn score(counts: &[u32; N_CELLS]) -> (f64, usize, f64) {
 
 #[cfg(test)]
 mod tests {
-    use super::{score, CUTOFF, N_CELLS, N_TRIALS, SDATA};
+    use super::{score, squeeze, CUTOFF, N_CELLS, N_TRIALS, SDATA};
+    use crate::rng::ConstantRng;
 
     /// Near-expectation counts with nonzero weak cells (indices 0, 39–42).
     #[rustfmt::skip]
@@ -141,5 +142,16 @@ mod tests {
     fn sdata_sums_to_one() {
         let sum: f64 = SDATA.iter().sum();
         assert!((sum - 1.0).abs() <= 43.0 * 5e-9, "sum = {sum}");
+    }
+
+    /// Word 0 gives U ≈ 1.2 × 10⁻¹⁰, which drops k to 1 at once (j ≤ 6 in
+    /// every trial); u32::MAX gives U just below 1, which never shrinks k
+    /// (j = 48 in every trial).
+    #[test]
+    fn constant_generators_fail() {
+        for value in [0, u32::MAX] {
+            let r = squeeze(&mut ConstantRng::new(value));
+            assert!(!r.skipped() && !r.passed(), "{value}: {r}");
+        }
     }
 }

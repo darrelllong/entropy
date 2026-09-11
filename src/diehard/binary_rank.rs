@@ -254,11 +254,12 @@ fn gf2_rank_probability(rows: usize, cols: usize, rank: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        binary_rank_31x31, binary_rank_6x8, gf2_rank_probability, leftmost_bits, theoretical_probs,
-        P6X8_FIVE, P6X8_FULL,
+        binary_rank_31x31, binary_rank_32x32, binary_rank_6x8, gf2_rank_probability, leftmost_bits,
+        theoretical_probs, P6X8_FIVE, P6X8_FULL,
     };
     use crate::{
         math::gf2_rank,
+        result::TestResult,
         rng::{Mt19937, Rng},
     };
 
@@ -390,5 +391,26 @@ mod tests {
         assert!((gf2_rank_probability(6, 8, 5) - P6X8_FIVE).abs() < 1e-13);
         let total: f64 = (0..=6).map(|r| gf2_rank_probability(6, 8, r)).sum();
         assert!((total - 1.0).abs() < 1e-13, "6×8 total = {total}");
+    }
+
+    const RANK_TESTS: [fn(&[u32]) -> TestResult; 3] =
+        [binary_rank_32x32, binary_rank_31x31, binary_rank_6x8];
+
+    #[test]
+    fn short_inputs_skip() {
+        for test in RANK_TESTS {
+            assert!(test(&[]).skipped());
+            assert!(test(&[0; 100]).skipped());
+        }
+    }
+
+    /// An all-zero matrix has rank 0, so every matrix lands in the lowest cell.
+    #[test]
+    fn constant_input_fails() {
+        let words = vec![0u32; 32 * 40_000];
+        for test in RANK_TESTS {
+            let r = test(&words);
+            assert!(!r.skipped() && !r.passed(), "{r}");
+        }
     }
 }

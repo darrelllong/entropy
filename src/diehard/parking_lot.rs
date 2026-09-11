@@ -66,3 +66,16 @@ fn simulate(rng: &mut impl Rng) -> usize {
     }
     parked
 }
+
+#[cfg(test)]
+mod tests {
+    use super::parking_lot;
+    use crate::rng::ConstantRng;
+
+    /// Every car lands on the first, so one car parks per repeat.
+    #[test]
+    fn constant_generator_fails() {
+        let r = parking_lot(&mut ConstantRng::new(0), true);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+    }
+}
