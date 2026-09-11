@@ -115,7 +115,7 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
         .filter(|(_, &exp)| exp >= 5.0)
         .count()
         .saturating_sub(1);
-    let p_gcd = igamc(gcd_df as f64 / 2.0, gcd_chi_sq / 2.0);
+    let p_gcd = starved_or_pvalue(gcd_df, gcd_chi_sq);
 
     // --- Step-count chi-square ---
     // Uses KPROB[] table from published C source; bins with expected < 5.0 excluded.
@@ -134,20 +134,50 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
         .filter(|(_, &p)| p * n >= 5.0)
         .count()
         .saturating_sub(1);
-    let p_steps = igamc(step_df as f64 / 2.0, step_chi_sq / 2.0);
+    let p_steps = starved_or_pvalue(step_df, step_chi_sq);
 
+    // Note for a chi-square left without a degree of freedom.
+    let starved = || {
+        format!(
+            "pairs={actual_pairs} of {N_PAIRS}: zero words left too few nonzero pairs for a chi-square"
+        )
+    };
     vec![
         TestResult::with_note(
             "dieharder::gcd_distribution",
             p_gcd,
-            format!("pairs={actual_pairs}, gtblsize={gtblsize}, χ²={gcd_chi_sq:.4}"),
+            if gcd_df == 0 {
+                starved()
+            } else {
+                format!("pairs={actual_pairs}, gtblsize={gtblsize}, χ²={gcd_chi_sq:.4}")
+            },
         ),
         TestResult::with_note(
             "dieharder::gcd_step_counts",
             p_steps,
-            format!("pairs={actual_pairs}, χ²={step_chi_sq:.4}"),
+            if step_df == 0 {
+                starved()
+            } else {
+                format!("pairs={actual_pairs}, χ²={step_chi_sq:.4}")
+            },
         ),
     ]
+}
+
+/// P-value of a GCD-test chi-square, or 0 when zero words starved it.
+///
+/// A pair containing a zero word is discarded.  An honest generator loses a
+/// pair that way with probability about 2/2³², and at `N_PAIRS` both tables
+/// keep many scored cells, so a chi-square with no degree of freedom means
+/// most words were zero: catastrophic evidence, reported as p = 0 rather than
+/// as missing data.  (Dieharder's C redraws zero words instead, so on an
+/// all-zero stream it never terminates.)
+fn starved_or_pvalue(df: usize, chi_sq: f64) -> f64 {
+    if df == 0 {
+        0.0
+    } else {
+        igamc(df as f64 / 2.0, chi_sq / 2.0)
+    }
 }
 
 /// Run only the GCD distribution chi-square (backward-compatible single result).
@@ -167,4 +197,23 @@ fn euclid_gcd_with_steps(mut a: u32, mut b: u32) -> (u32, usize) {
         steps += 1;
     }
     (a, steps)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::gcd_both;
+    use crate::rng::ConstantRng;
+
+    /// Every pair of an all-zero stream contains a zero word and is discarded,
+    /// so neither chi-square keeps a degree of freedom.  That is a FAIL
+    /// (p = 0), not missing data; it used to be reported as SKIP.
+    #[test]
+    fn all_zero_stream_fails() {
+        for r in gcd_both(&mut ConstantRng::new(0)) {
+            assert!(!r.skipped(), "{r}");
+            assert_eq!(r.p_value, 0.0, "{r}");
+            let note = r.note.as_deref().unwrap_or_default();
+            assert!(note.contains("zero words"), "{note}");
+        }
+    }
 }
