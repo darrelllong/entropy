@@ -6,8 +6,13 @@
 //!
 //! # References
 //! * K. Thompson and D. M. Ritchie, *Unix Programmer's Manual*, 7th Edition,
-//!   Bell Laboratories, 1979.
-//!   [Source of the `AnsiC` / System V `rand()` parameters a=1103515245, c=12345]
+//!   Bell Laboratories, 1979.  [pubs/v7-unix-programmers-manual-vol1.pdf]
+//!   [`rand(3)` describes a congruential generator with period 2³² and 15-bit
+//!   output but does not print a=1103515245, c=12345; those are the C
+//!   standard's sample `rand()` parameters]
+//! * The GNU C Library 2.40, `__random_r` in `stdlib/random_r.c`.
+//!   [pubs/glibc-2.40-random_r.c]  [Its TYPE_0 generator,
+//!   `((state[0] * 1103515245U) + 12345U) & 0x7fffffff`, is `AnsiC`]
 //! * S. K. Park and K. W. Miller, "Random number generators: good ones are
 //!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
 //!   DOI: 10.1145/63039.63042.
@@ -23,7 +28,12 @@ pub enum LcgVariant {
     /// `x = x * 1103515245 + 12345 (mod 2^31)`.
     ///
     /// This is the parameter set widely printed in manuals and sample code,
-    /// but it is not glibc's actual `rand()` implementation.
+    /// but it is not glibc's actual `rand()` implementation.  It is glibc's
+    /// TYPE_0 `random_r`, the generator `initstate` selects for a state of 8
+    /// to 31 bytes: for nonzero seeds `next_raw` matches `__random_r`
+    /// compiled from glibc 2.40's `stdlib/random_r.c` (2000 outputs at seeds
+    /// 1, 12345 and 3 000 000 000).  glibc maps seed 0 to 1; this variant does
+    /// not.
     AnsiC,
     /// MINSTD (Park & Miller, 1988): a = 16_807, c = 0, m = 2³¹ − 1.
     /// Passes some tests but fails spectral and serial tests.

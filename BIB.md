@@ -266,9 +266,10 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   author = {Thompson, Ken and Ritchie, Dennis M.},
   title  = {Unix Programmer's Manual, 7th Edition},
   year   = {1979},
-  note   = {Bell Laboratories. rand(3) entry defines the LCG parameters
-             a=1103515245, c=12345 that became the de facto ANSI C / System V
-             rand() implementation.  Available at
+  note   = {Bell Laboratories. The rand(3) entry describes a multiplicative
+             congruential generator with period 2^{32} returning 0 to 2^{15}-1;
+             it does not print the a=1103515245, c=12345 parameters that
+             SystemVRand and LcgVariant::AnsiC use.  Available at
              https://www.tuhs.org/Archive/Distributions/Research/V7/ [pubs/v7-unix-programmers-manual-vol1.pdf]}
 }
 
@@ -631,14 +632,14 @@ previously missing from this bibliography.
   author       = {{The GNU C Library contributors}},
   title        = {{GNU} C Library 2.40, stdlib/random.c and stdlib/random\_r.c},
   howpublished = {https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz},
-  note         = {The srandom/random implementation LinuxLibcRandom emulates. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], license [pubs/glibc-2.40-COPYING.LIB]}
+  note         = {The srandom/random implementation LinuxLibcRandom emulates: \_\_initstate\_r and \_\_random\_r compiled from random\_r.c match it, and its TYPE\_0 generator matches LcgVariant::AnsiC. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], license [pubs/glibc-2.40-COPYING.LIB]}
 }
 
 @misc{freebsd-libc-random,
   author       = {{The FreeBSD Project}},
   title        = {{FreeBSD} libc stdlib/random.c and stdlib/rand.c},
   howpublished = {https://github.com/freebsd/freebsd-src, commit 0d022baa047aea6499e394d2cd8d097820ecf486},
-  note         = {BSD random() and rand\_r() reference implementations. [pubs/freebsd-0d022baa047a-random.c], [pubs/freebsd-0d022baa047a-rand.c]}
+  note         = {rand\_r() and random() at this commit. BsdRandCompat matches rand\_r(); random() seeds through parkmiller32, which shifts each word by one around the Park-Miller step, so its stream differs from BsdRandom's, which follows glibc. [pubs/freebsd-0d022baa047a-random.c], [pubs/freebsd-0d022baa047a-rand.c]}
 }
 ```
 
