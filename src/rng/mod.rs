@@ -76,15 +76,18 @@ pub use xoshiro::{Xoroshiro128, Xoshiro256};
 /// * **`collect_bits`** — extracts bits **LSB-first** from each 32-bit word:
 ///   bit 0 of word 0 is the first element of the returned slice.
 ///
-/// * **Byte-backed generators** (HMAC_DRBG, Hash_DRBG, ChaCha20, SpongeBob,
-///   Squidward) expose a little-endian byte stream: `next_u32` reads 4 bytes
-///   in LE order, `next_u64` reads 8 bytes in LE order, independently of the
-///   default `next_u64` above.  Mixing `next_u32` and `next_u64` at a buffer
-///   refill boundary silently discards up to 7 trailing bytes; see the
-///   individual adapter doc comments for the full caveat.
-///
-///   Exceptions: `CryptoCtrDrbg` and `DualEcDrbg` decode their byte streams
-///   **big-endian**; see the `next_u32` docs on those types.
+/// * **Byte-backed generators** decode words from a byte stream:
+///   - `HmacDrbg`, `HashDrbg`, `ChaCha20Rng`, `SpongeBob`, `Squidward` and
+///     `StreamRng` read 4 bytes little-endian for `next_u32` and override
+///     `next_u64` to read 8 bytes little-endian, independently of the default
+///     `next_u64` above.  Mixing `next_u32` and `next_u64` at a buffer refill
+///     boundary silently discards up to 7 trailing bytes; see the individual
+///     adapter doc comments for the full caveat.
+///   - `BlockCtrRng` and `OsRng` read 4 bytes little-endian for `next_u32`
+///     and keep the default `next_u64`.
+///   - `AesCtr`, `CryptoCtrDrbg` and `DualEcDrbg` decode `next_u32`
+///     **big-endian** and keep the default `next_u64`; see the docs on those
+///     types.
 pub trait Rng {
     /// Return the next 32-bit pseudo-random word.
     fn next_u32(&mut self) -> u32;
@@ -92,7 +95,8 @@ pub trait Rng {
     /// Return the next 64-bit pseudo-random word.
     ///
     /// Default: two `next_u32` calls, first call → high 32 bits.
-    /// Byte-backed generators override this to read 8 LE bytes directly.
+    /// Some byte-backed generators override this to read 8 LE bytes
+    /// directly; see the byte-ordering contract above.
     fn next_u64(&mut self) -> u64 {
         ((self.next_u32() as u64) << 32) | (self.next_u32() as u64)
     }
