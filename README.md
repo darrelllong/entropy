@@ -87,6 +87,7 @@ tests/run_battery.sh
 tests/run_battery.sh --suite nist
 tests/run_battery.sh --suite diehard --quick
 tests/run_battery.sh --test nist::spectral
+tests/run_battery.sh --suite diehard-historical --rng MT19937   # opt-in, see below
 ```
 
 ### Auxiliary probes only
@@ -179,7 +180,7 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | NIST SP 800-22: non_overlapping_template | Faithful for all 148 aperiodic 9-bit templates with the standard `N = 8` block setup |
 | NIST SP 800-22: random_excursions, random_excursions_variant | Faithful family outputs; runner emits all per-state results |
 | DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to Marsaglia's `diehard.f` or Dieharder's C; each module documents which it follows and where it departs from DIEHARD (runs and birthday spacings count as `diehard.f` does; the monkey tests draw disjoint letter fields and use exact iid missing-word moments; summaries are KS where DIEHARD's are Anderson–Darling) |
-| Removed on purpose | See the explicit removed-test list below |
+| DIEHARD historical tests: OPERM5, overlapping sums, count-the-1s on specific bytes, 6x8 rank over 25 windows | Opt-in suite (`--suite diehard-historical`), never part of the default battery; see the inventory below |
 | DIEHARDER: fill_tree, gcd | Faithful; runner emits both underlying sub-results |
 | DIEHARDER: bit_distribution | Faithful `rgb_bitdist` core statistic with explicit per-width, per-pattern Vtest outputs instead of Brown's random one-pattern collapse |
 | Several geometric / higher-level Dieharder-style tests | Plausible and useful, but still best treated as implementation-reviewed rather than externally validated |
@@ -197,18 +198,48 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 - Some tests naturally emit families of p-values; the runner now preserves many of those families instead of flattening them into one fake verdict.
 - A few historically famous tests are themselves weak. In particular, Dieharder explicitly calls out some classic tests as poor discriminators.
 
-## Removed On Purpose
+## Historical DIEHARD Tests
 
-These are not accidental omissions. They were removed because the Dieharder reference source or documentation says they are broken, deprecated, or effectively obsolete.
+Commit `3b41af8` (2026-03-14) removed three DIEHARD tests from the default battery, citing Dieharder. A later review against Marsaglia's own Fortran, `diehard.f` of January 1996 built with gfortran, found the tests sound or fixable and the reasons given for removing them inaccurate. They are back as an opt-in suite, labelled with the variant each one is, alongside DIEHARD's 25-window 6x8 rank test. No default run includes the suite, and the default battery is unchanged:
 
-- `DIEHARD` removed: `operm5`
-  Dieharder describes the original overlapping Diehard OPERM5 as the broken/defunct test that `rgb_operm` was meant to replace.
-- `DIEHARD` removed: `overlapping_sums`
-  Dieharder says this test is completely useless, broken, and not worth fixing, and explicitly says not to use it.
-- `DIEHARD` removed: `count_ones_specific_bytes`
-  Dieharder says this byte-lane variant is effectively obsolete compared to the stream variant and `rgb_bitdist`.
-- `DIEHARDER` removed: none currently
-  Deprecated internals such as the Kuiper KS path are intentionally not exposed as active tests in this crate.
+```sh
+tests/run_battery.sh --suite diehard-historical --rng MT19937
+cargo run --release -- --test diehard_historical::overlapping_sums_fortran --rng PCG64
+```
+
+The modules live in [src/diehard/historical](src/diehard/historical). Each module's documentation gives its departures from `diehard.f`, its goldens against the gfortran build, its null calibration and its limitations. The removed files can be read with `git show <revision>:<path>`. Each hash below is the SHA-256 of that output, followed by the git blob id.
+
+### OPERM5: `diehard_historical::operm5_dieharder`
+
+- **Removed:** in `3b41af8`, which deleted `src/diehard/operm5.rs`. Read it as `git show 3b41af8^:src/diehard/operm5.rs`: SHA-256 `82c52f5963eb7492bed020af6edcbb5318f5b207895760cdfc743f9cf2bcd927`, blob `a1dd0a379688b85f01974dc58287407baa278c83`.
+- **Reason given then:** Dieharder describes the original overlapping DIEHARD OPERM5 as the broken test that `rgb_operm` was meant to replace.
+- **Evaluated:** Dieharder does say Marsaglia's original is broken, and it is miscalibrated: the R block of `operm5d.ata` has 9 negative eigenvalues, and df 99 is wrong because the covariance has rank 96. But the module removed was Dieharder 3.31.1's corrected OPERM5, with Stephen Moenkehues' pseudoinverse and df 96, which `dieharder -l` rates "Good". It is calibrated: C·P·C = C holds against the covariance rebuilt by enumeration, and over 40 000 null streams 0.99% of p-values fell below 0.01.
+- **Restored as:** that corrected version, with its computation unchanged.
+- **Limitations:** it is not Marsaglia's statistic, which differs in index, matrix, degrees of freedom, number of passes and p-value convention. Words are compared unsigned where Dieharder compares them signed, which leaves the null distribution unchanged. It takes one p-sample where Dieharder takes 100, and needs 1 000 005 words.
+
+### Overlapping sums: `diehard_historical::overlapping_sums_fortran`
+
+- **Removed:** in `3b41af8`, which deleted `src/diehard/overlapping_sums.rs`. Read it as `git show 3b41af8^:src/diehard/overlapping_sums.rs`: SHA-256 `d6715dc7832ebc6052eed5bf0323cc7c84890671c1345756ca39e91352f5ed18`, blob `b6c38e73190be12d1e288f07465ebd69103257fd`.
+- **Reason given then:** Dieharder says the test is completely useless, broken and not worth fixing, and explicitly says not to use it.
+- **Evaluated:** those defects belong to Dieharder's transcription, `diehard_sums.c`, not to Marsaglia's Fortran. The transcription uses y[t−2] where `diehard.f` uses y(1), which leaves the transformed sums correlated. It also drops Marsaglia's correction table f and replaces his three Anderson–Darling layers with KS tests. The removed module copied that transcription, and 5.0% of its p-values fell below 0.01 over 200 000 null streams. `diehard.f`'s `cdosum` as written is calibrated: 0.997% below 0.01 over 100 000 streams, and 0.977% over another 100 000 on the landing tree.
+- **Restored as:** `cdosum`, with y(1), the table f and three Anderson–Darling layers over 199 000 words.
+- **Limitations:** arithmetic is double precision rather than `REAL*4`. It uses this crate's Anderson–Darling distribution rather than DIEHARD's older approximation, which differs by up to 0.004 at n = 10. It reports 1 − CDF where DIEHARD prints the CDF.
+
+### Count-the-1s on specific bytes: `diehard_historical::count_ones_bytes_25_fresh`
+
+- **Removed:** in `3b41af8`, which deleted the function `count_ones_specific_bytes` from `src/diehard/count_ones.rs` (`git show 3b41af8 -- src/diehard/count_ones.rs`). Read the file before the removal as `git show 3b41af8^:src/diehard/count_ones.rs`: SHA-256 `c1bdd59adc36aa11ffffab02b8342bee2e61b84cde5caaf069c2dd7f076bd3ab`, blob `0e13bfe60d651d6c9468b9127f9933bf083cafe7`.
+- **Reason given then:** Dieharder says this byte-lane variant is effectively obsolete compared with the stream variant and `rgb_bitdist`.
+- **Evaluated:** Brown's judgement has two parts (`diehard_count_1s_byte.c` lines 60–71). Unconditionally, he calls the byte test "LESS stringent than the stream version overall" and "vastly less sensitive than rgb_bitdist", which supports removing it from a battery on grounds of power. Conditionally, it "might reveal problems with specific offsets ignored by the stream test", and he "could fix the stream test to cycle through the possible bitlevel offsets and make this test completely obsolete"; Dieharder 3.31.1 still rates `diehard_count_1s_byte` "Good". So the removal reason overstated the obsolescence, but not the loss of power, and the test is valid as DIEHARD scores it. The removed function was not DIEHARD's test either: it read one lane, `w & 0xFF`, and scored Q5 alone as χ²(3124), which overlapping words do not support: over 20 000 null streams, 2.95% of its p-values fell below 0.01. The restored test's 250 000 window p-values fell below 0.01 in 1.008%.
+- **Restored as:** DIEHARD's `wknt1s`, with Q5 − Q4 on all 25 byte windows, bits 1–8 through 25–32: 25 results and no summary.
+- **Limitations:** each window reads its own 256 004 words, 6 400 100 in all. DIEHARD instead rereads nearly the same words for every window, which leaves its 25 results weakly dependent: simulated with every window on identical words, as the aligned gfortran build reads them, adjacent windows' Q5 − Q4 correlate at 0.024. The p-value is two-sided where DIEHARD prints Φ(z). The test adds 25 result slots per generator.
+
+### 6x8 binary rank over 25 windows: `diehard_historical::rank_6x8_25_fresh` and `diehard_historical::rank_6x8_25_fresh_summary`
+
+- **Not removed:** the default battery's `diehard::binary_rank_6x8` reads only DIEHARD's last window, bits 25–32, and stays as it is (AUDIT.md item 10). The fidelity review recommended DIEHARD's full sweep.
+- **Restored as:** `cdbinrnk` over all 25 windows, each on its own 600 000 words: 25 window results, then one Anderson–Darling summary of their p-values, the layout DIEHARD prints. Over 10 000 null streams on the landing tree, 1.012% of the 250 000 window p-values and 1.05% of the summaries fell below 0.01, and 22.2% of streams had some window below 0.01, as independent windows predict. With every window on identical words, as the aligned gfortran build reads them (DIEHARD's own rereads start 128 to 3 520 words later and shift matrix boundaries by 0, 2 or 4 words), the summary fell below 0.01 in 2.38%.
+- **Limitations:** it needs 15 000 000 words and adds 26 result slots. The summary alone has little power against one broken window: an adversarial review found that with one of 25 p-values set to 0 the summary fell below 0.01 in only 7.9% of simulated draws, and in 10.0% of 600 streams whose window 8 was broken. The window results catch it: in 1 000 such streams window 8's own result fell below 10⁻¹⁰ every time, while the summary fell below 0.01 in 8.2%. Read the window results first. Fresh words replace DIEHARD's rereads, and the cell probabilities are exact where DIEHARD's have six digits.
+
+`DIEHARDER`: nothing removed. Deprecated internals such as the Kuiper KS path are intentionally not exposed as active tests in this crate.
 
 ## Project Layout
 
@@ -216,7 +247,7 @@ These are not accidental omissions. They were removed because the Dieharder refe
 - [src/result.rs](src/result.rs): shared result type and display logic
 - [src/rng](src/rng): RNG implementations used by the harness
 - [src/nist](src/nist): NIST SP 800-22 tests
-- [src/diehard](src/diehard): DIEHARD tests
+- [src/diehard](src/diehard): DIEHARD tests; [src/diehard/historical](src/diehard/historical) holds the opt-in historical DIEHARD suite
 - [src/dieharder](src/dieharder): DIEHARDER tests
 
 ## Attribution

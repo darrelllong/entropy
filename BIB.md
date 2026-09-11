@@ -206,7 +206,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {wyhash and wyrand},
   year   = {2022},
   url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8, whose wyhash.h is final version 4.3) Weyl-sequence counter with 128-bit
+  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8 of 2026-03-23, whose wyhash.h is final version 4.3; the year above is final version 4's, commit c46ecdc245 of 2022-11-01) Weyl-sequence counter with 128-bit
              multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.  src/rng/wyrand.rs uses the
              wyrand constants of old\_versions/wyhash\_final2.h and wyhash\_final4.h, not those of 4.3.}
 }
@@ -276,8 +276,8 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   pages   = {1192--1201},
   year    = {1988},
   doi     = {10.1145/63039.63042},
-  note    = {MINSTD: a=16807, c=0, m=2^{31}-1 (Lehmer generator).  Also defines
-             the Park-Miller test used by FreeBSD rand_r() compatibility path. [not in pubs/: the ACM Digital Library refuses automated download]}
+  note    = {[pubs/park-miller-1988-good-ones-hard-to-find.pdf] MINSTD: a=16807, c=0, m=2^{31}-1 (Lehmer generator).  Also defines
+             the Park-Miller test used by FreeBSD rand_r() compatibility path.}
 }
 
 @misc{unix-v7-manual,
@@ -479,8 +479,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   pages   = {322--333},
   year    = {2003},
   doi     = {10.1145/945511.945515},
-  note    = {[not in pubs/: the ACM Digital Library refuses automated download] ACM paywalled; no author preprint found. ResearchGate listing:
-             https://www.researchgate.net/publication/2953435
+  note    = {[pubs/hellekalek-wegenkittl-2003-empirical-evidence-aes.pdf]
              Walsh-Hadamard spectral test; sensitive to nonlinear Boolean structure in
              keystream generators. Specifically applied to AES-based PRNGs, making it a
              natural complement to our AesCtr and CryptoCtrDrbg results.}
@@ -519,10 +518,10 @@ previously missing from this bibliography.
   pages   = {2297--2301},
   year    = {1991},
   doi     = {10.1073/pnas.88.6.2297},
-  note    = {[TODO: open-access PDF at PMC: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC51218/]
+  note    = {[pubs/pincus-1991-approximate-entropy.pdf] (PubMed Central PMC51218)
              Original ApEn(m) definition: φ(m) − φ(m+1) over overlapping patterns.
              NIST SP 800-22 §2.12 and `src/nist/approximate_entropy.rs` implement this statistic.
-             Multi-scale sweep over m=2..6 is in `src/research/approx_entropy.rs`. [not in pubs/: PNAS and PubMed Central (PMC51218) refuse automated download]}
+             Multi-scale sweep over m=2..6 is in `src/research/approx_entropy.rs`.}
 }
 
 @article{massey1969lfsr,
@@ -622,7 +621,7 @@ previously missing from this bibliography.
   pages   = {367--374},
   year    = {1999},
   doi     = {10.1145/326147.326156},
-  note    = {[not in pubs/: the ACM Digital Library refuses automated download]}
+  note    = {[pubs/lecuyer-simard-1999-beware-lcg-multipliers.pdf]}
 }
 
 @inproceedings{marsaglia1985currentview,
