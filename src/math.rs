@@ -365,6 +365,10 @@ fn renormalize_matrix(v: &mut [f64], exponent: &mut i32) {
 /// to be exactly 1.
 const AD_INF_Z_MAX: f64 = 30.0;
 
+/// Once ADinf(z) exceeds this, [`anderson_darling_cdf`] drops errfix and
+/// returns ADinf(z) alone (z > 6.6127; see its docs).
+const AD_TAIL_SWITCH: f64 = 0.9995;
+
 /// Upper normal tail `cPhi(x) = ∫ₓ^∞ φ(t) dt`, to 13–15 digits for |x| < 16
 /// by its author's account.
 ///
@@ -522,24 +526,52 @@ fn ad_errfix(n: usize, x: f64) -> f64 {
 /// [pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]  In their summary
 /// (p. 5), Pr(Aₙ < z) = ADinf(z) + errfix(n, ADinf(z)): ADinf is the limiting
 /// distribution, evaluated by the series of §2, and errfix a correction
-/// fitted to simulation, good to about ±5·10⁻⁵ for n = 8, 16, 32, 64 and 128
-/// and ±5·10⁻⁴ for other n (p. 4).  The code ports the article's attached
-/// `ADinf.c` (`ADinf`, `ADf`, `cPhi`) and `AnDarl.c` (`errfix`).
-/// [pubs/marsaglia-marsaglia-2004-ADinf.c] [pubs/marsaglia-marsaglia-2004-AnDarl.c]
-/// `AnDarl.c` warns that the test is not well suited to
-/// n < 7, where accuracy may drop to three digits.
+/// fitted to simulation, stated good to about ±5·10⁻⁵ for n = 8, 16, 32, 64
+/// and 128 and ±5·10⁻⁴ for other n (p. 4).  The code ports the article's
+/// attached `ADinf.c` (`ADinf`, `ADf`, `cPhi`) and `AnDarl.c` (`errfix`).
+/// [pubs/marsaglia-marsaglia-2004-ADinf.c]
+/// [pubs/marsaglia-marsaglia-2004-AnDarl.c]  `AnDarl.c` warns that the test
+/// is not well suited to n < 7, where accuracy may drop to three digits.
 ///
-/// Departures from the attachments:
+/// # Accuracy
+///
+/// That ±5·10⁻⁵ is absolute.  It suits the body of the distribution but not
+/// its upper tail: errfix does not vanish as ADinf(z) → 1 (errfix(n, 1) ≈
+/// −6·10⁻⁴/n), so it adds a near-constant to the tail Pr(Aₙ ≥ z) and swamps
+/// small values.  A Monte Carlo of Aₙ (10⁹ samples for n = 32 and 2·10⁸ each
+/// for n = 8, 16, 64 and 128, with ordered uniforms from exponential spacings
+/// and xoshiro256**; the program is not in this repository) found:
+/// - for z ≤ 4, ADinf + errfix is within 7.1·10⁻⁵ of the simulation for
+///   every n tried (3·10⁻⁵ for n = 32), within 2.1 standard errors each;
+/// - in the n = 32 tail it is 1.1% high at z = 6, 13% high at z = 8, 126%
+///   high at z = 10 and 11.5 times the simulated value at z = 12;
+/// - ADinf alone is 2.3–5.4% low in that tail for 6.61 < z ≤ 12.
+///
+/// So once ADinf(z) > 0.9995 (z > 6.6127, an upper tail below 5·10⁻⁴, of
+/// which errfix's stated ±5·10⁻⁵ is over a tenth), this function returns
+/// ADinf(z) alone.  Relative to the simulation, the upper tail is then:
+/// - for 4 < z ≤ 6.61 (ADinf + errfix): at most 7.3% high for n = 8, 3.9% for
+///   n = 16, 2.1% for n = 32 and 1.1% for n = 64 and 128;
+/// - for 6.61 < z ≤ 12 (ADinf alone): 10–20% low for n = 8, 6–12% low for
+///   n = 16, 2.3–5.4% low for n = 32, and for n = 64 and 128 within 2.3% up
+///   to z = 10 and within sampling error (6%) up to z = 12.
+///
+/// At the switch Pr(Aₙ < z) steps up by |errfix(n, 0.9995)| = 8.34·10⁻⁴/n:
+/// 2.6·10⁻⁵, or 5% of the upper tail, for n = 32.  The tests pin these
+/// figures against the simulation.
+///
+/// # Departures from the attachments
+///
 /// - `AnDarl.c`'s `AD(n, z)` feeds errfix the authors' short approximation
 ///   `adinf(z)`.  This port feeds it the full series, as the paper's formula
 ///   reads.  `adinf` differs from ADinf by up to 2·10⁻⁵ (near z = 0.97),
 ///   more than the 2·10⁻⁶ the paper states, so the two results differ by
 ///   up to that much.
+/// - errfix is dropped in the upper tail, as above.
 /// - ADinf is taken as 1 for z > 30, where the attachment's series loses
 ///   accuracy; ADinf(30) = 1 − 1.8·10⁻¹⁴.
 /// - The result is clamped to [0, 1].  errfix is negative for small x, so the
-///   unclamped sum dips below 0 for small z (at z = 0.1 when n = 10).  As z
-///   grows the result approaches 1 + errfix(n, 1) ≈ 1 − 6·10⁻⁴/n, not 1.
+///   unclamped sum dips below 0 for small z (at z = 0.1 when n = 10).
 ///
 /// Returns NaN for `n == 0` or a NaN `z`.
 #[must_use]
@@ -548,6 +580,9 @@ pub fn anderson_darling_cdf(n: usize, z: f64) -> f64 {
         return f64::NAN;
     }
     let x = ad_inf(z);
+    if x > AD_TAIL_SWITCH {
+        return x.min(1.0);
+    }
     (x + ad_errfix(n, x)).clamp(0.0, 1.0)
 }
 
@@ -1087,6 +1122,7 @@ mod tests {
     /// [pubs/marsaglia-marsaglia-2004-AnDarl.c], which feeds
     /// errfix the short approximation `adinf` in place of ADinf; on a 0.0005
     /// grid over [0.01, 12] the two differ by at most 1.95·10⁻⁵, at z = 0.97.
+    /// The cases stay below the tail switch, where this port drops errfix.
     /// `AnDarl.c`'s own `ADtest` examples, two samples of 10, are pinned both
     /// to that function and to ADinf + errfix evaluated by the attachments.
     #[test]
@@ -1099,7 +1135,6 @@ mod tests {
             (10, 2.0, 0.906_935_349_212_242_4),
             (10, 3.0, 0.971_694_963_675_239_7),
             (10, 5.0, 0.996_944_065_399_267_3),
-            (10, 10.0, 0.999_932_895_742_742_5),
             (32, 0.362_1, 0.115_490_941_908_271_44),
             (32, 0.5, 0.254_474_502_581_219_9),
             (32, 1.0, 0.643_384_778_120_492_8),
@@ -1107,7 +1142,6 @@ mod tests {
             (32, 2.0, 0.907_780_216_932_811_9),
             (32, 3.0, 0.972_342_045_084_779_1),
             (32, 5.0, 0.997_074_639_071_479_5),
-            (32, 10.0, 0.999_974_365_731_796_4),
         ];
         for (n, z, want) in cases {
             let got = anderson_darling_cdf(n, z);
@@ -1158,12 +1192,64 @@ mod tests {
         // ADinf(0.1) + errfix(10, ·) = −2.6·10⁻⁵ before the clamp.
         assert!(ad_inf(0.1) + ad_errfix(10, ad_inf(0.1)) < 0.0);
         assert_eq!(0.0, anderson_darling_cdf(10, 0.1));
-        // Past z = 30 ADinf is 1, and errfix leaves 1 − 6·10⁻⁴/n.
-        let top = 1.0 + ad_errfix(32, 1.0);
-        assert!((top - (1.0 - 6e-4 / 32.0)).abs() < 1e-12, "{top}");
+        // The tail switch: ADinf(6.61) = 0.999498547 keeps errfix and
+        // ADinf(6.62) = 0.999503901 does not, so the step between them is
+        // ADinf's own rise plus |errfix(32, 0.9995)| = 2.6·10⁻⁵.
+        let (below, above) = (6.61, 6.62);
+        assert!(ad_inf(below) <= AD_TAIL_SWITCH && ad_inf(above) > AD_TAIL_SWITCH);
+        assert_eq!(
+            ad_inf(below) + ad_errfix(32, ad_inf(below)),
+            anderson_darling_cdf(32, below)
+        );
+        assert_eq!(ad_inf(above), anderson_darling_cdf(32, above));
+        let step = anderson_darling_cdf(32, above) - anderson_darling_cdf(32, below);
+        assert!(step > 2.6e-5 && step < 3.5e-5, "{step}");
+        // Past z = 30 ADinf, and so the result, is 1.
         for z in [30.5, 1e3, 1e6, f64::INFINITY] {
-            assert_eq!(top, anderson_darling_cdf(32, z), "z = {z}");
+            assert_eq!(1.0, anderson_darling_cdf(32, z), "z = {z}");
         }
-        assert!((anderson_darling_cdf(32, 30.0) - top).abs() < 1e-13);
+        assert_eq!(ad_inf(30.0), anderson_darling_cdf(32, 30.0));
+        assert!(1.0 - ad_inf(30.0) < 2e-14);
+    }
+
+    /// Upper tails Pr(Aₙ ≥ z) from the Monte Carlo described in the
+    /// [`anderson_darling_cdf`] docs (10⁹ samples for n = 32, 2·10⁸ otherwise),
+    /// with their standard errors.  Each case allows |p − tail| an absolute
+    /// part (errfix's stated ±5·10⁻⁵, in the body of the distribution), a
+    /// relative part (the tail accuracy the docs state), and three standard
+    /// errors.
+    #[test]
+    fn anderson_darling_upper_tail_matches_simulation() {
+        // (n, z, simulated tail, standard error, relative, absolute)
+        #[rustfmt::skip]
+        let cases = [
+            (32, 2.0, 0.092_229_233, 9.15e-6, 0.0, 5e-5),
+            (32, 4.0, 0.008_855_901, 2.96e-6, 0.0, 5e-5),
+            (32, 6.0, 0.000_989_395, 9.94e-7, 0.025, 0.0),
+            (32, 6.5, 0.000_579_156, 7.61e-7, 0.025, 0.0),
+            (32, 7.0, 0.000_340_137, 5.83e-7, 0.06, 0.0),
+            (32, 8.0, 0.000_118_338, 3.44e-7, 0.06, 0.0),
+            (32, 10.0, 1.4469e-5, 1.20e-7, 0.06, 0.0),
+            (32, 12.0, 1.78e-6, 4.22e-8, 0.06, 0.0),
+            (8, 4.0, 0.009_257_105, 6.77e-6, 0.0, 5e-5),
+            (8, 6.0, 0.001_064_405, 2.31e-6, 0.04, 0.0),
+            (8, 8.0, 0.000_130_265, 8.07e-7, 0.21, 0.0),
+            (8, 10.0, 1.626e-5, 2.85e-7, 0.21, 0.0),
+            (128, 4.0, 0.008_741_77, 6.58e-6, 0.0, 5e-5),
+            (128, 6.0, 0.000_968_305, 2.20e-6, 0.015, 0.0),
+            (128, 8.0, 0.000_114_025, 7.55e-7, 0.03, 0.0),
+            (128, 10.0, 1.3815e-5, 2.63e-7, 0.03, 0.0),
+        ];
+        for (n, z, tail, se, relative, absolute) in cases {
+            let p = 1.0 - anderson_darling_cdf(n, z);
+            assert!(
+                (p - tail).abs() <= relative * tail + absolute + 3.0 * se,
+                "n = {n}, z = {z}: p = {p}, simulation {tail} ± {se}"
+            );
+        }
+        // ADinf + errfix would put n = 32, z = 10 at 3.3·10⁻⁵, over twice
+        // the simulated tail.
+        let x = ad_inf(10.0);
+        assert!(1.0 - (x + ad_errfix(32, x)) > 2.0 * 1.4469e-5);
     }
 }

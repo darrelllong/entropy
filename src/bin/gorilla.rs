@@ -3,9 +3,9 @@
 //! Anderson–Darling ("ADKS") aggregate: the statistic A₃₂ (`agg_ad_A`) and
 //! the p-value 1 − Pr(A₃₂ < A) (`agg_ad_p`), which is small when the 32
 //! per-bit p-values are far from uniform.  The paper prints Pr(A₃₂ < A)
-//! itself.  `agg_ad_p` cannot fall below 1.875·10⁻⁵ (printed 0.000019): the
-//! Anderson–Darling distribution's finite-n correction leaves
-//! Pr(A₃₂ < A) at most 1 − 6·10⁻⁴/32 (see `entropy::math::anderson_darling_cdf`).
+//! itself.  Above A ≈ 6.61, `agg_ad_p` is
+//! 1 − ADinf(A) from the limiting distribution alone, 2–5% below the
+//! simulated n = 32 tail (see `entropy::math::anderson_darling_cdf`).
 //! See `entropy::research::marsaglia_tsang`.
 
 use entropy::research::marsaglia_tsang::{gorilla_aggregate_ad, gorilla_all, GorillaBitResult};

@@ -147,8 +147,9 @@ pub struct GorillaAggregate {
     /// the per-bit p-values are far from uniform.
     pub adks: f64,
     /// `1 − adks`, small when the per-bit p-values are far from uniform, in
-    /// this crate's small-p-fails convention.  For `n = 32` it cannot fall
-    /// below 1.875·10⁻⁵ (see [`crate::math::anderson_darling_cdf`]).
+    /// this crate's small-p-fails convention.  Above A ≈ 6.61 it
+    /// comes from the limiting distribution alone, 2–5% below the simulated
+    /// n = 32 tail (see [`crate::math::anderson_darling_cdf`]).
     pub p_value: f64,
 }
 
@@ -291,15 +292,9 @@ mod tests {
                 &LCG_PRIME_MODULUS,
                 1.000,
                 44.109_952_347_440_41,
-                0.999_981_250_000_005_6,
+                1.0,
             ),
-            (
-                "gcc",
-                &GCC_RAND,
-                1.000,
-                1_318.812_100_133_806_6,
-                0.999_981_250_000_005_6,
-            ),
+            ("gcc", &GCC_RAND, 1.000, 1_318.812_100_133_806_6, 1.0),
         ] {
             let aggregate = gorilla_aggregate_ad(&bit_results(table));
             assert!(
@@ -321,7 +316,7 @@ mod tests {
 
         // SHR3's bits 2 and 31 print as 1.0000 and 0.0000.  Taken as exact,
         // they make one product 0, and only the floor keeps A finite; without
-        // it Pr(A < z) would be 1 − 6·10⁻⁴/32, not 0.937.
+        // it Pr(A < z) would be 1, not 0.937.
         let unfloored: f64 = {
             let mut u = SHR3.to_vec();
             u.sort_by(f64::total_cmp);
