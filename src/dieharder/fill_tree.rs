@@ -21,6 +21,14 @@ use crate::{math::igamc, result::TestResult};
 /// Binary tree array size (ntuple = 32 in the C source).
 const SIZE: usize = 32;
 /// Number of trials.
+///
+/// Below Dieharder's default (`dab_filltree.h`): tsamples = 1.5 × 10⁷ with
+/// psamples = 1, 150 times more.  Chi-square noncentrality grows linearly with
+/// the trial count, so a deviation in the fill-count or collision-position
+/// frequencies must be about √150 ≈ 12 times larger here to be detected with
+/// the same power.  The trial count also sets the fill-count cells, which the
+/// C picks from expectations above 4: cells 4..14 (end exclusive; 10 cells,
+/// df 9) here against 4..15 (11 cells, df 10) at 1.5 × 10⁷.
 const N_TRIALS: usize = 100_000;
 /// Number of rotation cycles.
 const CYCLES: usize = 4;

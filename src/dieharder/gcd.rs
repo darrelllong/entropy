@@ -23,6 +23,15 @@
 use crate::{math::igamc, result::TestResult, rng::Rng};
 use std::f64::consts::PI;
 
+/// Pairs drawn in the single run.
+///
+/// Below Dieharder's defaults (`marsaglia_tsang_gcd.h`): tsamples = 10⁷ pairs
+/// per run and psamples = 100 runs, whose p-values Dieharder then KS-tests.
+/// A chi-square's noncentrality grows linearly with the number of pairs, so a
+/// cell-frequency deviation must be about √100 = 10 times larger here than in
+/// one 10⁷-pair run to be detected with the same power, and there is no
+/// second-level KS over 100 runs.  The GCD table shrinks with the sample too:
+/// gtblsize = 24 cells here against 246 at 10⁷.
 const N_PAIRS: usize = 100_000;
 
 /// Size of the step-count table (k = 0..KTBLSIZE-1; k ≥ KTBLSIZE-1 lumped).

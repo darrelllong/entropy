@@ -28,6 +28,15 @@ const Q_CORRECTION: [f64; 6] = [0.0, 0.0, 0.4135, 0.5312, 0.6202, 1.3789];
 ///
 /// `quick`: use 500 points and 20 repeats instead of 8 000 × 100.
 ///
+/// Both full-size parameters sit below Dieharder's defaults
+/// (`rgb_minimum_distance.h`): tsamples = 10 000 points per p-value and
+/// psamples = 1 000 p-values under the final KS test; 8 000 points is
+/// Marsaglia's choice.  The header, citing Fischler, puts the power trade-off
+/// in numbers for d = 2 and n = 8 000: about 2 500 trials resolve a
+/// consistent 20% error in the local density, while 100 trials resolve only
+/// deviations of around 1.5 times the expected density.  The 100 repeats here
+/// sit at that weaker end.
+///
 /// # Author
 /// Robert G. Brown, Dieharder (2006), `rgb_minimum_distance`.
 pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestResult {

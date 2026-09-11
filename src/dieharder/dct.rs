@@ -23,6 +23,14 @@ use std::f64::consts::PI;
 /// Block length (ntuple), must be a power of 2.
 const NTUPLE: usize = 256;
 /// Number of blocks (tsamples).  Must be > 5 × NTUPLE for the primary method.
+///
+/// Below Dieharder's default (`dab_dct.h`): tsamples = 50 000 with
+/// psamples = 1, ten times more.  The expected count per position falls from
+/// 195.3 to 19.5, and since chi-square noncentrality grows linearly with the
+/// block count, a non-uniformity in the argmax position must be about
+/// √10 ≈ 3.2 times larger here to be detected with the same power.  5 000
+/// stays above the 5 × 256 = 1 280 blocks at or below which Dieharder falls
+/// back to its less sensitive KS variant.
 const TSAMPLES: usize = 5_000;
 /// Bit width of each generator word (rmax_bits = 32 for u32 output).
 const RMAX_BITS: u32 = 32;
