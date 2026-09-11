@@ -57,8 +57,15 @@ pub fn binary_rank_31x31(words: &[u32]) -> TestResult {
 
 /// 6×8 binary matrix rank test (one byte per row, 6 rows; 100 000 matrices).
 ///
-/// Each row is one byte (8 bits) drawn from a specified byte position within
-/// successive 32-bit words.  This tests byte-level linear dependence.
+/// Each row is the low byte (bits 0–7, `w & 0xFF`) of one of six successive
+/// 32-bit words; bytes 1–3 never enter a matrix.  This matches Dieharder's
+/// `diehard_rank_6x8.c`, whose `binary_rank(mtx, 6, 8)` (`rank.c`) reads the
+/// eight columns from bit 0 upward, even though its comment speaks of the
+/// leftmost byte.  It does not match DIEHARD: Marsaglia forms rows from "a
+/// specified byte" (`tests.txt`) and repeats the test for 25 byte positions,
+/// combining the 25 p-values with a KS test (`diehard.exe` in
+/// `pubs/Diehard.zip`: "TEST SUMMARY, 25 tests on 100,000 random 6x8
+/// matrices").
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
