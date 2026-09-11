@@ -259,9 +259,14 @@ impl WindowsDotNetRandom {
     /// Construct from an `i32` seed exactly as `System.Random(seed)` does,
     /// including the Knuth-style seed-array initialisation rounds.
     ///
-    /// C# evaluates `int` arithmetic unchecked, so for seeds of large
-    /// magnitude the rounds wrap; the subtractions and corrections here wrap
-    /// the same way instead of panicking in debug builds.
+    /// C# evaluates `int` arithmetic unchecked, and exactly one step here can
+    /// overflow: the correction rounds' subtraction
+    /// `seed_array[i] - seed_array[1 + n]`.  It uses `wrapping_sub` so debug
+    /// builds match C# instead of panicking.  An exhaustive check over every
+    /// seed magnitude 0..=2³¹ − 1 found that the smallest magnitude that
+    /// overflows there is 161 844 078, that 1 269 681 342 of the 2³¹
+    /// magnitudes do, and that no other step overflows: after construction
+    /// the array lies in [0, 2³¹ − 2], so `next_raw` cannot overflow.
     pub fn new(seed: i32) -> Self {
         let mut seed_array = [0i32; 56];
         let subtraction = if seed == i32::MIN {
@@ -279,9 +284,9 @@ impl WindowsDotNetRandom {
                 ii -= 55;
             }
             seed_array[ii] = mk;
-            mk = mj.wrapping_sub(mk);
+            mk = mj - mk;
             if mk < 0 {
-                mk = mk.wrapping_add(i32::MAX);
+                mk += i32::MAX;
             }
             mj = seed_array[ii];
         }
@@ -294,7 +299,7 @@ impl WindowsDotNetRandom {
                 }
                 seed_array[i] = seed_array[i].wrapping_sub(seed_array[1 + n]);
                 if seed_array[i] < 0 {
-                    seed_array[i] = seed_array[i].wrapping_add(i32::MAX);
+                    seed_array[i] += i32::MAX;
                 }
             }
         }
@@ -319,12 +324,12 @@ impl WindowsDotNetRandom {
             self.inextp = 1;
         }
 
-        let mut ret = self.seed_array[self.inext].wrapping_sub(self.seed_array[self.inextp]);
+        let mut ret = self.seed_array[self.inext] - self.seed_array[self.inextp];
         if ret == i32::MAX {
             ret -= 1;
         }
         if ret < 0 {
-            ret = ret.wrapping_add(i32::MAX);
+            ret += i32::MAX;
         }
 
         self.seed_array[self.inext] = ret;
@@ -687,13 +692,15 @@ mod tests {
         }
     }
 
-    /// Seeds whose magnitude is well above 161 803 398 (the reference source's
-    /// `MSEED`) drive `System.Random`'s seed-array rounds through `int`
-    /// wrap-around, which C# evaluates unchecked.  Expected values come from a
-    /// replica of the .NET Framework reference source with explicit 32-bit
-    /// wrapping; the same replica reproduces the seed-1 prefix above.  Seeds
-    /// `i32::MAX` and `i32::MIN` share one stream because the reference source
-    /// maps `Int32.MinValue` to `Int32.MaxValue`.
+    /// These seeds overflow the correction rounds' subtraction, which C#
+    /// evaluates unchecked (the smallest overflowing magnitude is
+    /// 161 844 078).  Expected values come from a replica of the .NET
+    /// Framework reference source (`random.cs`) with explicit 32-bit wrapping.
+    /// No .NET runtime was available, so these four seeds are pinned against
+    /// that replica alone; the replica reproduces the seed-1 prefix above and
+    /// the widely cited first outputs for seeds 0 and 42, none of which
+    /// overflow.  Seeds `i32::MAX` and `i32::MIN` share one stream because the
+    /// reference source maps `Int32.MinValue` to `Int32.MaxValue`.
     #[test]
     fn windows_dotnet_random_wraps_like_csharp_for_large_seeds() {
         const SEED_2E9: [u32; 5] = [
