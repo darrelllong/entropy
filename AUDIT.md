@@ -4,10 +4,21 @@ Scope: every file under `src/`, `tests/`, `scripts/`, `.github/`, and the
 manifest, at commit `40447e3` plus the cleanup recorded below.  Method: full
 read of each module by four independent reviewers, formulas and constants
 compared against the primary sources in `pubs/` (SP 800-22 Rev 1a text,
-SP 800-90A, Marsaglia's `tests.txt` and Diehard sources, the Dieharder
-3.31.1 C sources, TestU01's `scomp.c`/`sstring.c`, Marsaglia–Tsang 2002,
-Webster–Tavares 1985), and cheap claims executed against the built crate
-and against the macOS libc where a reference implementation exists.
+SP 800-90A, Marsaglia's `tests.txt`, the Dieharder 3.31.1 C sources,
+Marsaglia–Tsang 2002, Webster–Tavares 1985) and against TestU01's
+`scomp.c`/`sstring.c`, which were not in `pubs/` then (item 12), and cheap
+claims executed against the built crate and against the macOS libc where a
+reference implementation exists.
+
+On 2026-09-10 `pubs/` held no DIEHARD source.  `pubs/Diehard.zip` holds DOS
+binaries, data and documentation only, so the DIEHARD findings of that date
+rest on `tests.txt` and on strings extracted from `diehard.exe`, not on
+Marsaglia's code.  His Fortran (`diehard.f`, January 1996), its f2c
+translation and Dagang Wang's 1998 C were recovered on 2026-09-11 from the
+Internet Archive's copy of `stat.fsu.edu/pub/diehard` (f5ecb2a);
+`pubs/SOURCES.tsv` records each archive's origin and sha256 (ffb3aee).  The
+comparison of the DIEHARD modules with that Fortran is recorded in
+"Follow-up — 2026-09-11".
 
 Baseline state: `cargo clippy --all-targets -D warnings` clean,
 `cargo fmt --check` clean, `cargo test --release` 153/153, no `unsafe`,
@@ -135,6 +146,226 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
    seed (42, 54).  Pcg64's output changes; the battery seeds it from the OS,
    so battery results are unaffected.  R-REPORT.md's PCG64 section was measured from the old stream and now says so.
 
+Items F–N were found in the 2026-09-11 follow-up ("Follow-up — 2026-09-11").
+Their line numbers are those of 229e104 unless another revision is named.
+
+F. **Runs up/down counted only one of the two final runs** —
+   `src/diehard/runs_float.rs:148-154, 188-194` at f098126.  At the end of a
+   sequence the counter closed only the down-run when the last word exceeded
+   the first, and only the up-run otherwise, which is Dieharder's rule
+   (`diehard_runs.c:132-143`).  Marsaglia's `udruns` counts both
+   (`diehard.f:529-530`), so every word lies in one up-run and one down-run,
+   as AS 157's covariance assumes; one missing count moves the nearly
+   singular quadratic form by O(1).  CONFIRMED: a gfortran build of
+   `diehard.f` on the same words gives identical in-loop counts and one
+   different final count, and 200 000 simulated null sequences put the
+   up-run statistic's mean at 7.14 and its variance at 23.6, against 6
+   and 12.  Over 48 000 null calls on MT19937 streams, the ten-sequence KS
+   p-value fell below 0.01 in 2.72% (up) and 2.54% (down) of calls, and
+   below 0.001 in 0.43% and 0.37%.
+   **Fixed:** both final runs are counted, following `diehard.f:529-530`
+   (3f7fdc0; now `runs_float.rs:202-203`).  The same 48 000 calls give 1.02%
+   and 0.97% below 0.01, and 0.11% and 0.09% below 0.001 (standard errors
+   0.045% and 0.014%).  The reviewer's independent port of `udruns` matched
+   the counts bit for bit on 19 streams.  The doc adds that DIEHARD runs the
+   block of ten sequences twice, and that its single-precision `REAL`
+   comparison merges nearby words into ties, which it counts as falls: the
+   `REAL`s of w and w + 1 are equal for 96.5% of 2²⁶ random words (3f3f2a3,
+   39060f6).  Output changes for `diehard::runs_up` and `diehard::runs_down`.
+
+G. **Linear complexity took the sign of its mean from STS, not SP 800-22** —
+   `src/nist/linear_complexity.rs:83`.  The code added (9 + (−1)^M)/36 and
+   its comment said SP 800-22 prints that.  §2.10.4 prints
+   (9 + (−1)^(M+1))/36, which is §3.10's (4 + M mod 2)/18 and gives the
+   worked μ = 6.777222 for M = 13; STS 2.1.2's `linearComplexity.c` has the
+   other sign.  CONFIRMED against the PDF and the STS source.  The sign never
+   changes a class: under the printed mean every Tᵢ lies within
+   (M/3 + 2/9)/2^M of an integer, the other sign lowers it by 1/18, and the
+   class boundaries are half-integers.
+   **Fixed:** the mean follows §2.10.4 (8cf4be3), and tests check μ and Tᵢ
+   for M = 13 and for the battery's M = 500 (f281a34).  An f64 check over
+   every M in 500..=5000 found no class that differs, and p-values on e,
+   MT19937 streams and `run_all` are bit-identical.
+   <!-- CHECK: 8cf4be3 says the class check covered every M in 500..=5000, the range the module accepts; AUDIT-NOTES.md says M 1..5000. Written as the commit states. -->
+
+H. **System.Random panicked on overflow in debug builds** —
+   `src/rng/c_stdlib.rs:258-300` (`WindowsDotNetRandom::new`).  C# evaluates
+   `int` arithmetic unchecked, but the port subtracted with checked `i32`
+   arithmetic, so a debug build panicked with "attempt to subtract with
+   overflow" for large-magnitude seeds, including in the `webster_tavares`
+   probe, which seeds the generator across the whole `i32` range.  Release
+   builds wrapped and already matched .NET.  CONFIRMED (panic reproduced).
+   **Fixed:** f8ae1d9 wrapped the seed rounds and `InternalSample`.  Review
+   then brute-forced every seed magnitude: only the correction rounds'
+   subtraction `seed_array[i] − seed_array[1 + n]` ever leaves `i32`, from
+   magnitude 161 844 078 up, for 1 269 681 342 of the 2³¹ magnitudes.
+   d3b614b keeps a single `wrapping_sub` there (`:300`) and makes the other
+   steps plain arithmetic again, so a debug build still panics if that
+   analysis ever stops holding.  An exhaustive sweep of the fixed generator
+   over every seed magnitude with overflow checks found nothing else out of
+   range.  A test pins five raw samples for four overflowing seeds against a
+   replica of the .NET Framework reference source (`random.cs`) alone, since
+   no .NET runtime was available; the replica reproduces the seed-1 prefix
+   and the widely cited first outputs for seeds 0 and 42.
+
+I. **ChaCha20Rng let its block counter wrap** —
+   `src/rng/chacha20_rng.rs:140-144`.  RFC 8439 §2.3 limits one key and nonce
+   to 2³² blocks.  The generator let `cryptography::ChaCha20` wrap its 32-bit
+   counter to block 0 and repeat keystream, and the test added with
+   `ChaCha20Rng::new` (24e8afe) pinned that wrap.  Committed cryptography
+   (342989a) wraps, but the cryptography tree in preparation panics there,
+   which would fail that test and the sibling's job that builds this crate.
+   CONFIRMED against both trees.  The battery draws nowhere near 2³² blocks.
+   **Fixed:** the generator counts the blocks it takes and panics with its
+   own message before it asks for a block past counter 2³² − 1, so it behaves
+   the same whichever sibling cryptography version it builds against
+   (8c548a8).  The wrap test became two: `new(.., u32::MAX)` serves exactly
+   the cipher's block at that counter, and the seventeenth read panics.  With
+   the check removed, the panic test fails against both trees.
+
+J. **The universal-constants test repeated the table's own rounding** —
+   `src/nist/universal.rs:359` (`constants_match_maurer_series`).  Added in
+   2cca76f, the test summed Maurer's series first to last in plain f64, which
+   reproduces the L = 6..16 table entries to about 2.5 × 10⁻¹², so it showed
+   only that the table matched itself; the module doc and 2cca76f's message
+   then said the entries equal the series to 10⁻¹¹.  CONFIRMED: a Neumaier
+   compensated sum, which agrees with a 40-digit decimal evaluation to
+   3.1 × 10⁻¹⁴, puts the table 4.0 × 10⁻¹¹ from the series in μ and
+   5.6 × 10⁻¹⁰ in σ², both at L = 16, and σ² more than 10⁻¹¹ away at every
+   L ≥ 11.
+   **Fixed:** the test's reference is the compensated sum, itself checked
+   against the decimal values (a3f907c), and each row is held to twice its
+   own measured gap, never below 10⁻¹³: from 2.4 × 10⁻¹³ (σ², L = 7) to
+   1.14 × 10⁻⁹ (σ², L = 16) (37ad21a).  Adding 5 × 10⁻¹⁰ to the L = 10 σ²
+   entry now fails.  The table is unchanged, so no result changes.
+
+K. **`monobit2` inherits a calibration defect from `chisq_binomial`** —
+   `src/dieharder/monobit2.rs:40, 62-68`.  Dieharder's `chisq_binomial`
+   (`chisq.c:166`) scores a cell only when its observed count exceeds 10, so
+   each block size's p-value is not uniform under H₀.  The earlier doc
+   (bde3347) called the reported p-value "somewhat heavy near zero" and put
+   the cause elsewhere.  CONFIRMED by null simulation on MT19937: level 0
+   alone, before the Šidák step, fell below 0.01 in 1.44% of 20 000 trials at
+   2 000 words, and the reported p-value in 1.30% of 20 000 trials at
+   2 000 words, 1.27% of 20 000 at 10 000, 1.50% of 5 000 at 100 000 and
+   1.50% of 1 000 at 1 000 000.  The shared cells of item 41 can also turn a
+   pass into a fail: 100 000 MT19937 words with six all-ones level-0 blocks
+   and six all-zeros level-1 blocks written in score p = 0 at seeds 1, 2, 3
+   and 5489, against 0.345, 0.435, 0.140 and 0.848 with separate histograms.
+   Such a stream is far from random, so that is extra sensitivity outside the
+   null, not a false alarm under it.
+   **Fixed:** the doc states both (5bd2bb6), and a second golden at 1 140
+   words, the fewest with two block sizes, covers the flat layout's second
+   segment (7424f0f).  Both behaviours are kept for fidelity, as the
+   fill-tree off-by-one (14) is.
+   <!-- CHECK: the brief gives the reported rate at .01 as 1.26–1.50%; monobit2.rs:66-68 and 5bd2bb6 give 1.27–1.50%, and AUDIT-NOTES.md gives both 1.26–1.38% and 1.27–1.50%. Written as the code states. -->
+
+L. **DIEHARD departures were undocumented or misstated** — `src/diehard/`.
+   Checked against `diehard.f`, several modules departed from DIEHARD without
+   saying so, or described it wrongly:
+   - `bitstream.rs`: DIEHARD feeds each word low bit first into one continuous
+     stream and prints 20 `phi` values with no summary (`diehard.f:122-138`);
+     the module reads each word high bit first, as Dieharder does, over 20
+     disjoint chunks with a KS summary.
+   - `count_ones.rs`: `sknt1s` scores 2 560 000 five-letter words, twice, and
+     takes each word's bytes high byte first (`diehard.f:214-215, 767-780`);
+     the module scores 256 000 words once, low byte first, as `tests.txt` and
+     Dieharder do.  Its doc credited μ and σ to a C source; they are
+     Marsaglia's Fortran (`diehard.f:808`).
+   - Summaries and p-values: DIEHARD's `KSTEST` is Marsaglia's
+     Anderson–Darling statistic (`diehard.f:1668-1709`), and DIEHARD reports
+     CDF values throughout, where the modules report KS summaries and upper
+     or two-sided tails.
+   - `monkey.rs`: DIEHARD sweeps the letter's bit field over 23, 28 and 31
+     positions for OPSO, OQSO and DNA (`diehard.f:689`), and Dieharder rates
+     all three "Suspect".
+   - `parking_lot.rs`: DIEHARD makes 12 001 attempts (`diehard.f:304-315`),
+     the module and Dieharder 12 000, which moved the mean of 3 000 simulated
+     lots by 0.08 cars against σ = 21.9.
+   - `craps.rs` (item 18), `squeeze.rs` (item 8) and `birthday_spacings.rs`
+     (item 27).
+   - `minimum_distance.rs` quoted a Dieharder sentence, "The formula used
+     here is WRONG.", that Dieharder does not contain, and the 32×32 comment
+     in `binary_rank.rs` described NIST's three cells where the code, DIEHARD
+     and Dieharder use four.
+   - Window reuse: the 6×8 doc (3b63d1b) and the fidelity review (its §5 and
+     §6.3) said DIEHARD rereads the same words for every window, and the
+     birthday doc (2611fd7) said `cdbday` rewinds for each.  Neither holds.
+     `jkreset` (`diehard.f:425-427`) resets the record counter but keeps the
+     buffer index, so a window that starts mid-record first reads out the
+     rest of that 4 096-word record and only then rereads the file from
+     word 1.  An instrumented gfortran build starts 6×8 window 2 at word
+     600 001 and window 25 at word 596 481, and count-the-1s on specific
+     bytes has leftovers of 1 933 to 4 086 words.  `cdbday`'s 256 000 words
+     end mid-record, so its windows alternate: five read words 1 to 256 000,
+     and four read the 2 048 words after them and then words 1 to 253 952.
+     The windows overlap in most of their words, so their p-values are
+     dependent.
+
+   CONFIRMED against gfortran 16.2 builds of `diehard.f` on the same
+   4 000 000 words, with bit and byte order aligned and bit 31 flipped for
+   the float tests (DIEHARD floats the signed word): 31×31 and 32×32 χ² 0.397
+   and 6.849, 6×8 χ² 2.011, 141 957 missing bitstream words, count-the-1s
+   Q5 − Q4 = 2520.02, 3 519 parked cars, all 20 minimum-distance d² to four
+   decimals, all 20 3-D sphere r³ to three, and craps' 98 570 wins and 21
+   throw cells agree.  The tables agree as well: squeeze's cell probabilities
+   with `diehard.f` to 10⁻¹², the runs matrix exactly, and the exact 31×31
+   rank probabilities with DIEHARD's table to 4.2 × 10⁻¹¹.
+   **Fixed:** each module now documents its departures, and the misstatements
+   are corrected (f31f192, c413022, d1684fb, ea40a1e, 3f3f2a3, 39060f6).  No
+   output changes.
+   <!-- CHECK: the brief says DIEHARD's windows do not re-read the same words. That holds for the 6×8 windows (window 2 starts at word 600 001, window 25 at 596 481), but by d1684fb and birthday_spacings.rs five of cdbday's nine windows read words 1–256 000 exactly. The note says the every-window claims were wrong and gives both cases. -->
+
+M. **The March removal of three DIEHARD tests rested on wrong reasons** —
+   `README.md:200-209`; the removed modules at `3b41af8^:src/diehard/`
+   (`operm5.rs`, `overlapping_sums.rs`, `count_ones.rs`).  Commit 3b41af8
+   (2026-03-14) removed OPERM5, overlapping sums and count-the-1s on specific
+   bytes, and README cites Dieharder's verdict on each.  The fidelity review
+   evaluated all three against `diehard.f`, Dieharder 3.31.1 and simulation:
+   - **OPERM5:** the removed module ported Dieharder's rewritten
+     `diehard_operm5.c`, whose matrix is the exact pseudoinverse of the
+     120-pattern covariance C (rank 96 = 5! − 4!; Dieharder's table equals
+     pinv(C) to 4.5 × 10⁻¹⁰), with df 96.  That is Dieharder's calibrated
+     correction, rated "Good" in `list_tests.c`, not the defunct original
+     README describes.  Marsaglia's published OPERM5 is the miscalibrated
+     one: its R matrix is indefinite and its df 99 exceeds the rank, and
+     `diehard.f` on a good generator gave P(p > 0.99) = 4.25% over 800
+     statistics.
+   - **Overlapping sums:** Marsaglia's transformation is exact (M T Mᵀ = I)
+     and his f table is the empirical CDF of φ(x), so `diehard.f` is
+     calibrated at the resolution it reports (600 runs, final KS p = 0.81).
+     Dieharder's transcription uses `y[t-2]` for `y[0]` and drops the f
+     table; with its default 100 psamples it rejects 54% of perfect
+     generators at 0.01.  The removed module copied that transcription and
+     rejected 4.5% at 0.01.  The test was broken only by the transcription.
+   - **Count-the-1s on specific bytes:** the removed module scored Q5 alone
+     with df 3 124, which overlapping words do not support (in 1 000 null
+     streams its mean was 3 115 and its variance 9 071 against 6 248, and
+     P(p < 0.01) = 2.6%), so it was miscalibrated as this crate wrote it.
+     DIEHARD's `wknt1s` scores Q5 − Q4, which the same simulation calibrates
+     (two-sided P(p < 0.01) = 0.8%).  Dieharder rates its own byte test
+     "Good", and its author's remark that he could make it obsolete is
+     conditional.
+
+   CONFIRMED by computation and by `diehard.f` itself run on a good
+   generator (`jtbl` replaced by gfortran's RNG).
+   **Fixed:** the `count_ones` doc no longer says Dieharder retired the byte
+   variant (c413022).  README.md:200-209 still gives the old reasons.
+   <!-- PENDING historical suite -->
+
+N. **`math::erfc` is good only to about 10⁻⁷** — `src/math.rs:12-41`.
+   `erfc`, and `normal_cdf` through it, is Numerical Recipes' `erfcc`, whose
+   stated fractional error is below 1.2 × 10⁻⁷; the doc records a measured
+   absolute error up to 2 × 10⁻⁷ near 0.  At 0 the code returns the
+   exponential of its coefficients' sum, 1.0000002, so a two-sided p-value
+   erfc(|z|/√2) exceeds 1 for a zero statistic; HammingCorr printed
+   p = 1.0000002 for this reason.  CONFIRMED by evaluating the code's
+   coefficients.  Marsaglia's 2004 paper on evaluating the normal
+   distribution, with its C, is in `pubs/` (be5c958) as the basis for a
+   replacement.
+   <!-- PENDING erfc -->
+   <!-- CHECK: Numerical Recipes in C (2nd ed.) prints erfcc's last coefficient as 0.17087277, which gives erfc(0) = 1.00000003, inside its 1.2e-7 bound; src/math.rs:34 has 0.17087294, which gives 1.0000002. NR is not in pubs/, so that printed value is from memory and unverified. -->
+
 ## Correctness risks (statistic differs from the cited reference)
 
 7. **Universal test sigma uses the Coron–Naccache constant while citing
@@ -162,6 +393,12 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
    unchanged from `bit_distribution` to `math::vtest_pvalue`. A test with
    over-produced extreme lengths now rejects (p ≈ 8 × 10⁻¹⁸⁷, where the old
    scoring gave p ≈ 1).
+   The finding's 38 cells are the strong ones; with the pool the code
+   scores 39.  Against `diehard.f` the pooling is Dieharder's, not DIEHARD's:
+   Marsaglia's `sqeez` scores all 43 cells with no pooling, five of them
+   expecting 0.98 to 3.27 counts, and reports `chisq(chsq,42)`, the CDF with
+   df 42 (`diehard.f:254-272`).  The doc now says so (ea40a1e); the pooling
+   stays.
 
 9. **31x31 binary rank tests the low 31 bits** —
    `src/diehard/binary_rank.rs:127-137`.  Marsaglia specifies the
@@ -176,6 +413,16 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     low byte.  Bytes 1–3 are never rank-tested and the doc says "a
     specified byte position".  CONFIRMED vs Dieharder.
     **Documented, not changed:** the doc says the test reads the low byte, as Dieharder's `rank.c` does, where DIEHARD repeats it over 25 overlapping 8-bit windows (bits 1–8 through 25–32, not 25 byte positions as this finding says), and that Dieharder also scores rank 3 as its own cell.
+    On 2026-09-11 the doc was checked against Marsaglia's `cdbinrnk`
+    (`diehard.f:920-1001`; 3b63d1b, d1684fb).  The low byte read here is
+    DIEHARD's last window (kr = 0, "bits 25 to 32"), and a gfortran build on
+    the same words gives the same χ² (2.011).  The doc now also says that
+    DIEHARD pools ranks ≤ 4 as this test does but with six-digit cell
+    probabilities, reports each window's lower tail 1 − exp(−χ²/2),
+    summarizes the 25 with Anderson–Darling, and starts each window where
+    `jkreset` leaves it (item L).  Sweeping all 25 windows, each on fresh
+    words, belongs to the historical suite.
+    <!-- PENDING historical suite -->
 
 11. **Webster–Tavares BIC masks degenerate linear maps** —
     `src/research/webster_tavares.rs:50-54`.  A never/always-flipping
@@ -196,6 +443,11 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     **Documented, not changed:** the audit read TestU01's `sstring.c` online, but the fixing pass had no copy to implement from, so the extraction stands. The README and module docs now
     describe it exactly: a block equals the paper's concatenated bit stream
     only when `s` divides `L`.
+    TestU01's source entered `pubs/` on 2026-09-11
+    (`TestU01-2009-57e98bf33880.tar.gz`, f098126).  On this tip the
+    extraction is unchanged, and `testu01_hamming.rs:13-14, 33` still say
+    `sstring.c` is not in `pubs/`.
+    <!-- PENDING research round 2 -->
 
 13. **glibc `random()` seeding differs for seeds >= 2^31** —
     `src/rng/c_stdlib.rs:68-77, 342-348`.  `park_miller31` seeds via
@@ -203,9 +455,17 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     `int32_t`, so high seeds diverge.  Seed 1 (the battery) is
     unaffected.  PLAUSIBLE.
     **Fixed:** seeding runs Schrage's step on the signed 32-bit word, pinned
-    for seeds 3 000 000 000 and 2^31 − 1. The reference is an independent C
-    and Python replica of glibc's `__srandom_r`, not glibc itself; seed-1
-    output is unchanged.
+    for seeds 3 000 000 000 and 2^31 − 1, and seed-1 output is unchanged.  The
+    pins came from an independent C and Python replica of glibc's
+    `__srandom_r`.  On 2026-09-11 glibc 2.40's own `random_r.c`, now in
+    `pubs/`, was compiled: `__initstate_r` and `__random_r` match `BsdRandom`
+    for 2000 outputs at each of the seeds 0, 1, 2, 12345, 2³¹ − 1, 2³¹,
+    2³¹ + 1, 3 000 000 000 and 2³² − 1 (6c851e6).  The macOS libc differs at
+    0, 2³¹ − 1 and 2³¹ + 1.  Current FreeBSD `random()` differs at all nine,
+    because its `srandom_r` fills the table through `parkmiller32`;
+    `BsdRandom` follows glibc, and its docs and README say so.
+    `LcgVariant::AnsiC` equals glibc's TYPE_0 generator for seeds whose low
+    32 bits are nonzero, checked at nine `u64` seeds (10cce8d).
 
 14. **Fill-tree reproduces a Dieharder off-by-one** —
     `src/dieharder/fill_tree.rs:156-163`.  Cell 14 (expected 23.5) is
@@ -225,10 +485,14 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     **Fixed for matrix rank and for longest run at M = 8:** matrix-rank
     probabilities come from the §3.5 formula and reproduce §2.5.8's χ² =
     1.2619656 and P = 0.532069; longest run uses exact k/256 for M = 8 and
-    reproduces §2.4.8's P = 0.180609. **Left:** M = 128 and M = 10⁴ keep the
-    four decimals §3.4 prints. For M = 10⁴, which the battery uses, they
-    differ from exact values by up to 1.6 × 10⁻³, but they are the published
-    standard's values.
+    reproduces §2.4.8's P = 0.180609. **Kept:** M = 128 and M = 10⁴ keep the
+    four decimals §3.4 prints.  STS 2.1.2's `longestRunOfOnes.c`, in `pubs/`
+    since 2026-09-11, uses the same four decimals for M = 10⁴, so the battery,
+    which uses M = 10⁴, matches STS, although those values differ from exact
+    ones by up to 1.6 × 10⁻³.  For M = 128 STS uses a 10-digit table within
+    4 × 10⁻¹⁰ of exact, where §3.4's decimals are up to 6.4 × 10⁻⁵ off, so
+    only 6 272 ≤ n < 750 000 gives p-values slightly different from STS's.  A
+    test computes the exact distribution and checks both gaps (2cca76f).
 
 16. **Approximate-entropy m gate looser than NIST** —
     `src/research/approx_entropy.rs:69-76` admits `2^m <= n/10`;
@@ -242,8 +506,14 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     second-stage aggregate check described in Marsaglia and Tsang".
     CONFIRMED (paper p. 6).
     **Documented, not changed:** the docs call the aggregate a KS test and a
-    deviation from the paper's ADKS. Anderson–Darling would need its
-    distribution's source, which is not in `pubs/`.
+    deviation from the paper's ADKS. Anderson–Darling needed its
+    distribution's source, which was not in `pubs/` on 2026-09-10.  Since
+    2026-09-11 `pubs/` holds Marsaglia and Marsaglia's 2004 paper on the
+    Anderson–Darling distribution with its `ADinf.c` and `AnDarl.c`, and the
+    `tuftests.c` attached to Marsaglia–Tsang 2002, which defines ADKS
+    (f098126, e018c34).  On this tip the aggregate is still KS, and
+    `marsaglia_tsang.rs:19-22` still says no source for ADKS is in `pubs/`.
+    <!-- PENDING research round 2 -->
 
 18. **Craps dice use low bits** — `src/diehard/craps.rs:157-170`.
     `v % 6` after rejection; Marsaglia and Dieharder use high bits.
@@ -253,6 +523,18 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     the bounded-retry fallback stays. MINSTD, whose words never set bit 31,
     now fails craps. Dieharder scales by each generator's declared range,
     which the crate's `Rng` trait does not carry.
+    GSL 2.8's `gsl_rng_uniform_int`, now in `pubs/`, confirms the quotient
+    and the redraw (`rng/gsl_rng.h:189-212`).  Marsaglia's `craptest` uses
+    another high-bit map (`diehard.f:555-556`): it reads each word as a
+    signed integer x and takes int(6x/2³² + 3).  In double precision that
+    face is GSL's + 3 (mod 6) on every word GSL keeps except twelve next to
+    GSL's face boundaries, which get + 2.  In single precision, as gfortran
+    evaluates `REAL`, the 191 words just below 2³¹ roll a 7, and 834 kept
+    words in all get + 4.  No word gets the same face from both maps (checked
+    over all 2³² words).  The doc had said the two maps agree on all but a
+    dozen words; it now gives these counts and says the wins p-value is
+    two-sided where `craptest` reports the one-sided `phi(t)` (f31f192,
+    c413022).  Both maps read the high bits, so the choice stands.
 
 19. **Universal parametric path emits p-values for any K >= 1** —
     `src/nist/universal.rs:122-131`.  Spec wants K near 1000·2^L; below
@@ -303,6 +585,9 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     **Fixed:** thresholds follow §2.9.7. The doc says the digits beyond the
     printed tables come from an uncited source; they agree with Maurer's
     eqs. (16)–(17) to 6 × 10⁻¹⁰.
+    Item J confirms that bound: against an accurate evaluation of the series
+    the largest gaps are 4.0 × 10⁻¹¹ in μ and 5.6 × 10⁻¹⁰ in σ², both at
+    L = 16.
 26. `src/nist/serial.rs:13-19` doc says `serial()` returns a pair with
     `p_value = min(p1,p2)`; it returns one `TestResult`.  CONFIRMED.
     **Fixed:** the doc matches what `serial()` returns.  Review then found that
@@ -315,6 +600,19 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     tail bins under 5; `chisq_poisson` keeps all bins with df 7.
     CONFIRMED.
     **Fixed:** the doc says the code scores j = 0..6 with df 6 where `chisq_poisson` scores every cell (df 7 at 500 trials, df 5 at Dieharder's default of 100), that the repeat count follows Marsaglia's definition rather than the C's loop, which skips an interval after each run, and that the nine bit windows and the final KS are DIEHARD's.
+    **Corrected on 2026-09-11:** the premise that the repeat count followed
+    Marsaglia was wrong.  It followed `tests.txt`'s wording, the number of
+    values that occur more than once.  Marsaglia's `cdbday` counts the i with
+    C(i) = C(i−1) in the sorted spacings (`diehard.f:1277-1283`), so a value
+    seen three times adds 2, and his `CHSQTS` scores j = 0 to 5 alone and
+    pools j ≥ 6, df 6 (`diehard.f:1312-1375`), where the code dropped j = 7
+    and discarded larger j.  The count and the cells now follow `diehard.f`
+    (2611fd7).  Both rules are calibrated: over 12 000 null calls on MT19937
+    the p-value fell below 0.01 in 0.94% of calls before and 0.96% after.
+    Each of the nine windows still reads its own 256 000 words, where
+    DIEHARD's windows share most of theirs (item L); the doc says so, and that
+    DIEHARD's summary is Anderson–Darling, not KS.  Output changes for
+    `diehard::birthday_spacings`.
 28. `src/diehard/monkey.rs:7-14` says letter extraction deviates from
     Dieharder for all three; OPSO and OQSO extraction are identical, only
     DNA differs.  CONFIRMED.
@@ -367,16 +665,27 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     `dual_ec.rs:249` (replaced by rump's `from_str_radix` on 2026-09-10); the `take_bytes` refill idiom
     in five generators.
     **Fixed in the research probes:** one shared `strip_b`, and
-    `math::chi2_pvalue` replaces both local p-value helpers. **Left:** the NIST tests still inline `igamc`; the `hex()` test helpers, the `take_bytes` idiom, the three nearest-pair scans and the two `runs_float` run counters remain (the production `decode_hex` is gone). **Fixed
+    `math::chi2_pvalue` replaces both local p-value helpers. **Fixed
     in DIEHARD/DIEHARDER:** the binomial and Poisson pmfs live in `math.rs`,
     and 3-D spheres compares squared distances; results are identical.
+    **Fixed on 2026-09-11:** the nine NIST tests that inlined `igamc` call
+    `math::chi2_pvalue` (124ed00), with p-values bit-identical over 2 453
+    values and 653 more that the reviewer checked.  A private `ByteBuffered`
+    trait holds `take_bytes` once for `ChaCha20Rng`, `HashDrbg`, `HmacDrbg`,
+    `SpongeBob`, `Squidward` and `StreamRng`, and one test-only `hex()`
+    serves both DRBGs (88fe957); output is byte-identical (1 847 106 lines
+    compared in review) and throughput unchanged.  The three nearest-pair
+    scans share one `min_squared_distance`, and `runs_float`'s two entry
+    points one run counter (a14efeb), with byte-identical output.
 33. **Boilerplate copied across seven binaries**: `Args::parse`, `die`,
     `matches_rng`, and the 14-case RNG list in `bib_tests`, `gorilla`,
     `testu01_lz`, `upstream_tests`, `webster_tavares`,
     `bitplane_complexity`, plus the `dump_rng`/`pilot_rng` dispatch
     tables; `upstream_tests.rs:176-252` repeats each label twice.
-    **Left:** the shared CLI boilerplate is unchanged, though `--rng` now
-    ignores case in every binary.
+    **Left:** the shared CLI boilerplate is unchanged on this tip, though
+    `--rng` now ignores case in every binary.
+    <!-- PENDING research round 2 -->
+    <!-- CHECK: the brief lists item 33 as changed, but the shared CLI (d4a1cd1, src/bin/common/) is on audit-research, which 229e104 does not contain; the note keeps what is true on this tip. -->
 34. **Dead public API** (no callers in `src/` or `tests/`):
     `nist::serial::serial`, `nist::random_excursions::random_excursions`,
     `nist::random_excursions_variant::random_excursions_variant`,
@@ -429,8 +738,17 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
 40. **CI**: `.github/workflows/ci.yml:38-45` checks out the sibling
     crates at unpinned default branches, so any push there changes what
     CI builds; no `cargo fmt --check` step; MSRV job is Ubuntu-only.
-    **Fixed in part:** CI runs `cargo fmt --check`. **Left:** sibling
-    checkouts stay unpinned and the MSRV job stays Ubuntu-only.
+    **Fixed:** CI runs `cargo fmt --check` (2026-09-10).  Both sibling
+    checkouts are pinned by full SHA to cryptography 342989a and rump
+    3ff885c, the commits this crate is verified against, and the 1.87 MSRV
+    job also runs on macos-latest (277e3aa).  The comment beside the pins
+    says what pinning costs: the siblings' downstream jobs build this crate
+    but run only `cargo test` on ubuntu-latest stable, so moving the pins
+    means first running the whole matrix locally against the new sibling
+    commits (ee554d1).  **Left:** CI runs only debug tests, so the three tests
+    that run only in release builds (the `dct` golden and two
+    linear-complexity pins on e) never run there; `ci-release-tests`
+    (003e8d7) adds that step and is not merged.
 41. **Nits**: `hash_drbg.rs:140,171` and `hmac_drbg.rs:120,142` refuse
     the last permitted call (`>=` vs spec `>`); `serial.rs:42` gates
     n >= 1000 without spec basis; `craps.rs:201-203` tail-mass comment
@@ -449,7 +767,11 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     or 8 stays unresolved for 198 more throws.  The serial m gate already
     matched §2.11.7 exactly (m < ⌊log₂ n⌋ − 2); only its docs misquoted the
     rule.  **Left:** the serial n ≥ 1000 floor, documented as a project
-    choice, and `monobit2`'s inherited level aliasing.
+    choice.  **Kept for fidelity:** `monobit2`'s inherited level aliasing,
+    now documented with its block phase (bde3347): level j's all-ones cell is
+    level j + 1's all-zeros cell, and level j's first block closes after
+    2^j + 1 words.  No shared cell held a count in 46 300 null MT19937
+    trials, but a stream that fills one can flip a verdict (item K).
 
 ## Test coverage
 
@@ -462,8 +784,24 @@ Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
   **Addressed in part:** §2.1.8, §2.3.8, §2.4.8, §2.10.4 (Berlekamp–Massey) and
   §2.13.8 are pinned end to end, §2.12.8 through the production χ² and P
   code, §2.5.8's χ² from its printed counts, and §2.9.8's σ and P from its
-  printed sum.  The 10⁶-bit e fixture is still missing, so the matrix-rank
-  computation and the serial and random-excursion examples remain unpinned.
+  printed sum.  **Addressed on 2026-09-11:** `tests/data/e_1e6_bits.bin`
+  packs the first 10⁶ bits of STS 2.1.2's `data.e`, checked against the
+  symbol counts §2.11.8 prints and, for its first 2¹⁴ bits, against e summed
+  with rump's `BigUint` (5417cae).  §2.5.8, §2.8.8, §2.10.8, §2.11.8, §2.14.8,
+  §2.15.8 and Appendix B's e table are pinned on it, §2.10.8 and Appendix
+  B's M = 500 row in release builds only; §2.6.8, which runs on 100 bits of
+  π below the spectral gate, is pinned through the statistic's helper
+  (1766dff).  Where the printed figures differ, the cause is reproduced:
+  §2.8.8's χ² uses §3.8's compound-Poisson probabilities, which STS keeps;
+  §2.10.8 uses STS's π₀ = 0.01047 where §2.10.4 prints 0.010417; §2.14.8's rows
+  for x > 0 drop the final excursion's visits.  In §2.6.8 STS counts
+  N₁ = 48, as the module does, not the printed 46, and nothing found
+  explains the 46.  Random excursions match STS on e (J = 1490 and all eight
+  χ² and P; dc00343); linear complexity is scored in debug builds on 100 000
+  bits of e at M = 500, with STS's class counts (f281a34); and serial's
+  statistic-to-df pairing is tested through the code `serial_both` uses
+  (405b199).  **Still missing:** §2.9.8's input is unavailable, so only its
+  σ and P are pinned, from the printed sum.
 - Fourteen DIEHARD/DIEHARDER modules have no unit tests at all
   (birthday spacings, count-ones, parking lot, runs, 3-D spheres,
   squeeze, minimum distance, byte distribution, DCT, GCD, KS uniform,
@@ -472,15 +810,43 @@ Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
   **Addressed in part:** every reference probability table has a sum-to-one
   test.  Seventeen modules gained edge-input tests: constant input fails in
   each, and empty or short input skips in those with a length gate; the
-  three binary-rank tests also pin their one-word-short boundary.  Golden
-  p-values for a fixed seed are still missing.
+  three binary-rank tests also pin their one-word-short boundary.
+  **Addressed on 2026-09-11:** `tests/diehard_goldens.rs` pins the p-value of
+  every DIEHARD and DIEHARDER test function to 10⁻¹², and its note exactly,
+  on MT19937 seeded with 5489 (aa1ac68).  `binary_rank_31x31` alone is held
+  to 10⁻⁸, because shifting every libm result by one ulp moved it by up to
+  3.7 × 10⁻¹⁰, and a second `monobit2` golden covers two block sizes
+  (7424f0f).  The goldens pass in debug and release builds on aarch64 and
+  x86_64 macOS and on x86_64 Linux (moore, glibc, rustc 1.95); the `dct`
+  golden runs only in release builds.  They are this code's own output, not
+  reference values from the C.
 - No KAT for `Rand48`, `Xorshift32/64`, `Pcg64`, or `Lcg32`
   AnsiC/Borland.  (`DualEcDrbg` and the streaming paths of both DRBGs were
   pinned on 2026-09-10; see item C.)  `ChaCha20Rng` has no deterministic constructor, so it cannot be
   pinned to RFC 8439.  `tests/dump_rng.rs:110-142` pins 5 of 44 names.
   **Addressed:** Rand48 (against macOS libc), Xorshift32/64, Pcg64 and Lcg32
-  AnsiC/Borland are pinned. `ChaCha20Rng` still has no deterministic
-  constructor.
+  AnsiC/Borland are pinned.  **Addressed on 2026-09-11:**
+  `ChaCha20Rng::new(key, nonce, counter)` (24e8afe) is pinned to RFC 8439's
+  §2.3.2 block, its §2.4.2 keystream across a block boundary and the five
+  Appendix A.1 blocks.  `StreamRng` reproduces all three RFC 4503 Appendix
+  A.2 Rabbit vectors and both Salsa20 §9 expansion examples (dfec5eb); all
+  15 SNOW 3G key/IV sets in ETSI/SAGE Document 3, the 4 of §3, the 5 UEA2
+  sets of §4 compared to LENGTH bits and the 6 UIA2 sets of §5; and all 4
+  ZUC-128 sets of §3, the only keystream its Document 3 prints (cf2d696,
+  a4f8932).  A test pins `mt19937ar.out` through a transcribed
+  `init_by_array` (2f60c0c).  Compiled in scratch from the reference C now
+  in `pubs/`, pcg-c's pcg32 and pcg64, `init_genrand` and `genrand_int32`
+  from `mt19937ar.c`, Vigna's `next()`, Jenkins' 64-bit `ranval`, wyrand
+  from wyhash's `wyhash_final2.h` and `wyhash_final4.h`, and Marsaglia's
+  `xor()` and `xor64()` each agree with the crate for 5000 outputs
+  (2f60c0c); glibc's generators are checked as item 13 describes, and
+  FreeBSD's `rand_r` matches `BsdRandCompat` at five seeds (6c851e6).  That
+  pass also corrected docs that claimed more than their sources: the V7
+  `rand(3)` page prints no LCG parameters, wyhash has no "final version 3",
+  and Jenkins states no period for JSF64; the xorshift docs now note that
+  the paper's printed `xor()` drops the xor from its middle step.  **Still
+  missing:** SFC64 is checked only against a Python replica, because
+  PractRand's source is not in `pubs/`.
 - `src/main.rs` has zero tests; `Args::parse` reads `std::env::args`
   directly.
   **Addressed:** option parsing moved to `Args::parse_from`, with tests for
@@ -489,7 +855,109 @@ Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
   `grouped_tail_g_test`, `gorilla_aggregate_ks` untested; the PractRand
   FPF truncation rule is unverified (no source available).
   **Addressed:** each of those now has a test, `hamming_indep` against an
-  independent replica. The FPF truncation rule is still unverified.
+  independent replica. The FPF truncation rule is still unverified, because
+  PractRand's source is not in `pubs/`.
+
+## Follow-up — 2026-09-11
+
+The follow-up rechecked the open items against the sources that entered
+`pubs/` that day, compared the DIEHARD modules with Marsaglia's Fortran, and
+fixed or documented what it found on topic branches.  The findings are
+folded into items 8–41, F–N and the coverage notes above.  This section
+records how the work was checked, what `pubs/` gained, and what the
+neighbouring repositories' audits say about this crate.
+
+**How the work was checked.**
+
+- *Adversarial review.*  Every branch went to an adversarial reviewer, and
+  each finding was fixed on the branch and sent back.  The NIST
+  (`audit-nist`), generator (`audit-rng`), .NET (`fix-dotnet`) and DIEHARD
+  (`audit-diehard`) branches were merged only after their reviewers conceded
+  every finding.
+- *Staging.*  Each merge was made on `merge-staging` and verified there
+  against `git archive` copies of the committed sibling crates, cryptography
+  342989a and rump 3ff885c, which is what CI builds: `cargo fmt --check`,
+  clippy with `-D warnings`, `cargo test`, `cargo test --release --
+  --include-ignored`, rustdoc with `-D missing_docs`, and a 1.87 check.  At
+  229e104 all pass, with 346 tests in the debug run (3 ignored) and 349 in
+  the release run.
+- *Linux.*  On moore (x86-64, glibc, rustc 1.95) the earlier staging commit
+  489dc5a, which held every audit branch at the time, passed 387 debug tests
+  with 3 ignored and 390 release tests with `--include-ignored`.  229e104
+  itself has not been run there.
+- *DIEHARD fidelity review.*  A read-only review compared every DIEHARD
+  module with `diehard.f`.  It ran gfortran 16.2 builds of the Fortran as an
+  oracle on 4 000 000 words, built with `-fno-automatic`, without which
+  gfortran clobbers `jtbl`'s record buffer between calls, and simulated null
+  distributions in C, NumPy and the Fortran itself.  Its findings are items
+  8, 10, 18, 27, F, L and M; its claim that DIEHARD rereads the same words
+  for every window was wrong (item L).
+
+**Additions to `pubs/`** (f098126, f5ecb2a, ffb3aee, e018c34, be5c958).
+Forty-nine files, each listed with its origin and retrieval date in
+`pubs/SOURCES.tsv`, which also gives sha256 for the DIEHARD archives and for
+the files repacked or extracted from larger downloads:
+
+- DIEHARD: the Fortran, f2c and Wang archives of the method paragraph, and
+  PDFs of Marsaglia's extract of the Marsaglia–Zaman 1993 monkey-test paper
+  and of his 1984 keynote, converted from the PostScript in the f2c archive.
+- Test suites: NIST STS 2.1.2's sources and constants (repacked without its
+  generator outputs and experiments, keeping `data.e`, `data.pi`, `data.sqrt2` and
+  `data.sqrt3`), the TestU01 2009 tree, and Kim–Umeno–Hasegawa 2004.
+- Library generators: glibc 2.40's `random_r.c`, `random.c` and `rand.c`
+  with its license, FreeBSD's `rand.c` and `random.c`, and GSL 2.8's `rng/`.
+- Generator references: Matsumoto–Nishimura 1998 with `mt19937ar.c` and
+  `mt19937ar.out`; O'Neill 2014 and pcg-c; Blackman–Vigna with six of
+  Vigna's C files; wyhash; Jenkins' small-PRNG page; Marsaglia's xorshift
+  paper; the V7 manual.
+- Stream ciphers: the ChaCha and Salsa20 papers, RFC 8439, RFC 4503 and the
+  eSTREAM Rabbit description, and ETSI/SAGE's SNOW 3G and ZUC specifications
+  with their Document 3 test data.
+- Statistics: Marsaglia and Marsaglia 2004 on the Anderson–Darling
+  distribution with `ADinf.c` and `AnDarl.c`; the `tuftests.c` attached to
+  Marsaglia–Tsang 2002; Marsaglia 2004 on the normal distribution with its
+  `sources.c`; Marsaglia–Tsang–Wang 2003 on the Kolmogorov distribution; and
+  Wald–Wolfowitz 1940.
+- Dual_EC: Bernstein–Lange–Niederhagen 2015.
+
+PractRand, Hamano–Kaneko 2007, Numerical Recipes and TAOCP are still not in
+`pubs/`.
+
+**Cross-repository findings.**
+
+- The cryptography session's audit left an untracked `AUDIT.md` and
+  `SUGGESTIONS.md` in `../cryptography`.  Every factual claim they make about
+  this crate was checked and holds, among them that `src/diehard` at
+  f098126 has eleven test modules and `mod.rs`, that `pubs/Diehard.zip`
+  (613 818 bytes) holds DOS binaries, data and documentation rather than a
+  source distribution, and that 3b41af8 deleted `operm5.rs` (249 907 bytes)
+  and `overlapping_sums.rs` (3 783 bytes), both still readable from its
+  parent.  Its suggestions hand DIEHARD preservation and a reusable
+  battery-input adapter to this crate.
+- This crate's own `SUGGESTIONS.md`, untracked and written by another
+  session against ffb3aee, confirms the source recovery and asks for two
+  things.  The first is an inventory of the historical DIEHARD
+  implementations, with each one's revision and the reason it was disabled,
+  and an evaluation of any disputed statistic before a test is restored;
+  item M is that evaluation.
+  <!-- PENDING historical suite -->
+  The second is a finite byte-corpus adapter with an explicit contract for
+  word endianness, bit order, partial words, consumption and short input,
+  verified against a generated stream.  A design exists: sequential and
+  rewind modes, little-endian words by default, a step that runs out of
+  input reported as SKIP with exit code 2 rather than cycled or padded, and
+  the corpus sha256 and per-step consumption in the output, about 172 MB at
+  the default sizes.  Nothing is built.
+  <!-- PENDING corpus adapter -->
+- `wipe-opt-in` (41f93ca) turns on cryptography-rs's opt-in `wipe` feature,
+  which that crate is introducing for rump's limb scrubbing (item B).  It
+  passes fmt, clippy, tests, docs and 1.87 against a copy of cryptography's
+  uncommitted tree with rump 3ff885c.  The committed 342989a has no such
+  feature, so the manifest cannot resolve against it; the branch waits until
+  cryptography publishes the feature, and the CI pins (item 40) move with it.
+- An uncommitted rump change (F3 in the cryptography audit) alters
+  `to_be_bytes_padded`; the `store_mod_seedlen` doc in `hash_drbg.rs` needs
+  updating when it lands.
 
 ## Verified correct
 
@@ -513,36 +981,54 @@ rejected where required, wrapping arithmetic is used throughout, CTR
 counters wrap, `OsRng` uses `read_exact`, and the documented 0/1/2 exit
 contract is implemented in `run_tests`.
 
-## Status after the 2026-09-10 fixes
+## Status after the 2026-09-11 follow-up
 
-Every bug (items 1–6), every issue found while fixing (A–E, B withdrawn),
-and most of items 7–41 are fixed; each carries a note above.  What remains
-open, by choice or for lack of a source:
+Items 1–6 and A–L are fixed or documented (B withdrawn), and so are most of
+items 7–41; each carries a note above.  M and N, and items 12, 17 and 33,
+wait on branches that are not merged.
 
+- **Merged** (main at 229e104): `audit-nist` (79f48b4), `audit-rng`
+  (fd36369), `fix-dotnet` (601ab91), `kat-etsi` (ccf18e7) and
+  `audit-diehard` (e410409, 229e104).
 - **Kept for fidelity to the cited reference:** the Dieharder fill-tree
-  off-by-one (14), SP 800-22's four-decimal longest-run tables for M = 128
-  and M = 10⁴ (15), both MSVC `rand()` types (35), and the unused public
-  test functions (34).
-- **Documented instead of changed, source not in `pubs/`:** TestU01's
-  exact Hamming bit packing (12), the Gorilla paper's Anderson–Darling
-  aggregate (17), and TAOCP's leading gap in the Knuth gap test (41).
-- **Documented, not changed:** the 6x8 binary rank reads only the low byte
-  (10), and the serial test keeps its n ≥ 1000 floor (41).
-- **Not started:** the NIST tests' inline `igamc` calls, the `hex()` test
-  helpers, the `take_bytes` idiom, the nearest-pair scans and the
-  `runs_float` run counters (32); shared CLI code for the research
-  binaries (33); pinned sibling checkouts and a macOS MSRV job in CI (40);
-  `monobit2`'s inherited level aliasing (41).
-- **Coverage still missing:** a 10⁶-bit e fixture for the serial and
-  random-excursion examples, a deterministic `ChaCha20Rng` constructor,
-  golden p-values for a fixed seed in DIEHARD/DIEHARDER, and a source for
-  PractRand's FPF truncation rule.
-
-TESTS.md was regenerated from a full battery run of 41330b0 on dyson.  None
-of the later review fixes changes a result at the battery's sample size.
-
-Four adversarial reviewers then checked this wave against its sources.  They
-found two code defects, both fixed: the ApEn gates had dropped the floor in
-§2.12.7, and `serial()` could report a FAIL as SKIP after rounding.  The rest
-of what they found was wording in docs, notes and test claims, corrected
-above.
+  off-by-one (14); SP 800-22's four-decimal longest-run tables for M = 128
+  and M = 10⁴, the latter also STS's (15); both MSVC `rand()` types (35);
+  `monobit2`'s shared cells and inherited calibration defect (41, K); and
+  Dieharder's squeeze pooling (8), dice (18), bit and byte orders and sample
+  sizes (L).
+- **Kept by choice and documented:** fresh words for each birthday window
+  (27); KS summaries with upper-tail or two-sided p-values where DIEHARD
+  reports Anderson–Darling and CDF values (L); the 6×8 test's single window
+  (10); the unused public test functions (34); the serial test's n ≥ 1000
+  floor and TAOCP's leading gap in the Knuth gap test (41); and SKIP where
+  STS writes P = 0 below the random-excursion cycle gate.
+- **Open:**
+  - TestU01's Hamming packing (12), the Gorilla Anderson–Darling aggregate
+    (17) and shared CLI code for the research binaries (33) are on
+    `audit-research`.
+    <!-- PENDING research round 2 -->
+  - `math::erfc` (N).
+    <!-- PENDING erfc -->
+  - The historical DIEHARD suite: the three removed tests (M), DIEHARD's
+    25-window 6×8 sweep (10) and an inventory in place of README's
+    "Removed On Purpose".  `diehard-historical` is in progress.
+    <!-- PENDING historical suite -->
+  - The finite byte-corpus adapter (Follow-up).
+    <!-- PENDING corpus adapter -->
+  - TESTS.md still comes from the battery run of 41330b0 on dyson, so it
+    predates the output changes below, and its Theory section needs the
+    corrections on `docs-tests-theory`.
+    <!-- PENDING TESTS.md regeneration -->
+  - `ci-release-tests`, `docs-tests-theory` and `diehard-historical` were
+    branched from an earlier staging commit that held research's first
+    round, so they merge after `audit-research`.
+  - The release-only tests in CI (40) and the `wipe` feature (Follow-up).
+  - `hmac_drbg.rs`'s tests repeat the entropy hex literal at lines 303 and 346
+    and the nonce literal at 304 and 347, against item 39's rule; BIB.md dates
+    wyhash 2022 where the `pubs/` snapshot is a March 2026 commit; and the
+    README and USAGE text on the gorilla columns must follow item 17.
+  - Coverage: SFC64 and PractRand's FPF truncation rule are unverified, and
+    §2.9.8's input is unavailable (Test coverage).
+- **Battery outputs that change:** `diehard::runs_up` and
+  `diehard::runs_down` (F) and `diehard::birthday_spacings` (27) now; the
+  gorilla binary's aggregate columns once `audit-research` merges (17).
