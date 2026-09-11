@@ -126,21 +126,24 @@ fn normal_upper_tail(x: f64) -> f64 {
 /// pp. 2–5 and 9, with the table point and tail changes f64 needs (see
 /// `mills_ratio` in the source).  [pubs/marsaglia-2004-normal-distribution.pdf]
 ///
-/// Accuracy, as the largest error observed against 70-digit references
-/// from two independent Python `decimal` oracles (they agree to 10⁻⁶¹; see
-/// the tests) on 121 489 arguments in [−11.3, 26.5], packed near the
-/// expansion points and near the arguments where stopping the series at
-/// the first negligible pair erred; ε is `f64::EPSILON`:
+/// Accuracy, as the largest error observed against 70-digit references in
+/// Python `decimal` (a second, independent oracle agrees to 10⁻⁶¹ wherever
+/// both were run; see the tests) on 1 121 489 arguments in [−11.3, 26.5]:
+/// 1 000 000 uniformly random, and 121 489 packed near the expansion points
+/// and near the arguments where stopping the series at the first
+/// negligible pair erred.  ε is `f64::EPSILON`.
 ///
-/// - from 0 to 26.5, relative error 2.8·(1 + x²)·ε: at most 9.4 × 10⁻¹⁶
-///   below x = 1, 6.5 × 10⁻¹⁵ below 4, 9.3 × 10⁻¹⁴ below 16 and
-///   3.2 × 10⁻¹³ up to 26.5, the x² coming from exp(−u²/2) at the rounded
-///   u = x√2;
-/// - below 0, relative error 2.3·ε and absolute error 5.5 × 10⁻¹⁶.
+/// - From 0 to 26.5, relative error 3.6·(1 + x²)·ε (3.54 at
+///   x = 0.1958876234856557): at most 1.2 × 10⁻¹⁵ below x = 1,
+///   7.0 × 10⁻¹⁵ below 4, 9.6 × 10⁻¹⁴ below 16 and 3.3 × 10⁻¹³ up to 26.5.
+///   The x² comes from exp(−u²/2) at the rounded u = x√2.
+/// - Below 0, relative error 2.6·ε (at x = −0.12261875751971507) and
+///   absolute error 6.8 × 10⁻¹⁶.
 ///
-/// The tests allow about twice these.  Results are subnormal from
-/// x ≈ 26.55, where the relative error grows to order 1, and 0 from
-/// x ≈ 27.22.
+/// These are maxima of rounding noise, and denser sampling keeps finding
+/// slightly larger values near 0, so the tests allow about twice them.
+/// Results are subnormal from x ≈ 26.55, where the relative error grows to
+/// order 1, and 0 from x ≈ 27.22.
 ///
 /// erfc(±0) = 1 exactly, 0 ≤ erfc(x) ≤ 1 for x ≥ 0 and 1 ≤ erfc(x) ≤ 2 below,
 /// so a two-sided p-value erfc(|z|/√2) never exceeds 1.  erfc(+∞) = 0,
@@ -164,12 +167,14 @@ pub fn erfc(x: f64) -> f64 {
 ///
 /// Φ(x) = cPhi(−x) below 0 and 1 − cPhi(x) from 0 up, with cPhi as in
 /// [`erfc`] but without its x√2 rescaling, so lower-tail values keep relative
-/// accuracy.  Against the same references on 123 323 arguments in
-/// [−37.5, 40], the largest relative error observed below 0 is
-/// 2.5·(1 + x²/2)·ε (3.4 × 10⁻¹⁵ on [−6, 0), 1.6 × 10⁻¹⁴ on [−16, −6) and
-/// 9.4 × 10⁻¹⁴ on [−37.5, −16)), and the largest absolute error from 0 up is
-/// 3.0 × 10⁻¹⁶ (relative 2.3·ε).  The tests allow about twice these.
-/// Results are subnormal below x ≈ −37.5 and 0 from x ≈ −38.49.
+/// accuracy.  Against the same references on 1 523 325 arguments in
+/// [−37.5, 40] (1 400 000 uniformly random, the rest packed as for
+/// [`erfc`]), the largest relative error observed below 0 is
+/// 3.4·(1 + x²/2)·ε, at x = −0.2940544440351558 (3.4 × 10⁻¹⁵ on [−6, 0),
+/// 1.6 × 10⁻¹⁴ on [−16, −6) and 9.4 × 10⁻¹⁴ on [−37.5, −16)).  The largest
+/// absolute error from 0 up is 3.4 × 10⁻¹⁶ (relative 2.7·ε).  As for
+/// [`erfc`], the tests allow about twice these.  Results are subnormal
+/// below x ≈ −37.5 and 0 from x ≈ −38.49.
 ///
 /// Marsaglia's table-free `Phi` (2004, p. 1) is not used.  Evaluated as
 /// printed with f64 throughout, it exceeds 1 by up to 1.11 × 10⁻¹⁵ at 284
@@ -828,8 +833,10 @@ mod tests {
     /// Φ(−37) is the last row above the subnormal range; the rows between
     /// −16 and −6 that are not whole numbers are the arguments of the erfc
     /// table's flagged rows, times −√2, or where the nearest expansion
-    /// point erred.
-    const NORMAL_CDF_REFERENCE: [(f64, f64); 31] = [
+    /// point erred.  −0.2848151991652159 and −0.2014286549487616 are among
+    /// the largest relative errors a random scan found near 0, 3.00 and
+    /// 3.17·(1 + x²/2)·ε.
+    const NORMAL_CDF_REFERENCE: [(f64, f64); 33] = [
         (-37.0, 5.725571222524577e-300),
         (-35.0, 1.1249107064724062e-268),
         (-30.0, 4.906713927148187e-198),
@@ -853,6 +860,8 @@ mod tests {
         (-2.0, 0.02275013194817921),
         (-1.0, 0.15865525393145705),
         (-0.5, 0.3085375387259869),
+        (-0.2848151991652159, 0.38789286352684327),
+        (-0.2014286549487616, 0.42018170547733735),
         (-1e-3, 0.49960105778608893),
         (1e-3, 0.500398942213911),
         (0.5, 0.6914624612740131),
@@ -864,19 +873,21 @@ mod tests {
     ];
 
     /// Allowed relative error of `erfc`.  The largest observed against these
-    /// references on the 121 489 arguments `erfc`'s documentation describes
-    /// is 2.8·(1 + x²)·ε from 0 up and 2.3·ε below 0; this allows
-    /// 6·(1 + x²)·ε from 0 up and 6·ε below, about twice as much.
+    /// references on the 1 121 489 arguments `erfc`'s documentation
+    /// describes is 3.54·(1 + x²)·ε from 0 up (at x = 0.1958876234856557)
+    /// and 2.56·ε below 0 (at x = −0.12261875751971507).  This allows
+    /// 7·(1 + x²)·ε from 0 up and 7·ε below, about twice as much.
     fn erfc_tolerance(x: f64) -> f64 {
-        6.0 * (1.0 + x.max(0.0).powi(2)) * f64::EPSILON
+        7.0 * (1.0 + x.max(0.0).powi(2)) * f64::EPSILON
     }
 
     /// Allowed relative error of `normal_cdf`.  The largest observed on the
-    /// 123 323 arguments `normal_cdf`'s documentation describes is
-    /// 2.5·(1 + x²/2)·ε below 0 and 2.3·ε from 0 up; this allows
-    /// 5·(1 + x²/2)·ε below 0 and 5·ε from 0 up, about twice as much.
+    /// 1 523 325 arguments `normal_cdf`'s documentation describes is
+    /// 3.36·(1 + x²/2)·ε below 0 (at x = −0.2940544440351558) and 2.65·ε
+    /// from 0 up (at x = 0.11809722168467235).  This allows 7·(1 + x²/2)·ε
+    /// below 0 and 7·ε from 0 up, about twice as much.
     fn normal_cdf_tolerance(x: f64) -> f64 {
-        5.0 * (1.0 + 0.5 * x.min(0.0).powi(2)) * f64::EPSILON
+        7.0 * (1.0 + 0.5 * x.min(0.0).powi(2)) * f64::EPSILON
     }
 
     #[test]
