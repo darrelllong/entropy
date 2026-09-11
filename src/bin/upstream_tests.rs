@@ -11,8 +11,18 @@
 //! * C. Doty-Humphrey, "PractRand: Practically Random — A C++ Library of
 //!   Statistical Tests for RNGs," 2018 (`practrand` in BIB.md; not in
 //!   `pubs/`).
-
-type Case<'a> = (&'a str, Box<dyn Fn() + 'a>);
+//!
+//! Stream consumption.  For each generator the three probes read one stream
+//! in turn: HammingCorr, then HammingIndep, then FPF.  The number of words a
+//! Hamming test draws depends on its `s` and `L` (see
+//! `entropy::research::testu01_hamming`), so changing `--hc-s`, `--hc-l`,
+//! `--hi-s` or `--hi-l` also changes the words FPF reads and every FPF line.
+//! When the Hamming tests moved to TestU01's exact block packing, the
+//! defaults drew the same words as before and printed identical output.
+//! Other settings did not: with `--hc-l 7 --hc-s 5 --hi-l 3 --hi-s 16
+//! --hc-r 0 --hi-r 0 --fpf-bits 100000`, all eight FPF lines changed for
+//! MT19937, Xorshift32 and AES-128-CTR, and MT19937's FPF sample count went
+//! from 6246 to 6240.
 
 use entropy::research::{
     practrand_fpf::{fpf_cross_result, fpf_platter_result, fpf_test, FpfConfig},
@@ -21,14 +31,15 @@ use entropy::research::{
         hamming_indep_main_result, HAMMING_INDEP_MAX_L,
     },
 };
-use entropy::rng::{
-    AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
-    SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
-};
-use entropy::seed::seed_material;
+use entropy::rng::Rng;
+
+#[path = "common/cli.rs"]
+mod cli;
+#[path = "common/family.rs"]
+mod family;
 
 struct Args {
-    rng_filters: Vec<String>,
+    rng: cli::RngFilter,
     hc_n: usize,
     hc_r: usize,
     hc_s: usize,
@@ -42,9 +53,9 @@ struct Args {
 }
 
 impl Args {
-    fn parse() -> Self {
+    fn parse_from(mut argv: cli::Argv) -> Result<Self, cli::Stop> {
         let mut out = Self {
-            rng_filters: Vec::new(),
+            rng: cli::RngFilter::default(),
             hc_n: 500_000,
             hc_r: 20,
             hc_s: 10,
@@ -56,129 +67,75 @@ impl Args {
             hi_d: 1,
             fpf_bits: 1 << 27,
         };
-        let argv: Vec<String> = std::env::args().skip(1).collect();
-        let mut i = 0usize;
-        while i < argv.len() {
-            match argv[i].as_str() {
-                "--help" | "-h" => {
-                    print_usage();
-                    std::process::exit(0);
-                }
-                "--rng" => {
-                    i += 1;
-                    out.rng_filters.push(
-                        argv.get(i)
-                            .unwrap_or_else(|| die("--rng requires an argument"))
-                            .clone(),
-                    );
-                }
-                "--hc-n" => {
-                    i += 1;
-                    out.hc_n = parse_usize(argv.get(i), "--hc-n");
-                }
-                "--hc-r" => {
-                    i += 1;
-                    out.hc_r = parse_usize(argv.get(i), "--hc-r");
-                }
-                "--hc-s" => {
-                    i += 1;
-                    out.hc_s = parse_usize(argv.get(i), "--hc-s");
-                }
-                "--hc-l" => {
-                    i += 1;
-                    out.hc_l = parse_usize(argv.get(i), "--hc-l");
-                }
-                "--hi-n" => {
-                    i += 1;
-                    out.hi_n = parse_usize(argv.get(i), "--hi-n");
-                }
-                "--hi-r" => {
-                    i += 1;
-                    out.hi_r = parse_usize(argv.get(i), "--hi-r");
-                }
-                "--hi-s" => {
-                    i += 1;
-                    out.hi_s = parse_usize(argv.get(i), "--hi-s");
-                }
-                "--hi-l" => {
-                    i += 1;
-                    out.hi_l = parse_usize(argv.get(i), "--hi-l");
-                }
-                "--hi-d" => {
-                    i += 1;
-                    out.hi_d = parse_usize(argv.get(i), "--hi-d");
-                }
-                "--fpf-bits" => {
-                    i += 1;
-                    out.fpf_bits = parse_usize(argv.get(i), "--fpf-bits");
-                }
-                other => die(&format!("unknown option '{other}'")),
+        while let Some(option) = argv.next_option()? {
+            match option.as_str() {
+                flag @ "--rng" => out.rng.push(argv.value(flag)?),
+                flag @ "--hc-n" => out.hc_n = parse_usize(&mut argv, flag)?,
+                flag @ "--hc-r" => out.hc_r = parse_usize(&mut argv, flag)?,
+                flag @ "--hc-s" => out.hc_s = parse_usize(&mut argv, flag)?,
+                flag @ "--hc-l" => out.hc_l = parse_usize(&mut argv, flag)?,
+                flag @ "--hi-n" => out.hi_n = parse_usize(&mut argv, flag)?,
+                flag @ "--hi-r" => out.hi_r = parse_usize(&mut argv, flag)?,
+                flag @ "--hi-s" => out.hi_s = parse_usize(&mut argv, flag)?,
+                flag @ "--hi-l" => out.hi_l = parse_usize(&mut argv, flag)?,
+                flag @ "--hi-d" => out.hi_d = parse_usize(&mut argv, flag)?,
+                flag @ "--fpf-bits" => out.fpf_bits = parse_usize(&mut argv, flag)?,
+                other => return Err(cli::unknown_option(other)),
             }
-            i += 1;
         }
 
         // Range checks mirror the asserts in research::testu01_hamming and
         // research::practrand_fpf so a bad flag dies with the flag's name
         // (exit 1) instead of a library panic (exit 101).
         if out.hc_n < 2 {
-            die("--hc-n must be at least 2");
+            return Err(cli::usage("--hc-n must be at least 2"));
         }
         if !(1..=32).contains(&out.hc_s) {
-            die("--hc-s must be in 1..=32");
+            return Err(cli::usage("--hc-s must be in 1..=32"));
         }
         if out.hc_r > 32 || out.hc_r + out.hc_s > 32 {
-            die("--hc-r plus --hc-s must be <= 32");
+            return Err(cli::usage("--hc-r plus --hc-s must be <= 32"));
         }
         if out.hc_l == 0 {
-            die("--hc-l must be positive");
+            return Err(cli::usage("--hc-l must be positive"));
         }
         if out.hi_n < 20 {
-            die("--hi-n must be at least 20");
+            return Err(cli::usage("--hi-n must be at least 20"));
         }
         if !(1..=32).contains(&out.hi_s) {
-            die("--hi-s must be in 1..=32");
+            return Err(cli::usage("--hi-s must be in 1..=32"));
         }
         if out.hi_r > 32 || out.hi_r + out.hi_s > 32 {
-            die("--hi-r plus --hi-s must be <= 32");
+            return Err(cli::usage("--hi-r plus --hi-s must be <= 32"));
         }
         if !(1..=HAMMING_INDEP_MAX_L).contains(&out.hi_l) {
-            die(&format!("--hi-l must be in 1..={HAMMING_INDEP_MAX_L}"));
+            return Err(cli::usage(format!(
+                "--hi-l must be in 1..={HAMMING_INDEP_MAX_L}"
+            )));
         }
         if !(1..=8).contains(&out.hi_d) {
-            die("--hi-d must be in 1..=8");
+            return Err(cli::usage("--hi-d must be in 1..=8"));
         }
         if out.hi_d > out.hi_l.div_ceil(2) {
-            die("--hi-d must be <= (--hi-l + 1) / 2");
+            return Err(cli::usage("--hi-d must be <= (--hi-l + 1) / 2"));
         }
         let fpf = FpfConfig::default();
         let worst_codeword = (1usize << fpf.exp_bits) - 1 + fpf.sig_bits;
         if out.fpf_bits < worst_codeword {
-            die(&format!(
+            return Err(cli::usage(format!(
                 "--fpf-bits must be at least {worst_codeword} (one worst-case codeword)"
-            ));
+            )));
         }
-        out
-    }
-
-    fn matches_rng(&self, label: &str) -> bool {
-        let label = label.to_lowercase();
-        self.rng_filters.is_empty()
-            || self
-                .rng_filters
-                .iter()
-                .any(|pat| label.contains(&pat.to_lowercase()))
+        Ok(out)
     }
 }
 
-fn parse_usize(v: Option<&String>, flag: &str) -> usize {
-    v.unwrap_or_else(|| die(&format!("{flag} requires an argument")))
+/// The argument after `flag` as a `usize`; this binary reports a value that
+/// does not parse as `invalid value for <flag>`.
+fn parse_usize(argv: &mut cli::Argv, flag: &str) -> Result<usize, cli::Stop> {
+    argv.value(flag)?
         .parse()
-        .unwrap_or_else(|_| die(&format!("invalid value for {flag}")))
-}
-
-fn die(msg: &str) -> ! {
-    eprintln!("error: {msg}");
-    std::process::exit(1);
+        .map_err(|_| cli::usage(format!("invalid value for {flag}")))
 }
 
 fn print_usage() {
@@ -233,100 +190,18 @@ fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
     println!();
 }
 
-fn main() {
-    let args = Args::parse();
-    let cases: Vec<Case<'_>> = vec![
-        (
-            "MT19937",
-            Box::new(|| run_case("MT19937", Mt19937::new(19650218), &args)),
-        ),
-        (
-            "Xorshift32",
-            Box::new(|| run_case("Xorshift32", Xorshift32::new(1), &args)),
-        ),
-        (
-            "Xorshift64",
-            Box::new(|| run_case("Xorshift64", Xorshift64::new(1), &args)),
-        ),
-        (
-            "BAD Unix System V rand()",
-            Box::new(|| run_case("BAD Unix System V rand()", SystemVRand::new(1), &args)),
-        ),
-        (
-            "BAD Unix System V mrand48()",
-            Box::new(|| run_case("BAD Unix System V mrand48()", Rand48::new(1), &args)),
-        ),
-        (
-            "BAD Unix BSD random()",
-            Box::new(|| run_case("BAD Unix BSD random()", BsdRandom::new(1), &args)),
-        ),
-        (
-            "BAD Unix Linux glibc rand()/random()",
-            Box::new(|| {
-                run_case(
-                    "BAD Unix Linux glibc rand()/random()",
-                    LinuxLibcRandom::new(1),
-                    &args,
-                )
-            }),
-        ),
-        (
-            "BAD Windows CRT rand()",
-            Box::new(|| run_case("BAD Windows CRT rand()", WindowsMsvcRand::new(1), &args)),
-        ),
-        (
-            "BAD Windows VB6/VBA Rnd()",
-            Box::new(|| run_case("BAD Windows VB6/VBA Rnd()", WindowsVb6Rnd::new(1), &args)),
-        ),
-        (
-            "BAD Windows .NET Random(seed)",
-            Box::new(|| {
-                run_case(
-                    "BAD Windows .NET Random(seed)",
-                    WindowsDotNetRandom::new(1),
-                    &args,
-                )
-            }),
-        ),
-        (
-            "ANSI C sample LCG",
-            Box::new(|| run_case("ANSI C sample LCG", Lcg32::new(LcgVariant::AnsiC, 1), &args)),
-        ),
-        (
-            "LCG MINSTD",
-            Box::new(|| run_case("LCG MINSTD", Lcg32::new(LcgVariant::Minstd, 1), &args)),
-        ),
-        (
-            "AES-128-CTR",
-            Box::new(|| {
-                run_case(
-                    "AES-128-CTR",
-                    AesCtr::new(&seed_material::<16>(1), 0),
-                    &args,
-                )
-            }),
-        ),
-        (
-            "cryptography::CtrDrbgAes256",
-            Box::new(|| {
-                run_case(
-                    "cryptography::CtrDrbgAes256",
-                    CryptoCtrDrbg::new(&seed_material::<48>(1)),
-                    &args,
-                )
-            }),
-        ),
-    ];
+/// Runs the upstream probes on each selected generator.
+struct Runner<'a>(&'a Args);
 
-    let mut matched = 0usize;
-    for (label, case) in cases {
-        if !args.matches_rng(label) {
-            continue;
-        }
-        matched += 1;
-        case();
+impl family::Visit for Runner<'_> {
+    fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
+        run_case(label, make(), self.0);
     }
-    if matched == 0 {
-        die("no RNG labels matched --rng filter");
+}
+
+fn main() {
+    let args = cli::parse_or_exit(Args::parse_from, print_usage);
+    if family::visit_matching(&args.rng, &mut Runner(&args)) == 0 {
+        cli::die_no_rng_matched();
     }
 }

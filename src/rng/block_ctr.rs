@@ -118,14 +118,18 @@ mod tests {
     use super::*;
     use cryptography::Aes128;
 
+    /// First keystream word of AES-128 with key 0 at counter 0: the leading
+    /// ciphertext bytes of the vector below read little-endian,
+    /// `u32::from_le_bytes([0x66, 0xe9, 0x4b, 0xd4])`.
+    const AES128_ZERO_KEY_WORD0: u32 = 0xd44b_e966;
+
     /// Known-answer test: AES-128(key=0, plaintext=0) = 66e94bd4ef8a2c3b884cfa59ca342b2e
     ///
     /// The well-known zero-key/zero-block AES-128 vector — derivable from
     /// FIPS 197 and present in OpenSSL's test vectors among many suites.
     /// (Not an AESAVS vector: AESAVS GFSbox pairs key=0 with nonzero
     /// plaintexts, and FIPS 197 Appendix B uses a nonzero key/plaintext pair.)
-    /// The first u32 from the keystream in little-endian byte order is
-    /// u32::from_le_bytes([0x66, 0xe9, 0x4b, 0xd4]) = 0xd44b_e966.
+    /// The first u32 from the keystream is `AES128_ZERO_KEY_WORD0`.
     #[test]
     fn block_ctr_rng_kat_zero_key_zero_block() {
         let key = [0u8; 16];
@@ -133,7 +137,7 @@ mod tests {
         let mut rng = BlockCtrRng::new(cipher, 0);
         assert_eq!(
             rng.next_u32(),
-            0xd44b_e966,
+            AES128_ZERO_KEY_WORD0,
             "First u32 must match the zero-key/zero-block AES-128 KAT: AES(key=0, ctr=0)[0..4] LE"
         );
     }
@@ -154,6 +158,6 @@ mod tests {
         // AES(key=0, ctr=0) ≠ AES(key=0, ctr=1): these are deterministic and unequal.
         assert_ne!(block0, block1, "consecutive CTR blocks must differ");
         // First word of block 0 is the zero-key/zero-block KAT value (verified above).
-        assert_eq!(block0[0], 0xd44b_e966);
+        assert_eq!(block0[0], AES128_ZERO_KEY_WORD0);
     }
 }

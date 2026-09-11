@@ -107,14 +107,19 @@ pub struct Jsf64 {
 }
 
 impl Jsf64 {
+    /// The value Jenkins's `raninit` gives state word `a` before the seed
+    /// fills `b`, `c` and `d`.  [pubs/jenkins-2007-smallprng.html]
+    pub const INITIAL_A: u64 = 0xf1ea_5eed;
+
     /// Construct from a single 64-bit seed.
     ///
-    /// Seeds as the page's `raninit` does (`a = 0xf1ea5eed`,
-    /// `b = c = d = seed`) and discards 20 outputs.
+    /// Seeds as the page's `raninit` does
+    /// (`a` = [`INITIAL_A`](Self::INITIAL_A), `b = c = d = seed`) and
+    /// discards 20 outputs.
     #[must_use]
     pub fn new(seed: u64) -> Self {
         let mut rng = Self {
-            a: 0xf1ea_5eed,
+            a: Self::INITIAL_A,
             b: seed,
             c: seed,
             d: seed,
@@ -163,6 +168,13 @@ impl Rng for Jsf64 {
 mod tests {
     use super::*;
 
+    /// Seed of the JSF64 tests, and of the known-answer vector below, which
+    /// was checked at this seed against Jenkins's C.  `JSF64_PROBE_SEED` in
+    /// `crate::seed`, the harness seed of `dump_rng` and `pilot_rng`, has the
+    /// same value but stays a separate constant, so a harness change cannot
+    /// move this vector.
+    const JSF64_TEST_SEED: u64 = 0xdead_beef;
+
     #[test]
     fn sfc64_advances() {
         let mut rng = Sfc64::new(1, 2, 3);
@@ -180,7 +192,7 @@ mod tests {
 
     #[test]
     fn jsf64_advances() {
-        let mut rng = Jsf64::new(0xdeadbeef);
+        let mut rng = Jsf64::new(JSF64_TEST_SEED);
         let v0 = rng.next_u64();
         let v1 = rng.next_u64();
         assert_ne!(v0, v1);
@@ -216,15 +228,15 @@ mod tests {
         }
     }
 
-    // Known-answer test: first three outputs of Jsf64::new(0xdeadbeef),
+    // Known-answer test: first three outputs of Jsf64::new(JSF64_TEST_SEED),
     // cross-checked against an independent Python replica of Jenkins'
-    // smallprng (64-bit rot 7/13/37 variant, a = 0xf1ea5eed, 20 warm-ups) and
-    // against the page's 64-bit `raninit`/`ranval` compiled from
-    // pubs/jenkins-2007-smallprng.html (5000 outputs at seeds 0xdeadbeef, 0
-    // and 1).
+    // smallprng (64-bit rot 7/13/37 variant, a = Jsf64::INITIAL_A, 20 warm-ups)
+    // and against the page's 64-bit `raninit`/`ranval` compiled from
+    // pubs/jenkins-2007-smallprng.html (5000 outputs at seeds JSF64_TEST_SEED,
+    // 0 and 1).
     #[test]
     fn jsf64_known_answer() {
-        let mut rng = Jsf64::new(0xdead_beef);
+        let mut rng = Jsf64::new(JSF64_TEST_SEED);
         let expected: [u64; 3] = [
             0x2947_274c_9b14_f76b,
             0x10c1_0da7_6e5c_d72c,

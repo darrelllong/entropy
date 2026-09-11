@@ -209,7 +209,7 @@ fn bitstream() {
         &[at_gate(diehard::bitstream::bitstream, BITSTREAM_WORDS)],
         &[Golden {
             name: "diehard::bitstream",
-            p: 0.8116128233230486,
+            p: 0.8116127766486784,
             note: "window=20-bit, stream=2^21, repeats=20",
         }],
     );
@@ -221,7 +221,7 @@ fn opso() {
         &[at_gate(diehard::monkey::opso, OPSO_WORDS)],
         &[Golden {
             name: "diehard::opso",
-            p: 0.21780111124736712,
+            p: 0.21780109549439705,
             note: "missing=142267, z=1.2324",
         }],
     );
@@ -233,7 +233,7 @@ fn oqso() {
         &[at_gate(diehard::monkey::oqso, OQSO_WORDS)],
         &[Golden {
             name: "diehard::oqso",
-            p: 0.36172951533319625,
+            p: 0.3617295034929668,
             note: "missing=142174, z=0.9121",
         }],
     );
@@ -245,7 +245,7 @@ fn dna() {
         &[at_gate(diehard::monkey::dna, DNA_WORDS)],
         &[Golden {
             name: "diehard::dna",
-            p: 0.10097050784034722,
+            p: 0.10097051039306663,
             note: "missing=141433, z=-1.6402",
         }],
     );
@@ -260,7 +260,7 @@ fn count_ones_stream() {
         )],
         &[Golden {
             name: "diehard::count_ones_stream",
-            p: 0.20400117447184252,
+            p: 0.20400116068475269,
             note: "n=256000, Q5=3248.43, Q4=658.62, Q5-Q4=2589.82, Z=1.2702",
         }],
     );
@@ -284,7 +284,7 @@ fn parking_lot() {
         &[diehard::parking_lot::parking_lot(&mut fresh(), true)],
         &[Golden {
             name: "diehard::parking_lot",
-            p: 0.4076011955452439,
+            p: 0.40760122144338407,
             note: "attempts=12000, mean=3523, σ=21.9, repeats=5",
         }],
     );
@@ -352,7 +352,7 @@ fn craps_both() {
         &[
             Golden {
                 name: "diehard::craps_wins",
-                p: 0.6200183974400821,
+                p: 0.6200184157746006,
                 note: "games=200000, wins=98475, z=-0.4958",
             },
             Golden {
@@ -430,12 +430,12 @@ fn lagged_sums() {
         &[
             Golden {
                 name: "dieharder::lagged_sums",
-                p: 0.22120660714361012,
+                p: 0.22120659094843653,
                 note: "lag=1, tsamples=1000, sum=488.8326, z=-1.2233",
             },
             Golden {
                 name: "dieharder::lagged_sums",
-                p: 0.4811507839008336,
+                p: 0.48115080327704657,
                 note: "lag=100, tsamples=1000, sum=493.5693, z=-0.7045",
             },
         ],

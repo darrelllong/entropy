@@ -5,34 +5,157 @@
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::f64::consts::{PI, SQRT_2};
 
-// ── erfc ──────────────────────────────────────────────────────────────────────
+// ── erfc and the normal distribution ──────────────────────────────────────────
+
+/// R(z) = cPhi(z)/φ(z), the upper normal tail over the density (Mills'
+/// ratio), at z = 0, 2, 4, …, 16.
+///
+/// The digits are those of the `R[9]` initializer in `cPhi`, G. Marsaglia,
+/// "Evaluating the Normal Distribution", *Journal of Statistical Software*
+/// 11(4), 2004, pp. 2 and 9; each rounds to the nearest f64.
+/// [pubs/marsaglia-2004-normal-distribution.pdf]
+#[allow(clippy::excessive_precision)]
+const MILLS_RATIO_AT_EVEN: [f64; 9] = [
+    1.25331413731550025,
+    0.421369229288054473,
+    0.236652382913560671,
+    0.162377660896867462,
+    0.123131963257932296,
+    0.0990285964717319214,
+    0.0827662865013691773,
+    0.0710695805388521071,
+    0.0622586659950261958,
+];
+
+/// ln √(2π), written as `.91893853320467274178L` in `Phi` and `cPhi` of
+/// Marsaglia (2004), pp. 1, 2 and 9: φ(x) = exp(−x²/2 − ln √(2π)).
+#[allow(clippy::excessive_precision)]
+const LN_SQRT_2PI: f64 = 0.91893853320467274178;
+
+/// Largest tabled z; `mills_ratio` sums an asymptotic series beyond it.
+const MILLS_TABLE_END: f64 = 16.0;
+
+/// `mills_ratio` stops its Taylor series once a pair of terms, past the
+/// order where the terms must shrink, is at most this fraction of the sum.
+const MILLS_TAIL: f64 = f64::EPSILON / 8.0;
+
+/// Mills' ratio R(x) = cPhi(x)/φ(x) for x ≥ 0 (not NaN).
+///
+/// Up to x = 16 this is the Taylor series of Marsaglia (2004, p. 4) about a
+/// tabled z, x = z + h: R′ = xR − 1 gives R⁽ᵏ⁺¹⁾ = xR⁽ᵏ⁾ + kR⁽ᵏ⁻¹⁾, and the
+/// loop builds the coefficients cₖ = R⁽ᵏ⁾(z)/k! two at a time as his `cPhi`
+/// does.  It departs from `cPhi`, which computes in 80-bit `long double`, in
+/// two places.
+///
+/// The expansion point.  `cPhi` takes the nearest tabled z (|h| ≤ 1).  The
+/// part of a rounding error in R(z) or R′(z) that is not a multiple of R is
+/// a multiple of e^{x²/2}, the solution of R′ = xR, and grows by
+/// e^{zh + h²/2} on the way to z + h; in f64 with h near +1 that measured
+/// 1.2 × 10⁻¹⁰ relative error near x = 15.  Here z is the tabled point at
+/// or above x (−2 < h ≤ 0), or z = 0 for x < 1.
+///
+/// The stopping rule.  The recurrence cₖ₊₁ = (z·cₖ + cₖ₋₁)/(k + 1) runs
+/// forward, so rounding in the early coefficients grows like the terms of
+/// e^{z|h|} and cancels only over the whole alternating tail.  `cPhi` stops
+/// at the first pair of terms that rounds away, which can be a pair where
+/// that error and the true term cancel; in f64 that left 1.5 × 10⁻¹⁰
+/// relative error at x = 14.886.  The recurrence gives
+/// |cₖ₊₁hᵏ⁺¹| ≤ ((z|h| + h²)/(k + 1))·max(|cₖhᵏ|, |cₖ₋₁hᵏ⁻¹|) for whatever
+/// values rounding left in cₖ and cₖ₋₁, so once k + 1 ≥ 2(z|h| + h²) each
+/// term is at most half the larger of the two before it, and everything
+/// after a pair of terms sums to at most twice that pair's magnitude.  The
+/// loop stops at the first pair past that order whose magnitude is at most
+/// ε·R/8, so the terms left out change R by at most ε·R/4.
+///
+/// Past the table, solving R′ = xR − 1 for R and substituting repeatedly
+/// gives the asymptotic series R(x) ~ x⁻¹ Σₖ (−1)ᵏ (2k − 1)!! x⁻²ᵏ.  Its terms
+/// fall until k ≈ x²/2 > 128, the sum stops changing by k ≈ 12, and the
+/// truncation error is below the first omitted term.
+fn mills_ratio(x: f64) -> f64 {
+    if x > MILLS_TABLE_END {
+        let w = 1.0 / (x * x);
+        let (mut term, mut s, mut k) = (1.0, 1.0, 1.0);
+        loop {
+            term *= -(2.0 * k - 1.0) * w;
+            let t = s;
+            s = t + term;
+            if s == t {
+                return s / x;
+            }
+            k += 1.0;
+        }
+    }
+    let j = if x < 1.0 {
+        0
+    } else {
+        (0.5 * x).ceil() as usize
+    };
+    let z = 2.0 * j as f64;
+    let h = x - z;
+    let q = h * h;
+    let settled = 2.0 * (z * h.abs() + q);
+    let mut a = MILLS_RATIO_AT_EVEN[j];
+    let mut b = a * z - 1.0;
+    let mut pwr = 1.0;
+    let mut s = a + h * b;
+    let mut i = 2.0;
+    loop {
+        a = (a + z * b) / i;
+        b = (b + z * a) / (i + 1.0);
+        pwr *= q;
+        s += pwr * (a + h * b);
+        if i >= settled && pwr * (a.abs() + (h * b).abs()) <= s * MILLS_TAIL {
+            return s;
+        }
+        i += 2.0;
+    }
+}
+
+/// Upper normal tail cPhi(x) = 1 − Φ(x) = R(x)·φ(x) for x ≥ 0 (not NaN),
+/// the last step of Marsaglia's `cPhi`.  At x = 0 the product
+/// R(0)·exp(−ln √(2π)) rounds to exactly 0.5.
+fn normal_upper_tail(x: f64) -> f64 {
+    mills_ratio(x) * (-0.5 * x * x - LN_SQRT_2PI).exp()
+}
 
 /// Complementary error function, erfc(x) = 1 − erf(x).
 ///
-/// Uses the Chebyshev-fitted rational approximation (`erfcc`) from W. H. Press
-/// et al., *Numerical Recipes in C* (2nd ed., 1992), §6.2.  Fractional error
-/// below 1.2 × 10⁻⁷ per NR; measured absolute error ≤ 2 × 10⁻⁷ near x = 0.
-/// Ample for α = 0.01 verdicts, but very small p-values carry only ~7 digits.
+/// erfc(x) = 2·cPhi(x√2) for x ≥ 0 and erfc(x) = 2 − erfc(−x) below 0, with
+/// cPhi(u) = 1 − Φ(u) evaluated by the method of G. Marsaglia, "Evaluating
+/// the Normal Distribution", *Journal of Statistical Software* 11(4), 2004,
+/// pp. 2–5 and 9, with the table point and tail changes f64 needs (see
+/// `mills_ratio` in the source).  [pubs/marsaglia-2004-normal-distribution.pdf]
+///
+/// Accuracy, as the largest error observed against 70-digit references in
+/// Python `decimal` (a second, independent oracle agrees to 10⁻⁶¹ wherever
+/// both were run; see the tests) on 1 121 489 arguments in [−11.3, 26.5]:
+/// 1 000 000 uniformly random, and 121 489 packed near the expansion points
+/// and near the arguments where stopping the series at the first
+/// negligible pair erred.  ε is `f64::EPSILON`.
+///
+/// - From 0 to 26.5, relative error 3.6·(1 + x²)·ε (3.54 at
+///   x = 0.1958876234856557): at most 1.2 × 10⁻¹⁵ below x = 1,
+///   7.0 × 10⁻¹⁵ below 4, 9.6 × 10⁻¹⁴ below 16 and 3.3 × 10⁻¹³ up to 26.5.
+///   The x² comes from exp(−u²/2) at the rounded u = x√2.
+/// - Below 0, relative error 2.6·ε (at x = −0.12261875751971507) and
+///   absolute error 6.8 × 10⁻¹⁶.
+///
+/// These are maxima of rounding noise, and denser sampling keeps finding
+/// slightly larger values near 0, so the tests allow about twice them.
+/// Results are subnormal from x ≈ 26.55, where the relative error grows to
+/// order 1, and 0 from x ≈ 27.22.
+///
+/// erfc(±0) = 1 exactly, 0 ≤ erfc(x) ≤ 1 for x ≥ 0 and 1 ≤ erfc(x) ≤ 2 below,
+/// so a two-sided p-value erfc(|z|/√2) never exceeds 1.  erfc(+∞) = 0,
+/// erfc(−∞) = 2 and erfc(NaN) = NaN.
 ///
 /// Used by nearly every NIST SP 800-22 test for its p-value.
 #[must_use]
 pub fn erfc(x: f64) -> f64 {
-    let z = x.abs();
-    let t = 1.0 / (1.0 + 0.5 * z);
-    // 1 outer paren + 8 levels of t*(…) = 9 opens → 9 closes total.
-    #[rustfmt::skip]
-    let y = (-z * z
-        - 1.26551223
-        + t * (1.00002368
-        + t * (0.37409196
-        + t * (0.09678418
-        + t * (-0.18628806
-        + t * (0.27886807
-        + t * (-1.13520398
-        + t * (1.48851587
-        + t * (-0.82215223
-        + t * 0.17087294))))))))
-    ).exp() * t;
+    if x.is_nan() {
+        return x;
+    }
+    let y = 2.0 * normal_upper_tail(x.abs() * SQRT_2);
     if x >= 0.0 {
         y
     } else {
@@ -41,9 +164,34 @@ pub fn erfc(x: f64) -> f64 {
 }
 
 /// Standard normal CDF, Φ(x) = P(Z ≤ x) for Z ~ N(0,1).
+///
+/// Φ(x) = cPhi(−x) below 0 and 1 − cPhi(x) from 0 up, with cPhi as in
+/// [`erfc`] but without its x√2 rescaling, so lower-tail values keep relative
+/// accuracy.  Against the same references on 1 523 325 arguments in
+/// [−37.5, 40] (1 400 000 uniformly random, the rest packed as for
+/// [`erfc`]), the largest relative error observed below 0 is
+/// 3.4·(1 + x²/2)·ε, at x = −0.2940544440351558 (3.4 × 10⁻¹⁵ on [−6, 0),
+/// 1.6 × 10⁻¹⁴ on [−16, −6) and 9.4 × 10⁻¹⁴ on [−37.5, −16)).  The largest
+/// absolute error from 0 up is 3.4 × 10⁻¹⁶ (relative 2.7·ε).  As for
+/// [`erfc`], the tests allow about twice these.  Results are subnormal
+/// below x ≈ −37.5 and 0 from x ≈ −38.49.
+///
+/// Marsaglia's table-free `Phi` (2004, p. 1) is not used.  Evaluated as
+/// printed with f64 throughout, it exceeds 1 by up to 1.11 × 10⁻¹⁵ at 284
+/// points of a 10⁻⁴ grid on [7, 9], and its relative error is 1.39 × 10⁻⁹
+/// at x = −5 and 9.0 × 10⁻⁷ at x = −6.
+///
+/// Φ(±0) = 0.5 exactly and 0 ≤ Φ(x) ≤ 1.  Φ(−∞) = 0, Φ(+∞) = 1 and
+/// Φ(NaN) = NaN.
 #[must_use]
 pub fn normal_cdf(x: f64) -> f64 {
-    0.5 * erfc(-x / SQRT_2)
+    if x.is_nan() {
+        x
+    } else if x < 0.0 {
+        normal_upper_tail(-x)
+    } else {
+        1.0 - normal_upper_tail(x)
+    }
 }
 
 // ── lgamma ────────────────────────────────────────────────────────────────────
@@ -359,6 +507,278 @@ fn renormalize_matrix(v: &mut [f64], exponent: &mut i32) {
     *exponent += 140;
 }
 
+// ── Anderson–Darling ──────────────────────────────────────────────────────────
+
+/// Above this `z`, `ad_inf` takes the limiting Anderson–Darling distribution
+/// to be exactly 1.
+const AD_INF_Z_MAX: f64 = 30.0;
+
+/// Once ADinf(z) exceeds this (z > 6.6127), [`anderson_darling_cdf`] stops
+/// evaluating errfix and scales the limiting upper tail instead (see its
+/// docs).
+const AD_TAIL_SWITCH: f64 = 0.9995;
+
+/// Smallest `n` for which [`anderson_darling_cdf`] returns a probability.
+const AD_MIN_N: usize = 8;
+
+/// Upper normal tail `cPhi(x) = ∫ₓ^∞ φ(t) dt`, to 13–15 digits for |x| < 16
+/// by its author's account.
+///
+/// Port of `cPhi` from `ADinf.c`, the code attached to G. Marsaglia and
+/// J. C. W. Marsaglia, "Evaluating the Anderson-Darling Distribution,"
+/// *Journal of Statistical Software* 9(2), 2004 (`marsaglia2004anderson` in
+/// BIB.md).  [pubs/marsaglia-marsaglia-2004-ADinf.c]  It stores the Mills ratio
+/// R(x) = cPhi(x)/φ(x) at x = 0, 2, …, 16 and reaches |x| by a Taylor series
+/// in h = |x| − 2j.  Two gaps in the C are closed here.  The C reads past its
+/// nine-entry table once |x| ≥ 17, which `ADf` reaches for 144.5 < t ≤ 150;
+/// this port clamps to R(16) instead, still within 2·10⁻⁸ relative at
+/// x = 17.2, and any term it feeds there is below 10⁻⁶⁰.  The C also has no
+/// return if the
+/// series has not converged after 49 terms; this port keeps the last partial
+/// sum.
+fn c_phi(x: f64) -> f64 {
+    const MILLS_RATIO_AT_EVEN_X: [f64; 9] = [
+        1.253_314_137_315_500_3,
+        0.421_369_229_288_054_5,
+        0.236_652_382_913_560_67,
+        0.162_377_660_896_867_45,
+        0.123_131_963_257_932_3,
+        0.099_028_596_471_731_93,
+        0.082_766_286_501_369_18,
+        0.071_069_580_538_852_11,
+        0.062_258_665_995_026_2,
+    ];
+    let j = (((x.abs() + 1.0) / 2.0) as usize).min(MILLS_RATIO_AT_EVEN_X.len() - 1);
+    let mut a = MILLS_RATIO_AT_EVEN_X[j];
+    let z = (2 * j) as f64;
+    let h = x.abs() - z;
+    let mut b = z * a - 1.0;
+    let mut pwr = 1.0;
+    let mut s = a + h * b;
+    for i in (2..100).step_by(2) {
+        a = (a + z * b) / i as f64;
+        b = (b + z * a) / (i + 1) as f64;
+        pwr *= h * h;
+        let t = s;
+        s += pwr * (a + h * b);
+        if s == t {
+            break;
+        }
+    }
+    // ln √(2π), as in the C.
+    s *= (-0.5 * x * x - 0.918_938_533_204_672_8).exp();
+    if x > 0.0 {
+        s
+    } else {
+        1.0 - s
+    }
+}
+
+/// f(z, j), the j-th term of the series for ADinf (Marsaglia and Marsaglia
+/// 2004, §2, p. 2): `ADf` in `ADinf.c`.  [pubs/marsaglia-marsaglia-2004-ADinf.c]
+///
+/// With t = (4j + 1)²π²/(8z) it sums c₀ + c₁(z/8) + c₂(z/8)²/2! + …, where
+/// c₀ = π e⁻ᵗ (2t)^(−1/2), c₁ = π (π/2)^(1/2) erfc(√t) and
+/// cₙ₊₁ = ((n − ½ − t)cₙ + t cₙ₋₁)/n.
+fn ad_inf_term(z: f64, j: usize) -> f64 {
+    let k = (4 * j + 1) as f64;
+    // π²/8, truncated as in the C.
+    let t = k * k * 1.233_700_550_136_17 / z;
+    if t > 150.0 {
+        return 0.0;
+    }
+    // π/√2 and π√(π/2), truncated as in the C; 2·cPhi(√(2t)) = erfc(√t).
+    let mut a = 2.221_441_469_079_18 * (-t).exp() / t.sqrt();
+    let mut b = 3.937_402_486_430_6 * 2.0 * c_phi((2.0 * t).sqrt());
+    let mut r = z * 0.125;
+    let mut f = a + b * r;
+    for i in 1..200 {
+        let c = ((i as f64 - 0.5 - t) * b + t * a) / i as f64;
+        a = b;
+        b = c;
+        r *= z / (8 * i + 8) as f64;
+        if r.abs() < 1e-40 || c.abs() < 1e-40 {
+            return f;
+        }
+        let f_new = f + c * r;
+        if f == f_new {
+            return f;
+        }
+        f = f_new;
+    }
+    f
+}
+
+/// Limiting Anderson–Darling distribution ADinf(z) = lim Pr(Aₙ < z), to
+/// about 15 digits: `ADinf` in `ADinf.c` (Marsaglia and Marsaglia 2004, §2,
+/// pp. 2–3).  [pubs/marsaglia-marsaglia-2004-ADinf.c]
+///
+/// ADinf(z) = (1/z) Σⱼ C(−½, j) (4j + 1) f(z, j).  Below z = 0.01 it returns 0,
+/// as the C does (ADinf(0.01) ≈ 5.3·10⁻⁵³).  Above `AD_INF_Z_MAX` = 30 this
+/// port returns 1, departing from the C, whose series cancels ever larger
+/// terms as z grows: `ADinf.c` returns 1 + 3·10⁻¹² at z = 100, −1.8·10³⁶ at
+/// z = 1000 and NaN at z = 10⁶, while ADinf(30) = 1 − 1.8·10⁻¹⁴.
+fn ad_inf(z: f64) -> f64 {
+    if z.is_nan() {
+        return f64::NAN;
+    }
+    if z < 0.01 {
+        return 0.0;
+    }
+    if z > AD_INF_Z_MAX {
+        return 1.0;
+    }
+    let mut r = 1.0 / z;
+    let mut ad = r * ad_inf_term(z, 0);
+    for j in 1..100 {
+        r *= (0.5 - j as f64) / j as f64;
+        let ad_new = ad + (4 * j + 1) as f64 * r * ad_inf_term(z, j);
+        if ad == ad_new {
+            return ad;
+        }
+        ad = ad_new;
+    }
+    ad
+}
+
+/// errfix(n, x), the fitted correction that turns x = ADinf(z) into
+/// Pr(Aₙ < z) (Marsaglia and Marsaglia 2004, §3, p. 4): `errfix` in
+/// `AnDarl.c`.  [pubs/marsaglia-marsaglia-2004-AnDarl.c]
+///
+/// The C squares an `int` n, which overflows for n ≥ 46341; this port squares
+/// a float.
+fn ad_errfix(n: usize, x: f64) -> f64 {
+    let n = n as f64;
+    if x > 0.8 {
+        // g₃(x)/n
+        return (-130.2137
+            + (745.2337 - (1705.091 - (1950.646 - (1116.360 - 255.7844 * x) * x) * x) * x) * x)
+            / n;
+    }
+    let c = 0.01265 + 0.1757 / n;
+    if x < c {
+        // (.0037/n³ + .00078/n² + .00006/n) g₁(x/c), g₁(t) = √t (1 − t)(49t − 102)
+        let t = x / c;
+        let g1 = t.sqrt() * (1.0 - t) * (49.0 * t - 102.0);
+        return g1 * (0.0037 / (n * n) + 0.00078 / n + 0.00006) / n;
+    }
+    // (.04213/n + .01365/n²) g₂((x − c)/(.8 − c))
+    let t = (x - c) / (0.8 - c);
+    let g2 = -0.00022633 + (6.54034 - (14.6538 - (14.458 - (8.259 - 1.91864 * t) * t) * t) * t) * t;
+    g2 * (0.04213 + 0.01365 / n) / n
+}
+
+/// Anderson–Darling distribution function Pr(Aₙ < z), where
+/// Aₙ = −n − (1/n) Σᵢ (2i − 1) ln(xᵢ (1 − xₙ₊₁₋ᵢ)) for `n` iid U(0, 1)
+/// samples sorted as x₁ ≤ … ≤ xₙ.
+///
+/// G. Marsaglia and J. C. W. Marsaglia, "Evaluating the Anderson-Darling
+/// Distribution," *Journal of Statistical Software* 9(2), 2004, §§2–4,
+/// pp. 2–5 (`marsaglia2004anderson` in BIB.md).
+/// [pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]  In their summary
+/// (p. 5), Pr(Aₙ < z) = ADinf(z) + errfix(n, ADinf(z)): ADinf is the limiting
+/// distribution, evaluated by the series of §2, and errfix a correction
+/// fitted to simulation, stated good to about ±5·10⁻⁵ for n = 8, 16, 32, 64
+/// and 128 and ±5·10⁻⁴ for other n (p. 4).  The code ports the article's
+/// attached `ADinf.c` (`ADinf`, `ADf`, `cPhi`) and `AnDarl.c` (`errfix`).
+/// [pubs/marsaglia-marsaglia-2004-ADinf.c]
+/// [pubs/marsaglia-marsaglia-2004-AnDarl.c]  `AnDarl.c` warns that the test
+/// is not well suited to n < 7, where accuracy may drop to three digits.
+///
+/// # Accuracy
+///
+/// The figures here come from `examples/anderson_darling_tail.rs` with its
+/// default seed (4·10⁹ samples for n = 8, 10⁹ for n = 16 and 32, 2·10⁸ for
+/// n = 64 and 128), compared with this function at every z in 0.01 steps.
+///
+/// Body.  For z ≤ 4 the result is within 9.2·10⁻⁵ of the simulation for all
+/// those n (5.3·10⁻⁵ for n = 8), the largest errors near z = 0.4.  That is
+/// somewhat wider than the paper's ±5·10⁻⁵.
+///
+/// Tail.  errfix is an absolute correction that does not vanish as
+/// ADinf(z) → 1 (errfix(n, 1) ≈ −6·10⁻⁴/n), so it adds a near-constant to
+/// the upper tail Pr(Aₙ ≥ z).  For n = 32, ADinf + errfix gives a tail 14%
+/// above the simulation at z = 8, 2.3 times it at z = 10 and 11.5 times it
+/// at z = 12.  ADinf alone errs the other way, and more for small n: 12–18%
+/// below the simulation for n = 8 at 8 ≤ z ≤ 12.  So once ADinf(z) > x* =
+/// 0.9995 (z > 6.6127), this function takes the upper tail as
+/// (1 − ADinf(z))·(1 − errfix(n, x*)/(1 − x*)): the limiting tail, scaled by
+/// the relative size errfix has at the switch, which meets ADinf + errfix
+/// there continuously.  That rule is empirical, chosen from simulation, and
+/// is not in the paper.  The worst relative errors of the upper tail against
+/// the simulation are:
+///
+/// | n   | 4 < z ≤ 6.61, ADinf + errfix | 6.61 < z ≤ 12, scaled tail |
+/// |-----|------------------------------|----------------------------|
+/// | 8   | −0.3% to +8.4%               | −1.1% to +8.5%             |
+/// | 16  | −0.1% to +4.6%               | −0.6% to +4.6%             |
+/// | 32  | −0.0% to +2.5%               | +0.9% to +3.5%             |
+/// | 64  | −0.2% to +0.6%               | −0.7% to +5.8%             |
+/// | 128 | −0.3% to +0.6%               | −5.0% to +2.1%             |
+///
+/// The errors are mostly positive, overstating the tail and so giving
+/// conservative p-values.  The largest reliably resolved errors are just
+/// past the switch: at z = 6.62 the tail is +8.46 ± 0.07% for n = 8,
+/// +4.62 ± 0.14% for n = 16 and +2.46 ± 0.14% for n = 32.  Below the switch
+/// the table's lowest values, with their standard errors, are −0.27 ± 0.02%
+/// for n = 8 at z = 4.41 (−0.20 ± 0.02% at z = 4), −0.12 ± 0.04% for n = 16
+/// at z = 4.44, −0.04 ± 0.04% for n = 32 at z = 4.32, −0.16 ± 0.17% for
+/// n = 64 at z = 5.48 and −0.29 ± 0.16% for n = 128 at z = 5.32.  Only the
+/// n = 8 understatement is resolved by more than three standard errors; the
+/// others, each the lowest of 261 values of z, are within three standard
+/// errors of zero.  Past z ≈ 10 the simulated tails carry standard errors of 1%
+/// to 5%, and the extremes there, of either sign, lie within one run's
+/// sampling noise, so their sign is unresolved.  The negative ones run down
+/// to −5.0%: −1.07 ± 1.10% for n = 8 at z = 12, −0.58 ± 1.54% for n = 16 at
+/// z = 11.24, and the table's −0.7 ± 3.3% and −5.0 ± 4.2% for n = 64 and 128
+/// near z = 11.1 and 11.6.  The positive ones likewise: for n = 32,
+/// +1.69 ± 1.41% at z = 11 and +1.32 ± 2.37% at z = 12, and the table's +0.9%
+/// and +3.5% (standard errors about 1.3% and 1.5%, at z = 10.82 and 11.15), so
+/// the 3.5% is not a resolved error larger than the one at the switch; nor is
+/// the +5.8 ± 5.0% for n = 64 near z = 11.8.  None of this can move a verdict
+/// at α = 0.01, whose upper tail sits near z = 3.9, inside the body bound.
+///
+/// Minimum n.  For n < 8 this function returns NaN.  The method fails there
+/// before the tail does.  A simulation of 2·10⁹ samples each, made before
+/// this minimum was imposed, put ADinf + errfix up to 1.3·10⁻³ from
+/// Pr(Aₙ < z) for n = 4, 1.3·10⁻² for n = 2 and 5.4·10⁻² for n = 1 (against
+/// the exact distribution, p. 1), and its tail 15% high for n = 4 just below
+/// the switch.
+///
+/// # Departures from the attachments
+///
+/// - `AnDarl.c`'s `AD(n, z)` feeds errfix the authors' short approximation
+///   `adinf(z)`.  This port feeds it the full series, as the paper's formula
+///   reads.  `adinf` differs from ADinf by up to 2·10⁻⁵ (near z = 0.97),
+///   more than the 2·10⁻⁶ the paper states, so the two results differ by
+///   up to that much.
+/// - Above the switch the upper tail is the scaled limiting tail described
+///   above, and n < 8 returns NaN.
+/// - ADinf is taken as 1 for z > 30, where the attachment's series loses
+///   accuracy; ADinf(30) = 1 − 1.8·10⁻¹⁴.
+/// - The result is clamped to [0, 1].  errfix is negative for small x, so the
+///   unclamped sum dips below 0 for small z (at z = 0.1 when n = 10).
+///
+/// Returns NaN for `n` < 8 or a NaN `z`.
+#[must_use]
+pub fn anderson_darling_cdf(n: usize, z: f64) -> f64 {
+    if n < AD_MIN_N || z.is_nan() {
+        return f64::NAN;
+    }
+    ad_cdf_given_limit(n, ad_inf(z))
+}
+
+/// Pr(Aₙ < z) from x = ADinf(z).  Up to the switch this is x + errfix(n, x).
+/// Above it the upper tail 1 − x is scaled by errfix's relative size at the
+/// switch, 1 − errfix(n, x*)/(1 − x*), which meets the lower branch at x*.
+fn ad_cdf_given_limit(n: usize, x: f64) -> f64 {
+    if x > AD_TAIL_SWITCH {
+        let scale = ad_errfix(n, AD_TAIL_SWITCH) / (1.0 - AD_TAIL_SWITCH);
+        return (x + (1.0 - x) * scale).clamp(0.0, 1.0);
+    }
+    (x + ad_errfix(n, x)).clamp(0.0, 1.0)
+}
+
 // ── Chi-square p-value (convenience) ─────────────────────────────────────────
 
 /// Chi-square survival function: P(χ²_{df} > chi_sq) = igamc(df/2, chi_sq/2).
@@ -622,11 +1042,313 @@ mod tests {
         }
     }
 
+    // ── erfc and normal_cdf ───────────────────────────────────────────────────
+
+    /// erfc(x) at the f64 arguments shown, rounded once to f64 from two
+    /// independent Python `decimal` evaluations at the exact binary argument.
+    /// One sums erf's series (2/√π)·e^{−x²}·Σ 2ⁿx²ⁿ⁺¹/(1·3·…·(2n+1)) below
+    /// x = 8, with digits added for the cancellation in 1 − erf, and the
+    /// continued fraction erfc(x) = (e^{−x²}/√π)/(x + ½/(x + 1/(x + 3⁄2/(x + …))))
+    /// from 8 up, at 70 digits.  The other sums the alternating Maclaurin
+    /// series and Legendre's continued fraction for Γ(½, x²).  Every row
+    /// rounds to the same f64 under both.  The rows run from the negative
+    /// tail through 0 and the expansion-point changes at x√2 = 1 and 16 to
+    /// the last non-subnormal values near x = 26.5.  The rows with x√2
+    /// between 6 and 16 that are not whole numbers are where stopping the
+    /// Taylor loop at the first pair that rounds away, or expanding about the
+    /// nearest tabled point, erred by 10⁻¹³ to 10⁻¹⁰.
+    const ERFC_REFERENCE: [(f64, f64); 40] = [
+        (-6.0, 2.0),
+        (-3.0, 1.9999779095030015),
+        (-1.5, 1.9661051464753108),
+        (-1.0, 1.8427007929497148),
+        (-0.5, 1.5204998778130465),
+        (-1e-3, 1.0011283787909693),
+        (1e-8, 0.9999999887162083),
+        (1e-3, 0.9988716212090307),
+        (0.1, 0.887537083981715),
+        (0.3, 0.6713732405408726),
+        (0.5, 0.4795001221869535),
+        (1.0 / SQRT_2, 0.31731050786291415),
+        (1.0, 0.15729920705028513),
+        (1.5, 0.033894853524689274),
+        (2.0, 0.004677734981047266),
+        (2.5, 0.0004069520174449589),
+        (3.0, 2.209049699858544e-5),
+        (3.5, 7.430983723414128e-7),
+        (4.0, 1.541725790028002e-8),
+        (4.2487959500800585, 1.8701121117354613e-9),
+        (5.0, 1.537459794428035e-12),
+        (5.80383063394864, 2.251730418521088e-16),
+        (5.909482993094504, 6.418574097208344e-17),
+        (6.0, 2.1519736712498913e-17),
+        (7.0, 4.183825607779414e-23),
+        (7.575785717799614, 8.770697888645215e-27),
+        (8.0, 1.1224297172982926e-29),
+        (9.10163796029539, 6.49903280844363e-38),
+        (9.15703281636579, 2.349540636368718e-38),
+        (10.0, 2.088487583762545e-45),
+        (10.526128824768495, 4.051868761500087e-50),
+        (10.603831571143823, 7.788256497690057e-51),
+        (10.81915099945942, 7.576656310913164e-53),
+        (16.0 / SQRT_2, 1.2777508801076465e-57),
+        (12.0, 1.3562611692059042e-64),
+        (15.0, 7.212994172451207e-100),
+        (20.0, 5.395865611607901e-176),
+        (25.0, 8.300172571196523e-274),
+        (26.0, 5.663192408856143e-296),
+        (26.5, 2.2109076642637343e-307),
+    ];
+
+    /// Φ(x) from the same two evaluations (erfc(−x/√2)/2 with x/√2 carried to
+    /// working precision, and the tail Γ(½, x²/2)/(2√π)), rounded once to f64.
+    /// Φ(−37) is the last row above the subnormal range; the rows between
+    /// −16 and −6 that are not whole numbers are the arguments of the erfc
+    /// table's flagged rows, times −√2, or where the nearest expansion
+    /// point erred.  −0.2848151991652159 and −0.2014286549487616 are among
+    /// the largest relative errors a random scan found near 0, 3.00 and
+    /// 3.17·(1 + x²/2)·ε.
+    const NORMAL_CDF_REFERENCE: [(f64, f64); 33] = [
+        (-37.0, 5.725571222524577e-300),
+        (-35.0, 1.1249107064724062e-268),
+        (-30.0, 4.906713927148187e-198),
+        (-20.0, 2.7536241186062337e-89),
+        (-16.0, 6.388754400538087e-58),
+        (-14.999392327022141, 3.704728464016343e-51),
+        (-14.886194612848115, 2.0259201558278829e-50),
+        (-14.886194143273975, 2.0259343807499975e-50),
+        (-12.95, 1.1747703181843633e-38),
+        (-12.871659843259536, 3.2495164042217336e-38),
+        (-12.0, 1.776482112077679e-33),
+        (-10.713778907744608, 4.3853489443225774e-27),
+        (-10.0, 7.619853024160525e-24),
+        (-8.357270995447399, 3.209287048604171e-17),
+        (-8.207855996246606, 1.1258652092605346e-16),
+        (-8.0, 6.220960574271784e-16),
+        (-6.008704856359099, 9.350560558677275e-10),
+        (-6.0, 9.86587645037698e-10),
+        (-5.0, 2.866515718791939e-7),
+        (-3.0, 0.0013498980316300946),
+        (-2.0, 0.02275013194817921),
+        (-1.0, 0.15865525393145705),
+        (-0.5, 0.3085375387259869),
+        (-0.2848151991652159, 0.38789286352684327),
+        (-0.2014286549487616, 0.42018170547733735),
+        (-1e-3, 0.49960105778608893),
+        (1e-3, 0.500398942213911),
+        (0.5, 0.6914624612740131),
+        (1.0, 0.8413447460685429),
+        (2.0, 0.9772498680518208),
+        (3.0, 0.9986501019683699),
+        (5.0, 0.9999997133484281),
+        (8.0, 0.9999999999999993),
+    ];
+
+    /// Allowed relative error of `erfc`.  The largest observed against these
+    /// references on the 1 121 489 arguments `erfc`'s documentation
+    /// describes is 3.54·(1 + x²)·ε from 0 up (at x = 0.1958876234856557)
+    /// and 2.56·ε below 0 (at x = −0.12261875751971507).  This allows
+    /// 7·(1 + x²)·ε from 0 up and 7·ε below, about twice as much.
+    fn erfc_tolerance(x: f64) -> f64 {
+        7.0 * (1.0 + x.max(0.0).powi(2)) * f64::EPSILON
+    }
+
+    /// Allowed relative error of `normal_cdf`.  The largest observed on the
+    /// 1 523 325 arguments `normal_cdf`'s documentation describes is
+    /// 3.36·(1 + x²/2)·ε below 0 (at x = −0.2940544440351558) and 2.65·ε
+    /// from 0 up (at x = 0.11809722168467235).  This allows 7·(1 + x²/2)·ε
+    /// below 0 and 7·ε from 0 up, about twice as much.
+    fn normal_cdf_tolerance(x: f64) -> f64 {
+        7.0 * (1.0 + 0.5 * x.min(0.0).powi(2)) * f64::EPSILON
+    }
+
     #[test]
-    fn erfc_known_values() {
-        assert!((erfc(0.0) - 1.0).abs() < 1e-6);
-        assert!((erfc(1.0) - 0.157299).abs() < 1e-5);
-        assert!((erfc(-1.0) - 1.842701).abs() < 1e-5);
+    fn erfc_matches_reference_values() {
+        for (x, want) in ERFC_REFERENCE {
+            let got = erfc(x);
+            let rel = ((got - want) / want).abs();
+            assert!(
+                rel <= erfc_tolerance(x),
+                "erfc({x}) = {got:e}, want {want:e}"
+            );
+        }
+    }
+
+    #[test]
+    fn normal_cdf_matches_reference_values() {
+        for (x, want) in NORMAL_CDF_REFERENCE {
+            let got = normal_cdf(x);
+            let rel = ((got - want) / want).abs();
+            assert!(
+                rel <= normal_cdf_tolerance(x),
+                "Φ({x}) = {got:e}, want {want:e}"
+            );
+        }
+    }
+
+    #[test]
+    fn erfc_and_normal_cdf_exact_values_and_limits() {
+        assert_eq!(erfc(0.0), 1.0);
+        assert_eq!(erfc(-0.0), 1.0);
+        assert_eq!(normal_cdf(0.0), 0.5);
+        assert_eq!(normal_cdf(-0.0), 0.5);
+        assert_eq!(erfc(f64::INFINITY), 0.0);
+        assert_eq!(erfc(f64::NEG_INFINITY), 2.0);
+        assert_eq!(normal_cdf(f64::NEG_INFINITY), 0.0);
+        assert_eq!(normal_cdf(f64::INFINITY), 1.0);
+        assert!(erfc(f64::NAN).is_nan());
+        assert!(normal_cdf(f64::NAN).is_nan());
+        // Underflow: erfc is subnormal from x ≈ 26.55 and 0 from x ≈ 27.22;
+        // Φ is subnormal below x ≈ −37.5 and 0 from x ≈ −38.49.
+        assert_eq!(erfc(28.0), 0.0);
+        assert_eq!(erfc(-28.0), 2.0);
+        assert_eq!(erfc(f64::MAX), 0.0);
+        assert_eq!(normal_cdf(-39.0), 0.0);
+        assert_eq!(normal_cdf(39.0), 1.0);
+        assert_eq!(normal_cdf(-f64::MAX), 0.0);
+    }
+
+    /// erfc(−x) = 2 − erfc(x), erfc(x) = 2Φ(−x√2) and Φ(x) + Φ(−x) = 1.
+    #[test]
+    fn erfc_and_normal_cdf_symmetry() {
+        for i in 0..=40_000 {
+            let x = f64::from(i) * 1e-3;
+            assert_eq!(erfc(-x), 2.0 - erfc(x), "x = {x}");
+            assert_eq!(erfc(x), 2.0 * normal_cdf(-x * SQRT_2), "x = {x}");
+            let sum = normal_cdf(x) + normal_cdf(-x);
+            assert!((sum - 1.0).abs() <= f64::EPSILON, "Φ(±{x}) sum to {sum}");
+        }
+    }
+
+    #[test]
+    fn erfc_and_normal_cdf_monotone_on_grid() {
+        let mut prev = erfc(-6.0);
+        for i in 1..=340_000 {
+            let x = -6.0 + f64::from(i) * 1e-4;
+            let y = erfc(x);
+            assert!(y <= prev, "erfc rises at x = {x}");
+            prev = y;
+        }
+        let mut prev = normal_cdf(-40.0);
+        for i in 1..=800_000 {
+            let x = -40.0 + f64::from(i) * 1e-4;
+            let y = normal_cdf(x);
+            assert!(y >= prev, "Φ falls at x = {x}");
+            prev = y;
+        }
+    }
+
+    /// Where the Taylor expansion point changes (x√2 = 2, 4, …, 14, and 16,
+    /// where the asymptotic series takes over; for Φ at x = −2, …, −16) the
+    /// two sides must not step backwards, even between adjacent floats.
+    /// Φ's upper half is 1 − cPhi at the same points, so it follows.  Near
+    /// x√2 = 1 and x = ±1 the functions move about an ulp per float and
+    /// rounding reverses neighbours by up to 3 ulp, as libm's erfc does near
+    /// x = 0.8; the grid test covers those.
+    #[test]
+    fn erfc_and_normal_cdf_monotone_across_expansion_points() {
+        for k in 1..=8 {
+            let x0 = f64::from(2 * k) / SQRT_2;
+            let mut x = f64::from_bits(x0.to_bits() - 1_000);
+            let mut prev = erfc(x);
+            for _ in 0..2_000 {
+                x = f64::from_bits(x.to_bits() + 1);
+                let y = erfc(x);
+                assert!(y <= prev, "erfc rises at x = {x:e}");
+                prev = y;
+            }
+            let t0 = f64::from(2 * k);
+            let mut t = f64::from_bits(t0.to_bits() - 1_000);
+            let mut prev = normal_cdf(-t);
+            for _ in 0..2_000 {
+                t = f64::from_bits(t.to_bits() + 1);
+                let y = normal_cdf(-t);
+                assert!(y <= prev, "Φ rises at x = {:e}", -t);
+                prev = y;
+            }
+        }
+    }
+
+    /// Arguments where stopping the Taylor loop at the first pair that rounds
+    /// away erred most (x = −14.886194612848115 made Φ rise by 1.5 × 10⁻¹⁰
+    /// over its neighbour).  Neither function may step backwards between
+    /// neighbouring floats there.
+    #[test]
+    fn erfc_and_normal_cdf_monotone_where_early_stopping_erred() {
+        const FLAGGED: [f64; 7] = [
+            6.008704856359099,
+            8.207855996246606,
+            8.357270995447399,
+            10.713778907744608,
+            12.871659843259536,
+            14.886194143273975,
+            14.886194612848117,
+        ];
+        for u0 in FLAGGED {
+            let mut u = f64::from_bits(u0.to_bits() - 10_000);
+            let mut prev = normal_cdf(-u);
+            for _ in 0..20_000 {
+                u = f64::from_bits(u.to_bits() + 1);
+                let y = normal_cdf(-u);
+                assert!(y <= prev, "Φ rises at x = {:e}", -u);
+                prev = y;
+            }
+            let x0 = u0 / SQRT_2;
+            let mut x = f64::from_bits(x0.to_bits() - 10_000);
+            let mut prev = erfc(x);
+            for _ in 0..20_000 {
+                x = f64::from_bits(x.to_bits() + 1);
+                let y = erfc(x);
+                assert!(y <= prev, "erfc rises at x = {x:e}");
+                prev = y;
+            }
+        }
+    }
+
+    /// Two-sided p-values erfc(|z|/√2) rely on erfc(x) ≤ 1 for x ≥ 0.
+    #[test]
+    fn erfc_at_most_one_for_nonnegative_arguments() {
+        let mut xs = vec![0.0, f64::from_bits(1), f64::MIN_POSITIVE, f64::EPSILON];
+        // Every power of two from the smallest subnormal to 2, with neighbours.
+        let mut p = f64::from_bits(1);
+        while p <= 2.0 {
+            xs.extend([
+                p,
+                f64::from_bits(p.to_bits() - 1),
+                f64::from_bits(p.to_bits() + 1),
+            ]);
+            p *= 2.0;
+        }
+        xs.extend((1..=10_000_u64).map(f64::from_bits));
+        xs.extend((0..=100_000).map(|i| f64::from(i) * 1e-8));
+        xs.extend((0..=200_000).map(|i| f64::from(i) * 1e-5));
+        for x in xs {
+            assert!(erfc(x) <= 1.0, "erfc({x:e}) = {:e}", erfc(x));
+            assert!(erfc(-x) >= 1.0, "erfc({:e}) = {:e}", -x, erfc(-x));
+        }
+    }
+
+    #[test]
+    fn normal_cdf_within_unit_interval() {
+        let mut xs = vec![
+            0.0,
+            f64::from_bits(1),
+            f64::MIN_POSITIVE,
+            f64::EPSILON,
+            f64::MAX,
+        ];
+        xs.push(f64::INFINITY);
+        let mut p = f64::from_bits(1);
+        while p.is_finite() {
+            xs.push(p);
+            p *= 2.0;
+        }
+        xs.extend((0..=40_000).map(|i| f64::from(i) * 1e-3));
+        for x in xs {
+            for v in [normal_cdf(x), normal_cdf(-x)] {
+                assert!((0.0..=1.0).contains(&v), "Φ(±{x:e}) = {v:e}");
+            }
+        }
     }
 
     #[test]
@@ -668,13 +1390,6 @@ mod tests {
     fn igamc_large_shape_parameter() {
         assert!((igamc(20_000.0, 20_000.0) - 0.49905968376625065).abs() < 1e-6);
         assert!((igamc(100_000.0, 100_000.0) - 0.4995794778896348).abs() < 1e-6);
-    }
-
-    #[test]
-    fn normal_cdf_symmetry() {
-        // erfc approximation is accurate to ~1.2e-7, not 1e-12.
-        assert!((normal_cdf(0.0) - 0.5).abs() < 1e-6);
-        assert!((normal_cdf(1.0) + normal_cdf(-1.0) - 1.0).abs() < 1e-6);
     }
 
     #[test]
@@ -721,11 +1436,6 @@ mod tests {
     }
 
     #[test]
-    fn erfc_golden_value_tail() {
-        assert!((erfc(2.0) - 0.004677734981047266).abs() < 5e-7);
-    }
-
-    #[test]
     fn dft_and_fft_agree() {
         let x: Vec<f64> = (0..64).map(|i| ((i * 37 + 11) % 17) as f64 - 8.0).collect();
         let slow = dft_magnitudes(&x);
@@ -754,5 +1464,305 @@ mod tests {
         assert!(crate::math::ks_test(&mut with_nan).is_nan());
         let mut clean = vec![0.1, 0.4, 0.7];
         assert!(crate::math::ks_test(&mut clean).is_finite());
+    }
+
+    /// Values printed in Marsaglia and Marsaglia (2004): ADinf(9) and
+    /// ADinf(10) from their 30-digit Maple evaluation (p. 3), and the 90, 95
+    /// and 99 percent points of the limiting distribution to 20 places (p. 2).
+    #[test]
+    fn ad_inf_matches_values_printed_in_the_paper() {
+        let cases = [
+            (9.0, 0.999_960_465_988_612_4),
+            (10.0, 0.999_986_184_964_589_4),
+            (1.932_957_832_741_593_7, 0.90),
+            (2.492_367_160_049_409_5, 0.95),
+            (3.878_125_021_605_395, 0.99),
+        ];
+        for (z, want) in cases {
+            let got = ad_inf(z);
+            assert!(
+                (got - want).abs() < 1e-14,
+                "ADinf({z}) = {got}, paper {want}"
+            );
+        }
+    }
+
+    /// `ADinf` and `cPhi` against the attachment `ADinf.c`
+    /// [pubs/marsaglia-marsaglia-2004-ADinf.c], compiled unchanged
+    /// except for renaming its interactive `main`.  The relative tolerance
+    /// leaves room for libm's `exp` and `sqrt` to differ by an ulp.
+    #[test]
+    fn ad_inf_and_c_phi_match_the_attached_c() {
+        let ad_inf_cases = [
+            (0.01, 5.280028041431955e-53),
+            (0.05, 1.731492268016011e-10),
+            (0.1, 2.8078105126362928e-5),
+            (0.2, 0.009_587_452_750_205_868),
+            (0.5, 0.253_185_626_469_655_03),
+            (1.0, 0.642_733_326_785_979_9),
+            (1.5, 0.823_524_627_157_948_7),
+            (2.0, 0.908_163_225_058_746_4),
+            (3.0, 0.972_635_211_665_972_2),
+            (5.0, 0.997_125_578_695_412_5),
+            (8.0, 0.999_886_185_844_272_1),
+            (12.0, 0.999_998_289_712_999),
+            (15.0, 0.999_999_923_667_766_7),
+            (20.0, 0.999_999_999_553_491_5),
+            (30.0, 0.999_999_999_999_982_2),
+        ];
+        for (z, want) in ad_inf_cases {
+            let got = ad_inf(z);
+            assert!(
+                (got - want).abs() <= 1e-13 * want,
+                "ADinf({z}) = {got}, C {want}"
+            );
+        }
+        let c_phi_cases = [
+            (0.0, 0.5),
+            (0.5, 0.308_537_538_725_987),
+            (1.0, 0.158_655_253_931_457_05),
+            (1.5, 0.066_807_201_268_858_09),
+            (2.75, 0.002_979_763_235_054_556),
+            (3.3, 0.000_483_424_142_383_777_33),
+            (5.0, 2.8665157187919407e-7),
+            (8.0, 6.220960574271776e-16),
+            (15.9, 3.168237665379637e-57),
+        ];
+        for (x, want) in c_phi_cases {
+            let got = c_phi(x);
+            assert!(
+                (got - want).abs() <= 1e-13 * want,
+                "cPhi({x}) = {got}, C {want}"
+            );
+            assert_eq!(1.0 - got, c_phi(-x), "cPhi(-{x})");
+        }
+        // Past the C's table (|x| >= 17) this port clamps to R(16), which
+        // still agrees with libm's erfc(x/√2)/2 to 2·10⁻⁸ relative at 17.2.
+        let want = 1.3276575042717985e-66;
+        let got = c_phi(17.2);
+        assert!(
+            (got - want).abs() <= 1e-7 * want,
+            "cPhi(17.2) = {got}, erfc {want}"
+        );
+    }
+
+    /// `errfix` against the attachment `AnDarl.c`
+    /// [pubs/marsaglia-marsaglia-2004-AnDarl.c], compiled unchanged except
+    /// for renaming its interactive `main`, and with `-ffp-contract=off`.
+    /// Clang otherwise fuses multiply-adds, and above x = 0.8, where the terms
+    /// of g₃ cancel from about 10³ to 10⁻³, that moves the result by up to
+    /// 5·10⁻¹⁴.
+    #[test]
+    fn ad_errfix_matches_the_attached_c() {
+        let cases = [
+            (1, 1.0e-6, -0.001_067_013_216_633_883),
+            (1, 0.01, -0.098_460_080_594_883_3),
+            (1, 0.05, -0.152_905_821_563_227_85),
+            (1, 0.3, 0.043_760_865_899_933_34),
+            (1, 0.79, 0.002_782_201_881_838_179),
+            (1, 0.8, 0.000_220_535_712_599_942_1),
+            (1, 0.81, -0.001_216_175_685_414_100_4),
+            (1, 0.999, -0.001_065_211_887_748_773_7),
+            (1, 1.0, -0.000_599_999_999_820_966),
+            (8, 1.0e-6, -1.4755175138691444e-5),
+            (8, 0.01, -0.000_903_636_990_841_514_6),
+            (8, 0.05, 0.000_687_436_397_468_982_7),
+            (8, 0.3, 0.005_472_533_410_294_906),
+            (8, 0.79, 0.000_223_154_174_538_196_43),
+            (8, 0.8, 2.166425831718181e-5),
+            (8, 0.81, -0.000_152_021_960_676_762_55),
+            (8, 0.999, -0.000_133_151_485_968_596_72),
+            (8, 1.0, -7.499999997762075e-5),
+            (32, 1.0e-6, -2.0821569497825443e-6),
+            (32, 0.01, -6.869903814898384e-5),
+            (32, 0.05, 0.000_323_037_688_188_530_7),
+            (32, 0.3, 0.001_333_498_931_632_664_5),
+            (32, 0.79, 5.3137477126165396e-5),
+            (32, 0.8, 5.257956389354088e-6),
+            (32, 0.81, -3.8005490169190637e-5),
+            (32, 0.999, -3.328787149214918e-5),
+            (32, 1.0, -1.8749999994405186e-5),
+            (128, 1.0e-6, -4.4624254664453196e-7),
+            (128, 0.01, -8.416673652423299e-6),
+            (128, 0.05, 8.902644718728321e-5),
+            (128, 0.3, 0.000_331_101_741_613_059_63),
+            (128, 0.79, 1.3122728471196247e-5),
+            (128, 0.8, 1.304607335467187e-6),
+            (128, 0.81, -9.501372542297659e-6),
+            (128, 0.999, -8.321967873037295e-6),
+            (128, 1.0, -4.687499998601297e-6),
+        ];
+        for (n, x, want) in cases {
+            let got = ad_errfix(n, x);
+            assert!(
+                (got - want).abs() <= 1e-15 * want.abs(),
+                "errfix({n}, {x}) = {got}, C {want}"
+            );
+        }
+    }
+
+    /// [`anderson_darling_cdf`] against `AnDarl.c`'s `AD(n, z)`
+    /// [pubs/marsaglia-marsaglia-2004-AnDarl.c], which feeds
+    /// errfix the short approximation `adinf` in place of ADinf; on a 0.0005
+    /// grid over [0.01, 12] the two differ by at most 1.95·10⁻⁵, at z = 0.97.
+    /// The cases stay below the tail switch, where this port drops errfix.
+    /// `AnDarl.c`'s own `ADtest` examples, two samples of 10, are pinned both
+    /// to that function and to ADinf + errfix evaluated by the attachments.
+    #[test]
+    fn anderson_darling_cdf_tracks_the_attached_c() {
+        let cases = [
+            (10, 0.362_1, 0.117_111_610_941_818_05),
+            (10, 0.5, 0.257_365_994_233_906_2),
+            (10, 1.0, 0.644_937_032_601_438_6),
+            (10, 1.5, 0.823_210_291_017_505_2),
+            (10, 2.0, 0.906_935_349_212_242_4),
+            (10, 3.0, 0.971_694_963_675_239_7),
+            (10, 5.0, 0.996_944_065_399_267_3),
+            (32, 0.362_1, 0.115_490_941_908_271_44),
+            (32, 0.5, 0.254_474_502_581_219_9),
+            (32, 1.0, 0.643_384_778_120_492_8),
+            (32, 1.5, 0.823_427_577_900_760_5),
+            (32, 2.0, 0.907_780_216_932_811_9),
+            (32, 3.0, 0.972_342_045_084_779_1),
+            (32, 5.0, 0.997_074_639_071_479_5),
+        ];
+        for (n, z, want) in cases {
+            let got = anderson_darling_cdf(n, z);
+            assert!((got - want).abs() < 2e-5, "AD({n}, {z}) = {got}, C {want}");
+        }
+        let u: [f64; 10] = [
+            0.0392, 0.0884, 0.260, 0.310, 0.454, 0.644, 0.797, 0.813, 0.921, 0.960,
+        ];
+        let w: [f64; 10] = [
+            0.0015, 0.0078, 0.0676, 0.0961, 0.106, 0.107, 0.835, 0.861, 0.948, 0.992,
+        ];
+        for (x, statistic, ad_test, full) in [
+            (
+                u,
+                0.363_203_962_367_370_2,
+                0.118_164_224_906_405_5,
+                0.118_167_210_503_083_64,
+            ),
+            (
+                w,
+                4.231_606_537_078_047,
+                0.992_927_546_852_983_1,
+                0.992_924_491_393_447_5,
+            ),
+        ] {
+            let log_sum: f64 = (0..10)
+                .map(|i| (2 * i + 1) as f64 * (x[i] * (1.0 - x[9 - i])).ln())
+                .sum();
+            let a = -10.0 - log_sum / 10.0;
+            assert!((a - statistic).abs() < 1e-12, "A = {a}");
+            let p = anderson_darling_cdf(10, a);
+            assert!(
+                (p - full).abs() < 1e-12,
+                "Pr(A < {a}) = {p}, ADinf+errfix {full}"
+            );
+            assert!(
+                (p - ad_test).abs() < 2e-5,
+                "Pr(A < {a}) = {p}, ADtest {ad_test}"
+            );
+        }
+    }
+
+    #[test]
+    fn anderson_darling_cdf_edges() {
+        assert!(anderson_darling_cdf(8, f64::NAN).is_nan());
+        assert_eq!(0.0, anderson_darling_cdf(10, 0.0));
+        // ADinf(0.1) + errfix(10, ·) = −2.6·10⁻⁵ before the clamp.
+        assert!(ad_inf(0.1) + ad_errfix(10, ad_inf(0.1)) < 0.0);
+        assert_eq!(0.0, anderson_darling_cdf(10, 0.1));
+        // Fewer than eight samples: no probability.
+        for n in 0..AD_MIN_N {
+            assert!(anderson_darling_cdf(n, 1.0).is_nan(), "n = {n}");
+        }
+        assert!(anderson_darling_cdf(AD_MIN_N, 1.0).is_finite());
+        // The tail branch meets ADinf + errfix at the switch.
+        let just_above = f64::next_up(AD_TAIL_SWITCH);
+        for n in [8, 16, 32, 128, 1000] {
+            let at = ad_cdf_given_limit(n, AD_TAIL_SWITCH);
+            assert_eq!(AD_TAIL_SWITCH + ad_errfix(n, AD_TAIL_SWITCH), at);
+            assert!(
+                (ad_cdf_given_limit(n, just_above) - at).abs() < 1e-15,
+                "n = {n}"
+            );
+        }
+        // ADinf(6.61) = 0.999498547 is below the switch and ADinf(6.62) =
+        // 0.999503901 above it; Pr(A < z) rises by little more than ADinf.
+        let (below, above) = (6.61, 6.62);
+        assert!(ad_inf(below) <= AD_TAIL_SWITCH && ad_inf(above) > AD_TAIL_SWITCH);
+        let step = anderson_darling_cdf(32, above) - anderson_darling_cdf(32, below);
+        assert!(step > 0.0 && step < 1e-5, "{step}");
+        // Past z = 30 ADinf, and so the result, is 1.
+        for z in [30.5, 1e3, 1e6, f64::INFINITY] {
+            assert_eq!(1.0, anderson_darling_cdf(32, z), "z = {z}");
+        }
+        assert!(1.0 - anderson_darling_cdf(32, 30.0) < 2e-14);
+    }
+
+    /// Upper tails Pr(Aₙ ≥ z) from `examples/anderson_darling_tail.rs` with its
+    /// default seed (4·10⁹ samples for n = 8, 10⁹ for n = 16 and 32, 2·10⁸ for
+    /// n = 128), with their standard errors.  Each case allows |p − tail|
+    /// errfix's stated ±5·10⁻⁵ for z ≤ 4 and, beyond that, the worst relative
+    /// error the [`anderson_darling_cdf`] docs give for that n, plus three
+    /// standard errors.
+    #[test]
+    fn anderson_darling_upper_tail_matches_simulation() {
+        // (n, z, simulated tail, standard error)
+        #[rustfmt::skip]
+        let cases = [
+            (8, 2.0, 9.334754e-2, 4.60e-6),
+            (8, 4.0, 9.26695675e-3, 1.52e-6),
+            (8, 6.0, 1.0666525e-3, 5.16e-7),
+            (8, 6.61, 5.58675e-4, 3.74e-7),
+            (8, 6.62, 5.528135e-4, 3.72e-7),
+            (8, 8.0, 1.3008775e-4, 1.80e-7),
+            (8, 10.0, 1.622675e-5, 6.37e-8),
+            (8, 12.0, 2.08925e-6, 2.29e-8),
+            (16, 2.0, 9.2573499e-2, 9.17e-6),
+            (16, 4.0, 8.989914e-3, 2.98e-6),
+            (16, 6.0, 1.015447e-3, 1.01e-6),
+            (16, 6.61, 5.29267e-4, 7.27e-7),
+            (16, 6.62, 5.23638e-4, 7.23e-7),
+            (16, 8.0, 1.21445e-4, 3.48e-7),
+            (16, 10.0, 1.494e-5, 1.22e-7),
+            (16, 12.0, 1.854e-6, 4.31e-8),
+            (32, 2.0, 9.2206127e-2, 9.15e-6),
+            (32, 4.0, 8.852596e-3, 2.96e-6),
+            (32, 6.0, 9.92166e-4, 9.96e-7),
+            (32, 6.61, 5.14924e-4, 7.17e-7),
+            (32, 6.62, 5.0945e-4, 7.14e-7),
+            (32, 8.0, 1.17943e-4, 3.43e-7),
+            (32, 10.0, 1.429e-5, 1.20e-7),
+            (32, 12.0, 1.776e-6, 4.21e-8),
+            (128, 2.0, 9.1922825e-2, 2.04e-5),
+            (128, 4.0, 8.75464e-3, 6.59e-6),
+            (128, 6.0, 9.7526e-4, 2.21e-6),
+            (128, 6.61, 5.05715e-4, 1.59e-6),
+            (128, 8.0, 1.1595e-4, 7.61e-7),
+            (128, 10.0, 1.4065e-5, 2.65e-7),
+        ];
+        for (n, z, tail, se) in cases {
+            let (relative, absolute) = match (n, z <= 4.0) {
+                (_, true) => (0.0, 5e-5),
+                (8, false) => (0.09, 0.0),
+                (16, false) => (0.05, 0.0),
+                (32, false) => (0.035, 0.0),
+                _ => (0.05, 0.0),
+            };
+            let p = 1.0 - anderson_darling_cdf(n, z);
+            assert!(
+                (p - tail).abs() <= relative * tail + absolute + 3.0 * se,
+                "n = {n}, z = {z}: p = {p}, simulation {tail} ± {se}"
+            );
+        }
+        // Why the tail is scaled: at z = 10, ADinf + errfix would put n = 32
+        // at over twice the simulated tail, and ADinf alone would put n = 8
+        // more than 10% below it.
+        let x = ad_inf(10.0);
+        assert!(1.0 - (x + ad_errfix(32, x)) > 2.0 * 1.429e-5);
+        assert!(1.0 - x < 0.9 * 1.622675e-5);
     }
 }

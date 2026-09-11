@@ -3,86 +3,42 @@
 //! NIST-style ApEn profile) across the seeded RNG family.
 //! See `tests/run_aux.sh` for the batch harness.
 
-type Case<'a> = (&'a str, Box<dyn Fn() -> (Vec<f64>, Vec<u8>) + 'a>);
-
 use entropy::research::{
     approx_entropy::approx_entropy_profile,
     knuth::{gap_test, permutation_test, runs_above_below_median_test},
 };
-use entropy::rng::{
-    AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
-    SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
-};
-use entropy::seed::seed_material;
+use entropy::rng::Rng;
+
+#[path = "common/cli.rs"]
+mod cli;
+#[path = "common/family.rs"]
+mod family;
 
 struct Args {
     float_samples: usize,
     bit_samples: usize,
-    rng_filters: Vec<String>,
+    rng: cli::RngFilter,
 }
 
 impl Args {
-    fn parse() -> Self {
+    fn parse_from(mut argv: cli::Argv) -> Result<Self, cli::Stop> {
         let mut float_samples = 200_000usize;
         let mut bit_samples = 1_000_000usize;
-        let mut rng_filters = Vec::new();
-        let argv: Vec<String> = std::env::args().skip(1).collect();
-        let mut i = 0;
-        while i < argv.len() {
-            match argv[i].as_str() {
-                "--help" | "-h" => {
-                    print_usage();
-                    std::process::exit(0);
-                }
-                "--float-samples" => {
-                    i += 1;
-                    float_samples = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--float-samples requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --float-samples value"));
-                }
-                "--bit-samples" => {
-                    i += 1;
-                    bit_samples = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--bit-samples requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --bit-samples value"));
-                }
-                "--rng" => {
-                    i += 1;
-                    rng_filters.push(
-                        argv.get(i)
-                            .unwrap_or_else(|| die("--rng requires an argument"))
-                            .clone(),
-                    );
-                }
-                other => die(&format!("unknown option '{other}'")),
+        let mut rng = cli::RngFilter::default();
+        while let Some(option) = argv.next_option()? {
+            match option.as_str() {
+                flag @ "--float-samples" => float_samples = argv.usize_value(flag)?,
+                flag @ "--bit-samples" => bit_samples = argv.usize_value(flag)?,
+                flag @ "--rng" => rng.push(argv.value(flag)?),
+                other => return Err(cli::unknown_option(other)),
             }
-            i += 1;
         }
-
-        Self {
+        Ok(Self {
             float_samples,
             bit_samples,
-            rng_filters,
-        }
+            rng,
+        })
     }
-
-    fn matches_rng(&self, label: &str) -> bool {
-        let label = label.to_lowercase();
-        self.rng_filters.is_empty()
-            || self
-                .rng_filters
-                .iter()
-                .any(|pat| label.contains(&pat.to_lowercase()))
-    }
-}
-
-fn die(msg: &str) -> ! {
-    eprintln!("error: {msg}");
-    std::process::exit(1);
 }
 
 fn print_usage() {
@@ -127,119 +83,19 @@ fn print_case(label: &str, floats: &[f64], bits: &[u8]) {
     println!();
 }
 
-fn main() {
-    let args = Args::parse();
-    let mut matched = 0usize;
+/// Collects each selected generator's samples and prints its probes.
+struct Runner<'a>(&'a Args);
 
-    let cases: Vec<Case<'_>> = vec![
-        (
-            "MT19937",
-            Box::new(|| collect_case(Mt19937::new(19650218), args.float_samples, args.bit_samples)),
-        ),
-        (
-            "Xorshift32",
-            Box::new(|| collect_case(Xorshift32::new(1), args.float_samples, args.bit_samples)),
-        ),
-        (
-            "Xorshift64",
-            Box::new(|| collect_case(Xorshift64::new(1), args.float_samples, args.bit_samples)),
-        ),
-        (
-            "BAD Unix System V rand()",
-            Box::new(|| collect_case(SystemVRand::new(1), args.float_samples, args.bit_samples)),
-        ),
-        (
-            "BAD Unix System V mrand48()",
-            Box::new(|| collect_case(Rand48::new(1), args.float_samples, args.bit_samples)),
-        ),
-        (
-            "BAD Unix BSD random()",
-            Box::new(|| collect_case(BsdRandom::new(1), args.float_samples, args.bit_samples)),
-        ),
-        (
-            "BAD Unix Linux glibc rand()/random()",
-            Box::new(|| {
-                collect_case(
-                    LinuxLibcRandom::new(1),
-                    args.float_samples,
-                    args.bit_samples,
-                )
-            }),
-        ),
-        (
-            "BAD Windows CRT rand()",
-            Box::new(|| {
-                collect_case(
-                    WindowsMsvcRand::new(1),
-                    args.float_samples,
-                    args.bit_samples,
-                )
-            }),
-        ),
-        (
-            "BAD Windows VB6/VBA Rnd()",
-            Box::new(|| collect_case(WindowsVb6Rnd::new(1), args.float_samples, args.bit_samples)),
-        ),
-        (
-            "BAD Windows .NET Random(seed)",
-            Box::new(|| {
-                collect_case(
-                    WindowsDotNetRandom::new(1),
-                    args.float_samples,
-                    args.bit_samples,
-                )
-            }),
-        ),
-        (
-            "ANSI C sample LCG",
-            Box::new(|| {
-                collect_case(
-                    Lcg32::new(LcgVariant::AnsiC, 1),
-                    args.float_samples,
-                    args.bit_samples,
-                )
-            }),
-        ),
-        (
-            "LCG MINSTD",
-            Box::new(|| {
-                collect_case(
-                    Lcg32::new(LcgVariant::Minstd, 1),
-                    args.float_samples,
-                    args.bit_samples,
-                )
-            }),
-        ),
-        (
-            "AES-128-CTR",
-            Box::new(|| {
-                let key = seed_material::<16>(1);
-                collect_case(AesCtr::new(&key, 0), args.float_samples, args.bit_samples)
-            }),
-        ),
-        (
-            "cryptography::CtrDrbgAes256",
-            Box::new(|| {
-                let seed_bytes = seed_material::<48>(1);
-                collect_case(
-                    CryptoCtrDrbg::new(&seed_bytes),
-                    args.float_samples,
-                    args.bit_samples,
-                )
-            }),
-        ),
-    ];
-
-    for (label, case) in cases {
-        if !args.matches_rng(label) {
-            continue;
-        }
-        matched += 1;
-        let (floats, bits) = case();
+impl family::Visit for Runner<'_> {
+    fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
+        let (floats, bits) = collect_case(make(), self.0.float_samples, self.0.bit_samples);
         print_case(label, &floats, &bits);
     }
+}
 
-    if matched == 0 {
-        die("no RNG labels matched --rng filter");
+fn main() {
+    let args = cli::parse_or_exit(Args::parse_from, print_usage);
+    if family::visit_matching(&args.rng, &mut Runner(&args)) == 0 {
+        cli::die_no_rng_matched();
     }
 }
