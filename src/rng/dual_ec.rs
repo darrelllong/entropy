@@ -32,8 +32,10 @@
 //! sequence of one-block Generate calls.  A single Generate asking for k
 //! blocks repeats steps 5–12 k times, each step 5 taking the `s` of the
 //! previous step 6, and runs step 14 once at the end; its blocks after the
-//! first therefore differ from this stream's.  The June 2006 edition has no
-//! step 14, so this stream follows the March 2007 revision.  The rest of the
+//! first therefore differ from this stream's.  The June 2006 edition's
+//! Generate has no backtracking update (its step 14 is the return); the
+//! March 2007 revision inserted the update as step 14, and this stream
+//! follows that revision.  The rest of the
 //! mechanism is omitted: the seed is used directly as `s` instead of passing
 //! through `Hash_df` at instantiation (§10.3.1.2), there is no reseed counter
 //! (step 1; Table 4 caps `reseed_interval` at 2³² blocks), and additional
@@ -61,7 +63,8 @@
 //!   [pubs/NIST-SP-800-90-2007.pdf]
 //! * E. Barker and J. Kelsey, "Recommendation for Random Number Generation
 //!   Using Deterministic Random Bit Generators," *NIST SP 800-90*, June 2006.
-//!   Same Table 4 and Appendix A.1 points; its Generate has no step 14.
+//!   Same Table 4 and Appendix A.1 points; its Generate lacks the
+//!   backtracking update that the 2007 revision inserted as step 14.
 //!   [pubs/NIST-SP-800-90-2006.pdf]
 //! * E. Barker and J. Kelsey, *NIST SP 800-90A Rev. 1*, June 2015.  Its list
 //!   of revisions records that the Dual_EC_DRBG has been removed.
@@ -96,7 +99,7 @@ impl DualEcDrbg {
     /// * `p`      — generator point (typically `curve.base_point()`).
     /// * `q`      — secondary point; determines output.  NIST values may be backdoored.
     /// * `seed`   — initial state, interpreted as a big-endian integer.  Should be
-    ///   at least `⌈seqlen/8⌉` bytes of high-entropy material.
+    ///   at least `⌈seedlen/8⌉` bytes of high-entropy material.
     /// * `outlen` — output bits per block; a multiple of 8 in
     ///   `32..=max_outlen(curve)`.  The lower bound is what the [`Rng`] path
     ///   needs to assemble 32-bit words across block boundaries.  The upper
