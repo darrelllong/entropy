@@ -42,7 +42,8 @@ pub struct ApproxEntropyPoint {
 fn phi(bits: &[u8], m: usize) -> f64 {
     let n = bits.len();
     let table_size = 1usize << m;
-    let mut counts = vec![0u32; table_size];
+    // u64: a u32 count would wrap once a pattern occurs 2^32 times.
+    let mut counts = vec![0u64; table_size];
 
     for i in 0..n {
         let mut pattern = 0usize;
@@ -66,14 +67,15 @@ fn phi(bits: &[u8], m: usize) -> f64 {
 /// Compute the NIST SP 800-22 §2.12 ApEn statistic at each value in
 /// `m_values`, returning one [`ApproxEntropyPoint`] per valid `m`.
 ///
-/// Values of `m` are silently skipped when `2^m > n/10` (too few samples
-/// to populate the pattern table reliably).
+/// Values of `m` are silently skipped unless `0 < m < 30` and `m` meets the
+/// §2.12.7 input size recommendation, "Choose m and n such that
+/// m < log2 n − 5", i.e. `n > 2^(m+5)`.
 pub fn approx_entropy_profile(bits: &[u8], m_values: &[usize]) -> Vec<ApproxEntropyPoint> {
     let n = bits.len();
     m_values
         .iter()
         .copied()
-        .filter(|&m| m > 0 && m < 30 && (1usize << m) <= n / 10)
+        .filter(|&m| m > 0 && m < 30 && (1u64 << (m + 5)) < n as u64)
         .map(|m| {
             let phi_m = phi(bits, m);
             let phi_m1 = phi(bits, m + 1);
@@ -89,7 +91,35 @@ pub fn approx_entropy_profile(bits: &[u8], m_values: &[usize]) -> Vec<ApproxEntr
 
 #[cfg(test)]
 mod tests {
-    use super::approx_entropy_profile;
+    use super::{approx_entropy_profile, phi};
+
+    /// Regression: the gate admitted any `2^m ≤ n/10`, e.g. m = 2 at n = 128.
+    /// §2.12.7 requires m < log2 n − 5, so n = 2^(m+5) is the last length
+    /// that must be skipped.
+    #[test]
+    fn m_gate_follows_sp800_22_input_size_recommendation() {
+        for m in [2usize, 3, 6] {
+            let boundary = 1usize << (m + 5);
+            assert!(
+                approx_entropy_profile(&vec![0u8; boundary], &[m]).is_empty(),
+                "m = {m}: n = 2^(m+5) must be skipped"
+            );
+            assert_eq!(
+                1,
+                approx_entropy_profile(&vec![0u8; boundary + 1], &[m]).len(),
+                "m = {m}: n = 2^(m+5) + 1 must run"
+            );
+        }
+    }
+
+    /// SP 800-22 §2.12.4 worked example: ε = 0100110101 gives
+    /// φ(3) = −1.64341772 and φ(4) = −1.83437197.
+    #[test]
+    fn phi_matches_sp800_22_worked_example() {
+        let bits = [0u8, 1, 0, 0, 1, 1, 0, 1, 0, 1];
+        assert!((phi(&bits, 3) + 1.643_417_72).abs() < 1e-8);
+        assert!((phi(&bits, 4) + 1.834_371_97).abs() < 1e-8);
+    }
 
     #[test]
     fn constant_stream_has_zero_profile() {
