@@ -1,5 +1,6 @@
-//! Runs the classical research probes (Knuth gap/permutation/runs-median from
-//! TAOCP §3.3.2 plus the NIST-style ApEn profile) across the seeded RNG family.
+//! Runs the classical research probes (the TAOCP §3.3.2 permutation and gap
+//! tests, the Wald–Wolfowitz runs test above/below the median, and the
+//! NIST-style ApEn profile) across the seeded RNG family.
 //! See `tests/run_aux.sh` for the batch harness.
 
 type Case<'a> = (&'a str, Box<dyn Fn() -> (Vec<f64>, Vec<u8>) + 'a>);
@@ -83,8 +84,9 @@ fn print_usage() {
     eprintln!(
         "Usage: bib_tests [--rng <label>] [--float-samples N] [--bit-samples N]\n\
          \n\
-         Runs BIB-backed research tests: Knuth permutation/gap/runs-median\n\
-         and the NIST SP 800-22 §2.12 ApEn statistic swept over m=2..6.\n\
+         Runs BIB-backed research tests: Knuth permutation/gap, the\n\
+         Wald-Wolfowitz runs test above/below the median, and the\n\
+         NIST SP 800-22 §2.12 ApEn statistic swept over m=2..6.\n\
          \n\
          Example:\n\
            cargo run --release --bin bib_tests -- --rng AES"

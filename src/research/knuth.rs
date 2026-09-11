@@ -1,9 +1,14 @@
-//! Classical Knuth-style tests from TAOCP Vol. 2, §3.3.2.
+//! Classical uniform-stream tests: the permutation and gap tests of TAOCP
+//! Vol. 2, §3.3.2, and the Wald–Wolfowitz runs test above/below the median.
 //!
 //! These are implemented over a uniform `[0, 1)` sample stream:
-//! - permutation test over non-overlapping windows of size `t`
-//! - gap test for a target interval `[alpha, beta)`
-//! - Wald-Wolfowitz runs test above/below the sample median
+//! - permutation test over non-overlapping windows of size `t` (TAOCP §3.3.2)
+//! - gap test for a target interval `[alpha, beta)` (TAOCP §3.3.2)
+//! - Wald–Wolfowitz runs test above/below the sample median
+//!
+//! The runs test is not TAOCP's: the run test of §3.3.2 scores the lengths
+//! of monotone runs, a different statistic (see `grafton1981runs` in
+//! BIB.md).  Its results are therefore named `wald_wolfowitz::runs_median`.
 //!
 //! The formulas used here are the standard chi-square and conditional
 //! runs-test moments for binary classifications.
@@ -154,6 +159,13 @@ pub fn permutation_test(samples: &[f64], t: usize) -> TestResult {
 /// between visits to the target interval `[alpha, beta)` against the
 /// geometric law, with Cochran-rule tail merging.
 ///
+/// Gaps are counted from the first hit on: the run of misses before it is
+/// not recorded, so `gaps` is one less than the number of hits.  TAOCP's
+/// Algorithm G (§3.3.2) starts its first gap at the beginning of the
+/// sequence and records that leading run as well.  Under the null hypothesis
+/// the leading run has the same geometric law as every other gap, so
+/// skipping it discards one observation without biasing the statistic.
+///
 /// Returns `None` on invalid bounds (`0 ≤ alpha < beta ≤ 1` required),
 /// `max_gap == 0`, or too few gaps to form two Cochran-valid cells.
 pub fn gap_stats(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> Option<GapStats> {
@@ -268,14 +280,15 @@ pub fn gap_test(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> TestR
 /// Wald–Wolfowitz runs statistics above/below the sample median.
 ///
 /// Values equal to the median are discarded.  Returns `None` with fewer
-/// than three usable values or when either side of the median is empty.
+/// than three usable values, when either side of the median is empty, or
+/// when any sample is NaN (it lies on neither side of the median).
 pub fn runs_above_below_median_stats(samples: &[f64]) -> Option<RunsMedianStats> {
-    if samples.len() < 3 {
+    if samples.len() < 3 || samples.iter().any(|x| x.is_nan()) {
         return None;
     }
 
     let mut sorted = samples.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    sorted.sort_by(f64::total_cmp);
     let n = sorted.len();
     let median = if n.is_multiple_of(2) {
         0.5 * (sorted[n / 2 - 1] + sorted[n / 2])
@@ -329,21 +342,22 @@ pub fn runs_above_below_median_stats(samples: &[f64]) -> Option<RunsMedianStats>
     })
 }
 
-/// Wald–Wolfowitz runs test as a [`TestResult`] (`knuth::runs_median`),
-/// using the two-sided normal approximation of the run count.
+/// Wald–Wolfowitz runs test as a [`TestResult`]
+/// (`wald_wolfowitz::runs_median`), using the two-sided normal approximation
+/// of the run count.
 ///
 /// Returns an insufficient-data result (NaN p-value) when
 /// [`runs_above_below_median_stats`] returns `None`.
 pub fn runs_above_below_median_test(samples: &[f64]) -> TestResult {
     let Some(stats) = runs_above_below_median_stats(samples) else {
         return TestResult::insufficient(
-            "knuth::runs_median",
-            "need at least three non-median values with both sides represented",
+            "wald_wolfowitz::runs_median",
+            "need at least three non-median values with both sides represented and no NaN",
         );
     };
     let p_value = erfc(stats.z_score.abs() / SQRT_2);
     TestResult::with_note(
-        "knuth::runs_median",
+        "wald_wolfowitz::runs_median",
         p_value,
         format!(
             "median={:.6}, below={}, above={}, runs={}, z={:.4}",
@@ -354,7 +368,27 @@ pub fn runs_above_below_median_test(samples: &[f64]) -> TestResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{gap_stats, permutation_rank, permutation_stats, runs_above_below_median_stats};
+    use super::{
+        gap_stats, permutation_rank, permutation_stats, runs_above_below_median_stats,
+        runs_above_below_median_test,
+    };
+
+    /// Regression: the median sort used `partial_cmp().unwrap()` and
+    /// panicked on a NaN sample.
+    #[test]
+    fn runs_median_rejects_nan_samples() {
+        let samples = [0.1, f64::NAN, 0.9, 0.2, 0.8];
+        assert!(runs_above_below_median_stats(&samples).is_none());
+        assert!(runs_above_below_median_test(&samples).skipped());
+    }
+
+    /// The runs test is Wald–Wolfowitz's, not TAOCP §3.3.2's run test, and
+    /// its result name must not attribute it to Knuth.
+    #[test]
+    fn runs_median_result_is_credited_to_wald_wolfowitz() {
+        let result = runs_above_below_median_test(&[0.1, 0.9, 0.2, 0.8, 0.3, 0.7]);
+        assert_eq!("wald_wolfowitz::runs_median", result.name);
+    }
 
     #[test]
     fn permutation_rank_orders_three_values_lexicographically() {
