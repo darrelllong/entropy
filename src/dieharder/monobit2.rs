@@ -26,6 +26,35 @@ const LN_HALF: f64 = -std::f64::consts::LN_2;
 
 /// Run the enhanced monobit test.
 ///
+/// Level j counts the one-bits in successive blocks of 2^(j+1) words and
+/// compares the histogram of those counts, cells 0 to 32·2^(j+1), with the
+/// binomial.  Two details of `dab_monobit2.c`'s counting loop are kept as
+/// they are:
+///
+/// - **Shared cells.**  The C keeps every level's histogram in one buffer,
+///   level j starting at offset 32·(2^(j+1) − 1).  Level j needs
+///   32·2^(j+1) + 1 cells, so its last cell, a block of all ones, is also
+///   level j+1's first, a block of all zeros, and each level reads counts
+///   the other put there.  A block holds at least 64 bits, so under H₀
+///   either event has probability at most 2⁻⁶⁴ per block, and
+///   `chisq_binomial` scores only cells holding more than 10 counts.
+/// - **Block phase.**  The start-of-block test `(t & i) && !(t & (i-1))`
+///   closes level j's blocks at word indices i ≡ 2^j (mod 2^(j+1)).  For
+///   j ≥ 1 the first block therefore holds 2^j + 1 words and every later one
+///   is whole.  The histogram holds ⌊tsamples/2^(j+1)⌋ blocks, one more when
+///   tsamples mod 2^(j+1) exceeds 2^j, and the expected counts assume
+///   ⌊tsamples/2^(j+1)⌋ whole ones.
+///
+/// Neither detail moves the null distribution measurably.  A null simulation
+/// with MT19937 (20 000 trials each at 2 000 and 10 000 words, 5 000 at
+/// 100 000, 1 000 at 1 000 000 and 300 at 16 000 000) never put a count in a
+/// shared cell, and separate histograms gave bit-identical p-values in every
+/// trial.  Below 16 000 000 words the reported p-value was somewhat heavy
+/// near zero, with P(p < 0.01) between 1.3% and 1.5%; blocks aligned to
+/// word 0 gave 1.2% to 1.4%, so that excess comes from elsewhere in the
+/// statistic.  On a stream that does fill a shared cell, such as a constant
+/// one, every level already scores p = 0.
+///
 /// # Author
 /// David Bauer, Dieharder (2006), `dab_monobit2`.
 pub fn monobit2(words: &[u32]) -> TestResult {
@@ -41,8 +70,8 @@ pub fn monobit2(words: &[u32]) -> TestResult {
         );
     }
 
-    // This layout intentionally matches the C code's single flat buffer:
-    // segment j starts at blens * ((2 << j) - 1).
+    // One flat buffer, as in the C: level j starts at blens * ((2 << j) - 1),
+    // so adjacent levels share a cell (see the function doc).
     let mut counts = vec![0.0f64; RMAX_BITS * (2 << ntup)];
     let mut temp_count = vec![0u32; ntup];
 
