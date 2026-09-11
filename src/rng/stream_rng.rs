@@ -136,20 +136,25 @@ mod tests {
     use crate::seed::{IV16, K16};
     use cryptography::{Rabbit, Salsa20, Snow3g, Zuc128};
 
+    /// RFC 4503 Appendix A.2, the all-zero key and IV: `S[0]`, `S[1]` and
+    /// `S[2]`, 48 octets as printed.
+    const RFC4503_A2_ZERO_IV: &str =
+        "c6a7275ef85495d87ccd5d376705b7ed5f29a6ac04f5efd47b8f293270dc4a8d\
+        2ade822b29de6c1ee52bdb8a47bf8f66";
+
     /// Known-answer test using RFC 4503 Appendix A.2, Test Vector 1.
     ///
-    /// Rabbit with key = 0x00*16, IV = 0x00*8.
-    /// Stream[0..7] = C6 A7 27 5E F8 54 95 D8  (RFC 4503 §A.2)
-    /// As little-endian u64: u64::from_le_bytes([C6,A7,27,5E,F8,54,95,D8])
-    ///                      = 0xD895_54F8_5E27_A7C6
+    /// Rabbit with key = 0x00*16, IV = 0x00*8: the first `next_u64` is the
+    /// first eight octets of `RFC4503_A2_ZERO_IV` read little-endian.
     #[test]
     fn stream_rng_kat_rfc4503() {
         let key = [0u8; 16];
         let iv = [0u8; 8];
         let mut rng = StreamRng::new(Rabbit::new(&key, &iv));
+        let first_eight: [u8; 8] = hex(RFC4503_A2_ZERO_IV)[..8].try_into().unwrap();
         assert_eq!(
             rng.next_u64(),
-            0xd895_54f8_5e27_a7c6,
+            u64::from_le_bytes(first_eight),
             "First u64 must match RFC 4503 §A.2 Test Vector 1"
         );
     }
@@ -190,11 +195,7 @@ mod tests {
     #[test]
     fn rabbit_rfc4503_appendix_a2_through_words() {
         let vectors: [(&str, &str); 3] = [
-            (
-                "0000000000000000",
-                "c6a7275ef85495d87ccd5d376705b7ed5f29a6ac04f5efd47b8f293270dc4a8d\
-                2ade822b29de6c1ee52bdb8a47bf8f66",
-            ),
+            ("0000000000000000", RFC4503_A2_ZERO_IV),
             (
                 "c373f575c1267e59",
                 "1fcd4eb9580012e2e0dccc9222017d6da75f4e10d12125017b2499ffed936f2e\
