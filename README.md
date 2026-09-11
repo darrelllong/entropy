@@ -229,9 +229,12 @@ This repository keeps a local reference shelf under [pubs/](pubs) so people can 
 
 Included now:
 
-- standards: `NIST-SP-800-22r1a.pdf`, `NIST-SP-800-90-2006.pdf`, `NIST-SP-800-90-2007.pdf`, `NIST-SP-800-90Ar1.pdf`, `NIST-SP-800-90B.pdf`, `NIST-SP-800-90C.pdf`, `NIST-FIPS-140-3.pdf`, `NIST-FIPS-197.pdf`, `NIST-SP-800-38A.pdf`, `NIST-FIPS-180-4.pdf`, `NIST-FIPS-202.pdf`
-- classic source and docs: `Diehard.zip`, `diehard-doc.txt`, `diehard-tests.txt`, `dieharder-3.31.1.tgz`, `dieharder-manual.pdf`, `dieharder-tests.txt`
-- core survey and extension papers: `lecuyer-simard-2007-testu01.pdf`, `maurer-1992-universal-test.pdf`, `marsaglia-tsang-2002-difficult-tests.pdf`, `webster-tavares-1985-sbox-design.pdf`, `hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf`
+- standards and specifications: `NIST-SP-800-22r1a.pdf`, `NIST-SP-800-90-2006.pdf`, `NIST-SP-800-90-2007.pdf`, `NIST-SP-800-90Ar1.pdf`, `NIST-SP-800-90B.pdf`, `NIST-SP-800-90C.pdf`, `NIST-FIPS-140-3.pdf`, `NIST-FIPS-197.pdf`, `NIST-SP-800-38A.pdf`, `NIST-FIPS-180-4.pdf`, `NIST-FIPS-202.pdf`, `rfc4503-rabbit.txt`, `rfc8439-chacha20-poly1305.txt`, `etsi-sage-snow3g-spec-v1.1.pdf`, `etsi-sage-zuc-spec-v1.6.pdf`
+- battery sources and manuals: `Diehard.zip`, `diehard-doc.txt`, `diehard-tests.txt`, `dieharder-3.31.1.tgz`, `dieharder-manual.pdf`, `dieharder-tests.txt`, `NIST-STS-2.1.2-src-and-constants.zip`, `TestU01-2009-57e98bf33880.tar.gz`
+- generator reference code: `mt19937ar.c`, `mt19937ar.out`, `vigna-xoshiro256starstar.c`, `vigna-xoshiro256plusplus.c`, `vigna-xoroshiro128plus.c`, `vigna-xoroshiro128starstar.c`, `vigna-xoroshiro128plusplus.c`, `vigna-splitmix64.c`, `pcg-c-83252d9c23df.tar.gz`, `wyhash-e4764a0b637d.tar.gz`, `jenkins-2007-smallprng.html`, `glibc-2.40-random.c`, `glibc-2.40-random_r.c`, `freebsd-0d022baa047a-random.c`, `freebsd-0d022baa047a-rand.c`, `gsl-2.8-rng-subset.tar.gz`, `v7-unix-programmers-manual-vol1.pdf`
+- papers: `lecuyer-simard-2007-testu01.pdf`, `maurer-1992-universal-test.pdf`, `marsaglia-tsang-2002-difficult-tests.pdf`, `marsaglia-2003-xorshift-rngs.pdf`, `marsaglia-tsang-wang-2003-kolmogorov-distribution.pdf`, `marsaglia-marsaglia-2004-anderson-darling.pdf`, `webster-tavares-1985-sbox-design.pdf`, `wald-wolfowitz-1940-runs.pdf`, `matsumoto-nishimura-1998-mersenne-twister.pdf`, `blackman-vigna-2021-scrambled-linear-prngs.pdf`, `oneill-2014-pcg.pdf`, `bernstein-2005-salsa20-spec.pdf`, `bernstein-2008-chacha.pdf`, `rabbit-estream-description.pdf`, `bernstein-lange-niederhagen-2015-dual-ec.pdf`, `kim-umeno-hasegawa-2004-nist-sts-corrections.pdf`, `hughes-2022-badrandom-the-effect-and-mitigations-for-low-entropy-random-numbers-in-tls.pdf`
+
+`pubs/SOURCES.tsv` records where and when each file added on 2026-09-11 was retrieved.  BIB.md marks the references that are still not here and why: TAOCP is a copyrighted book, a few papers are paywalled, and some publishers refuse automated download.
 
 When the code claims fidelity to a published test, these are the documents the project is expected to match.
 

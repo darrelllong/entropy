@@ -34,7 +34,7 @@ The point of keeping these files in-tree is auditability: readers should be able
   volume  = {26},
   number  = {9},
   year    = {1993},
-  note    = {OPSO, OQSO and DNA, implemented in src/diehard/monkey.rs. [not in pubs/]}
+  note    = {OPSO, OQSO and DNA, implemented in src/diehard/monkey.rs. [not in pubs/: ScienceDirect refuses automated download]}
 }
 
 @misc{brown2004dieharder,
@@ -135,7 +135,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   pages   = {3--30},
   year    = {1998},
   doi     = {10.1145/272991.272995},
-  note    = {[TODO: library] Period 2^{19937}-1; state recovery from 624 consecutive
+  note    = {[pubs/matsumoto-nishimura-1998-mersenne-twister.pdf] (authors' preprint); reference code and its output check file: [pubs/mt19937ar.c], [pubs/mt19937ar.out] Period 2^{19937}-1; state recovery from 624 consecutive
              outputs is documented in §3.  Default generator in MATLAB and R;
              NumPy's legacy RandomState uses it, but NumPy's default_rng has been
              PCG64 since NumPy 1.17.}
@@ -150,7 +150,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   pages   = {36:1--36:32},
   year    = {2021},
   doi     = {10.1145/3460772},
-  note    = {[not in pubs/] Xoshiro256** and
+  note    = {[pubs/blackman-vigna-2021-scrambled-linear-prngs.pdf] (arXiv:1805.01407v3); reference C: [pubs/vigna-xoshiro256starstar.c], [pubs/vigna-xoshiro256plusplus.c], [pubs/vigna-xoroshiro128plus.c], [pubs/vigna-xoroshiro128starstar.c], [pubs/vigna-xoroshiro128plusplus.c], [pubs/vigna-splitmix64.c] Xoshiro256** and
              Xoroshiro128** scrambler definitions.}
 }
 
@@ -161,14 +161,14 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   institution = {Harvey Mudd College},
   number      = {HMC-CS-2014-0905},
   year        = {2014},
-  note        = {[not in pubs/] PCG32 (XSH-RR) and PCG64 (XSL-RR).}
+  note        = {[pubs/oneill-2014-pcg.pdf] PCG32 (XSH-RR) and PCG64 (XSL-RR).}
 }
 
 @misc{oneill-pcg-c,
   author = {O'Neill, M. E.},
   title  = {pcg-c: the reference C implementation of the {PCG} family},
   url    = {https://github.com/imneme/pcg-c},
-  note   = {include/pcg_variants.h and the test-high expected outputs that src/rng/pcg.rs pins. [not in pubs/]}
+  note   = {include/pcg_variants.h and the test-high expected outputs that src/rng/pcg.rs pins. [pubs/pcg-c-83252d9c23df.tar.gz] (commit 83252d9c23df9c82ecb42210afed61a7b42402d7)}
 }
 
 @article{marsaglia2003xorshift,
@@ -179,7 +179,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   number  = {14},
   year    = {2003},
   doi     = {10.18637/jss.v008.i14},
-  note    = {32-bit and 64-bit Xorshift generators; listing 1 defines xorshift32.}
+  note    = {32-bit and 64-bit Xorshift generators; listing 1 defines xorshift32. [pubs/marsaglia-2003-xorshift-rngs.pdf]}
 }
 
 @misc{wangyi2022wyhash,
@@ -187,7 +187,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {wyhash and wyrand, version 4.2},
   year   = {2022},
   url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {[not in pubs/] Weyl-sequence counter with 128-bit
+  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8) Weyl-sequence counter with 128-bit
              multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.}
 }
 
@@ -196,7 +196,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {A Small Noncryptographic {PRNG}},
   year   = {2007},
   url    = {http://burtleburtle.net/bob/rand/smallprng.html},
-  note   = {[not in pubs/] JSF64 (Jenkins Small Fast),
+  note   = {[pubs/jenkins-2007-smallprng.html] (page saved 2026-09-11) JSF64 (Jenkins Small Fast),
              four-word 64-bit chaotic generator.}
 }
 
@@ -205,7 +205,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title     = {{ChaCha}, a Variant of {Salsa20}},
   booktitle = {Workshop Record of SASC 2008: The State of the Art of Stream Ciphers},
   year      = {2008},
-  note      = {[not in pubs/] ChaCha20 stream cipher; 20-round
+  note      = {[pubs/bernstein-2008-chacha.pdf] ChaCha20 stream cipher; 20-round
                variant used in Linux /dev/urandom, macOS arc4random, and TLS 1.3.}
 }
 
@@ -215,7 +215,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   howpublished = {RFC 8439},
   year         = {2018},
   month        = jun,
-  note         = {The 96-bit-nonce, 32-bit-counter layout that cryptography::ChaCha20 follows. [not in pubs/]}
+  note         = {The 96-bit-nonce, 32-bit-counter layout that cryptography::ChaCha20 follows. [pubs/rfc8439-chacha20-poly1305.txt]}
 }
 
 @misc{bernstein2005salsa20,
@@ -223,7 +223,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {{Salsa20} specification},
   year   = {2005},
   url    = {https://cr.yp.to/snuffle/spec.pdf},
-  note   = {The Salsa20 cipher wrapped by src/rng/stream_rng.rs. [not in pubs/]}
+  note   = {The Salsa20 cipher wrapped by src/rng/stream_rng.rs. [pubs/bernstein-2005-salsa20-spec.pdf]}
 }
 
 @misc{boesgaard2006rabbit,
@@ -232,19 +232,19 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   howpublished = {RFC 4503},
   year         = {2006},
   month        = may,
-  note         = {Rabbit, wrapped by src/rng/stream_rng.rs; its known-answer test uses Appendix A.2. [not in pubs/]}
+  note         = {Rabbit, wrapped by src/rng/stream_rng.rs; its known-answer test uses Appendix A.2. [pubs/rfc4503-rabbit.txt]; the eSTREAM description is [pubs/rabbit-estream-description.pdf]}
 }
 
 @misc{etsi-snow3g,
   author = {{ETSI/SAGE}},
   title  = {Specification of the 3GPP Confidentiality and Integrity Algorithms UEA2 \& UIA2, Document 2: {SNOW 3G} Specification},
-  note   = {Version 1.1. The SNOW 3G cipher wrapped by src/rng/stream_rng.rs. [not in pubs/]}
+  note   = {Version 1.1. The SNOW 3G cipher wrapped by src/rng/stream_rng.rs. [pubs/etsi-sage-snow3g-spec-v1.1.pdf]}
 }
 
 @misc{etsi-zuc,
   author = {{ETSI/SAGE}},
   title  = {Specification of the 3GPP Confidentiality and Integrity Algorithms 128-EEA3 \& 128-EIA3, Document 2: {ZUC} Specification},
-  note   = {Version 1.6. The ZUC-128 cipher wrapped by src/rng/stream_rng.rs. [not in pubs/]}
+  note   = {Version 1.6. The ZUC-128 cipher wrapped by src/rng/stream_rng.rs. [pubs/etsi-sage-zuc-spec-v1.6.pdf]}
 }
 
 @article{park1988minstd,
@@ -257,7 +257,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   year    = {1988},
   doi     = {10.1145/63039.63042},
   note    = {MINSTD: a=16807, c=0, m=2^{31}-1 (Lehmer generator).  Also defines
-             the Park-Miller test used by FreeBSD rand_r() compatibility path.}
+             the Park-Miller test used by FreeBSD rand_r() compatibility path. [not in pubs/: the ACM Digital Library refuses automated download]}
 }
 
 @misc{unix-v7-manual,
@@ -267,7 +267,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   note   = {Bell Laboratories. rand(3) entry defines the LCG parameters
              a=1103515245, c=12345 that became the de facto ANSI C / System V
              rand() implementation.  Available at
-             https://www.tuhs.org/Archive/Distributions/Research/V7/}
+             https://www.tuhs.org/Archive/Distributions/Research/V7/ [pubs/v7-unix-programmers-manual-vol1.pdf]}
 }
 
 @incollection{bernstein2016dualec,
@@ -283,7 +283,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   doi       = {10.1007/978-3-662-49301-4_17},
   note      = {Demonstrates that the NIST-specified Q points in SP 800-90 Appendix A.1
                are likely NSA-chosen with a discrete-log trapdoor.  State recovery
-               from 30 bytes of output.}
+               from 30 bytes of output. [pubs/bernstein-lange-niederhagen-2015-dual-ec.pdf] (IACR ePrint 2015/767 version)}
 }
 ```
 
@@ -382,7 +382,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
              Novel tests: BCFN (DFT of Hamming-weight block
              counts), DC6 (lagged difference patterns for small-state generators), FPF
              (leading-bit frequency chi-square), TMFn (N-dim spectral), streaming linear
-             complexity. Source: http://pracrand.sourceforge.net/}
+             complexity. Source: http://pracrand.sourceforge.net/ [not in pubs/: SourceForge refuses automated download]}
 }
 ```
 
@@ -419,7 +419,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
                (all t! orderings), Gap test, Serial Correlation Coefficient with exact variance.
                DIEHARDER's rgb_permutations also scores t! orderings (src/dieharder/permutations.rs);
                the others are not in NIST/DIEHARD/DIEHARDER. The runs test above/below the median
-               that bib_tests runs is Wald and Wolfowitz's (wald1940runs), not the §3.3.2 run test.}
+               that bib_tests runs is Wald and Wolfowitz's (wald1940runs), not the §3.3.2 run test. [TODO: library] (copyrighted book)}
 }
 
 @article{wald1940runs,
@@ -431,7 +431,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   pages   = {147--162},
   year    = {1940},
   note    = {Conditional moments of the runs-above/below-median statistic in
-             research::knuth::runs_above_below_median_test. [not in pubs/]}
+             research::knuth::runs_above_below_median_test. [pubs/wald-wolfowitz-1940-runs.pdf]}
 }
 
 @article{golic1988decimated,
@@ -442,7 +442,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   number  = {5},
   pages   = {1077--1079},
   year    = {1988},
-  note    = {[not in pubs/] IEEE paywalled (DOI not verified; omitted).
+  note    = {[TODO: library] (IEEE, paywalled) IEEE paywalled (DOI not verified; omitted).
              Decimated linear complexity: take every d-th output bit and run Berlekamp-Massey;
              complexity collapses at specific decimation factors for LFSR-based generators.
              (This entry replaces an earlier citation of a 1997 Goli\'{c} single-author
@@ -458,7 +458,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   pages   = {322--333},
   year    = {2003},
   doi     = {10.1145/945511.945515},
-  note    = {[TODO: library] ACM paywalled; no author preprint found. ResearchGate listing:
+  note    = {[not in pubs/: the ACM Digital Library refuses automated download] ACM paywalled; no author preprint found. ResearchGate listing:
              https://www.researchgate.net/publication/2953435
              Walsh-Hadamard spectral test; sensitive to nonlinear Boolean structure in
              keystream generators. Specifically applied to AES-based PRNGs, making it a
@@ -501,7 +501,7 @@ previously missing from this bibliography.
   note    = {[TODO: open-access PDF at PMC: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC51218/]
              Original ApEn(m) definition: φ(m) − φ(m+1) over overlapping patterns.
              NIST SP 800-22 §2.12 and `src/nist/approximate_entropy.rs` implement this statistic.
-             Multi-scale sweep over m=2..6 is in `src/research/approx_entropy.rs`.}
+             Multi-scale sweep over m=2..6 is in `src/research/approx_entropy.rs`. [not in pubs/: PNAS and PubMed Central (PMC51218) refuse automated download]}
 }
 
 @article{massey1969lfsr,
@@ -513,7 +513,7 @@ previously missing from this bibliography.
   pages   = {122--127},
   year    = {1969},
   doi     = {10.1109/TIT.1969.1054260},
-  note    = {[TODO: library] The Berlekamp-Massey algorithm for computing the minimal LFSR
+  note    = {[TODO: library] (IEEE, paywalled) The Berlekamp-Massey algorithm for computing the minimal LFSR
              that generates a given sequence.  Used in NIST SP 800-22 §2.10
              (`src/nist/linear_complexity.rs`) and implicitly in the linear-complexity
              profile test in TestU01 BigCrush.}
@@ -528,12 +528,115 @@ previously missing from this bibliography.
   pages   = {81--85},
   year    = {1981},
   doi     = {10.2307/2346560},
-  note    = {[TODO: library] Covariance matrix and expected proportions for the
+  note    = {[TODO: library] (JSTOR, paywalled) Covariance matrix and expected proportions for the
              runs-up/down chi-square statistic.  Used verbatim in
              `src/diehard/runs_float.rs` (constant PSEUDO_INV_COV matrix).
              (The runs test in `src/research/knuth.rs` is the distinct
              Wald-Wolfowitz runs-above/below-median statistic, not this one.)
              See also Knuth TAOCP Vol. 2 §3.3.2.}
+}
+```
+
+---
+
+## Reference sources and supporting papers
+
+```bibtex
+@article{marsaglia2004anderson,
+  author  = {Marsaglia, George and Marsaglia, John C. W.},
+  title   = {Evaluating the {Anderson-Darling} Distribution},
+  journal = {Journal of Statistical Software},
+  volume  = {9},
+  number  = {2},
+  year    = {2004},
+  doi     = {10.18637/jss.v009.i02},
+  note    = {[pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]}
+}
+
+@article{marsaglia2003kolmogorov,
+  author  = {Marsaglia, George and Tsang, Wai Wan and Wang, Jingbo},
+  title   = {Evaluating {Kolmogorov}'s Distribution},
+  journal = {Journal of Statistical Software},
+  volume  = {8},
+  number  = {18},
+  year    = {2003},
+  doi     = {10.18637/jss.v008.i18},
+  note    = {Exact KS distribution behind math::ks_pvalue. [pubs/marsaglia-tsang-wang-2003-kolmogorov-distribution.pdf]}
+}
+
+@misc{kim2004niststs,
+  author       = {Kim, Song-Ju and Umeno, Ken and Hasegawa, Akio},
+  title        = {Corrections of the {NIST} Statistical Test Suite for Randomness},
+  howpublished = {IACR Cryptology ePrint Archive, Report 2004/018},
+  year         = {2004},
+  note         = {[pubs/kim-umeno-hasegawa-2004-nist-sts-corrections.pdf]}
+}
+
+@article{hamano2007overlapping,
+  author  = {Hamano, Kenji and Kaneko, Toshinobu},
+  title   = {Correction of Overlapping Template Matching Test Included in {NIST} Randomness Test Suite},
+  journal = {IEICE Transactions on Fundamentals of Electronics, Communications and Computer Sciences},
+  volume  = {E90-A},
+  number  = {9},
+  pages   = {1788--1792},
+  year    = {2007},
+  doi     = {10.1093/ietfec/e90-a.9.1788},
+  note    = {[not in pubs/: the IEICE site refuses automated download]}
+}
+
+@misc{killmann2004dft,
+  author       = {Killmann, W. and Sch{\"u}th, J. and Thumser, W. and Uludag, I.},
+  title        = {A Note Concerning the {DFT} Test in {NIST} Special Publication 800-22},
+  howpublished = {T-Systems, Systems Integration},
+  year         = {2004},
+  note         = {Cited by SP 800-22 Rev. 1a. [not in pubs/: no public copy found]}
+}
+
+@article{lecuyer1999lcg,
+  author  = {L'Ecuyer, Pierre and Simard, Richard},
+  title   = {Beware of Linear Congruential Generators with Multipliers of the Form $a = \pm 2^q \pm 2^r$},
+  journal = {ACM Transactions on Mathematical Software},
+  volume  = {25},
+  number  = {3},
+  pages   = {367--374},
+  year    = {1999},
+  doi     = {10.1145/326147.326156},
+  note    = {[not in pubs/: the ACM Digital Library refuses automated download]}
+}
+
+@misc{nist-sts-2.1.2,
+  author       = {{National Institute of Standards and Technology}},
+  title        = {{NIST} Statistical Test Suite, version 2.1.2},
+  howpublished = {https://csrc.nist.gov/CSRC/media/Projects/Random-Bit-Generation/documents/sts-2\_1\_2.zip},
+  note         = {Source code, templates and the constant expansions data.e, data.pi, data.sqrt2 and data.sqrt3; repacked without the generator-output files in data/ and the empty experiments/ tree. Original sha256 0238d2f1d26e120e3cc748ed2d4c674cdc636de37fc4027c76cc2a394fff9157. [pubs/NIST-STS-2.1.2-src-and-constants.zip]}
+}
+
+@misc{testu01-source,
+  author       = {L'Ecuyer, Pierre and Simard, Richard},
+  title        = {{TestU01} source code},
+  howpublished = {https://github.com/umontreal-simul/TestU01-2009, commit 57e98bf33880daedc930739c81e39b89a8d24dba},
+  note         = {Includes testu01/sstring.c (HammingCorr, HammingIndep) and testu01/scomp.c (LempelZiv). [pubs/TestU01-2009-57e98bf33880.tar.gz]}
+}
+
+@misc{gsl-2.8,
+  author       = {Galassi, M. and others},
+  title        = {{GNU} Scientific Library 2.8, random number generator sources},
+  howpublished = {https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz},
+  note         = {rng/, COPYING, AUTHORS and README only; gsl\_rng\_uniform\_int is in rng/gsl\_rng.h. Original sha256 6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190. [pubs/gsl-2.8-rng-subset.tar.gz]}
+}
+
+@misc{glibc-2.40-random,
+  author       = {{The GNU C Library contributors}},
+  title        = {{GNU} C Library 2.40, stdlib/random.c and stdlib/random\_r.c},
+  howpublished = {https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz},
+  note         = {The srandom/random implementation LinuxLibcRandom emulates. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], license [pubs/glibc-2.40-COPYING.LIB]}
+}
+
+@misc{freebsd-libc-random,
+  author       = {{The FreeBSD Project}},
+  title        = {{FreeBSD} libc stdlib/random.c and stdlib/rand.c},
+  howpublished = {https://github.com/freebsd/freebsd-src, commit 0d022baa047aea6499e394d2cd8d097820ecf486},
+  note         = {BSD random() and rand\_r() reference implementations. [pubs/freebsd-0d022baa047a-random.c], [pubs/freebsd-0d022baa047a-rand.c]}
 }
 ```
 

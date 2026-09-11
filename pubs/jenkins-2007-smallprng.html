@@ -1,0 +1,342 @@
+<html>
+<head>
+  <title>A small noncryptographic pseudorandom number generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />  
+</head>
+<body bgcolor="#ffffff" text="#000000" link="#0000ff" 
+vlink="#00ff00" alink="#ff0000">
+
+
+<center><h2>A small noncryptographic PRNG</h2></center>
+
+<p>This is a small fast pseudorandom number generator, suitable for
+large statistical calculations, but not of cryptographic quality.
+Although there is no guaranteed minimum cycle length, the average
+cycle length is expected to be about 2<sup>126</sup> results.
+
+<center>
+<h4>The fastest small unbiased noncryptographic PRNG that I could find (in C)</h4>
+<table><tr><td>
+<pre>
+typedef unsigned long int  u4;
+typedef struct ranctx { u4 a; u4 b; u4 c; u4 d; } ranctx;
+
+#define rot(x,k) (((x)&lt;&lt;(k))|((x)&gt;&gt;(32-(k))))
+u4 ranval( ranctx *x ) {
+    u4 e = x-&gt;a - rot(x-&gt;b, 27);
+    x-&gt;a = x-&gt;b ^ rot(x-&gt;c, 17);
+    x-&gt;b = x-&gt;c + x-&gt;d;
+    x-&gt;c = x-&gt;d + e;
+    x-&gt;d = e + x-&gt;a;
+    return x-&gt;d;
+}
+
+void raninit( ranctx *x, u4 seed ) {
+    u4 i;
+    x-&gt;a = 0xf1ea5eed, x-&gt;b = x-&gt;c = x-&gt;d = seed;
+    for (i=0; i&lt;20; ++i) {
+        (void)ranval(x);
+    }
+}
+</pre>
+</td></tr></table></center>
+
+<p>I have not found any test in any configuration that it does not pass.
+It passes DIEHARD.  Sampling just the bottom byte, it passes the run
+test (both up and down), and the gap test (for gaps up to length 32)
+for 2 trillion values (<a href="../c/chi.c">chi.c</a>).  The frequency
+test (again on the bottom byte) looked suspicious at 1 trillion values
+(chi-square=5), so I ran it for 4 trillion values (chi-square=0.42),
+showing the earlier result was a fluke (<a
+href="../c/freq.c">freq.c</a>).  A test that counts bits per value for
+five consecutive values (<a href="../c/countx.c">countx.c</a>) passes 
+for at least 16 trillion values, both for normal and for graycoded
+values.  It passes Geronimo Jones' nda test for at least 1 trillion
+values (4 trillion bytes).
+
+<p>The strongest test for small-state generators I've run across is
+Bob Blorp2's bitcounting test (<a href="../c/countx.c">countx.c</a>).
+Near as I can tell, what it is doing is indirectly measuring how much
+avalanche happens by the time entropy is first recycled.  For this
+generator that's 5 results.  I 
+can measure that directly too: for every bit of the internal state, I
+can start with two copies of a random state that differ in just that
+bit, then run the generator for 5 results, and XOR their 5th result.
+Complete avalanche would give an average of 16 bits differing.  The
+program <a href="../c/rngav.c">rngav.c</a> measures this: for the PRNG
+above, at least 8.8
+bits are affected on average.  I used the shifts (27, 17).  Others
+that achieve 8.8 bits of avalanche include (9,16), (9,24), (10,16),
+(10,24), (11,16), (11,24), (25,8), (25,16), (26,8), (26,16), (26,17),
+and (27,16).  Avalanche is much better in reverse, but the code is
+also slower, both because of more read-after-write dependencies.  It
+is possible to not fully achieve avalanche yet still pass all
+practical tests for randomness because nearly-identical states are
+very rare among the set of all possible states.
+
+<p>If raninit(seed) is used (one of those 2<sup>32</sup> seeds), the
+  shortest cycle is expected to be about 2<sup>94</sup> (because
+  126-32 = 94), and it expected that about one seed will run into
+  another seed within 2<sup>64</sup> values (because 128-64-2*32=0).
+  That's probabilistic; the actual shortest cycle or collision could be better
+  or worse than that.  I've tested each seed from raninit() to certain
+  lengths to guarantee it does not cycle and does not hit any other
+  seed.  (You do that by starting a=0xf1ea5eed and b=c=d=seed, then
+  checking the state after every value for b==c and b==d and
+  a==0xf1ea5eed).  How far I tested is limited by computing resources
+  on hand.  I tested seed 0
+  (the first 2<sup>0</sup> seeds) for 2<sup>50</sup> values, 0..31
+  (the first 2<sup>5</sup> seeds) for 2<sup>46</sup> values, the first
+  2<sup>10</sup> seeds for 2<sup>40</sup> values, the first
+  2<sup>21</sup> seeds for 2<sup>32</sup> values, and all
+  2<sup>32</sup> seeds for 2<sup>20</sup> values.  No cycles or overlaps
+  were found.
+  
+<p>I wrote this PRNG.  I place it in the public domain.  Same goes for
+at least the implementation of all those tests linked to above. 
+
+<p>I suspect that all you need for a statistically good pseudorandom
+number generator is
+<ul>
+<li>A reversible, nonlinear function where all internal state bits
+affect one another
+<li>A big enough state to give you a long cycle length
+<li>Sufficiently fast mixing, when run either forward or backward
+</ul>
+If that's all there is to it, designing statistically good
+pseudorandom number generators is pretty much a solved problem.  You
+can tell by inspection if a generator has a big enough state and uses
+a reversible, and nonlinear function, where all the
+state affects all the state, there isn't some piece that isn't
+affected by some other piece.  <a href="../c/rngav.c">rngav.c</a> can
+very quickly tell you how fast it mixes.  How big an internal state is
+needed?  96 bits is cutting it too close, 128 bits seems good enough.
+How fast does mixing have to be?  4 out of 32 bits of avalanche before
+recycling entropy isn't good enough.  Is 8.8 bits good enough?
+Probably.  Though I could be wrong.  
+
+
+<p>(April 2009) Elias Yarrkov used a black-box solver to find some fixed 
+points of this generator (which produce cycles of length 1):
+<center><table><tr><td><pre>
+{ 0x00000000, 0x00000000, 0x00000000, 0x00000000 },
+{ 0x77777777, 0x55555555, 0x11111111, 0x44444444 },
+{ 0x5591F2E3, 0x69EBA6CD, 0x2A171E3D, 0x3FD48890 },
+{ 0x47CB8D56, 0xAE9B35A7, 0x5C78F4A8, 0x522240FF }
+</pre></td></tr></table></center>
+(January 2016) David Blackman found two more, and claims that these six
+solutions are all that there are.  I have not verified.
+<center><table><tr><td><pre>
+{ 0x71AAC8F9, 0x66B4F5D3, 0x1E950B8F, 0x481FEA44 },
+{ 0xAB23E5C6, 0xD3D74D9A, 0x542E3C7A, 0x7FA91120 }
+</pre></td></tr></table></center>
+These states are impossible to reach if the state is initialized with
+raninit() because none of them start with 0xf1ea5eed.
+
+<center><h4>A third rotate would have improved avalanche</h4></center>
+
+<p>A third rotate could be introduced into ranval() without
+increasing the maximum parallel path through the code.  This came out
+significantly slower with the Microsoft Visual Studio compiler,
+though.  (MS VS uses pointer arithmetic for the additions, to trick
+Intel's compiler into using 3-variable instructions instead of
+2-variable.  The extra rotate thwarted that, thus the speed hit.)
+A third rotate could increase minimum avalanche to 13 bits, on
+average, like so: 
+
+<center><table><tr><td>
+<pre>
+u4 ranval( ranctx *x ) {
+    u4 e = x-&gt;a - rot(x-&gt;b, 23);
+    x-&gt;a = x-&gt;b ^ rot(x-&gt;c, 16);
+    x-&gt;b = x-&gt;c + rot(x-&gt;d, 11);
+    x-&gt;c = x-&gt;d + e;
+    x-&gt;d = e + x-&gt;a;
+    return x-&gt;d;
+}
+</pre>
+</td></tr></table></center>
+
+<p>Shifts amounts achieving 13 bits avalanche include (3,14,24),
+(3,25,15), (4,15,24), (6,16,28), (7,16,27), (8,14,3), (11,16,23),
+(12,16,22), (12,17,23), (13,16,22), (15,25,3), (16,9,3), (17,9,3),
+(17,27,7), (19,7,3), (23,15,11), (23,16,11), (23,17,11), (24,3,16),
+(24,4,16), (25,14,3), (27,16,6), (27,16,7).  I imagine these are
+significantly more pseudorandom than the PRNG at the top.  However,
+since they run slower and no test I know of can detect nonrandomness in
+either, I'm recommending the 2-shift version.
+
+<center><h4>Timings (June 2009)</h4></center>
+
+<p>My original timings had one file containing both the generator and
+a tight loop testing the generator.  The compiler inlined the generators 
+into the tight loop, keeping the state in registers.  On the
+register-starved Intel platform, that would never happen for real uses
+of a generator: whatever the random numbers are used for would kick
+the generator's state out of registers.
+
+<p>Another approach is to use the generator to fill a large array, then 
+to read values out of that array one by one, like with this code in a 
+.h file:
+<center><table><tr><td><pre>
+static inline u4 ranval(random_context *r)
+{
+  if (r->count >= SIZE) {
+    fill(r);
+    r->count = 0;
+  }
+  return r->result[r->count++];
+}
+</pre></td></tr></table></center>
+The generator would then have a loop to produce SIZE=256 values, and
+it would be normal even in real use to keep the generator state in 
+registers while the array is being filled.
+
+<p>Here's some new timings of generators for 20000*65536 results for
+various generators, variously inlined, used with a 256-item array, or
+in a routine that calculates a single value.  Timed with cygwin gcc
+4.3.2 -O3 on a 1.86GHz Intel 6300.
+<ul>
+<li>2.52 seconds: Knuth's delayed fibonacci, 256-item array, inlined 
+in the tight loop.
+<li>3.64 seconds: Knuth's delayed fibonacci, separate routine, fill
+and exhaust a 256-item array.
+<li>4.31 seconds: My 2-rotate small prng, inlined in the tight loop.
+<li>4.69 seconds: My 3-rotate small prng, inlined in the tight loop.
+<li>5.75 seconds: My 2-rotate small prng, separate routine, fill a
+256-item array then exhaust the values.
+<li>6.58 seconds: Knuth's delayed fibonacci, separate routine, called
+directly (it calculates a new value per call, 1024 bytes total state).
+<li>6.72 seconds: My 3-rotate small prng, separate routine, fill a
+256-item array then exhaust the values.
+<li>8.22 seconds: <a href="isaacafa.html">ISAAC</a>, my cryptographic
+random number generator, which uses a 256-item array.
+<li>9.55 seconds: My 2-rotate small prng, separate routine, called
+directly (it calculates a new value per call, 16 bytes total state).
+<li>10.23 seconds: My 3-rotate small prng, separate routine, called
+directly (it calculates a new value per call, 16 bytes total state).
+<li>11.90 seconds: the Mersenne Twister, used as directed.
+</ul>
+
+<center><h4>64-bit variants</h4></center>
+
+<p>If you want to use 8-byte terms instead of 4-byte terms, the proper
+rotate amounts are (39,11) for the two-rotate version (yielding at
+least 13.3 bits of avalanche after 5 rounds) or (7,13,37) for the
+three-rotate version (yielding 18.4 bits of avalanche after 5
+rounds).  I think I'd go with the three-rotate version, because the
+ideal is 32 bits of avalanche, and 13.3 isn't even half of that.
+
+<center><table><tr><td>
+<pre>
+typedef unsigned long long u8;
+typedef struct ranctx { u8 a; u8 b; u8 c; u8 d; } ranctx;
+
+#define rot(x,k) (((x)&lt;&lt;(k))|((x)&gt;&gt;(64-(k))))
+u8 ranval( ranctx *x ) {
+    u8 e = x-&gt;a - rot(x-&gt;b, 7);
+    x-&gt;a = x-&gt;b ^ rot(x-&gt;c, 13);
+    x-&gt;b = x-&gt;c + rot(x-&gt;d, 37);
+    x-&gt;c = x-&gt;d + e;
+    x-&gt;d = e + x-&gt;a;
+    return x-&gt;d;
+}
+
+void raninit( ranctx *x, u8 seed ) {
+    u8 i;
+    x-&gt;a = 0xf1ea5eed, x-&gt;b = x-&gt;c = x-&gt;d = seed;
+    for (i=0; i&lt;20; ++i) {
+        (void)ranval(x);
+    }
+}
+</pre>
+</td></tr></table></center>
+
+<p>I don't think that there's an 8-byte rotate instruction on any
+64-bit platform.  And you only need 2 terms to get to 128 bits of
+internal state if you have 64-bit terms.  Quite likely 64-bit deserves
+a whole different approach, not just different constants.
+
+<p>Dale Weiler implemented this prng as a 
+<a href="http://pastebin.com/raw.php?i=c1QXhC0r">compiletime constant</a>
+
+<p><i>2020: I have another 64-bit bit generator, <a href="wob.html">WOB</a>,
+  with 2 mixing registers and 1 counter which is 100% guaranteed a cycle
+  length of at least 2<sup>64</sup> and that the sequences from
+  different seeds do not overlap for at least 2<sup>64</sup> values.</i>
+
+<center><h4>An unlikely-to-be secure extention of this PRNG</h4></center>
+
+<p>The small-state version isn't suitable for encryption.  However, if
+x-&gt;b is replaced with an array and e is used for lookup in the
+array, it becomes something that is possibly of cryptographic strength:
+
+<center>
+<table><tr><td>
+<pre>
+typedef unsigned long int  u4;
+typedef struct ranctx { u4 a; u4 b[256]; u4 c; u4 d;} ranctx;
+
+#define rot(x,k) (((x)&lt;&lt;(k))|((x)&gt;&gt;(32-(k))))
+void ranxor( ranctx *x, u4 m[256] ) {
+    u4 i;
+    for (i=0; i&lt;256; ++i) {
+        u4 e = x-&gt;a - rot(x-&gt;b[i], 27);
+        x-&gt;a = x-&gt;b[e%256] ^ rot(x-&gt;c, 17);
+        x-&gt;b[e%256] = x-&gt;c + x-&gt;d;
+        x-&gt;c = x-&gt;d + e;
+        x-&gt;d = e + x-&gt;a;
+        m[i] ^= x-&gt;d;
+    }
+}
+
+void raninit( ranctx *x, u4 seed[128] ) {
+    u4 i;
+    u4 junk[256];
+    x-&gt;a = x-&gt;c = x-&gt;d = 0xf1ea5eed;
+    for (i=0; i&lt;128; ++i) {
+        x-&gt;b[i] = x-&gt;b[i+128] = seed[i];
+    }
+    for (i=0; i&lt;10; ++i) {
+        ranxor(x, junk);
+    }
+}
+</pre>
+</td></tr></table></center>
+
+<p>The routine ranxor() takes a message m[] consisting of 256 4-byte
+values and XORs 256 pseudorandom 4-byte values with it.
+
+<p>I strongly recommend against using this for any cryptographic
+purpose.  If it is secure, it is just barely so.  I don't think it's
+even particularly fast.  The only value I see in it is as a target for
+cryptanalysis and possible inspiration for future stream ciphers.
+
+<p>Although lack of bias comes from the same good mixing as the
+original generator, the security comes more from the pseudorandom
+lookups than from the mixing.  The most blatant weakness is that there
+is one pseudorandom lookup per result returned, leaving a system with
+n+256 variables and n equations after seeing n results (counting
+pseudorandom lookups as separate variables than lookups from known
+positions).  If you can make progress guessing or linking the
+variables the whole thing should be solvable. Another weakness (and
+the most curious part of this generator) is that the positions to be
+updated in x-&gt;b[] are selected pseudorandomly rather than in a
+regular order.  That means each pass leaves about 1/e of the positions
+in x-&gt;b[] unchanged.   Which means you can reduce the number of
+independent variables just by guessing which positions don't get
+changed between rounds.
+
+<p>I still don't know how to break it, but I haven't tried very hard.
+
+<hr>
+
+<p><a href="talksmall.html">Text for a talk I gave on designing smallstate PRNGs</a>
+<br><a href="wob.html">Wob2m: a faster 64-bit PRNG with cycle at least 2<sup>64</sup></a>
+<br><a href="isaacafa.html">ISAAC, a cryptographic PRNG</a>
+<br><a href="../hash/integer.html">Hash functions for 32-bit integers</a>
+<br><a href="../math/jenny.html">Jenny, a pairwise testing tool</a>
+<br><a href="../math/lexicode.html">Lexicodes: sets of values all n bits apart</a>
+<br><a href="../index.html">Table of Contents</a>
+</body>
+</html>
