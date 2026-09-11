@@ -19,6 +19,10 @@
 //!                                    diehard_historical::, or maurer::, which
 //!                                    the NIST battery emits) only that battery
 //!                                    is generated, saving time.
+//!                                    diehard-historical:: is accepted for
+//!                                    diehard_historical::.  A <name> that
+//!                                    matches no result of the selected
+//!                                    batteries is a usage error.
 //!   --rng   <label>                  Run only RNGs whose label contains <label>,
 //!                                    ignoring case (repeatable).
 //!   --quick                          Use reduced sample counts in DIEHARD/DIEHARDER.
@@ -83,6 +87,100 @@ const _: () = assert!(DIEHARD_HISTORICAL_N >= diehard::historical::WORDS_NEEDED)
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
+/// Prefix of every historical DIEHARD result name.
+const HISTORICAL_TEST_PREFIX: &str = "diehard_historical::";
+/// The same prefix spelled like its `--suite` value, accepted by `--test`.
+const HISTORICAL_TEST_ALIAS: &str = "diehard-historical::";
+
+/// Every result name each battery emits, which `--test` patterns are checked
+/// against.  `result_families_are_the_names_each_battery_emits` keeps it in
+/// step with the batteries.
+const RESULT_FAMILIES: [(Suite, &[&str]); 4] = [
+    (
+        Suite::Nist,
+        &[
+            "maurer::universal_l05",
+            "maurer::universal_l06",
+            "maurer::universal_l07",
+            "maurer::universal_l08",
+            "maurer::universal_l09",
+            "maurer::universal_l10",
+            "maurer::universal_l11",
+            "maurer::universal_l12",
+            "maurer::universal_l13",
+            "maurer::universal_l14",
+            "maurer::universal_l15",
+            "maurer::universal_l16",
+            "nist::approximate_entropy",
+            "nist::block_frequency",
+            "nist::cumulative_sums_backward",
+            "nist::cumulative_sums_forward",
+            "nist::frequency",
+            "nist::linear_complexity",
+            "nist::longest_run",
+            "nist::matrix_rank",
+            "nist::non_overlapping_template",
+            "nist::overlapping_template",
+            "nist::random_excursions",
+            "nist::random_excursions_variant",
+            "nist::runs",
+            "nist::serial_delta1",
+            "nist::serial_delta2",
+            "nist::spectral",
+            "nist::universal",
+        ],
+    ),
+    (
+        Suite::Diehard,
+        &[
+            "diehard::binary_rank_31x31",
+            "diehard::binary_rank_32x32",
+            "diehard::binary_rank_6x8",
+            "diehard::birthday_spacings",
+            "diehard::bitstream",
+            "diehard::count_ones_stream",
+            "diehard::craps_throws",
+            "diehard::craps_wins",
+            "diehard::dna",
+            "diehard::minimum_distance_2d",
+            "diehard::opso",
+            "diehard::oqso",
+            "diehard::parking_lot",
+            "diehard::runs_down",
+            "diehard::runs_up",
+            "diehard::spheres_3d",
+            "diehard::squeeze",
+        ],
+    ),
+    (
+        Suite::Dieharder,
+        &[
+            "dieharder::bit_distribution",
+            "dieharder::byte_distribution",
+            "dieharder::dct",
+            "dieharder::fill_tree_count",
+            "dieharder::fill_tree_position",
+            "dieharder::gcd_distribution",
+            "dieharder::gcd_step_counts",
+            "dieharder::ks_uniform",
+            "dieharder::lagged_sums",
+            "dieharder::minimum_distance_nd",
+            "dieharder::monobit2",
+            "dieharder::permutations",
+        ],
+    ),
+    (
+        Suite::DiehardHistorical,
+        &[
+            "diehard_historical::count_ones_bytes_25_fresh",
+            "diehard_historical::operm5_dieharder",
+            "diehard_historical::overlapping_sums_fortran",
+            "diehard_historical::rank_6x8_25_fresh",
+            "diehard_historical::rank_6x8_25_fresh_summary",
+        ],
+    ),
+];
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Suite {
     Nist,
@@ -90,6 +188,18 @@ enum Suite {
     Dieharder,
     /// `diehard::historical`: never part of the default selection.
     DiehardHistorical,
+}
+
+impl Suite {
+    /// The `--suite` value that selects this battery.
+    fn flag(&self) -> &'static str {
+        match self {
+            Suite::Nist => "nist",
+            Suite::Diehard => "diehard",
+            Suite::Dieharder => "dieharder",
+            Suite::DiehardHistorical => "diehard-historical",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -170,6 +280,14 @@ impl Args {
             }
         }
 
+        // `diehard-historical::`, spelled like the suite, names the same results
+        // as `diehard_historical::`.
+        if let Some(pat) = test_filter.as_mut() {
+            if let Some(rest) = pat.strip_prefix(HISTORICAL_TEST_ALIAS) {
+                *pat = format!("{HISTORICAL_TEST_PREFIX}{rest}");
+            }
+        }
+
         // If --suite was not given but --test has a suite prefix, infer the suite
         // so we don't generate unnecessary random data for other batteries.
         let suites = if !explicit_suites.is_empty() {
@@ -178,7 +296,7 @@ impl Args {
             let mut inferred = HashSet::new();
             // maurer:: slots are emitted by nist::run_all, so they belong to
             // the NIST battery for inference purposes.
-            if pat.starts_with("diehard_historical::") {
+            if pat.starts_with(HISTORICAL_TEST_PREFIX) {
                 inferred.insert(Suite::DiehardHistorical);
             } else if pat.starts_with("nist::") || pat.starts_with("maurer::") {
                 inferred.insert(Suite::Nist);
@@ -193,13 +311,44 @@ impl Args {
             HashSet::new() // empty = the three default suites
         };
 
-        Ok(Command::Run(Args {
+        let args = Args {
             quick,
             suites,
             test_filter,
             rng_filters,
             fail_on_fail,
-        }))
+        };
+        args.check_test_filter()?;
+        Ok(Command::Run(args))
+    }
+
+    /// A `--test` pattern must match a result that a selected battery emits;
+    /// otherwise the run would print nothing and still exit 0.
+    fn check_test_filter(&self) -> Result<(), String> {
+        let Some(pat) = &self.test_filter else {
+            return Ok(());
+        };
+        let holders: Vec<&Suite> = RESULT_FAMILIES
+            .iter()
+            .filter(|(_, names)| names.iter().any(|name| name.contains(pat.as_str())))
+            .map(|(suite, _)| suite)
+            .collect();
+        if holders.is_empty() {
+            return Err(format!(
+                "--test '{pat}' matches no result name — names look like nist::frequency, \
+                 diehard::craps_wins, dieharder::gcd_distribution or \
+                 diehard_historical::operm5_dieharder"
+            ));
+        }
+        if !holders.iter().any(|suite| self.run_suite(suite)) {
+            let flags: Vec<&str> = holders.iter().map(|suite| suite.flag()).collect();
+            return Err(format!(
+                "--test '{pat}' matches only results of --suite {}, which this selection \
+                 does not run",
+                flags.join(", --suite ")
+            ));
+        }
+        Ok(())
     }
 
     /// Whether suite `s` runs.  An empty selection runs NIST, DIEHARD and
@@ -246,7 +395,8 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
                  The selected batteries still run in full; this filters output.
                  Prefix nist::/diehard::/dieharder::/diehard_historical:: (or
                  maurer::, emitted by the NIST battery) also limits which
-                 battery runs.
+                 battery runs; diehard-historical:: works too.  A <name> that
+                 matches no result of the selected batteries is a usage error.
  --rng           Run only RNGs whose label contains <label>, ignoring case.
                  Repeatable.  A selection that runs no RNG is a usage error.
  --quick         Reduced sample counts in DIEHARD/DIEHARDER (faster, less sensitive).
@@ -804,7 +954,7 @@ mod tests {
     fn test_prefix_infers_the_suite_unless_suite_is_given() {
         for (pattern, suite) in [
             ("nist::runs", Suite::Nist),
-            ("maurer::universal_l7", Suite::Nist),
+            ("maurer::universal_l07", Suite::Nist),
             ("diehard::craps", Suite::Diehard),
             ("dieharder::gcd", Suite::Dieharder),
         ] {
@@ -812,7 +962,7 @@ mod tests {
             assert_eq!(a.suites, HashSet::from([suite]), "{pattern}");
         }
         assert!(run_args(&["--test", "frequency"]).suites.is_empty());
-        let a = run_args(&["--suite", "diehard", "--test", "nist::runs"]);
+        let a = run_args(&["--suite", "diehard", "--test", "runs"]);
         assert_eq!(a.suites, HashSet::from([Suite::Diehard]));
     }
 
@@ -825,7 +975,6 @@ mod tests {
             &["--quick"][..],
             &["--suite", "diehard"][..],
             &["--test", "diehard::craps"][..],
-            &["--test", "operm5"][..],
         ] {
             assert!(
                 !run_args(argv).run_suite(&Suite::DiehardHistorical),
@@ -845,6 +994,86 @@ mod tests {
             err.contains("Dual_EC_DRBG") && err.contains("NIST"),
             "{err}"
         );
+    }
+
+    /// Every result name, and every suite prefix, still selects its battery.
+    /// The hyphenated historical prefix selects the historical suite and is
+    /// rewritten so it matches.  A pattern that matches no result, or only
+    /// results of batteries the selection does not run, is a usage error.
+    #[test]
+    fn test_patterns_are_checked_against_the_result_names() {
+        for (suite, names) in &RESULT_FAMILIES {
+            for name in *names {
+                let a = run_args(&["--test", name]);
+                assert!(a.run_suite(suite) && a.matches(name), "{name}");
+            }
+        }
+        for pat in [
+            "frequency",
+            "runs",
+            "count_ones",
+            "nist::",
+            "maurer::",
+            "diehard::",
+            "dieharder::",
+            "diehard_historical::",
+            "",
+        ] {
+            run_args(&["--test", pat]);
+        }
+        for pat in [
+            "diehard-historical::operm5_dieharder",
+            "diehard-historical::",
+        ] {
+            let a = run_args(&["--test", pat]);
+            assert_eq!(a.suites, HashSet::from([Suite::DiehardHistorical]), "{pat}");
+            assert!(a.matches("diehard_historical::operm5_dieharder"), "{pat}");
+        }
+        for (argv, message) in [
+            (&["--test", "bogus"][..], "matches no result name"),
+            (&["--test", "nist::bogus"][..], "matches no result name"),
+            (
+                &["--test", "maurer::universal_l7"][..],
+                "matches no result name",
+            ),
+            (
+                &["--test", "diehard-historical::bogus"][..],
+                "matches no result name",
+            ),
+            (&["--test", "operm5"][..], "--suite diehard-historical"),
+            (
+                &["--suite", "diehard", "--test", "nist::runs"][..],
+                "--suite nist",
+            ),
+            (
+                &["--suite", "nist", "--test", "rank_6x8"][..],
+                "--suite diehard, --suite diehard-historical",
+            ),
+        ] {
+            let err = parse(argv).expect_err("usage error");
+            assert!(err.contains(message), "{argv:?}: {err}");
+        }
+    }
+
+    /// `RESULT_FAMILIES` holds exactly the names each battery emits.  A run on
+    /// 1 000 words (bits, for NIST) emits every name a full run does, because
+    /// a test that cannot run still reports SKIP under its name.
+    #[test]
+    fn result_families_are_the_names_each_battery_emits() {
+        use std::collections::BTreeSet;
+        let names = |results: Vec<TestResult>| -> BTreeSet<&'static str> {
+            results.iter().map(|r| r.name).collect()
+        };
+        let emitted = [
+            names(nist::run_all(&mut Mt19937::new(1), 1_000)),
+            names(diehard::run_all(&mut Mt19937::new(1), 1_000, true)),
+            names(dieharder::run_all(&mut Mt19937::new(1), 1_000, true)),
+            names(diehard::historical::run_all(&mut Mt19937::new(1), 1_000)),
+        ];
+        for ((suite, listed), got) in RESULT_FAMILIES.iter().zip(&emitted) {
+            let listed: BTreeSet<&str> = listed.iter().copied().collect();
+            assert_eq!(&listed, got, "{suite:?}");
+        }
     }
 
     #[test]
