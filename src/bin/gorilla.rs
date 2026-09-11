@@ -1,5 +1,7 @@
 //! Marsaglia–Tsang Gorilla test (JSS 7(3), 2002) over all 32 bit positions of
-//! each seeded generator, with a per-bit table and a KS aggregate p-value.
+//! each seeded generator, with a per-bit table and a Kolmogorov–Smirnov
+//! aggregate p-value.  The paper aggregates with an Anderson–Darling–
+//! Kolmogorov–Smirnov test instead; see `entropy::research::marsaglia_tsang`.
 
 use entropy::research::marsaglia_tsang::{gorilla_aggregate_ks, gorilla_all, GorillaBitResult};
 use entropy::rng::{

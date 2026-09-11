@@ -5,15 +5,21 @@
 //! George Marsaglia and Wai Wan Tsang, "Some difficult-to-pass tests of
 //! randomness", Journal of Statistical Software 7(3), 2002.
 //!
-//! The paper's Gorilla test:
+//! The paper's Gorilla test (pp. 5–6):
 //! - selects one bit position from each 32-bit output word
 //! - forms a bit stream of length 2^26 + 25
 //! - counts how many 26-bit words are missing from the 2^26 overlapping windows
 //! - compares the missing-word count to a normal approximation with
 //!   mean 24,687,971 and standard deviation 4,170
-//! - then runs a KS uniformity check on the resulting 32 per-bit p-values
-//!   to catch generators whose problem is collective non-uniformity across
-//!   bit positions rather than one spectacularly bad bit
+//! - then applies an Anderson–Darling–Kolmogorov–Smirnov ("ADKS") test to
+//!   the 32 per-bit p-values, to catch generators whose problem is collective
+//!   non-uniformity across bit positions rather than one spectacularly bad bit
+//!
+//! Deviation from the paper: [`gorilla_aggregate_ks`] aggregates the 32
+//! p-values with a plain Kolmogorov–Smirnov test (`math::ks_test`), not ADKS.
+//! The paper names its ADKS test without defining it, and no source for its
+//! null distribution is in `pubs/`, so the aggregate p-values are not
+//! comparable with the paper's ADKS figures.
 
 use crate::math::{ks_test, normal_cdf};
 
@@ -110,13 +116,15 @@ pub fn gorilla_all(words: &[u32]) -> Vec<GorillaBitResult> {
         .collect()
 }
 
-/// Run a KS uniformity check on the 32 per-bit p-values from [`gorilla_all`].
+/// Run a Kolmogorov–Smirnov uniformity check on the 32 per-bit p-values from
+/// [`gorilla_all`].
 ///
 /// Returns a single aggregate p-value.  A value near 0 means the per-bit
 /// p-values are not uniformly distributed on [0, 1], which indicates
 /// systematic non-randomness spread across bit positions rather than an
-/// isolated bad bit.  This is the second-stage aggregate check described in
-/// Marsaglia and Tsang (2002).
+/// isolated bad bit.  Marsaglia and Tsang (2002, p. 6) aggregate the same
+/// values with an Anderson–Darling–Kolmogorov–Smirnov test; this KS
+/// aggregate is a deviation from the paper (see the module docs).
 pub fn gorilla_aggregate_ks(results: &[GorillaBitResult]) -> f64 {
     let mut pvals: Vec<f64> = results.iter().map(|r| r.p_value).collect();
     ks_test(&mut pvals)
@@ -125,9 +133,40 @@ pub fn gorilla_aggregate_ks(results: &[GorillaBitResult]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        missing_words_for_bit, GorillaBitResult, GORILLA_MISSING_MEAN, GORILLA_MISSING_STDDEV,
+        gorilla_aggregate_ks, missing_words_for_bit, GorillaBitResult, GORILLA_MISSING_MEAN,
+        GORILLA_MISSING_STDDEV,
     };
     use crate::math::normal_cdf;
+
+    /// The aggregate is an exact two-sided KS test on the `p_value` fields;
+    /// z-scores play no part.  Reference from R 4.2.0,
+    /// `ks.test(((0:31) + 0.5)^2 / 1024, "punif", exact = TRUE)`:
+    /// D = 0.265380859375, p = 0.01768314058013587.  Reflecting every p-value
+    /// to 1 − p gives the same D and p in R.
+    #[test]
+    fn aggregate_is_exact_ks_on_per_bit_p_values() {
+        let results = |reflect: bool| -> Vec<GorillaBitResult> {
+            (0..32)
+                .map(|bit_position| {
+                    let u = (bit_position as f64 + 0.5) / 32.0;
+                    let p = u * u;
+                    GorillaBitResult {
+                        bit_position,
+                        missing_words: 0,
+                        z_score: f64::NAN,
+                        p_value: if reflect { 1.0 - p } else { p },
+                    }
+                })
+                .collect()
+        };
+        for reflect in [false, true] {
+            let p = gorilla_aggregate_ks(&results(reflect));
+            assert!(
+                (p - 0.017_683_140_580_135_87).abs() < 1e-9,
+                "reflect = {reflect}: p = {p}"
+            );
+        }
+    }
 
     #[test]
     fn alternating_bit_stream_misses_all_but_two_patterns_for_small_word_size() {
