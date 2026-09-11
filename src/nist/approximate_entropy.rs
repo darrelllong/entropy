@@ -24,9 +24,10 @@ use std::f64::consts::LN_2;
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.12.
 pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
     let n = bits.len();
-    // §2.12.7: m < log₂ n − 5, i.e. 2^{m+5} ≤ n.  (The φ(m+1) table has
-    // 2^{m+1} cells, so this also keeps both pattern tables well populated.)
-    if n == 0 || m >= 30 || (1usize << (m + 5)) > n {
+    // §2.12.7: "Choose m and n such that m < log2 n − 5", i.e. 2^{m+5} < n.
+    // (The φ(m+1) table has 2^{m+1} cells, so this also keeps both pattern
+    // tables well populated.)
+    if n == 0 || m >= 30 || (1usize << (m + 5)) >= n {
         return TestResult::insufficient(
             "nist::approximate_entropy",
             "m violates m < log₂ n − 5 (§2.12.7)",
@@ -73,4 +74,44 @@ fn phi(bits: &[u8], m: usize, n: usize) -> f64 {
         .sum();
 
     sum / n as f64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::nist::test_vectors::{bits, EPSILON_100};
+
+    /// §2.12.7 requires m < log₂ n − 5, which excludes n = 2^{m+5} itself.
+    #[test]
+    fn m_gate_is_strict_at_n_equal_2_to_the_m_plus_5() {
+        for m in [2usize, 10] {
+            let boundary = 1usize << (m + 5);
+            let stream: Vec<u8> = bits(EPSILON_100)
+                .into_iter()
+                .cycle()
+                .take(boundary + 1)
+                .collect();
+            let at = approximate_entropy(&stream[..boundary], m);
+            let above = approximate_entropy(&stream, m);
+            assert!(at.skipped(), "m = {m}, n = {boundary}: {at}");
+            assert!(!above.skipped(), "m = {m}, n = {}: {above}", boundary + 1);
+        }
+    }
+
+    /// SP 800-22 §2.12.8: m = 2, n = 100 gives ApEn(2) = 0.665393,
+    /// χ² = 5.550792 and P-value = 0.235301.  The example itself is outside
+    /// the §2.12.7 gate (2 ≥ log₂ 100 − 5), so the statistic is checked
+    /// through φ.
+    #[test]
+    fn phi_reproduces_section_2_12_8_example() {
+        let eps = bits(EPSILON_100);
+        let n = eps.len();
+        assert!(approximate_entropy(&eps, 2).skipped());
+        let ap_en = phi(&eps, 2, n) - phi(&eps, 3, n);
+        let chi_sq = 2.0 * n as f64 * (LN_2 - ap_en);
+        let p = igamc(2.0, chi_sq / 2.0);
+        assert!((ap_en - 0.665393).abs() < 1e-6, "ApEn = {ap_en}");
+        assert!((chi_sq - 5.550792).abs() < 1e-6, "χ² = {chi_sq}");
+        assert!((p - 0.235301).abs() < 1e-6, "p = {p}");
+    }
 }
