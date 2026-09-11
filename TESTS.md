@@ -122,13 +122,15 @@ summarize several p-values with the KS test above and report its p-value:
 `birthday_spacings`, `runs_up` and `runs_down` feed it upper-tail chi-square
 p-values, `bitstream` two-sided normal p-values $\mathrm{erfc}(|z|/\sqrt{2})$,
 and `parking_lot`, `minimum_distance_2d` and `spheres_3d` CDF values that are
-uniform under the null ($\Phi(z)$ for parking lots, $1-\exp(\cdot)$ for the
-two distance tests).  The other ten report a single p-value: an upper-tail
-chi-square for the three rank tests, `squeeze` and `craps_throws`, and a
-two-sided normal p-value for `opso`, `oqso`, `dna`, `count_ones_stream` and
-`craps_wins`.  DIEHARD itself prints CDF values, such as $\Phi(z)$ and
-chi-square CDFs, and summarizes with a routine it calls KSTEST that computes
-Marsaglia's Anderson–Darling statistic and prints its CDF value.
+only approximately uniform under the null: $\Phi(z)$ for parking lots, and
+$1-\exp(\cdot)$ for the two distance tests, where Dieharder finds the
+`minimum_distance_2d` form "not accurate enough" (see below).  The other ten
+report a single p-value: an upper-tail chi-square for the three rank tests,
+`squeeze` and `craps_throws`, and a two-sided normal p-value for `opso`,
+`oqso`, `dna`, `count_ones_stream` and `craps_wins`.  DIEHARD itself prints
+CDF values, such as $\Phi(z)$ and chi-square CDFs, and summarizes with a
+routine it calls KSTEST that computes Marsaglia's Anderson–Darling statistic
+and prints its CDF value.
 
 ### NIST SP 800-22
 
@@ -620,17 +622,20 @@ underweight.
   that, by the crate's own documented departure, chosen from simulation, the
   upper tail is $(1-x)\,(1-\mathrm{errfix}(32, x^*)/(1-x^*))$, the limiting
   tail scaled by $1.0521$.  The probe prints $A$ and $1-\Pr(A_{32} < A)$, so
-  small values fail.  Against simulation the tail errors are mostly
-  positive, so p-values are mostly conservative, and understatements of up
-  to about $1\%$ occur at some $A$; the errors are largest just past the
-  switch, $+2.46 \pm 0.14\%$ at $A = 6.62$ for $n = 32$.  For $n = 32$ and
-  $4 < A \le 12$, one $10^9$-sample run puts the printed tail between
-  $0.04\%$ below and $3.5\%$ above the simulated one; beyond $A \approx 10$
-  the sign is unresolved ($+1.69 \pm 1.41\%$ at $A = 11$, $+1.32 \pm 2.37\%$
-  at $A = 12$).  The ADKS values the paper prints came from `tuftests.c`'s
-  `ad32` fit, which differs from the 2004 distribution by up to $0.0056$.
-  The aggregate detects positional asymmetries and bit-plane correlations
-  invisible to the standard birthday-problem tests.
+  small values fail.  Against simulation the $n = 32$ tail errors are mostly
+  positive, so p-values are mostly conservative, and the largest reliably
+  resolved error is just past the switch, $+2.46 \pm 0.14\%$ at $A = 6.62$.
+  For $4 < A \le 12$, one $10^9$-sample run puts the printed tail between
+  $0.04\%$ below and $3.5\%$ above the simulated one, but the $3.5\%$ extreme
+  lies beyond $A \approx 10$, within single-run noise, where the sign is
+  unresolved ($+1.69 \pm 1.41\%$ at $A = 11$, $+1.32 \pm 2.37\%$ at
+  $A = 12$).  At other $n$, understatements of up to about $1\%$ occur at
+  some $A$.  The ADKS values the paper prints match $AD(32,\cdot)$ from the
+  2004 paper.  LFIB4 is the case that separates it from `tuftests.c`'s own
+  `ad32` fit: the paper prints $0.724$, as $AD(32,\cdot)$ gives, where `ad32`
+  gives $0.727$; `ad32` departs from the 2004 distribution by up to
+  $0.0056$.  The aggregate detects positional asymmetries and bit-plane
+  correlations invisible to the standard birthday-problem tests.
 
 - **Multi-scale approximate entropy (ApEn)**.  A sweep of the NIST SP 800-22
   §2.12 bit-level ApEn statistic over embedding dimensions $m = 2,\dots,6$
