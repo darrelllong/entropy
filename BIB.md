@@ -206,7 +206,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {wyhash and wyrand},
   year   = {2022},
   url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8, whose wyhash.h is final version 4.3) Weyl-sequence counter with 128-bit
+  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8 of 2026-03-23, whose wyhash.h is final version 4.3; the year above is final version 4's, commit c46ecdc245 of 2022-11-01) Weyl-sequence counter with 128-bit
              multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.  src/rng/wyrand.rs uses the
              wyrand constants of old\_versions/wyhash\_final2.h and wyhash\_final4.h, not those of 4.3.}
 }
