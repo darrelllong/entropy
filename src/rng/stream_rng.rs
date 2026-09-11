@@ -51,15 +51,17 @@
 //! * ETSI/SAGE, "Specification of the 3GPP Confidentiality and Integrity
 //!   Algorithms UEA2 & UIA2, Document 2: SNOW 3G Specification," version 1.1.
 //!   [pubs/etsi-sage-snow3g-spec-v1.1.pdf]  [the SNOW 3G cipher; its test data
-//!   are in Document 3, which is not in `pubs/`]
+//!   are in Document 3, Implementors' Test Data, version 1.1,
+//!   [pubs/etsi-sage-snow3g-testdata-v1.1.doc]]
 //! * ETSI/SAGE, "Specification of the 3GPP Confidentiality and Integrity
 //!   Algorithms 128-EEA3 & 128-EIA3, Document 2: ZUC Specification,"
 //!   version 1.6.  [pubs/etsi-sage-zuc-spec-v1.6.pdf]  [the ZUC-128 cipher;
-//!   its test data are in Document 3, which is not in `pubs/`]
+//!   its test data are in Document 3, Implementor's Test Data, version 1.1,
+//!   [pubs/etsi-sage-zuc-testdata-v1.1.pdf]]
 //!
 //! # Author
 //! M. Boesgaard, M. Vesterager, T. Pedersen, J. Christiansen and O. Scavenius
-//! (Rabbit, FSE 2003, as reference [6] of the eSTREAM description lists them;
+//! (Rabbit, FSE 2003, as reference \[6\] of the eSTREAM description lists them;
 //! that description is by Boesgaard, Vesterager, T. Christensen and E. Zenner,
 //! and RFC 4503 by Boesgaard, Vesterager and Zenner); Daniel J. Bernstein
 //! (Salsa20); ETSI SAGE (SNOW 3G and ZUC-128 specifications); Darrell Long
@@ -270,5 +272,167 @@ mod tests {
             assert_eq!(snow.next_u32(), snow_words.next_word().swap_bytes());
             assert_eq!(zuc.next_u32(), zuc_words.next_word().swap_bytes());
         }
+    }
+
+    /// One keystream-generator test set from an ETSI/SAGE "Document 3:
+    /// Implementors' Test Data": the key and IV octets as the document prints
+    /// them, and each printed keystream word `z_t` with its 1-based index `t`.
+    struct KeystreamSet {
+        section: &'static str,
+        set: u32,
+        key: &'static str,
+        iv: &'static str,
+        words: &'static [(usize, &'static str)],
+    }
+
+    /// SNOW 3G: UEA2 & UIA2 Document 3, §3.3–§3.6, Test Sets 1–4.
+    /// [pubs/etsi-sage-snow3g-testdata-v1.1.doc]
+    const SNOW3G_DOCUMENT_3: [KeystreamSet; 4] = [
+        KeystreamSet {
+            section: "3.3",
+            set: 1,
+            key: "2bd6459f82c5b300952c49104881ff48",
+            iv: "ea024714ad5c4d84df1f9b251c0bf45f",
+            words: &[(1, "abee9704"), (2, "7ac31373")],
+        },
+        KeystreamSet {
+            section: "3.4",
+            set: 2,
+            key: "8ce33e2cc3c0b5fc1f3de8a6dc66b1f3",
+            iv: "d3c5d592327fb11cde551988ceb2f9b7",
+            words: &[(1, "eff8a342"), (2, "f751480f")],
+        },
+        KeystreamSet {
+            section: "3.5",
+            set: 3,
+            key: "4035c6680af8c6d1a8ff8667b1714013",
+            iv: "62a540981ba6f9b74592b0e78690f71b",
+            words: &[(1, "a8c874a9"), (2, "7ae7c4f8")],
+        },
+        KeystreamSet {
+            section: "3.6",
+            set: 4,
+            key: "0ded7263109cf92e3352255a140e0f76",
+            iv: "6b68079a41a7c4c91befd79f7fdcc233",
+            words: &[
+                (1, "d712c05c"),
+                (2, "a937c2a6"),
+                (3, "eb7eaae3"),
+                (2500, "9c0db3aa"),
+            ],
+        },
+    ];
+
+    /// ZUC: 128-EEA3 & 128-EIA3 Document 3, §3.3–§3.6, Test Sets 1–4.
+    /// [pubs/etsi-sage-zuc-testdata-v1.1.pdf]
+    const ZUC128_DOCUMENT_3: [KeystreamSet; 4] = [
+        KeystreamSet {
+            section: "3.3",
+            set: 1,
+            key: "00000000000000000000000000000000",
+            iv: "00000000000000000000000000000000",
+            words: &[(1, "27bede74"), (2, "018082da")],
+        },
+        KeystreamSet {
+            section: "3.4",
+            set: 2,
+            key: "ffffffffffffffffffffffffffffffff",
+            iv: "ffffffffffffffffffffffffffffffff",
+            words: &[(1, "0657cfa0"), (2, "7096398b")],
+        },
+        KeystreamSet {
+            section: "3.5",
+            set: 3,
+            key: "3d4c4be96a82fdaeb58f641db17b455b",
+            iv: "84319aa8de6915ca1f6bda6bfbd8c766",
+            words: &[(1, "14f1c272"), (2, "3279c419")],
+        },
+        KeystreamSet {
+            section: "3.6",
+            set: 4,
+            key: "4d320bfad4c285bfd6b8bd00f39d8b41",
+            iv: "52959daba0bf176ece2dc315049eb574",
+            words: &[(1, "ed4400e7"), (2, "0633e5c5"), (2000, "7a574cdb")],
+        },
+    ];
+
+    /// Check `sets` through `StreamRng` over the cipher that `new` builds.
+    ///
+    /// Both documents print every value most significant octet first
+    /// (Document 3 §2.3 of each), and both ciphers take key and IV octets in
+    /// printed order: SNOW 3G's `k0` and `IV0` are the first four octets,
+    /// loaded big-endian (SNOW 3G Document 2 §4.1; its Document 3 §2.3 splits
+    /// `K = 0123456789ABCDEF…` into `K0 = 01234567`, …), and ZUC's `k_i` and
+    /// `iv_i` are the `i`-th octets (ZUC Document 2 §3.5, `s_i = k_i ‖ d_i ‖
+    /// iv_i`).  So the key and IV go in as printed.
+    ///
+    /// The words do not.  `cryptography` writes each 32-bit keystream word
+    /// (SNOW 3G Document 2 §4.2 `z_t`, ZUC Document 2 §3.6.2 `Z`) big-endian,
+    /// so the byte stream is the printed octets in printed order; SNOW 3G
+    /// Test Set 1 begins `AB EE 97 04 7A C3 13 73`.  `StreamRng` reads each
+    /// `next_u32` as the next four bytes little-endian, and its 64-byte chunk
+    /// holds sixteen whole words, so the `t`-th `next_u32` is `z_t` with its
+    /// octets reversed: `z1 = AB EE 97 04` comes back as `0x0497_EEAB`.  A
+    /// first `next_u64` reads the eight bytes of `z1 ‖ z2` little-endian, the
+    /// 64-bit big-endian `z1 ‖ z2` reversed.  The expected values below are
+    /// computed that way from the printed words, not read from either crate.
+    fn assert_document_3_keystream<C: StreamCipher>(
+        document: &str,
+        sets: &[KeystreamSet],
+        new: fn(&[u8; 16], &[u8; 16]) -> C,
+    ) {
+        for set in sets {
+            let label = format!("{document} §{} Test Set {}", set.section, set.set);
+            let key: [u8; 16] = hex(set.key).try_into().unwrap();
+            let iv: [u8; 16] = hex(set.iv).try_into().unwrap();
+            let printed = |t: usize| -> u32 {
+                let (_, word) = set.words.iter().find(|&&(at, _)| at == t).unwrap();
+                u32::from_be_bytes(hex(word).try_into().unwrap())
+            };
+            let last = set.words.iter().map(|&(t, _)| t).max().unwrap();
+            let mut rng = StreamRng::new(new(&key, &iv));
+            let got: Vec<u32> = (0..last).map(|_| rng.next_u32()).collect();
+            for &(t, _) in set.words {
+                assert_eq!(got[t - 1], printed(t).swap_bytes(), "{label}, z{t}");
+            }
+            let z1_z2 = (u64::from(printed(1)) << 32) | u64::from(printed(2));
+            assert_eq!(
+                StreamRng::new(new(&key, &iv)).next_u64(),
+                z1_z2.swap_bytes(),
+                "{label}, z1 ‖ z2 as next_u64"
+            );
+        }
+    }
+
+    /// SNOW 3G against ETSI/SAGE, "Specification of the 3GPP Confidentiality
+    /// and Integrity Algorithms UEA2 & UIA2, Document 3: Implementors' Test
+    /// Data," version 1.1, 25 October 2012.
+    /// [pubs/etsi-sage-snow3g-testdata-v1.1.doc]  [§3.3–§3.6, Test Sets 1–4]
+    /// Section 3 is the bare SNOW 3G generator: `z1` and `z2` for each set,
+    /// and for Test Set 4 also `z3` and `z2500`, which §3.6 clocks far enough
+    /// to use every entry of the specification's tables.  Sections 4 and 5
+    /// test UEA2 and UIA2, not the generator, and are not used.  The key, IV
+    /// and word strings in `SNOW3G_DOCUMENT_3` were transcribed by script
+    /// from the document's `textutil` plain-text and HTML conversions, which
+    /// agree, not typed by hand.
+    #[test]
+    fn snow3g_etsi_sage_document_3_keystream_test_sets() {
+        assert_document_3_keystream("SNOW 3G Document 3", &SNOW3G_DOCUMENT_3, Snow3g::new);
+    }
+
+    /// ZUC-128 against ETSI/SAGE, "Specification of the 3GPP Confidentiality
+    /// and Integrity Algorithms 128-EEA3 & 128-EIA3, Document 3: Implementor's
+    /// Test Data," version 1.1, 4 January 2011.
+    /// [pubs/etsi-sage-zuc-testdata-v1.1.pdf]  [§3.3–§3.6, Test Sets 1–4]
+    /// Section 3 is the bare ZUC generator: `z1` and `z2` for each set, and
+    /// for Test Set 4 also `z2000`, the last word of the 125th 64-byte chunk.
+    /// Sections 4 and 5 test 128-EEA3 and 128-EIA3, not the generator, and
+    /// are not used.  The key, IV and word strings in `ZUC128_DOCUMENT_3` were
+    /// transcribed by script from the document's `pdftotext -layout` output,
+    /// checked against renderings of the pages that print them, not typed by
+    /// hand.
+    #[test]
+    fn zuc128_etsi_sage_document_3_keystream_test_sets() {
+        assert_document_3_keystream("ZUC Document 3", &ZUC128_DOCUMENT_3, Zuc128::new);
     }
 }
