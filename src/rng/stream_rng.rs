@@ -279,6 +279,14 @@ mod tests {
         words: &'static [(usize, &'static str)],
     }
 
+    /// ZUC Document 3 §3.3, Test Set 1, prints its Key and its IV each as
+    /// sixteen `00` octets.
+    const OCTETS_00: &str = "00000000000000000000000000000000";
+
+    /// ZUC Document 3 §3.4, Test Set 2, prints its Key and its IV each as
+    /// sixteen `ff` octets.
+    const OCTETS_FF: &str = "ffffffffffffffffffffffffffffffff";
+
     /// SNOW 3G: UEA2 & UIA2 Document 3, §3.3–§3.6, Test Sets 1–4.
     /// [pubs/etsi-sage-snow3g-testdata-v1.1.doc]
     const SNOW3G_DOCUMENT_3: [KeystreamSet; 4] = [
@@ -323,15 +331,15 @@ mod tests {
         KeystreamSet {
             section: "3.3",
             set: 1,
-            key: "00000000000000000000000000000000",
-            iv: "00000000000000000000000000000000",
+            key: OCTETS_00,
+            iv: OCTETS_00,
             words: &[(1, "27bede74"), (2, "018082da")],
         },
         KeystreamSet {
             section: "3.4",
             set: 2,
-            key: "ffffffffffffffffffffffffffffffff",
-            iv: "ffffffffffffffffffffffffffffffff",
+            key: OCTETS_FF,
+            iv: OCTETS_FF,
             words: &[(1, "0657cfa0"), (2, "7096398b")],
         },
         KeystreamSet {
