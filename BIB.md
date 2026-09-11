@@ -407,7 +407,8 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   isbn      = {0-201-89684-2},
   note      = {§3.3.2: Poker test (hand-type multinomial over t-symbol groups), Permutation test
                (all t! orderings), Gap test, Serial Correlation Coefficient with exact variance.
-               None of these are in NIST/DIEHARD/DIEHARDER. The runs test above/below the median
+               DIEHARDER's rgb_permutations also scores t! orderings (src/dieharder/permutations.rs);
+               the others are not in NIST/DIEHARD/DIEHARDER. The runs test above/below the median
                that bib_tests runs is Wald and Wolfowitz's (wald1940runs), not the §3.3.2 run test.}
 }
 
