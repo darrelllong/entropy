@@ -93,6 +93,8 @@ const P6X8_FIVE: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0;
 /// Anderson–Darling statistic, which `tests.txt` calls a KS test (`KSTEST`,
 /// lines 1668–1709).  Each of its p-values is 1 − exp(−χ²/2), the lower tail
 /// of χ²(2), where this test reports the upper tail exp(−χ²/2).
+/// [`crate::diehard::historical::rank_6x8`] runs all 25 windows on request,
+/// each on its own words.
 ///
 /// The chi-square uses three cells, rank ≤ 4, 5 and 6 (df 2), as `cdbinrnk`
 /// does (`mr=max(4,rankb(r,6,8))`), with exact cell probabilities where it

@@ -9,6 +9,7 @@
 //! | `diehard_historical::operm5_dieharder` | OPERM5 as corrected in Dieharder 3.31.1 ([`operm5`]) |
 //! | `diehard_historical::overlapping_sums_fortran` | Overlapping sums as Marsaglia's `diehard.f` computes them ([`overlapping_sums`]) |
 //! | `diehard_historical::count_ones_bytes_25_fresh` | Count-the-1s on DIEHARD's 25 byte windows, fresh words per window, 25 results ([`count_ones_bytes`]) |
+//! | `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on DIEHARD's 25 bit windows, fresh words per window, one Anderson–Darling summary ([`rank_6x8`]) |
 //!
 //! Each module says what the test is, which reference it follows, where and
 //! why it departs from Marsaglia's `fortran/diehard.f`, the calibration
@@ -22,6 +23,7 @@ pub mod count_ones_bytes;
 pub mod operm5;
 mod operm5_table;
 pub mod overlapping_sums;
+pub mod rank_6x8;
 
 #[cfg(test)]
 mod oracle;
@@ -31,7 +33,7 @@ use crate::{result::TestResult, rng::Rng};
 /// Words [`run_all`] must capture for every historical test to run.
 pub const WORDS_NEEDED: usize = larger(
     larger(operm5::WORDS, overlapping_sums::WORDS),
-    count_ones_bytes::WORDS,
+    larger(count_ones_bytes::WORDS, rank_6x8::WORDS),
 );
 
 const fn larger(a: usize, b: usize) -> usize {
@@ -65,6 +67,7 @@ pub fn run_all(rng: &mut impl Rng, n_u32: usize) -> Vec<TestResult> {
         overlapping_sums::overlapping_sums_fortran(&words),
     ];
     results.extend(count_ones_bytes::count_ones_bytes_25_fresh(&words));
+    results.push(rank_6x8::rank_6x8_25_fresh(&words));
     results
 }
 
