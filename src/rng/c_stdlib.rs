@@ -188,18 +188,13 @@ impl Rng for WindowsMsvcRand {
 
 // ── Windows VB6 / VBA Rnd() ──────────────────────────────────────────────────
 
-/// Multiplier of the `VBMath.Rnd` state transition.
-const VB6_RND_A: u32 = 0x43fd_43fd;
-/// Increment of the `VBMath.Rnd` state transition.
-const VB6_RND_C: u32 = 0x00c3_9ec3;
-/// `VBMath.Rnd` keeps 24 bits of state.
-const VB6_RND_MASK: u32 = 0x00ff_ffff;
-
 /// Faithful VB6/VBA `Rnd` core state transition.
 ///
 /// Microsoft still preserves this compatibility algorithm in `VBMath.Rnd`:
-/// `seed = (seed * a + c) & mask`, a linear congruential step with a fixed
-/// multiplier `a`, increment `c` and 24-bit `mask`.
+/// `seed = (seed * MULTIPLIER + INCREMENT) & MASK`, with
+/// [`MULTIPLIER`](WindowsVb6Rnd::MULTIPLIER),
+/// [`INCREMENT`](WindowsVb6Rnd::INCREMENT) and the 24-bit
+/// [`MASK`](WindowsVb6Rnd::MASK).
 ///
 /// The public API returns a `Single` in `[0, 1)`, so we expose both the raw
 /// 24-bit state and a faithful `next_f64()` mapping. This is a tiny-state,
@@ -211,17 +206,28 @@ pub struct WindowsVb6Rnd {
 }
 
 impl WindowsVb6Rnd {
+    /// Multiplier of the `VBMath.Rnd` state transition.
+    pub const MULTIPLIER: u32 = 0x43fd_43fd;
+    /// Increment of the `VBMath.Rnd` state transition.
+    pub const INCREMENT: u32 = 0x00c3_9ec3;
+    /// Mask keeping the 24 bits of `VBMath.Rnd` state.
+    pub const MASK: u32 = 0x00ff_ffff;
+
     /// Construct from a seed; only the low 24 bits are kept as state.
     pub fn new(seed: u32) -> Self {
         Self {
-            state: seed & VB6_RND_MASK,
+            state: seed & Self::MASK,
             bits: PackedBits::default(),
         }
     }
 
     /// One raw `Rnd` state transition: returns the new 24-bit state.
     pub fn next_raw(&mut self) -> u32 {
-        self.state = self.state.wrapping_mul(VB6_RND_A).wrapping_add(VB6_RND_C) & VB6_RND_MASK;
+        self.state = self
+            .state
+            .wrapping_mul(Self::MULTIPLIER)
+            .wrapping_add(Self::INCREMENT)
+            & Self::MASK;
         self.state
     }
 
@@ -508,21 +514,24 @@ impl Rng for BsdRandCompat {
 
 /// Pure-Rust implementation of POSIX / System V `mrand48()`.
 ///
-/// 48-bit LCG `x = (a·x + c) mod 2^48` with the multiplier `a` and increment
-/// `c` that POSIX mandates for the `drand48` family.
+/// 48-bit LCG `x = (a·x + c) mod m` with the parameters POSIX mandates for
+/// the `drand48` family: multiplier `a` = [`MULTIPLIER`](Rand48::MULTIPLIER),
+/// increment `c` = [`INCREMENT`](Rand48::INCREMENT) and modulus
+/// `m` = [`MODULUS`](Rand48::MODULUS) = 2⁴⁸.
 /// Better than 15-bit `rand()`, but still linear and weak.
 #[derive(Debug, Clone)]
 pub struct Rand48 {
     state: u64,
 }
 
-/// POSIX `drand48` family multiplier `a`.
-const RAND48_A: u64 = 0x5DEECE66D;
-/// POSIX `drand48` family increment `c`.
-const RAND48_C: u64 = 0xB;
-const RAND48_M: u64 = 1 << 48;
-
 impl Rand48 {
+    /// POSIX `drand48` family multiplier `a`.
+    pub const MULTIPLIER: u64 = 0x5DEECE66D;
+    /// POSIX `drand48` family increment `c`.
+    pub const INCREMENT: u64 = 0xB;
+    /// Modulus `m` = 2⁴⁸: the state is 48 bits.
+    pub const MODULUS: u64 = 0x1_0000_0000_0000;
+
     /// Construct from a seed exactly as `srand48()` does: the seed fills the
     /// high 32 bits of the 48-bit state and the low 16 bits are set to 0x330E.
     pub fn new(seed: u64) -> Self {
@@ -534,7 +543,10 @@ impl Rand48 {
 
 impl Rng for Rand48 {
     fn next_u32(&mut self) -> u32 {
-        self.state = (RAND48_A.wrapping_mul(self.state).wrapping_add(RAND48_C)) % RAND48_M;
+        self.state = (Self::MULTIPLIER
+            .wrapping_mul(self.state)
+            .wrapping_add(Self::INCREMENT))
+            % Self::MODULUS;
         (self.state >> 16) as u32
     }
 }

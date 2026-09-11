@@ -94,10 +94,6 @@ impl Rng for Sfc64 {
 
 // ── JSF64 ────────────────────────────────────────────────────────────────────
 
-/// The word `raninit` stores in `a` before the seed fills `b`, `c` and `d`.
-/// [pubs/jenkins-2007-smallprng.html]
-const JSF_RANINIT_A: u64 = 0xf1ea_5eed;
-
 /// Jenkins Small Fast 64-bit generator.
 ///
 /// Four-word state.  Jenkins gives no guaranteed minimum period: for the
@@ -111,14 +107,19 @@ pub struct Jsf64 {
 }
 
 impl Jsf64 {
+    /// The value Jenkins's `raninit` gives state word `a` before the seed
+    /// fills `b`, `c` and `d`.  [pubs/jenkins-2007-smallprng.html]
+    pub const INITIAL_A: u64 = 0xf1ea_5eed;
+
     /// Construct from a single 64-bit seed.
     ///
-    /// Seeds as the page's `raninit` does (`a` = its fixed word,
-    /// `b = c = d = seed`) and discards 20 outputs.
+    /// Seeds as the page's `raninit` does
+    /// (`a` = [`INITIAL_A`](Self::INITIAL_A), `b = c = d = seed`) and
+    /// discards 20 outputs.
     #[must_use]
     pub fn new(seed: u64) -> Self {
         let mut rng = Self {
-            a: JSF_RANINIT_A,
+            a: Self::INITIAL_A,
             b: seed,
             c: seed,
             d: seed,
@@ -225,7 +226,7 @@ mod tests {
 
     // Known-answer test: first three outputs of Jsf64::new(JSF64_TEST_SEED),
     // cross-checked against an independent Python replica of Jenkins'
-    // smallprng (64-bit rot 7/13/37 variant, a = JSF_RANINIT_A, 20 warm-ups)
+    // smallprng (64-bit rot 7/13/37 variant, a = Jsf64::INITIAL_A, 20 warm-ups)
     // and against the page's 64-bit `raninit`/`ranval` compiled from
     // pubs/jenkins-2007-smallprng.html (5000 outputs at seeds JSF64_TEST_SEED,
     // 0 and 1).
