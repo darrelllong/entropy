@@ -20,7 +20,7 @@
 //! `sig_bits = 14`) matches upstream's stride.  Suspicion scores are not
 //! reproduced.
 
-use crate::{math::igamc, result::TestResult, rng::Rng};
+use crate::{math::chi2_pvalue, result::TestResult, rng::Rng};
 
 fn truncate_table_bits(counts: &mut [u64], probs: &mut [f64], old_bits: usize, new_bits: usize) {
     let ns = 1usize << new_bits;
@@ -45,13 +45,6 @@ fn g_test(expected_probs: &[f64], observed: &[u64], total: usize) -> f64 {
             o as f64 * ((o as f64) / expected).ln()
         })
         .sum::<f64>()
-}
-
-fn chi_square_pvalue(chi_square: f64, dof: usize) -> f64 {
-    if dof == 0 {
-        return f64::NAN;
-    }
-    igamc(dof as f64 / 2.0, chi_square / 2.0)
 }
 
 /// Codeword-shape parameters for [`fpf_test`].
@@ -256,7 +249,7 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
             effective_sig_bits: ebits,
             chi_square: chi,
             dof,
-            p_value: chi_square_pvalue(chi, dof),
+            p_value: chi2_pvalue(chi, dof),
             samples: exp_counts[e] as usize,
         });
     }
@@ -266,7 +259,8 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
         *p = 2f64.powi(-(e as i32 + 1 + if e == max_exp { -1 } else { 0 }));
     }
     let (cross_chi_square, cross_dof) = grouped_tail_g_test(&exp_counts, &exp_probs, 10.0);
-    let cross_p_value = chi_square_pvalue(cross_chi_square, cross_dof);
+    // dof 0 (every exponent merged into one cell) yields NaN: igamc rejects a = 0.
+    let cross_p_value = chi2_pvalue(cross_chi_square, cross_dof);
 
     FpfSummary {
         total_bits,
@@ -359,6 +353,17 @@ mod tests {
         // Every codeword is 1 + 14 = 15 bits.
         assert_eq!(summary.consumed_bits, summary.samples * 15);
         assert!(summary.consumed_bits <= summary.total_bits);
+    }
+
+    #[test]
+    fn cross_test_with_one_merged_cell_reports_nan() {
+        // 77 bits admit exactly one worst-case codeword, so the exponent
+        // table never reaches the 10-sample merge threshold: dof 0 → NaN.
+        let mut rng = ConstantRng::new(u32::MAX);
+        let summary = fpf_test(&mut rng, 77, &FpfConfig::default());
+        assert_eq!(1, summary.samples);
+        assert_eq!(0, summary.cross_dof);
+        assert!(summary.cross_p_value.is_nan());
     }
 
     #[test]

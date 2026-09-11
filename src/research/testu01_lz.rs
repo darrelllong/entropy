@@ -9,6 +9,7 @@
 //! normalized scores and a lightweight summary, but does not claim to
 //! reproduce TestU01's entire reporting layer.
 
+use super::strip_b;
 use crate::{
     math::{erfc, ks_test, normal_cdf},
     result::TestResult,
@@ -69,14 +70,6 @@ pub struct LempelZivSummary {
     pub z_sum_p_value: f64,
     /// KS p-value for uniformity of `Φ(z)` across replications.
     pub z_ks_p_value: f64,
-}
-
-fn strip_b(word: u32, r: usize, s: usize) -> u32 {
-    if r == 0 {
-        word >> (32 - s)
-    } else {
-        (word << r) >> (32 - s)
-    }
 }
 
 fn lz78_count_blocks(blocks: &[u32], n_bits: usize, s: usize) -> usize {
@@ -255,14 +248,7 @@ pub fn lempel_ziv_ks_result(summary: &LempelZivSummary) -> TestResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{lz78_count_blocks, strip_b};
-
-    #[test]
-    fn strip_b_uses_most_significant_bits_like_testu01() {
-        let word = 0xDEAD_BEEF;
-        assert_eq!(0xD, strip_b(word, 0, 4));
-        assert_eq!(0xE, strip_b(word, 4, 4));
-    }
+    use super::lz78_count_blocks;
 
     #[test]
     fn lz78_counts_constant_zero_stream_reasonably() {

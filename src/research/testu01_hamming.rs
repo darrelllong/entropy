@@ -13,22 +13,15 @@
 //! and TestU01's `gofs_MinExpected = 10.0` lumping rule for the main
 //! Hamming-independence chi-square.
 
+use super::strip_b;
 use crate::{
-    math::{erfc, igamc},
+    math::{chi2_pvalue, erfc},
     result::TestResult,
     rng::Rng,
 };
 use std::f64::consts::{LN_2, SQRT_2};
 
 const GOFS_MIN_EXPECTED: f64 = 10.0;
-
-fn strip_b(word: u32, r: usize, s: usize) -> u32 {
-    if r == 0 {
-        word >> (32 - s)
-    } else {
-        (word << r) >> (32 - s)
-    }
-}
 
 fn bit_chunks(rng: &mut impl Rng, r: usize, s: usize) -> impl Iterator<Item = (u32, usize)> + '_ {
     std::iter::from_fn(move || Some((strip_b(rng.next_u32(), r, s), s)))
@@ -71,13 +64,6 @@ fn next_block_weight(blocks: &mut impl Iterator<Item = (u32, usize)>, l: usize) 
         remaining -= take;
     }
     Some(weight)
-}
-
-fn chi_square_pvalue(chi_square: f64, degrees_of_freedom: usize) -> f64 {
-    if degrees_of_freedom == 0 {
-        return f64::NAN;
-    }
-    igamc(degrees_of_freedom as f64 / 2.0, chi_square / 2.0)
 }
 
 fn chi_square(expected: &[f64], observed: &[u64]) -> f64 {
@@ -279,7 +265,8 @@ pub fn hamming_indep(
     }
     let (main_chi_square, main_dof, lumped_cells) =
         lumped_chi_square(&expected, &counts, GOFS_MIN_EXPECTED);
-    let main_p_value = chi_square_pvalue(main_chi_square, main_dof);
+    // dof 0 (a single class after lumping) yields NaN: igamc rejects a = 0.
+    let main_p_value = chi2_pvalue(main_chi_square, main_dof);
 
     let l2 = l / 2;
     let mut l1 = l / 2;
@@ -321,7 +308,7 @@ pub fn hamming_indep(
         let dof = if (l % 2 == 1) && k == 1 { 1 } else { 2 };
         block_chi_square.push(chi);
         block_dof.push(dof);
-        block_p_value.push(chi_square_pvalue(chi, dof));
+        block_p_value.push(chi2_pvalue(chi, dof));
     }
 
     HammingIndepSummary {
@@ -384,8 +371,23 @@ pub fn hamming_indep_block_result(summary: &HammingIndepSummary, k: usize) -> Te
 
 #[cfg(test)]
 mod tests {
-    use super::{binomial_probs, hamming_corr};
-    use crate::rng::ConstantRng;
+    use super::{binomial_probs, hamming_corr, hamming_indep};
+    use crate::rng::{ConstantRng, Xorshift32};
+
+    /// Marsaglia's example xorshift32 seed; any non-zero seed would do.
+    const XORSHIFT_SEED: u32 = 2_463_534_242;
+
+    /// With every weight-pair cell below `gofs_MinExpected` the lumping
+    /// leaves a single class, so the main chi-square has no degrees of
+    /// freedom and must report NaN (insufficient data), not a verdict.
+    #[test]
+    fn hamming_indep_with_one_class_reports_nan() {
+        // L = 7, n = 20: the largest cell expects 20 · (35/128)² ≈ 1.5.
+        let mut rng = Xorshift32::new(XORSHIFT_SEED);
+        let summary = hamming_indep(&mut rng, 20, 0, 32, 7, 1);
+        assert_eq!(0, summary.main_dof);
+        assert!(summary.main_p_value.is_nan());
+    }
 
     /// Regression: the direct recurrence started from `2^-L`, which
     /// underflows to 0 for L ≥ 1075 and zeroed every probability.  The
