@@ -103,8 +103,14 @@ pub fn universal(bits: &[u8]) -> TestResult {
     universal_with_l(bits, l, q, "nist::universal")
 }
 
-/// Run Maurer's original parametric family for all recommended L values that fit
-/// into the available sample, using Q = 10 * 2^L and K = floor(n / L) - Q.
+/// Run Maurer's original parametric family for L = 5..=16, using
+/// Q = 10·2^L and K = ⌊n/L⌋ − Q.
+///
+/// Always returns 12 results.  A setting runs only when K ≥ 1000·2^L, that
+/// is n ≥ L·(Q + 1000·2^L), and is skipped otherwise.  Every row of the
+/// SP 800-22 §2.9.7 table is exactly that bound (387 840 bits for L = 6 up to
+/// 1 059 061 760 for L = 16), and Maurer (1992) gives K = 1000·2^L as his
+/// example.  L = 5 follows the same rule and needs 161 600 bits.
 ///
 /// This preserves the legacy NIST-shaped single result above while exposing the
 /// more sensitive higher-L settings discussed in Maurer (1992).
@@ -122,10 +128,16 @@ pub fn universal_parametric_all(bits: &[u8]) -> Vec<TestResult> {
 fn universal_with_l(bits: &[u8], l: usize, q: usize, name: &'static str) -> TestResult {
     let n = bits.len();
     let n_blocks = n / l;
-    if n_blocks <= q {
+    // §2.9.7: K = n/L − Q ≈ 1000·2^L, and each row of its table is
+    // n ≥ L·(Q + 1000·2^L).  Below that bound the setting is skipped.
+    let k_min = 1000 * (1usize << l);
+    if n_blocks < q + k_min {
         return TestResult::insufficient(
             name,
-            &format!("n too small for L={l}, Q={q} (need > {} bits)", (q + 1) * l),
+            &format!(
+                "n too small for L={l}, Q={q}: K ≥ 1000·2^L needs n ≥ {} bits (§2.9.7)",
+                l * (q + k_min)
+            ),
         );
     }
     let k = n_blocks - q;
@@ -221,17 +233,45 @@ mod tests {
         assert!((p - 0.427733).abs() < 1e-6, "p = {p}");
     }
 
+    /// The SP 800-22 §2.9.7 table, as (L, minimum n).
+    const SECTION_2_9_7_TABLE: [(usize, usize); 11] = [
+        (6, 387_840),
+        (7, 904_960),
+        (8, 2_068_480),
+        (9, 4_654_080),
+        (10, 10_342_400),
+        (11, 22_753_280),
+        (12, 49_643_520),
+        (13, 107_560_960),
+        (14, 231_669_760),
+        (15, 496_435_200),
+        (16, 1_059_061_760),
+    ];
+
     #[test]
     fn parametric_family_marks_unavailable_l_values_as_skipped() {
+        // 10^6 bits reach K ≥ 1000·2^L for L = 5, 6 and 7 only.
         let bits = vec![0u8; 1_000_000];
         let results = universal_parametric_all(&bits);
         assert_eq!(results.len(), 12);
-        assert!(results
-            .iter()
-            .any(|r| r.name == "maurer::universal_l10" && !r.skipped()));
-        assert!(results
-            .iter()
-            .any(|r| r.name == "maurer::universal_l13" && r.skipped()));
+        for (r, l) in results.iter().zip(5..=16) {
+            assert_eq!(r.skipped(), l > 7, "L = {l}: {r}");
+        }
+    }
+
+    /// Every §2.9.7 row is n = L·(Q + K) with Q = 10·2^L and K = 1000·2^L,
+    /// so a Maurer setting runs from that n and is skipped one bit below it.
+    #[test]
+    fn parametric_family_requires_k_of_1000_times_2_to_the_l() {
+        for (l, n_min) in SECTION_2_9_7_TABLE {
+            assert_eq!(l * (10 + 1000) * (1 << l), n_min, "L = {l}");
+        }
+        let (l, n_min) = SECTION_2_9_7_TABLE[0];
+        let slot = l - 5;
+        let at = universal_parametric_all(&vec![0u8; n_min]);
+        let below = universal_parametric_all(&vec![0u8; n_min - 1]);
+        assert!(!at[slot].skipped(), "{}", at[slot]);
+        assert!(below[slot].skipped(), "{}", below[slot]);
     }
 
     #[test]
