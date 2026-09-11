@@ -363,6 +363,64 @@ pub fn chi2_pvalue(chi_sq: f64, df: usize) -> f64 {
     igamc(df as f64 / 2.0, chi_sq / 2.0)
 }
 
+// ── Pearson chi-square with Dieharder's tail pooling ────────────────────────
+
+/// Pearson chi-square on binned counts, pooling weak cells exactly as Robert
+/// G. Brown's `Vtest_eval` (`Vtest.c`, Dieharder 3.31.1) does.
+///
+/// - A cell whose expected count is at least `cutoff` is scored on its own.
+/// - Every other cell, adjacent or not, is merged into one pooled cell (the C
+///   accumulates them at the index of the first weak cell), so weak cells at
+///   both ends of a histogram share a single pooled cell.
+/// - The pooled cell is scored once, after the scan, and only if its summed
+///   expectation also reaches `cutoff`; otherwise its counts are dropped.
+/// - df = (number of scored cells) − 1.
+///
+/// Returns `Some((p_value, df, chi_sq))`, or `None` if the slices differ in
+/// length, are empty, or fewer than two cells are scored (the C would then
+/// evaluate Q(0, χ²/2), which tests nothing).
+#[must_use]
+pub fn vtest_pvalue(observed: &[u32], expected: &[f64], cutoff: f64) -> Option<(f64, usize, f64)> {
+    if observed.len() != expected.len() || observed.is_empty() {
+        return None;
+    }
+
+    let mut chisq = 0.0;
+    let mut ndof_terms = 0usize;
+    let mut tail_index: Option<usize> = None;
+    let mut tail_obs = 0.0;
+    let mut tail_exp = 0.0;
+
+    for i in 0..observed.len() {
+        let obs = observed[i] as f64;
+        let exp = expected[i];
+        if exp >= cutoff {
+            let diff = obs - exp;
+            chisq += diff * diff / exp;
+            ndof_terms += 1;
+        } else if tail_index.is_none() {
+            tail_index = Some(i);
+            tail_obs += obs;
+            tail_exp += exp;
+        } else {
+            tail_obs += obs;
+            tail_exp += exp;
+        }
+    }
+
+    if tail_index.is_some() && tail_exp >= cutoff {
+        let diff = tail_obs - tail_exp;
+        chisq += diff * diff / tail_exp;
+        ndof_terms += 1;
+    }
+
+    if ndof_terms <= 1 {
+        return None;
+    }
+    let df = ndof_terms - 1;
+    Some((chi2_pvalue(chisq, df), df, chisq))
+}
+
 // ── Discrete probability mass functions ─────────────────────────────────────
 
 /// Binomial PMF: P(X = k) for X ~ Binomial(n, p), with `k ≤ n`.
@@ -489,6 +547,27 @@ pub fn gf2_rank(matrix: &[u32], rows: usize, cols: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Reference: a line-by-line Python replica of `Vtest_eval` (Vtest.c).
+    #[test]
+    fn vtest_pools_weak_cells_from_both_ends() {
+        // Cells 0 and 3 are weak; their pool (x = 5, y = 2 + 3 = 5) reaches the
+        // cutoff, so it is scored as a third cell.
+        let (p, df, chi) = vtest_pvalue(&[1, 12, 9, 4], &[2.0, 10.0, 10.0, 3.0], 5.0).unwrap();
+        assert_eq!(df, 2);
+        assert!((chi - 0.5).abs() < 1e-15, "χ² = {chi}");
+        assert!((p - 0.7788007830714049).abs() < 1e-12, "p = {p}");
+
+        // Pooled expectation 2 + 2 = 4 misses the cutoff: the pool is dropped.
+        let (p, df, chi) = vtest_pvalue(&[3, 12, 9, 0], &[2.0, 10.0, 10.0, 2.0], 5.0).unwrap();
+        assert_eq!(df, 1);
+        assert!((chi - 0.5).abs() < 1e-15, "χ² = {chi}");
+        assert!((p - 0.4795001221869535).abs() < 1e-9, "p = {p}");
+
+        // One strong cell and an unscored pool leave no degrees of freedom.
+        assert!(vtest_pvalue(&[7, 30, 1], &[3.0, 30.0, 1.0], 5.0).is_none());
+        assert!(vtest_pvalue(&[], &[], 5.0).is_none());
+    }
 
     // Reference values are exact rationals C(n,k)·pᵏ·(1−p)ⁿ⁻ᵏ rounded once to
     // f64 (Python `fractions`), independent of the lgamma evaluation.

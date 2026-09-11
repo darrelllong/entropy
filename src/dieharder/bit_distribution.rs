@@ -15,7 +15,7 @@
 //! more transparent and avoids hiding failures behind a random pick.
 
 use crate::{
-    math::{binomial_pmf, chi2_pvalue},
+    math::{binomial_pmf, vtest_pvalue},
     result::TestResult,
 };
 
@@ -36,51 +36,6 @@ fn next_n_bits_msb(words: &[u32], bit_cursor: &mut usize, nbits: usize) -> Optio
         *bit_cursor += 1;
     }
     Some(value)
-}
-
-/// Vtest chi-square on integer observed counts vs f64 expected counts.
-///
-/// Takes `observed` as integer counts (exact, no rounding) and converts to
-/// f64 only at the chi-square computation stage.
-fn vtest_pvalue(observed: &[u32], expected: &[f64], cutoff: f64) -> Option<(f64, usize, f64)> {
-    if observed.len() != expected.len() || observed.is_empty() {
-        return None;
-    }
-
-    let mut chisq = 0.0;
-    let mut ndof_terms = 0usize;
-    let mut tail_index: Option<usize> = None;
-    let mut tail_obs = 0.0;
-    let mut tail_exp = 0.0;
-
-    for i in 0..observed.len() {
-        let obs = observed[i] as f64;
-        let exp = expected[i];
-        if exp >= cutoff {
-            let diff = obs - exp;
-            chisq += diff * diff / exp;
-            ndof_terms += 1;
-        } else if tail_index.is_none() {
-            tail_index = Some(i);
-            tail_obs += obs;
-            tail_exp += exp;
-        } else {
-            tail_obs += obs;
-            tail_exp += exp;
-        }
-    }
-
-    if tail_index.is_some() && tail_exp >= cutoff {
-        let diff = tail_obs - tail_exp;
-        chisq += diff * diff / tail_exp;
-        ndof_terms += 1;
-    }
-
-    if ndof_terms <= 1 {
-        return None;
-    }
-    let df = ndof_terms - 1;
-    Some((chi2_pvalue(chisq, df), df, chisq))
 }
 
 fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {

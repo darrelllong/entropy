@@ -9,16 +9,26 @@
 //! Cell layout: j ≤ 6 (pooled, index 0), j = 7..=47 (individual, indices 1–41),
 //! j ≥ 48 (pooled, index 42).  Total: 43 cells.
 //!
+//! The chi-square pools weak cells as Dieharder's `Vtest_eval` does (see
+//! [`crate::math::vtest_pvalue`]).  At N = 100 000 five cells expect fewer
+//! than 5 counts (j ≤ 6, j = 45, 46, 47 and j ≥ 48; together 9.278), so they
+//! are scored as one pooled cell next to the 38 strong cells: 39 cells,
+//! df = 38.  Dropping those cells instead (df = 37) would never see a
+//! generator that over-produces extreme squeeze lengths.
+//!
 //! Cell probabilities from George Marsaglia, DIEHARD (1995), as transcribed
 //! in Robert G. Brown's Dieharder 3.31.1, `diehard_squeeze.c`.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::igamc, result::TestResult, rng::Rng};
+use crate::{math::vtest_pvalue, result::TestResult, rng::Rng};
 
 const N_TRIALS: usize = 100_000;
 const N_CELLS: usize = 43; // j≤6, j=7..47, j≥48
+/// Minimum expected count for a cell to be scored on its own
+/// (`vtest.cutoff = 5.0` in `diehard_squeeze.c`).
+const CUTOFF: f64 = 5.0;
 
 /// Theoretical P(j falls in cell c) for c = 0..43.
 /// Source: Marsaglia DIEHARD, as reproduced in Dieharder 3.31.1 diehard_squeeze.c.
@@ -55,26 +65,73 @@ pub fn squeeze(rng: &mut impl Rng) -> TestResult {
         counts[idx] += 1;
     }
 
-    let n = N_TRIALS as f64;
-    let chi_sq: f64 = counts
-        .iter()
-        .zip(SDATA.iter())
-        .filter(|(_, &p)| p * n >= 5.0)
-        .map(|(&c, &p)| (c as f64 - n * p).powi(2) / (n * p))
-        .sum();
-
-    let df = counts
-        .iter()
-        .zip(SDATA.iter())
-        .filter(|(_, &p)| p * n >= 5.0)
-        .count()
-        .saturating_sub(1);
-
-    let p_value = igamc(df as f64 / 2.0, chi_sq / 2.0);
+    let (p_value, df, chi_sq) = score(&counts);
 
     TestResult::with_note(
         "diehard::squeeze",
         p_value,
         format!("trials={N_TRIALS}, cells={N_CELLS}, df={df}, χ²={chi_sq:.4}"),
     )
+}
+
+/// Score a squeeze histogram: Pearson chi-square against `N_TRIALS · SDATA`
+/// with Dieharder's `Vtest_eval` pooling.  Returns `(p_value, df, chi_sq)`;
+/// the NaN arm is unreachable at `N_TRIALS` (39 cells score) and exists only
+/// so a future change of sample size degrades to SKIP instead of a panic.
+fn score(counts: &[u32; N_CELLS]) -> (f64, usize, f64) {
+    let n = N_TRIALS as f64;
+    let expected: [f64; N_CELLS] = std::array::from_fn(|i| n * SDATA[i]);
+    vtest_pvalue(counts, &expected, CUTOFF).unwrap_or((f64::NAN, 0, f64::NAN))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{score, CUTOFF, N_CELLS, N_TRIALS, SDATA};
+
+    /// Near-expectation counts with nonzero weak cells (indices 0, 39–42).
+    #[rustfmt::skip]
+    const NEAR: [u32; N_CELLS] = [
+        3, 6, 18, 47, 111, 254, 461, 824, 1363, 2097, 3018, 4080, 5204, 6284, 7206, 7869,
+        8167, 8217, 7844, 7219, 6399, 5471, 4520, 3614, 2800, 2106, 1539, 1094, 758, 512, 332, 218,
+        137, 85, 52, 31, 18, 10, 6, 4, 1, 2, 0,
+    ];
+
+    /// Strong cells at their expectations; the weak cells hold 106 counts
+    /// against a pooled expectation of 9.278 (j ≤ 6 and j ≥ 48 over-produced).
+    #[rustfmt::skip]
+    const EXTREME: [u32; N_CELLS] = [
+        40, 6, 18, 47, 111, 237, 461, 824, 1363, 2097, 3018, 4080, 5204, 6284, 7206, 7869,
+        8207, 8192, 7844, 7219, 6399, 5471, 4520, 3614, 2800, 2106, 1539, 1094, 758, 512, 338, 218,
+        137, 85, 52, 31, 18, 10, 6, 3, 2, 1, 60,
+    ];
+
+    #[test]
+    fn weak_cells_are_the_documented_five() {
+        let n = N_TRIALS as f64;
+        let weak: Vec<usize> = (0..N_CELLS).filter(|&i| n * SDATA[i] < CUTOFF).collect();
+        assert_eq!(weak, [0, 39, 40, 41, 42]);
+        let pooled: f64 = weak.iter().map(|&i| n * SDATA[i]).sum();
+        assert!((pooled - 9.278).abs() < 1e-9, "pooled = {pooled}");
+    }
+
+    // Reference values: a line-by-line Python replica of Dieharder's
+    // `Vtest_eval` (Vtest.c) on the same counts and `tsamples * sdata[i]`
+    // expectations.  Dropping the weak cells instead gives χ² = 1.66426…
+    // with df = 37 on NEAR, and χ² = 0.04660… (p ≈ 1) on EXTREME.
+    #[test]
+    fn score_matches_vtest_eval_on_near_expectation_counts() {
+        let (p, df, chi) = score(&NEAR);
+        assert_eq!(df, 38);
+        assert!((chi - 1.7204464916623783).abs() < 1e-12, "χ² = {chi}");
+        assert!((p - 0.9999999999999998).abs() < 1e-12, "p = {p}");
+    }
+
+    #[test]
+    fn score_rejects_over_produced_extreme_lengths() {
+        let (p, df, chi) = score(&EXTREME);
+        assert_eq!(df, 38);
+        assert!((chi - 1008.361461728401).abs() < 1e-9, "χ² = {chi}");
+        // Q(19, χ²/2) in closed form: e^(−χ²/2) Σ_{i<19} (χ²/2)^i / i!.
+        assert!((p / 7.817315442438951e-187 - 1.0).abs() < 1e-6, "p = {p}");
+    }
 }
