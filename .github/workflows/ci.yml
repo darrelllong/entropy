@@ -40,6 +40,15 @@ jobs:
       # either repository cannot change what CI builds.  These pins must move
       # together with any change here that needs newer siblings, and as a
       # pair, since cryptography takes rump by path.
+      #
+      # Pinning has a cost.  The siblings' own downstream jobs build this
+      # crate's main against their HEAD but run only `cargo test`, on
+      # ubuntu-latest with stable, so a sibling push that breaks this crate's
+      # clippy -D warnings, docs, 1.87 build or macOS build is caught by no CI
+      # until the pins move.  Moving them therefore means first running this
+      # whole matrix locally against the new sibling commits: fmt, clippy,
+      # tests and docs, on stable and on 1.87, on Linux and on macOS.  There
+      # is deliberately no scheduled or unpinned job to catch it sooner.
       - uses: actions/checkout@v4
         with:
           path: entropy
