@@ -52,7 +52,7 @@ The point of keeping these files in-tree is auditability: readers should be able
   number  = {3},
   year    = {2002},
   doi     = {10.18637/jss.v007.i03},
-  note    = {[pubs/marsaglia-tsang-2002-difficult-tests.pdf]}
+  note    = {Gorilla test behind research::marsaglia_tsang. The attached tuftests.c (gorilla(), ad32()) is not in pubs/. [pubs/marsaglia-tsang-2002-difficult-tests.pdf]}
 }
 ```
 
@@ -550,7 +550,7 @@ previously missing from this bibliography.
   number  = {2},
   year    = {2004},
   doi     = {10.18637/jss.v009.i02},
-  note    = {[pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]}
+  note    = {Anderson-Darling distribution behind math::anderson_darling_cdf and the Gorilla aggregate. The attached ADinf.c and AnDarl.c are not in pubs/. [pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]}
 }
 
 @article{marsaglia2003kolmogorov,

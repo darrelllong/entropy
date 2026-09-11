@@ -99,7 +99,7 @@ Runs the five standalone research probes with their default parameters:
 `bib_tests` (Knuth permutation/gap, Wald–Wolfowitz runs above/below the median, NIST ApEn profile),
 `upstream_tests` (TestU01 HammingCorr/HammingIndep + PractRand FPF),
 `testu01_lz` (TestU01 Lempel-Ziv), `webster_tavares` (SAC/BIC avalanche),
-and `gorilla` (Marsaglia-Tsang Gorilla).
+and `gorilla` (Marsaglia-Tsang Gorilla, with the paper's Anderson-Darling aggregate).
 Use the individual binaries for filtered or resized runs:
 
 ```sh

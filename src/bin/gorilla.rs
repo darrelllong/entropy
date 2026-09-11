@@ -1,9 +1,11 @@
 //! Marsaglia–Tsang Gorilla test (JSS 7(3), 2002) over all 32 bit positions of
-//! each seeded generator, with a per-bit table and a Kolmogorov–Smirnov
-//! aggregate p-value.  The paper aggregates with an Anderson–Darling–
-//! Kolmogorov–Smirnov test instead; see `entropy::research::marsaglia_tsang`.
+//! each seeded generator, with a per-bit summary and the paper's
+//! Anderson–Darling ("ADKS") aggregate: the statistic A₃₂ (`agg_ad_A`) and
+//! the p-value 1 − Pr(A₃₂ < A) (`agg_ad_p`), which is small when the 32
+//! per-bit p-values are far from uniform.  The paper prints Pr(A₃₂ < A)
+//! itself.  See `entropy::research::marsaglia_tsang`.
 
-use entropy::research::marsaglia_tsang::{gorilla_aggregate_ks, gorilla_all, GorillaBitResult};
+use entropy::research::marsaglia_tsang::{gorilla_aggregate_ad, gorilla_all, GorillaBitResult};
 use entropy::rng::{
     AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
     SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
@@ -156,10 +158,10 @@ fn main() {
     }
 
     println!(
-        "{:<40} {:>9} {:>9} {:>9} {:>10} {:>10}",
-        "RNG", "min_p", "max_p", "worst_bit", "worst_|z|", "agg_ks_p"
+        "{:<40} {:>9} {:>9} {:>9} {:>10} {:>10} {:>10}",
+        "RNG", "min_p", "max_p", "worst_bit", "worst_|z|", "agg_ad_A", "agg_ad_p"
     );
-    println!("{}", "-".repeat(95));
+    println!("{}", "-".repeat(106));
 
     for (label, run) in cases {
         if !args.matches_rng(label) {
@@ -167,10 +169,10 @@ fn main() {
         }
         let results = run();
         let (min_p, max_p, worst_bit, worst_abs_z) = summarize(&results);
-        let agg_ks_p = gorilla_aggregate_ks(&results);
+        let aggregate = gorilla_aggregate_ad(&results);
         println!(
-            "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3} {:>10.6}",
-            label, min_p, max_p, worst_bit, worst_abs_z, agg_ks_p
+            "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3} {:>10.4} {:>10.6}",
+            label, min_p, max_p, worst_bit, worst_abs_z, aggregate.statistic, aggregate.p_value
         );
     }
 }
