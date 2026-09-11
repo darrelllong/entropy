@@ -355,7 +355,8 @@ pub fn runs_above_below_median_test(samples: &[f64]) -> TestResult {
             "need at least three non-median values with both sides represented and no NaN",
         );
     };
-    let p_value = erfc(stats.z_score.abs() / SQRT_2);
+    // `math::erfc` exceeds 1 by up to about 10⁻⁷ near 0.
+    let p_value = erfc(stats.z_score.abs() / SQRT_2).min(1.0);
     TestResult::with_note(
         "wald_wolfowitz::runs_median",
         p_value,
