@@ -90,11 +90,14 @@
 //!
 //! Commit 3b41af8 removed this crate's byte variant,
 //! `count_ones_specific_bytes`, saying Dieharder's author found the byte test
-//! effectively obsolete.  His remark is conditional: the byte test is "LESS
-//! stringent than the stream version overall" but "might reveal problems with
-//! specific offsets ignored by the stream test", and he "could fix the stream
-//! test to cycle through the possible bitlevel offsets and make this test
-//! completely obsolete" (`libdieharder/diehard_count_1s_byte.c` lines 60–71).
+//! effectively obsolete.  His judgement has two parts
+//! (`libdieharder/diehard_count_1s_byte.c` lines 60–71).  Unconditionally,
+//! the byte test is "LESS stringent than the stream version overall" (line 60)
+//! and "vastly less sensitive than rgb_bitdist" (lines 66–67), which supports
+//! leaving it out of a battery on grounds of power.  Conditionally, it "might
+//! reveal problems with specific offsets ignored by the stream test", and he
+//! "could fix the stream test to cycle through the possible bitlevel offsets
+//! and make this test completely obsolete" (lines 68–71).
 //! `dieharder -l` rates `diehard_count_1s_byte` "Good" (test 9;
 //! `dieharder/list_tests.c` lines 31–36).  The removed variant was not
 //! DIEHARD's test either: it read one lane, `w & 0xFF`, which is DIEHARD's
