@@ -96,7 +96,7 @@ tests/run_aux.sh
 ```
 
 Runs the five standalone research probes with their default parameters:
-`bib_tests` (Knuth permutation/gap/runs-median + NIST ApEn profile),
+`bib_tests` (Knuth permutation/gap, Wald–Wolfowitz runs above/below the median, NIST ApEn profile),
 `upstream_tests` (TestU01 HammingCorr/HammingIndep + PractRand FPF),
 `testu01_lz` (TestU01 Lempel-Ziv), `webster_tavares` (SAC/BIC avalanche),
 and `gorilla` (Marsaglia-Tsang Gorilla).
@@ -184,7 +184,7 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | DIEHARDER: bit_distribution | Faithful `rgb_bitdist` core statistic with explicit per-width, per-pattern Vtest outputs instead of Brown's random one-pattern collapse |
 | Several geometric / higher-level Dieharder-style tests | Plausible and useful, but still best treated as implementation-reviewed rather than externally validated |
 | Webster–Tavares (1985): strict avalanche / bit-independence probe over seeded RNG families | Implemented as a research binary (`webster_tavares`); computes the dependence matrix and avalanche-variable correlations from the paper |
-| Knuth TAOCP Vol. 2 §3.3.2: permutation, gap, and Wald-Wolfowitz runs-above/below-median tests | Implemented as a research binary (`bib_tests`) over uniform `[0,1)` streams |
+| Knuth TAOCP Vol. 2 §3.3.2 permutation and gap tests, plus the Wald–Wolfowitz (1940) runs test above/below the median | Implemented as a research binary (`bib_tests`) over uniform `[0,1)` streams |
 | NIST SP 800-22 §2.12 ApEn statistic swept over multiple embedding dimensions `m=2..6` | Implemented as part of `bib_tests`; reveals at which pattern lengths a sequence departs from randomness beyond the single fixed NIST setting |
 | TestU01 1.2.3 (library, 2009; paper 2007): `scomp_LempelZiv` core statistic and official empirical calibration table | Implemented as a research binary (`testu01_lz`); exact per-replication `LZ78` phrase count and TestU01 `μ/σ` normalization, but not yet the full TestU01 goodness-of-fit reporting stack |
 | TestU01 1.2.3 (library, 2009; paper 2007): `sstring_HammingCorr` and `sstring_HammingIndep` core statistics | Implemented as part of `upstream_tests`; TestU01 `unif01_StripB` bit fields (an `L`-bit block equals the paper's concatenated bit stream only when `s` divides `L`, as at the defaults; otherwise each block's last field is truncated to its low `L mod s` bits and the rest discarded), asymptotic normal `HammingCorr`, and TestU01-style `gofs_MinExpected=10` lumping for the main `HammingIndep` chi-square |
@@ -248,7 +248,8 @@ Additional suites and tests surveyed (candidates for future implementation):
 
 - L'Ecuyer and Simard, "TestU01: A C Library for Empirical Testing of Random Number Generators," *ACM TOMS* 33(4), 2007 — the current gold standard; BigCrush contains ~106 tests including BirthdaySpacings, Gap, CouponCollector, MaxOft, LempelZiv, HammingCorr, RandomWalk, and LinearComplexity profile tests, many of which catch defects invisible to all three batteries here.
 - Chris Doty-Humphrey (Crow), *PractRand* pre-0.95, 2018 — streaming suite; BCFN, DC6, FPF, and TMFn tests are designed specifically for small-state generators (xorshift*, PCG) that pass all classic batteries.
-- Knuth, *The Art of Computer Programming* Vol. 2 §3.3.2 — classical tests not in NIST/Diehard: Gap, Poker (hand-type), Permutation, Wald-Wolfowitz runs above/below median, and the Serial Correlation Coefficient with exact variance.
+- Knuth, *The Art of Computer Programming* Vol. 2 §3.3.2 — classical tests not in NIST/Diehard: Gap, Poker (hand-type), Permutation, and the Serial Correlation Coefficient with exact variance.
+- Wald and Wolfowitz, "On a Test Whether Two Samples are from the Same Population," *Annals of Mathematical Statistics* 11(2), 1940 — the runs test above/below the median that `bib_tests` runs; TAOCP's run test scores monotone run lengths instead.
 - Maurer, "A Universal Statistical Test for Random Bit Generators," *Journal of Cryptology* 5(2), 1992 — the full parametric form (L=10–16) is substantially more sensitive than the single NIST-selected setting.
 - Hellekalek and Wegenkittl, "Empirical Evidence Concerning AES," *ACM Trans. Modeling and Computer Simulation* 13(4), 2003 — Walsh-Hadamard spectral test; sensitive to nonlinear Boolean structure in keystream generators.
 - Golić and Živković, "On the Linear Complexity of Nonuniformly Decimated PN-Sequences," *IEEE Trans. Inf. Theory* 34(5), 1988 — decimated linear complexity; directly relevant to stream ciphers and LFSR-based generators.

@@ -361,9 +361,21 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   year      = {1997},
   isbn      = {0-201-89684-2},
   note      = {§3.3.2: Poker test (hand-type multinomial over t-symbol groups), Permutation test
-               (all t! orderings), Wald-Wolfowitz runs above/below median (distinct from NIST
-               bit-level runs), Serial Correlation Coefficient with exact variance. None of
-               these are in NIST/DIEHARD/DIEHARDER.}
+               (all t! orderings), Gap test, Serial Correlation Coefficient with exact variance.
+               None of these are in NIST/DIEHARD/DIEHARDER. The runs test above/below the median
+               that bib_tests runs is Wald and Wolfowitz's (wald1940runs), not the §3.3.2 run test.}
+}
+
+@article{wald1940runs,
+  author  = {Wald, Abraham and Wolfowitz, Jacob},
+  title   = {On a Test Whether Two Samples are from the Same Population},
+  journal = {Annals of Mathematical Statistics},
+  volume  = {11},
+  number  = {2},
+  pages   = {147--162},
+  year    = {1940},
+  note    = {Conditional moments of the runs-above/below-median statistic in
+             research::knuth::runs_above_below_median_test. [not in pubs/]}
 }
 
 @article{golic1988decimated,
@@ -478,7 +490,7 @@ previously missing from this bibliography.
 | 1 | `lecuyer2007testu01` | LempelZiv, BirthdaySpacings, HammingCorr/HammingIndep — partially implemented; keep pushing toward BigCrush coverage |
 | 2 | `practrand` | FPF core implemented; next priority is BCFN and DC6 to catch small-state generators that pass everything else |
 | 3 | `maurer1992universal` | Full parametric universal test at L=10+ |
-| 4 | `knuth1997taocp2` | Poker, Permutation, Wald-Wolfowitz, Serial Correlation |
+| 4 | `knuth1997taocp2` | Poker, Permutation, Serial Correlation |
 | 5 | `golic1988decimated` | Decimated linear complexity — relevant to Dual_EC analysis |
 | 6 | `hellekalek2003aes` | Walsh-Hadamard spectral — validates AesCtr / CryptoCtrDrbg |
 | 7 | `webster1985sboxes` | SAC / bit independence |

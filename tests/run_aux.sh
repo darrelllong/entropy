@@ -2,7 +2,7 @@
 # Run all auxiliary research probes and print results to stdout.
 #
 # Probes covered:
-#   bib_tests      — Knuth permutation/gap/runs-median + NIST ApEn profile (m=2..6)
+#   bib_tests      — Knuth permutation/gap, Wald–Wolfowitz median runs, NIST ApEn profile (m=2..6)
 #   upstream_tests — TestU01 HammingCorr/HammingIndep, PractRand FPF(4,14,6)
 #   testu01_lz     — TestU01 Lempel-Ziv core statistic (k=25, 10 replications)
 #   webster_tavares — SAC / BIC avalanche analysis (4096 samples, 32-bit I/O)
