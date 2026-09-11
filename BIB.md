@@ -443,6 +443,25 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
                that bib_tests runs is Wald and Wolfowitz's (wald1940runs), not the §3.3.2 run test. [TODO: library] (copyrighted book)}
 }
 
+@book{press1992nrc,
+  author    = {Press, William H. and Teukolsky, Saul A. and Vetterling, William T. and Flannery, Brian P.},
+  title     = {Numerical Recipes in C: The Art of Scientific Computing},
+  edition   = {2nd},
+  publisher = {Cambridge University Press},
+  year      = {1992},
+  note      = {`src/math.rs` cites §6.1 for `gammln`.  `math::erfc` followed this edition's `erfcc` until
+               6806a53 (AUDIT.md item N). [TODO: library] (copyrighted book)}
+}
+
+@book{press2007nr3,
+  author    = {Press, William H. and Teukolsky, Saul A. and Vetterling, William T. and Flannery, Brian P.},
+  title     = {Numerical Recipes: The Art of Scientific Computing},
+  edition   = {3rd},
+  publisher = {Cambridge University Press},
+  year      = {2007},
+  note      = {`src/math.rs` cites §6.2 for its series and modified Lentz continued fraction. [TODO: library] (copyrighted book)}
+}
+
 @article{wald1940runs,
   author  = {Wald, Abraham and Wolfowitz, Jacob},
   title   = {On a Test Whether Two Samples are from the Same Population},
