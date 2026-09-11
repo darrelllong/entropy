@@ -625,6 +625,19 @@ previously missing from this bibliography.
                [pubs/marsaglia-1985-current-view-keynote.pdf]}
 }
 
+@article{marsaglia2004normal,
+  author  = {Marsaglia, George},
+  title   = {Evaluating the Normal Distribution},
+  journal = {Journal of Statistical Software},
+  volume  = {11},
+  number  = {4},
+  year    = {2004},
+  doi     = {10.18637/jss.v011.i04},
+  note    = {Taylor-series evaluation of Phi(x) and the complementary cPhi(x) in double precision.
+             [pubs/marsaglia-2004-normal-distribution.pdf]; the C attached to the article:
+             [pubs/marsaglia-2004-normal-distribution-sources.c]}
+}
+
 @misc{nist-sts-2.1.2,
   author       = {{National Institute of Standards and Technology}},
   title        = {{NIST} Statistical Test Suite, version 2.1.2},

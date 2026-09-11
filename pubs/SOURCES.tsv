@@ -46,3 +46,5 @@ marsaglia-tsang-2002-tuftests.c	https://www.jstatsoft.org/article/download/v007i
 etsi-sage-zuc-testdata-v1.1.pdf	https://www.gsma.com/security/wp-content/uploads/2019/05/eea3eia3testdatav11.pdf	2026-09-11
 etsi-sage-snow3g-testdata-v1.1.doc	https://www.gsma.com/solutions-and-impact/technologies/security/wp-content/uploads/2019/05/Doc3-UEA2-UIA2-Spec-Implementors-Test-Data.doc	2026-09-11
 glibc-2.40-rand.c	https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz (sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2; member stdlib/rand.c)	2026-09-11
+marsaglia-2004-normal-distribution.pdf	https://www.jstatsoft.org/article/download/v011i04/13 (sha256 eb8a9ac1f519c1720e66cab5120826ef4217fb1ee546349b3dcba528c9c7981c)	2026-09-11
+marsaglia-2004-normal-distribution-sources.c	https://www.jstatsoft.org/article/download/v011i04/1458 (zip sha256 fc7c97343f46e1df61b3f8353188cf10d067984d54183e68fa76095d815f9907; member sources.c)	2026-09-11
