@@ -15,7 +15,7 @@
 //! David Bauer, *Dieharder* (2006), test `dab_monobit2`.
 
 use crate::{
-    math::{igamc, lgamma},
+    math::{binomial_pmf, igamc, lgamma},
     result::TestResult,
 };
 
@@ -112,7 +112,7 @@ fn chisq_binomial(observed: &[f64], prob: f64, kmax: usize, nsamp: usize) -> f64
 
     for (n, &obs) in observed.iter().take(kmax + 1).enumerate() {
         if obs > GOFS_MIN_OBSERVED {
-            let expected = (nsamp as f64) * binomial_pdf(n, kmax, prob);
+            let expected = (nsamp as f64) * binomial_pmf(kmax, n, prob);
             let delta = obs - expected;
             chi_sq += delta * delta / expected;
             ndof += 1;
@@ -128,14 +128,6 @@ fn chisq_binomial(observed: &[f64], prob: f64, kmax: usize, nsamp: usize) -> f64
         return if chi_sq > 0.0 { 0.0 } else { f64::NAN };
     }
     igamc(df as f64 / 2.0, chi_sq / 2.0)
-}
-
-fn binomial_pdf(k: usize, n: usize, prob: f64) -> f64 {
-    let q = 1.0 - prob;
-    let log_p = lgamma((n + 1) as f64) - lgamma((k + 1) as f64) - lgamma((n - k + 1) as f64)
-        + (k as f64) * prob.ln()
-        + ((n - k) as f64) * q.ln();
-    log_p.exp()
 }
 
 /// Most-extreme p-value across blocks, two-sided.

@@ -363,6 +363,52 @@ pub fn chi2_pvalue(chi_sq: f64, df: usize) -> f64 {
     igamc(df as f64 / 2.0, chi_sq / 2.0)
 }
 
+// ── Discrete probability mass functions ─────────────────────────────────────
+
+/// Binomial PMF: P(X = k) for X ~ Binomial(n, p), with `k ≤ n`.
+///
+/// Evaluated in log space through [`lgamma`], so it stays finite for the
+/// large `n` of Dieharder's bit-count tests (C(n, k) itself overflows `f64`
+/// past n ≈ 1 030).  Relative error is a few × 10⁻¹⁰, inherited from the three
+/// `lgamma` terms.  The degenerate `p ≤ 0` and `p ≥ 1` cases return the exact
+/// point masses instead of taking `ln 0`.
+///
+/// Stands in for GSL's `gsl_ran_binomial_pdf`, which Robert G. Brown's
+/// Dieharder 3.31.1 calls in `rgb_bitdist.c`, `dab_monobit2.c` and
+/// `chisq_binomial` (`chisq.c`); used here by
+/// [`crate::dieharder::bit_distribution`] and [`crate::dieharder::monobit2`].
+#[must_use]
+pub fn binomial_pmf(n: usize, k: usize, p: f64) -> f64 {
+    debug_assert!(k <= n, "binomial_pmf: k = {k} exceeds n = {n}");
+    if p <= 0.0 {
+        return if k == 0 { 1.0 } else { 0.0 };
+    }
+    if p >= 1.0 {
+        return if k == n { 1.0 } else { 0.0 };
+    }
+    let q = 1.0 - p;
+    let log_comb = lgamma((n + 1) as f64) - lgamma((k + 1) as f64) - lgamma((n - k + 1) as f64);
+    (log_comb + (k as f64) * p.ln() + ((n - k) as f64) * q.ln()).exp()
+}
+
+/// Poisson PMF: P(X = k) = e^(−λ) λᵏ / k! for X ~ Poisson(λ).
+///
+/// Computed as the running product e^(−λ) · ∏ᵢ₌₁ᵏ (λ / i), which never forms
+/// λᵏ or k! separately, so it cannot overflow for the small k the chi-square
+/// histograms use.
+///
+/// Stands in for GSL's `gsl_ran_poisson_pdf`, which Robert G. Brown's
+/// Dieharder 3.31.1 calls in `diehard_birthdays.c` and `chisq_poisson`
+/// (`chisq.c`); used here by [`crate::diehard::birthday_spacings`].
+#[must_use]
+pub fn poisson_pmf(k: usize, lambda: f64) -> f64 {
+    let mut term = (-lambda).exp();
+    for i in 1..=k {
+        term *= lambda / i as f64;
+    }
+    term
+}
+
 // ── Discrete Fourier Transform (DFT) ─────────────────────────────────────────
 
 /// FFT for a real input of arbitrary length n.
@@ -443,6 +489,54 @@ pub fn gf2_rank(matrix: &[u32], rows: usize, cols: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Reference values are exact rationals C(n,k)·pᵏ·(1−p)ⁿ⁻ᵏ rounded once to
+    // f64 (Python `fractions`), independent of the lgamma evaluation.
+    #[test]
+    fn binomial_pmf_known_values() {
+        let cases = [
+            (64, 0, 0.5, 5.421010862427522e-20),
+            (64, 32, 0.5, 0.09934675374796689),
+            (64, 1, 1.0 / 1024.0, 0.058768915016183754),
+            (64, 3, 1.0 / 16.0, 0.19844898179736012),
+            (8, 4, 0.5, 0.2734375),
+            (512, 256, 0.5, 0.03524463548583874),
+        ];
+        for (n, k, p, want) in cases {
+            let got = binomial_pmf(n, k, p);
+            assert!(
+                ((got - want) / want).abs() < 1e-9,
+                "B({n},{p}) at {k}: {got} vs {want}"
+            );
+        }
+    }
+
+    #[test]
+    fn binomial_pmf_degenerate_probabilities() {
+        assert_eq!(binomial_pmf(10, 0, 0.0), 1.0);
+        assert_eq!(binomial_pmf(10, 1, 0.0), 0.0);
+        assert_eq!(binomial_pmf(10, 10, 1.0), 1.0);
+        assert_eq!(binomial_pmf(10, 9, 1.0), 0.0);
+    }
+
+    // Reference: e⁻² (as an f64) · 2ᵏ / k! evaluated exactly, then rounded once.
+    #[test]
+    fn poisson_pmf_known_values() {
+        let cases = [
+            (0, 0.1353352832366127),
+            (1, 0.2706705664732254),
+            (2, 0.2706705664732254),
+            (7, 0.0034370865583901638),
+            (20, 5.832924198269276e-14),
+        ];
+        for (k, want) in cases {
+            let got = poisson_pmf(k, 2.0);
+            assert!(
+                ((got - want) / want).abs() < 1e-14,
+                "Poisson(2) at {k}: {got} vs {want}"
+            );
+        }
+    }
 
     #[test]
     fn erfc_known_values() {

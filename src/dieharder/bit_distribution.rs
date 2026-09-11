@@ -15,24 +15,12 @@
 //! more transparent and avoids hiding failures behind a random pick.
 
 use crate::{
-    math::{chi2_pvalue, lgamma},
+    math::{binomial_pmf, chi2_pvalue},
     result::TestResult,
 };
 
 const BSAMPLES: usize = 64;
 const VTEST_CUTOFF: f64 = 20.0;
-
-fn binomial_pmf(n: usize, k: usize, p: f64) -> f64 {
-    if p <= 0.0 {
-        return if k == 0 { 1.0 } else { 0.0 };
-    }
-    if p >= 1.0 {
-        return if k == n { 1.0 } else { 0.0 };
-    }
-    let q = 1.0 - p;
-    let log_comb = lgamma((n + 1) as f64) - lgamma((k + 1) as f64) - lgamma((n - k + 1) as f64);
-    (log_comb + (k as f64) * p.ln() + ((n - k) as f64) * q.ln()).exp()
-}
 
 fn next_n_bits_msb(words: &[u32], bit_cursor: &mut usize, nbits: usize) -> Option<u32> {
     let total_bits = words.len() * 32;

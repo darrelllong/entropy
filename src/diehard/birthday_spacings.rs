@@ -18,7 +18,7 @@
 //! Source: `dieharder-3.31.1/libdieharder/diehard_birthdays.c`
 
 use crate::{
-    math::{igamc, ks_test},
+    math::{igamc, ks_test, poisson_pmf},
     result::TestResult,
 };
 
@@ -127,13 +127,4 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
         p_value,
         format!("m={M}, year=2^24, samples={SAMPLES}"),
     )
-}
-
-/// Poisson PMF: P(X = k) for X ~ Poisson(lambda).
-fn poisson_pmf(k: usize, lambda: f64) -> f64 {
-    let mut term = (-lambda).exp();
-    for i in 1..=k {
-        term *= lambda / i as f64;
-    }
-    term
 }
