@@ -82,10 +82,17 @@ const P6X8_FIVE: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0;
 /// last of them.  Marsaglia's `cdbinrnk` (`fortran/diehard.f` lines
 /// 920–1001) takes each row as `and(rshift(jtbl(),kr),255)` for kr = 24 down
 /// to 0, printed as "bits 1 to 8" through "bits 25 to 32" counting from the
-/// leftmost bit; it rereads the same words for every window (`jkreset`) and
-/// combines the 25 p-values with a KS test.  Each of its p-values is
-/// 1 − exp(−χ²/2), the lower tail of χ²(2), where this test reports the
-/// upper tail exp(−χ²/2).
+/// leftmost bit.  Before each window it calls `jkreset` (line 947), which
+/// resets `jtbl`'s record counter but not its place in the current 4 096-word
+/// record (lines 414–428), so each window after the first reads the rest of
+/// that record, 128 to 3 520 words, before rereading the file from word 1.
+/// Run alone, window 2 starts at word 600 001 and window 25 (kr = 0) at word
+/// 596 481 (a gfortran build of `diehard.f` instrumented to print them).  The
+/// 25 windows share nearly all their words, with matrix boundaries shifted by
+/// 0, 2 or 4 words.  DIEHARD combines the 25 p-values with Marsaglia's
+/// Anderson–Darling statistic, which `tests.txt` calls a KS test (`KSTEST`,
+/// lines 1668–1709).  Each of its p-values is 1 − exp(−χ²/2), the lower tail
+/// of χ²(2), where this test reports the upper tail exp(−χ²/2).
 ///
 /// The chi-square uses three cells, rank ≤ 4, 5 and 6 (df 2), as `cdbinrnk`
 /// does (`mr=max(4,rankb(r,6,8))`), with exact cell probabilities where it

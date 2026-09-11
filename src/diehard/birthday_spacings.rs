@@ -26,9 +26,12 @@
 //! 0.96% of calls and below 0.001 in 0.06%.
 //!
 //! Each of the nine bit windows reads its own 256 000 words, 2 304 000 in
-//! all.  `cdbday` instead rewinds the file for every window (`jkreset`, line
-//! 1267), so its nine p-values come largely from the same words and are
-//! dependent, which a summary over them does not allow for.  Offset o reads
+//! all.  `cdbday` instead calls `jkreset` for every window (line 1267), which
+//! rereads the file from word 1 once the current 4 096-word record is used
+//! up: run alone, five of its windows read words 1 to 256 000 and the other
+//! four read the 2 048 words after them and then words 1 to 253 952.  Its nine
+//! p-values therefore come from nearly the same words and are dependent,
+//! which a summary over them does not allow for.  Offset o reads
 //! bits o to o + 23 of each word, DIEHARD's window `kr` = o (line 1242), which
 //! it prints as bits 9 − o to 32 − o counting from the left.  DIEHARD reports
 //! each window's chi-square as its CDF (`chisq(s,j)`, line 1375) and
