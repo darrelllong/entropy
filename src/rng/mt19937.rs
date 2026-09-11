@@ -71,16 +71,52 @@ impl Rng for Mt19937 {
 mod tests {
     use super::*;
 
-    // Reference output from the original mt19937ar.c (Matsumoto & Nishimura).
-    // Uses the single-integer seed path: `init_genrand(19650218)`.
-    // Expected values taken directly from the mt19937ar.c reference output table.
+    /// `init_genrand(19650218)` then `genrand_int32`, the battery's seed.
+    /// 19650218 is the constant `init_by_array` seeds with internally; the
+    /// `mt19937ar.out` table shipped with mt19937ar.c is `init_by_array`
+    /// output, so it is not the source of these values.  They come from an
+    /// independent replica of Matsumoto & Nishimura's reference
+    /// `init_genrand`/`genrand_int32`, and libc++ `std::mt19937(19650218)`
+    /// agrees.
     #[test]
     fn known_output_seed_19650218() {
         let mut rng = Mt19937::new(19650218);
-        // First 5 known outputs from mt19937ar.c with seed=19650218
         let expected = [2325592414u32, 482149846, 4177211283, 3872387439, 1663027210];
         for &exp in &expected {
             assert_eq!(rng.next_u32(), exp, "MT19937 output mismatch");
         }
+    }
+
+    /// The canonical default seed 5489: the seed mt19937ar.c's
+    /// `genrand_int32` falls back to when `init_genrand` was never called, and
+    /// the default of C++ `std::mt19937`.  The first ten outputs come from an
+    /// independent replica of the reference `init_genrand`/`genrand_int32`
+    /// (cross-checked by running CPython's C twister from the replica's
+    /// initial state, and against libc++ `std::mt19937`).  The 10 000th
+    /// output is the value the C++ standard ([rand.predef]) requires of a
+    /// default-constructed `mt19937`.
+    #[test]
+    fn known_output_init_genrand_5489() {
+        const DEFAULT_SEED: u32 = 5489;
+        const OUTPUT_10000: u32 = 4_123_659_995;
+        let expected: [u32; 10] = [
+            3_499_211_612,
+            581_869_302,
+            3_890_346_734,
+            3_586_334_585,
+            545_404_204,
+            4_161_255_391,
+            3_922_919_429,
+            949_333_985,
+            2_715_962_298,
+            1_323_567_403,
+        ];
+        let mut rng = Mt19937::new(DEFAULT_SEED);
+        let got = expected.map(|_| rng.next_u32());
+        assert_eq!(got, expected);
+        for _ in expected.len()..9_999 {
+            let _ = rng.next_u32();
+        }
+        assert_eq!(rng.next_u32(), OUTPUT_10000);
     }
 }
