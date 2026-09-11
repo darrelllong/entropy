@@ -18,10 +18,10 @@
 //!                                    (repeatable).
 //!   --quick                          Use reduced sample counts in DIEHARD/DIEHARDER.
 //!   --fail-on-fail                   Exit 1 if any shown test FAILed.
+//!   --help                           Print this message and exit.
 //!
 //! Exit codes: 0 = ran to completion; 1 = usage error, or FAILs under
 //! `--fail-on-fail`; 2 = an RNG task panicked (results incomplete).
-//!   --help                           Print this message and exit.
 //! ```
 //!
 //! Examples:
