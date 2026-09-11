@@ -22,6 +22,26 @@
 //!
 //! `CHUNK` must be a multiple of 8 so that `next_u64` can always consume
 //! exactly 8 bytes after a refill without reading past the buffer.
+//!
+//! # References
+//! The stream ciphers the harness wraps, implemented in the sibling
+//! `cryptography` crate; none of these documents is in `pubs/`.
+//! * M. Boesgaard, M. Vesterager and E. Zenner, "A Description of the Rabbit
+//!   Stream Cipher Algorithm," RFC 4503, May 2006.  [Rabbit; the known-answer
+//!   test below uses its Appendix A.2 vector]
+//! * D. J. Bernstein, "Salsa20 specification," 2005.
+//!   <https://cr.yp.to/snuffle/spec.pdf>  [the Salsa20 cipher]
+//! * ETSI/SAGE, "Specification of the 3GPP Confidentiality and Integrity
+//!   Algorithms UEA2 & UIA2, Document 2: SNOW 3G Specification," version 1.1.
+//!   [the SNOW 3G cipher]
+//! * ETSI/SAGE, "Specification of the 3GPP Confidentiality and Integrity
+//!   Algorithms 128-EEA3 & 128-EIA3, Document 2: ZUC Specification,"
+//!   version 1.6.  [the ZUC-128 cipher]
+//!
+//! # Author
+//! M. Boesgaard, M. Vesterager and E. Zenner (Rabbit, RFC 4503); Daniel J.
+//! Bernstein (Salsa20); ETSI SAGE (SNOW 3G and ZUC-128 specifications);
+//! Darrell Long (Rust adapter).
 
 use cryptography::StreamCipher;
 

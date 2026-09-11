@@ -20,7 +20,11 @@
 //!
 //! # References
 //! * M. Dworkin, "Recommendation for Block Cipher Modes of Operation",
-//!   *NIST SP 800-38A*, 2001.
+//!   *NIST SP 800-38A*, 2001, §6.5.  [pubs/NIST-SP-800-38A.pdf]
+//!
+//! # Author
+//! Morris Dworkin, NIST (CTR mode, SP 800-38A); Darrell Long (Rust adapter).
+//! The wrapped block ciphers come from the sibling `cryptography` crate.
 
 use cryptography::BlockCipher;
 

@@ -33,12 +33,16 @@
 //! applications that require prediction resistance.
 //!
 //! # References
-//! D. J. Bernstein, "ChaCha, a variant of Salsa20", Workshop Record of
-//! SASC 2008.  [pubs/bernstein-2008-chacha.pdf]
-//! (Also at: <https://cr.yp.to/chacha/chacha-20080128.pdf>)
+//! * D. J. Bernstein, "ChaCha, a variant of Salsa20", Workshop Record of
+//!   SASC 2008.  <https://cr.yp.to/chacha/chacha-20080128.pdf>  (Not in
+//!   `pubs/`.)  [The ChaCha20 algorithm]
+//! * Y. Nir and A. Langley, "ChaCha20 and Poly1305 for IETF Protocols,"
+//!   RFC 8439, June 2018.  [The 96-bit-nonce, 32-bit-counter layout that
+//!   `cryptography::ChaCha20` follows]
 //!
 //! # Author
-//! Daniel J. Bernstein (algorithm); Darrell Long (Rust port).
+//! Daniel J. Bernstein (ChaCha20 algorithm); Darrell Long (this adapter over
+//! `cryptography::ChaCha20`, which implements the cipher).
 
 use cryptography::ChaCha20;
 
