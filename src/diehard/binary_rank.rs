@@ -37,6 +37,15 @@ pub fn binary_rank_32x32(words: &[u32]) -> TestResult {
 
 /// 31×31 binary matrix rank test (DIEHARD variant; 40 000 matrices).
 ///
+/// Each row is the leftmost 31 bits of one 32-bit word (`w >> 1`), as
+/// Marsaglia specifies: "The leftmost 31 bits of 31 random integers from the
+/// test sequence are used to form a 31x31 binary matrix" (`tests.txt`).
+/// Ranks ≤ 28 are pooled, giving the four cells 31, 30, 29 and ≤ 28.
+///
+/// Dieharder 3.31.1 has no 31×31 test to compare against:
+/// `diehard_rank_32x32.c` quotes this description in its header but builds
+/// only 32×32 matrices from whole words.
+///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
 pub fn binary_rank_31x31(words: &[u32]) -> TestResult {
@@ -105,6 +114,7 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
 
 /// General binary rank test for R×C matrices (C ≤ 32).
 ///
+/// Each row is the leftmost `cols` bits of one word (see [`leftmost_bits`]).
 /// Uses 4 bins matching `diehard_rank_32x32.c`: rank=full, full-1, full-2, ≤full-3.
 /// Bins with expected count < 5.0 are excluded from the chi-square (Vtest cutoff).
 fn rank_test(
@@ -123,18 +133,13 @@ fn rank_test(
 
     let mut f = [0usize; 4]; // f[3]=rank=full, f[2]=full-1, f[1]=full-2, f[0]=≤full-3
 
-    // Mask is the same for every matrix; pre-allocate the row buffer once.
-    let mask = if cols < 32 {
-        (1u32 << cols) - 1
-    } else {
-        u32::MAX
-    };
+    // Pre-allocate the row buffer once.
     let mut matrix = Vec::with_capacity(rows);
 
     for m_idx in 0..n_matrices {
         let slice = &words[m_idx * rows..(m_idx + 1) * rows];
         matrix.clear();
-        matrix.extend(slice.iter().map(|&w| w & mask));
+        matrix.extend(slice.iter().map(|&w| leftmost_bits(w, cols)));
         let rank = gf2_rank(&matrix, rows, cols);
         let full = rows.min(cols);
         if rank == full {
@@ -170,6 +175,15 @@ fn rank_test(
         p_value,
         format!("{rows}×{cols}, N={n_matrices}, χ²={chi_sq:.4}"),
     )
+}
+
+/// The leftmost `cols` bits of `w` (1 ≤ `cols` ≤ 32), right-aligned so that
+/// [`gf2_rank`] sees them as its low `cols` columns.  DIEHARD forms rank-test
+/// rows "from leftmost" bits "of each 32-bit integer" (`diehard.exe`); for
+/// `cols` = 32 this is the whole word.
+fn leftmost_bits(w: u32, cols: usize) -> u32 {
+    debug_assert!((1..=32).contains(&cols), "cols = {cols} must be 1..=32");
+    w >> (32 - cols)
 }
 
 /// Theoretical rank-distribution probabilities for an R×C matrix over GF(2).
@@ -239,7 +253,60 @@ fn gf2_rank_6x8(matrix: &[u8; 6], rows: usize, cols: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{gf2_rank_probability, theoretical_probs};
+    use super::{binary_rank_31x31, gf2_rank_probability, leftmost_bits, theoretical_probs};
+    use crate::{
+        math::gf2_rank,
+        rng::{Mt19937, Rng},
+    };
+
+    /// Words needed by the 31×31 test: 40 000 matrices of 31 rows.
+    const WORDS_31X31: usize = 31 * 40_000;
+
+    /// Row i = 2^(i+1).  Its leftmost 31 bits are 2^i, the identity (rank 31);
+    /// its low 31 bits lose row 30 entirely (rank 30).  Ranks checked with an
+    /// independent Python GF(2) elimination.
+    #[test]
+    fn rank_31x31_rows_are_the_leftmost_31_bits() {
+        let words: Vec<u32> = (0..31).map(|i| 1u32 << (i + 1)).collect();
+        let high: Vec<u32> = words.iter().map(|&w| leftmost_bits(w, 31)).collect();
+        assert_eq!(high, (0..31).map(|i| 1u32 << i).collect::<Vec<_>>());
+        assert_eq!(gf2_rank(&high, 31, 31), 31);
+        let low: Vec<u32> = words.iter().map(|&w| w & (u32::MAX >> 1)).collect();
+        assert_eq!(gf2_rank(&low, 31, 31), 30);
+        assert_eq!(leftmost_bits(u32::MAX, 32), u32::MAX);
+    }
+
+    /// The statistic must not see bit 0.  With the low-31-bit mask, clearing
+    /// bit 0 zeroed a whole column (every rank ≤ 30, p ≈ 0) while setting it
+    /// did not, so the two p-values differed.
+    #[test]
+    fn rank_31x31_ignores_the_lowest_bit() {
+        let words = Mt19937::new(5489).collect_u32s(WORDS_31X31);
+        let cleared: Vec<u32> = words.iter().map(|&w| w & !1).collect();
+        let set: Vec<u32> = words.iter().map(|&w| w | 1).collect();
+        let (p_cleared, p_set) = (
+            binary_rank_31x31(&cleared).p_value,
+            binary_rank_31x31(&set).p_value,
+        );
+        assert_eq!(
+            p_cleared.to_bits(),
+            p_set.to_bits(),
+            "{p_cleared} vs {p_set}"
+        );
+    }
+
+    /// A stuck top bit zeroes a column of every matrix, so no matrix reaches
+    /// rank 31 and the test must fail.
+    #[test]
+    fn rank_31x31_fails_a_stuck_top_bit() {
+        let words: Vec<u32> = Mt19937::new(5489)
+            .collect_u32s(WORDS_31X31)
+            .into_iter()
+            .map(|w| w & (u32::MAX >> 1))
+            .collect();
+        let result = binary_rank_31x31(&words);
+        assert!(!result.skipped() && result.p_value < 1e-10, "{result}");
+    }
 
     #[test]
     fn exact_31x31_probabilities_sum_to_one() {
