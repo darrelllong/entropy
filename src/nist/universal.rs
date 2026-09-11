@@ -4,9 +4,11 @@
 //! Builds a table of the most recent position of each L-bit pattern, then
 //! sums the log₂ of gaps between recurrences.
 //!
-//! Recommended defaults (Table 5, SP 800-22 §2.9.7):
-//!   L = 7, Q = 1280, for n ≥ 387 840.
-//!   L = 15 for n ≥ 1 900 000 gives higher power.
+//! Input size (SP 800-22 §2.9.7): 6 ≤ L ≤ 16, Q = 10·2^L and
+//! K = n/L − Q ≈ 1000·2^L.  The §2.9.7 table starts L = 6 (Q = 640) at
+//! n ≥ 387 840 and L = 7 (Q = 1280) at n ≥ 904 960, and ends with L = 15 at
+//! n ≥ 496 435 200 and L = 16 at n ≥ 1 059 061 760.  [`universal`] picks L
+//! from that table.
 //!
 //! # References
 //! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.9.
@@ -15,15 +17,21 @@
 //!   *Journal of Cryptology* 5(2), pp. 89–105, 1992.
 //!   DOI: 10.1007/BF00193563.
 //!   [pubs/maurer-1992-universal-test.pdf]
-//!   [Table 1: expected values μ and variances σ² for L=1..16, reproduced in EXPECTED_LOG_GAP_STATS]
+//!   [Table I: E[f_TU] and Var[log₂ Aₙ] for L = 1..16; eq. (13): c(L, K)]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
 
-/// Expected value μ and variance σ² of log2(A_n) for each L.
+/// Expected value μ of fₙ and variance σ² of log₂ Aₙ for each L.  Index is
+/// L; entry 0 is unused.
 ///
-/// Table 3 from NIST SP 800-22 §2.9.7 and Table 1 from Maurer (1992).
-/// Index is L; entry 0 is unused.
+/// Maurer (1992) Table I prints both for L = 1..16, compiled from his
+/// eqs. (16) and (17), and SP 800-22 §2.9.4 step (5) reprints L = 6..16 with
+/// the same digits: μ to 7 decimals (6 from L = 11) and σ² to 3.  Entries
+/// L = 1..5 are those printed values.  The extra digits in the L = 6..16
+/// entries come from an uncited source; neither table prints them.  They
+/// agree with the printed digits to within one unit in the last place (σ²
+/// for L = 8 is 3.23866…, which both tables print as 3.238).
 const EXPECTED_LOG_GAP_STATS: [(f64, f64); 17] = [
     (0.0, 0.0), // L=0 unused
     (0.7326495, 0.690),
@@ -65,8 +73,8 @@ const PARAMETRIC_NAMES: [&str; 12] = [
 
 /// Choose L automatically based on n.
 fn choose_l(n: usize) -> usize {
-    // From Table 2 in SP 800-22 §2.9.7 and the NIST reference C implementation.
-    // These thresholds are n_min = (Q + K) * L = 10*2^L * L + 1000*2^L * L.
+    // The table in SP 800-22 §2.9.7.  Each threshold is n_min = L·(Q + K)
+    // with Q = 10·2^L and K = 1000·2^L.
     // Rev 1a defines the test only for L ∈ [6, 16]; smaller L is available
     // through the `maurer::` parametric family, not the NIST-named wrapper.
     match n {
@@ -195,9 +203,54 @@ fn bits_to_index(bits: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{universal, universal_parametric_all, universal_sigma, EXPECTED_LOG_GAP_STATS};
+    use super::{
+        choose_l, universal, universal_parametric_all, universal_sigma, EXPECTED_LOG_GAP_STATS,
+    };
     use crate::math::erfc;
     use std::f64::consts::SQRT_2;
+
+    /// μ and σ² as printed in Maurer (1992) Table I for L = 1..16; SP 800-22
+    /// §2.9.4 step (5) reprints L = 6..16 with the same digits.
+    const PRINTED_TABLE: [(f64, f64); 16] = [
+        (0.7326495, 0.690),
+        (1.5374383, 1.338),
+        (2.4016068, 1.901),
+        (3.3112247, 2.358),
+        (4.2534266, 2.705),
+        (5.2177052, 2.954),
+        (6.1962507, 3.125),
+        (7.1836656, 3.238),
+        (8.1764248, 3.311),
+        (9.1723243, 3.356),
+        (10.170032, 3.384),
+        (11.168765, 3.401),
+        (12.168070, 3.410),
+        (13.167693, 3.416),
+        (14.167488, 3.419),
+        (15.167379, 3.421),
+    ];
+
+    /// Each constant is within one unit of the last printed place.
+    #[test]
+    fn constants_agree_with_printed_tables() {
+        for (l, (mu, var)) in (1..=16).zip(PRINTED_TABLE) {
+            let (m, v) = EXPECTED_LOG_GAP_STATS[l];
+            let last_mu_place = if l < 11 { 1e-7 } else { 1e-6 };
+            assert!((m - mu).abs() <= last_mu_place, "μ for L = {l}: {m}");
+            assert!((v - var).abs() <= 1e-3, "σ² for L = {l}: {v}");
+        }
+    }
+
+    /// `universal` takes L from the §2.9.7 row at its n and the previous
+    /// row's L one bit below it.
+    #[test]
+    fn nist_wrapper_follows_section_2_9_7_table() {
+        for (l, n_min) in SECTION_2_9_7_TABLE {
+            assert_eq!(choose_l(n_min), l, "n = {n_min}");
+            let below = if l == 6 { 0 } else { l - 1 };
+            assert_eq!(choose_l(n_min - 1), below, "n = {}", n_min - 1);
+        }
+    }
 
     #[test]
     fn published_table_covers_l16() {
