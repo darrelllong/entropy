@@ -99,12 +99,17 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
 /// Berlekamp-Massey algorithm: returns the linear complexity (shortest LFSR
 /// length) of the binary sequence `s`.
 ///
-/// This is the reference implementation from NIST SP 800-22 Appendix A,
-/// transcribed into safe Rust.
+/// SP 800-22 §2.10.4 step (2) calls for this algorithm and, in its footnote 5,
+/// takes the definition from A. Menezes, P. Van Oorschot and S. Vanstone,
+/// *Handbook of Applied Cryptography*, CRC Press, 1997; Massey (1969) is in
+/// the module references.
 pub fn berlekamp_massey(s: &[u8]) -> usize {
     let big_n = s.len();
     let mut c = vec![0u8; big_n + 1];
     let mut b = vec![0u8; big_n + 1];
+    // Holds C(D) across a length change and then becomes B(D) by swap, so
+    // the loop allocates once instead of cloning C(D) on every discrepancy.
+    let mut t = vec![0u8; big_n + 1];
     c[0] = 1;
     b[0] = 1;
     let mut l = 0usize;
@@ -119,16 +124,89 @@ pub fn berlekamp_massey(s: &[u8]) -> usize {
         if d == 0 {
             continue;
         }
-        let t = c.clone();
+        let lengthens = 2 * l <= n;
+        if lengthens {
+            t.copy_from_slice(&c);
+        }
         let shift = (n as i64 - m) as usize;
         for i in shift..=big_n {
             c[i] ^= b[i - shift];
         }
-        if 2 * l <= n {
+        if lengthens {
             l = n + 1 - l;
-            b = t;
+            std::mem::swap(&mut b, &mut t);
             m = n as i64;
         }
     }
     l
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::nist::test_vectors::bits;
+    use crate::rng::{Mt19937, Rng};
+
+    /// The loop as it stood before the scratch buffer, cloning C(D) on every
+    /// discrepancy.
+    fn berlekamp_massey_cloning(s: &[u8]) -> usize {
+        let big_n = s.len();
+        let mut c = vec![0u8; big_n + 1];
+        let mut b = vec![0u8; big_n + 1];
+        c[0] = 1;
+        b[0] = 1;
+        let mut l = 0usize;
+        let mut m: i64 = -1;
+        for n in 0..big_n {
+            let mut d = s[n];
+            for i in 1..=l {
+                d ^= c[i] & s[n - i];
+            }
+            if d == 0 {
+                continue;
+            }
+            let t = c.clone();
+            let shift = (n as i64 - m) as usize;
+            for i in shift..=big_n {
+                c[i] ^= b[i - shift];
+            }
+            if 2 * l <= n {
+                l = n + 1 - l;
+                b = t;
+                m = n as i64;
+            }
+        }
+        l
+    }
+
+    /// SP 800-22 §2.10.4 step (2): the block 1101011110001 (M = 13) has
+    /// Lᵢ = 4.  (The §2.10.8 example runs on 10⁶ bits of e, which the crate
+    /// does not ship.)
+    #[test]
+    fn matches_section_2_10_4_example() {
+        assert_eq!(berlekamp_massey(&bits("1101011110001")), 4);
+    }
+
+    /// The scratch-buffer loop returns what the cloning loop returned, on
+    /// fixed Mt19937 blocks around the battery's M = 500 and on all-zero and
+    /// single-one blocks.
+    #[test]
+    fn scratch_buffer_matches_cloning_loop() {
+        let mut rng = Mt19937::new(5489);
+        for len in (0..64).chain([499, 500, 501, 1000]) {
+            for _ in 0..8 {
+                let block = rng.collect_bits(len);
+                let want = berlekamp_massey_cloning(&block);
+                assert_eq!(berlekamp_massey(&block), want, "len = {len}");
+            }
+        }
+        for len in [1usize, 13, 500] {
+            let zeros = vec![0u8; len];
+            let mut impulse = zeros.clone();
+            impulse[len - 1] = 1;
+            assert_eq!(berlekamp_massey(&zeros), 0);
+            assert_eq!(berlekamp_massey(&impulse), len);
+            assert_eq!(berlekamp_massey_cloning(&impulse), len);
+        }
+    }
 }
