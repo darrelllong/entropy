@@ -1,48 +1,76 @@
 //! Dual_EC_DRBG — Dual Elliptic Curve Deterministic Random Bit Generator.
 //!
-//! Implements the Dual_EC_DRBG algorithm from NIST SP 800-90 (June 2006), §9.
-//! This DRBG was withdrawn in NIST SP 800-90A Rev. 1 (June 2015) after
-//! Bernstein et al. demonstrated that the NSA-specified Q points likely contain
-//! a backdoor: knowledge of the discrete logarithm e with Q = e·P allows the
-//! entire internal state to be recovered from 30 bytes of output.
+//! Implements Dual_EC_DRBG from NIST SP 800-90 (Revised), March 2007,
+//! §10.3.1, with the curve points of its Appendix A.1.  SP 800-90A Rev. 1
+//! (June 2015) removed the mechanism.  Bernstein, Lange and Niederhagen
+//! describe the backdoor the standard Q points likely contain: knowledge of
+//! the discrete logarithm e with Q = e·P allows the entire internal state to
+//! be recovered from 30 bytes of output.
 //!
 //! This implementation supports pluggable curves and Q points:
 //! - [`DualEcDrbg::p256`], [`DualEcDrbg::p384`], [`DualEcDrbg::p521`] use the
-//!   NIST-specified Q points from SP 800-90 Appendix A.1 (potentially backdoored).
+//!   standard Q points of SP 800-90 Appendix A.1.1–A.1.3 (potentially
+//!   backdoored); the June 2006 edition and the March 2007 revision give the
+//!   same points.
 //! - [`DualEcDrbg::new`] accepts any [`CurveParams`] with caller-supplied P and Q,
 //!   enabling use of non-NSA Q points on any supported curve.
 //!
-//! **Algorithm** (SP 800-90 §9, simplified, no prediction resistance):
+//! **Algorithm.**  Each block is one §10.3.1.4 Generate call requesting
+//! `outlen` bits, with `additional_input` = Null and no prediction
+//! resistance.  ϕ(x(·)) is the x-coordinate read as an integer, and seedlen
+//! is the size of the base field in bits (Table 4):
 //! ```text
-//! state:  s  (seqlen-bit integer)
+//! state:  s  (seedlen-bit integer)
 //! per block:
-//!   t  = x(s · P)            // x-coordinate of scalar multiplication
-//!   s  ← x(t · P)            // update state
-//!   r  = x(t · Q)            // output value
-//!   out = rightmost(outlen, r)  // least-significant outlen bits
+//!   s₁  = ϕ(x(s · P))            // steps 5–6 (step 5: t = s ⊕ 0 = s)
+//!   r   = ϕ(x(s₁ · Q))           // step 7
+//!   out = rightmost(outlen, r)   // step 8; step 13 keeps all outlen bits
+//!   s  ← ϕ(x(s₁ · P))            // step 14, the backtracking update
 //! ```
 //!
-//! **Output lengths** (the `outlen` SP 800-90 specifies for each curve):
-//! | Curve  | seqlen | outlen |
-//! |--------|--------|--------|
-//! | P-256  | 256    | 240    |
-//! | P-384  | 384    | 368    |
-//! | P-521  | 521    | 504    |
+//! The [`Rng`] stream applies step 14 after **every** block, so it is a
+//! sequence of one-block Generate calls.  A single Generate asking for k
+//! blocks repeats steps 5–12 k times, each step 5 taking the `s` of the
+//! previous step 6, and runs step 14 once at the end; its blocks after the
+//! first therefore differ from this stream's.  The June 2006 edition has no
+//! step 14, so this stream follows the March 2007 revision.  The rest of the
+//! mechanism is omitted: the seed is used directly as `s` instead of passing
+//! through `Hash_df` at instantiation (§10.3.1.2), there is no reseed counter
+//! (step 1; Table 4 caps `reseed_interval` at 2³² blocks), and additional
+//! input is not supported.
+//!
+//! **Output lengths** (`max_outlen` from SP 800-90 (Revised) §10.3.1,
+//! Table 4, which is also the `outlen` the constructors use):
+//! | Curve  | seedlen | max_outlen |
+//! |--------|---------|------------|
+//! | P-256  | 256     | 240        |
+//! | P-384  | 384     | 368        |
+//! | P-521  | 521     | 504        |
 //!
 //! **Performance note:** Each output block requires three scalar
-//! multiplications (t = x(s·P), the output from x(t·Q), and the next state
-//! x(t·P)), making Dual_EC_DRBG orders of magnitude slower than
-//! hash- or cipher-based DRBGs.  This implementation is suitable for research
-//! and statistical testing, not high-throughput applications.
+//! multiplications (Generate steps 6, 7 and 14), making Dual_EC_DRBG orders
+//! of magnitude slower than hash- or cipher-based DRBGs.  This implementation
+//! is suitable for research and statistical testing, not high-throughput
+//! applications.
 //!
 //! # References
-//! * NIST SP 800-90, June 2006, §9 and Appendix A.1.  *(Original; Dual_EC
-//!   was removed in Rev. 1.)*
+//! * E. Barker and J. Kelsey, "Recommendation for Random Number Generation
+//!   Using Deterministic Random Bit Generators (Revised)," *NIST SP 800-90*,
+//!   March 2007: §10.3.1 (Table 4 and the Generate steps), Appendix A.1
+//!   (curves and points), Appendix E.2 (truncation).
+//!   [pubs/NIST-SP-800-90-2007.pdf]
+//! * E. Barker and J. Kelsey, "Recommendation for Random Number Generation
+//!   Using Deterministic Random Bit Generators," *NIST SP 800-90*, June 2006.
+//!   Same Table 4 and Appendix A.1 points; its Generate has no step 14.
+//!   [pubs/NIST-SP-800-90-2006.pdf]
+//! * E. Barker and J. Kelsey, *NIST SP 800-90A Rev. 1*, June 2015.  Its list
+//!   of revisions records that the Dual_EC_DRBG has been removed.
+//!   [pubs/NIST-SP-800-90Ar1.pdf]
 //! * D. Bernstein, T. Lange, R. Niederhagen, "Dual EC: A Standardized Back
 //!   Door," *The New Codebreakers*, LNCS 9100, 2016.
 //!
 //! # Author
-//! Darrell Long (UC Santa Cruz).
+//! NIST (specification); Darrell Long (UC Santa Cruz; Rust implementation).
 
 use cryptography::vt::{AffinePoint, BigUint, CurveParams};
 
@@ -72,16 +100,16 @@ impl DualEcDrbg {
     /// * `outlen` — output bits per block; a multiple of 8 in
     ///   `32..=max_outlen(curve)`.  The lower bound is what the [`Rng`] path
     ///   needs to assemble 32-bit words across block boundaries.  The upper
-    ///   bound is 240 / 368 / 504 bits for P-256 / P-384 / P-521, the
-    ///   `max_outlen` SP 800-90 gives for those curves and the `outlen` the
-    ///   constructors below use.  It is computed as
-    ///   `8·⌊(seedlen − (13 + log₂ h)) / 8⌋` with `seedlen` the bit length
-    ///   of the group order; for other curves that rule is an extrapolation.
-    ///   The standard drops those leading bits of `x(t·Q)` because a raw
-    ///   x-coordinate is not uniformly distributed.  With the trapdoor they
-    ///   cost only about 2¹⁶ guesses, which is the backdoor described in the
-    ///   module documentation.  No edition of SP 800-90 that contains
-    ///   Dual_EC_DRBG is in `pubs/`.
+    ///   bound is the `max_outlen` of SP 800-90 (Revised) §10.3.1 Table 4,
+    ///   240 / 368 / 504 bits for P-256 / P-384 / P-521 and the `outlen` the
+    ///   constructors below use; §10.3.1.4 allows any multiple of 8 up to it.
+    ///   Table 4 derives it from the size of the base field and the cofactor
+    ///   (see `max_outlen`); for other curves that rule is an extrapolation.
+    ///   The standard keeps only the rightmost bits of `ϕ(x(s₁·Q))` because
+    ///   only about half of all seedlen-bit strings are x-coordinates
+    ///   (Appendix E.2).  With the trapdoor the dropped bits cost only about
+    ///   2¹⁶ guesses, which is the backdoor described in the module
+    ///   documentation.
     ///
     /// # Panics
     /// Panics if `outlen` is not a multiple of 8 in `32..=max_outlen`, or if
@@ -119,14 +147,14 @@ impl DualEcDrbg {
 
     /// P-256 (secp256r1) with NIST SP 800-90 standard Q point.  outlen = 240 bits.
     ///
-    /// **BACKDOORED.** The P-256 Q point in SP 800-90 Appendix A.1 Table A-1
-    /// is from the NSA-generated table and is the primary suspect point in the
-    /// published Dual_EC analyses.  An adversary holding the discrete-log
+    /// **BACKDOORED.** The P-256 Q point of SP 800-90 Appendix A.1.1 is the
+    /// primary suspect point in the published Dual_EC analyses.  An adversary holding the discrete-log
     /// trapdoor scalar e where Q = e·P can recover the full internal state
     /// from one output block.  Use this constructor only as a negative
     /// control.  Never use for key material or any security-sensitive purpose.
     ///
-    /// Q coordinates from NIST SP 800-90 (June 2006), Appendix A.1, Table A-1.
+    /// Q coordinates from NIST SP 800-90 (Revised, March 2007), Appendix
+    /// A.1.1; the June 2006 edition gives the same values.
     pub fn p256(seed: &[u8]) -> Self {
         let curve = cryptography::vt::p256();
         let p = curve.base_point();
@@ -139,14 +167,14 @@ impl DualEcDrbg {
 
     /// P-384 (secp384r1) with NIST SP 800-90 standard Q point.  outlen = 368 bits.
     ///
-    /// **BACKDOORED.** The P-384 Q point in SP 800-90 Appendix A.1 Table A-2
-    /// is from the same NSA-generated table as the P-256 Q point and is equally
-    /// suspect.  An adversary holding the discrete-log trapdoor scalar e where
+    /// **BACKDOORED.** The P-384 Q point of SP 800-90 Appendix A.1.2 comes
+    /// from the same appendix as the P-256 Q point and is equally suspect.  An adversary holding the discrete-log trapdoor scalar e where
     /// Q = e·P can recover the full internal state from one output block.
     /// Use this constructor only as a negative control.  Never use for key
     /// material or any security-sensitive purpose.
     ///
-    /// Q coordinates from NIST SP 800-90 (June 2006), Appendix A.1, Table A-2.
+    /// Q coordinates from NIST SP 800-90 (Revised, March 2007), Appendix
+    /// A.1.2; the June 2006 edition gives the same values.
     pub fn p384(seed: &[u8]) -> Self {
         let curve = cryptography::vt::p384();
         let p = curve.base_point();
@@ -161,14 +189,15 @@ impl DualEcDrbg {
 
     /// P-521 (secp521r1) with NIST SP 800-90 standard Q point.  outlen = 504 bits.
     ///
-    /// **BACKDOORED.** The P-521 Q point in SP 800-90 Appendix A.1 Table A-3
-    /// is from the same NSA-generated table as P-256 and P-384 and carries the
-    /// same discrete-log trapdoor risk.  An adversary holding the trapdoor can
+    /// **BACKDOORED.** The P-521 Q point of SP 800-90 Appendix A.1.3 comes
+    /// from the same appendix as P-256 and P-384 and carries the same
+    /// discrete-log trapdoor risk.  An adversary holding the trapdoor can
     /// recover the full internal state from one output block.
     /// Use this constructor only as a negative control.  Never use for key
     /// material or any security-sensitive purpose.
     ///
-    /// Q coordinates from NIST SP 800-90 (June 2006), Appendix A.1, Table A-3.
+    /// Q coordinates from NIST SP 800-90 (Revised, March 2007), Appendix
+    /// A.1.3; the June 2006 edition gives the same values.
     pub fn p521(seed: &[u8]) -> Self {
         let curve = cryptography::vt::p521();
         let p = curve.base_point();
@@ -181,20 +210,22 @@ impl DualEcDrbg {
         Self::new(curve, p, q, seed, 504)
     }
 
-    /// Execute one generate step: update state and buffer one block of output bytes.
+    /// One SP 800-90 (Revised) §10.3.1.4 Generate call for a single block
+    /// with `additional_input` = Null: steps 5–8 buffer the block, then step
+    /// 14 updates the state.
     fn generate_block(&mut self) {
-        // t = x(s · P)
-        let t_point = self.curve.scalar_mul(&self.p, &self.s);
-        let t = t_point.x;
+        // Steps 5–6: t = s ⊕ 0 = s, s₁ = ϕ(x(t · P)).
+        let s1_point = self.curve.scalar_mul(&self.p, &self.s);
+        let s1 = s1_point.x;
 
-        // s ← x(t · P)  — update state using t as scalar
-        let s_point = self.curve.scalar_mul(&self.p, &t);
+        // Step 14: s = ϕ(x(s₁ · P)), the backtracking update.
+        let s_point = self.curve.scalar_mul(&self.p, &s1);
         self.s = s_point.x;
 
-        // r = x(t · Q)  — compute output value
-        let r_point = self.curve.scalar_mul(&self.q, &t);
+        // Step 7: r = ϕ(x(s₁ · Q)).
+        let r_point = self.curve.scalar_mul(&self.q, &s1);
 
-        // rightmost(outlen, r) = r mod 2^outlen, as outlen/8 big-endian bytes
+        // Step 8: rightmost(outlen, r) = r mod 2^outlen, as outlen/8 big-endian bytes
         self.buf = r_point
             .x
             .low_bits(self.outlen)
@@ -238,12 +269,15 @@ impl Rng for DualEcDrbg {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/// Largest admissible `outlen`: `8·⌊(seedlen − (13 + log₂ h)) / 8⌋`, with
-/// `seedlen` the bit length of the group order `n`.  The rule reproduces
-/// the `max_outlen` SP 800-90 gives for P-256, P-384 and P-521 (240, 368,
-/// 504); no edition containing Dual_EC_DRBG is in `pubs/`.
+/// Largest admissible `outlen`, the `max_outlen` of SP 800-90 (Revised)
+/// §10.3.1 Table 4: the "largest multiple of 8 less than" seedlen −
+/// (13 + log₂ h), where seedlen is the size of the base field in bits and h
+/// the cofactor.  For P-256, P-384 and P-521 (h = 1) that difference is 243,
+/// 371 and 508, none a multiple of 8, so Table 4's 240, 368 and 504 are also
+/// `8·⌊difference / 8⌋`, which is what this computes.  For other prime-field
+/// curves the rule is an extrapolation, with log₂ h taken as ⌊log₂ h⌋.
 fn max_outlen(curve: &CurveParams) -> usize {
-    let seedlen = curve.n.bits();
+    let seedlen = curve.p.bits();
     let hidden = 13 + curve.h.ilog2() as usize;
     8 * (seedlen.saturating_sub(hidden) / 8)
 }
@@ -293,7 +327,8 @@ mod tests {
         DualEcDrbg::new(curve, p, q, &[1u8; 32], outlen)
     }
 
-    /// The `max_outlen` values SP 800-90 gives for the three NIST curves.
+    /// The `max_outlen` values of SP 800-90 (Revised) Table 4 for the three
+    /// NIST curves.
     #[test]
     fn max_outlen_matches_sp800_90() {
         assert_eq!(max_outlen(&cryptography::vt::p256()), 240);
@@ -370,8 +405,8 @@ mod tests {
         assert_eq!(got, want);
     }
 
-    /// The SP 800-90 Q literals for all three curves parse (via rump) to
-    /// valid points on their curves.
+    /// The SP 800-90 Appendix A.1.1–A.1.3 Q literals for all three curves
+    /// parse (via rump) to valid points on their curves.
     #[test]
     fn nist_q_points_are_on_their_curves() {
         let seed = [1u8; 66];
