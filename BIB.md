@@ -24,7 +24,13 @@ The point of keeping these files in-tree is auditability: readers should be able
   author = {Marsaglia, George},
   title  = {{DIEHARD}: A Battery of Tests of Randomness},
   year   = {1995},
-  note   = {Florida State University. [pubs/diehard-doc.txt, pubs/diehard-tests.txt, pubs/Diehard.zip]}
+  note   = {Florida State University. Source from the Internet Archive's copy of
+            stat.fsu.edu/pub/diehard: Marsaglia's Fortran, diehard.f (January 1996), with
+            tests.txt, diehard.doc and operm5d.ata [pubs/diehard-fortran-1996.tar.gz]; the f2c
+            translation the DOS executables were built from, with four PostScript papers
+            [pubs/diehard-f2c-source-1996.tar.gz]; and Dagang Wang's 1998 C translation, whose
+            NOTES file lists where it differs from the Fortran [pubs/diehard-c-wang-1998.tar.gz].
+            DOS executables and documentation: [pubs/diehard-doc.txt, pubs/diehard-tests.txt, pubs/Diehard.zip]}
 }
 
 @article{marsaglia1993monkey,
@@ -33,8 +39,11 @@ The point of keeping these files in-tree is auditability: readers should be able
   journal = {Computers \& Mathematics with Applications},
   volume  = {26},
   number  = {9},
+  pages   = {1--10},
   year    = {1993},
-  note    = {OPSO, OQSO and DNA, implemented in src/diehard/monkey.rs. [not in pubs/: ScienceDirect refuses automated download]}
+  note    = {OPSO, OQSO and DNA, implemented in src/diehard/monkey.rs. Marsaglia's own extract of
+             the article, distributed with DIEHARD as source/monkey.ps and converted with ps2pdf; it
+             has no byline and its own pagination. [pubs/marsaglia-zaman-1993-monkey-tests.pdf]}
 }
 
 @misc{brown2004dieharder,
@@ -602,6 +611,18 @@ previously missing from this bibliography.
   year    = {1999},
   doi     = {10.1145/326147.326156},
   note    = {[not in pubs/: the ACM Digital Library refuses automated download]}
+}
+
+@inproceedings{marsaglia1985currentview,
+  author    = {Marsaglia, George},
+  title     = {A Current View of Random Number Generators},
+  booktitle = {Computer Science and Statistics: Proceedings of the 16th Symposium on the Interface},
+  address   = {Atlanta},
+  publisher = {Elsevier},
+  year      = {1985},
+  note      = {Keynote address, 1984; background for several DIEHARD tests. Marsaglia's retypeset
+               copy, distributed with DIEHARD as source/keynote.ps and converted with ps2pdf.
+               [pubs/marsaglia-1985-current-view-keynote.pdf]}
 }
 
 @misc{nist-sts-2.1.2,
