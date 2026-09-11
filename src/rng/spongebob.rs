@@ -15,9 +15,10 @@
 //! or all `next_u64`) all 512 bits are used; mixing widths at a refill
 //! boundary silently discards up to 7 trailing bytes before refilling.
 //!
-//! On `aarch64` targets that expose FEAT_SHA3 (Apple Silicon and most modern
-//! ARM cores), the underlying `cryptography::Sha3_512` call dispatches to
-//! hardware EOR3/RAX1/BCAX `Keccak-f[1600]` intrinsics automatically.
+//! As this crate builds it, `cryptography::Sha3_512` runs the portable
+//! pure-Rust `Keccak-f[1600]` on every target.  The sibling crate has an
+//! aarch64 FEAT_SHA3 hardware path, but only behind its opt-in `arm-sha3`
+//! cargo feature, which this crate does not enable.
 //!
 //! # References
 //! * National Institute of Standards and Technology, "SHA-3 Standard:
