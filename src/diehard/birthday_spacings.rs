@@ -6,19 +6,25 @@
 //! the Poisson(2) distribution gives one p-value.  Nine p-values (bit offsets
 //! 0..=8) are combined with a final KS test.
 //!
-//! Follows `diehard_birthdays.c` in Dieharder 3.31.1 for the counting:
+//! The intervals are built as in Dieharder 3.31.1's `diehard_birthdays.c`:
 //!   - `intervals[0] = rand_uint[0]` (gap from day 0 to first birthday)
 //!   - `intervals[m] = rand_uint[m] − rand_uint[m−1]`  (m = 1..M)
-//!   - j counts interval values appearing more than once
-//!   - the `js[]` histogram has `kmax` = 8 cells, j = 0..=7; trials with
-//!     j ≥ 8 are discarded, as in the C
-//!   - KS on the 9 chi-square p-values
 //!
-//! The chi-square differs from Dieharder's.  This code scores only the cells
-//! whose expectation 500·P(j) is at least 5, which drops j = 7 (expectation
-//! 1.72) and leaves 7 cells with df = 6.  Dieharder's `chisq_poisson`
-//! (`chisq.c`) applies no cutoff: it sums all 8 cells, j = 7 included, with
-//! df = kmax − 1 = 7.
+//! The repeat count j follows Marsaglia's definition, the number of interval
+//! values that appear more than once.  The C's counting loop sets
+//! `m = mnext` and then increments `m` again, so it skips the interval after
+//! each run of equal values: on sorted intervals [5, 5, 7, 7] it counts one
+//! repeat where this code counts two, and the two disagree in about 1% of
+//! trials.  The nine bit windows and the final KS over their p-values are
+//! DIEHARD's; the C scores a single bit window per run.
+//!
+//! With 500 trials per window the `js[]` histogram has `kmax` = 8 cells,
+//! j = 0..=7, and trials with j ≥ 8 are discarded, as in the C.  This code
+//! scores only the cells whose expectation 500·P(j) is at least 5, which
+//! drops j = 7 (expectation 1.72) and leaves 7 cells with df = 6.
+//! Dieharder's `chisq_poisson` (`chisq.c`) applies no cutoff and sums all
+//! `kmax` cells with df = kmax − 1: 7 at 500 trials, and 5 at Dieharder's
+//! default of 100 trials, where `kmax` = 6.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).

@@ -27,6 +27,16 @@ The point of keeping these files in-tree is auditability: readers should be able
   note   = {Florida State University. [pubs/diehard-doc.txt, pubs/diehard-tests.txt, pubs/Diehard.zip]}
 }
 
+@article{marsaglia1993monkey,
+  author  = {Marsaglia, George and Zaman, Arif},
+  title   = {Monkey Tests for Random Number Generators},
+  journal = {Computers \& Mathematics with Applications},
+  volume  = {26},
+  number  = {9},
+  year    = {1993},
+  note    = {OPSO, OQSO and DNA, implemented in src/diehard/monkey.rs. [not in pubs/]}
+}
+
 @misc{brown2004dieharder,
   author = {Brown, Robert G.},
   title  = {Dieharder: A Random Number Test Suite},
