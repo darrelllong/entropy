@@ -387,10 +387,10 @@ N. **`math::erfc` was good only to about 10⁻⁷** — `src/math.rs:12-41`.
    `normal_cdf` moved by exactly the old `erfcc` error at their arguments,
    at most 4.67 × 10⁻⁸, and were re-pinned (f015ebf); the largest move among
    the SP 800-22 pins is 1.05 × 10⁻⁷, in §2.15.8.  Merged in 89eb68b,
-   83a841c and 93e6621.  **Left:** the research probes' two-sided p-values
-   stay capped at 1 (6754bf8), but the comments at
-   `testu01_hamming.rs:63-64, 253, 572`, `knuth.rs:358` and
-   `testu01_lz.rs:247` still say `erfc` exceeds 1 by about 10⁻⁷ near 0.
+   83a841c and 93e6621.  The research probes' two-sided p-values
+   stay capped at 1 (6754bf8); their comments in `testu01_hamming.rs`,
+   `knuth.rs` and `testu01_lz.rs` gave `erfc`'s old error as the reason,
+   and now call the caps guards (67c3509).
 
 ## Correctness risks (statistic differs from the cited reference)
 
@@ -1102,12 +1102,13 @@ Items 1–6, A–L and N are fixed or documented (B withdrawn), and so are most
 of items 7–41; each carries a note above.  Item M waits on the historical
 DIEHARD suite.
 
-- **Merged** (main at fd6df95): `audit-nist` (79f48b4), `audit-rng`
+- **Merged** (main at 67c3509): `audit-nist` (79f48b4), `audit-rng`
   (fd36369), `fix-dotnet` (601ab91), `kat-etsi` (ccf18e7), `audit-diehard`
   (e410409, 229e104), `fix-hex-literals` (1e26fd5), `math-erfc` with the
   re-pinned goldens (89eb68b, 83a841c, 93e6621), `audit-research` (956976b,
   d6555c8, 72580dc, 00c2a2c), `docs-tests-theory` (0a417eb),
-  `ci-release-tests` (3a2bf85), and the regenerated TESTS.md (fd6df95).
+  `ci-release-tests` (3a2bf85), the regenerated TESTS.md (fd6df95), and the
+  research modules' comments on their p-value caps (67c3509).
 - **Kept for fidelity to the cited reference:** the Dieharder fill-tree
   off-by-one (14); SP 800-22's four-decimal longest-run tables for M = 128
   and M = 10⁴, the latter also STS's (15); both MSVC `rand()` types (35);
@@ -1160,8 +1161,6 @@ DIEHARD suite.
     <!-- PENDING historical suite -->
   - The finite byte-corpus input (Follow-up), which is being built.
     <!-- PENDING corpus adapter -->
-  - Comments in three research modules still give `erfc`'s old error as
-    the reason for their p-value caps (N).
   - The `wipe` feature waits on cryptography (Follow-up), and BIB.md dates
     wyhash 2022 where the `pubs/` snapshot is a March 2026 commit.
   - Coverage: SFC64 and PractRand's FPF truncation rule are unverified, and
