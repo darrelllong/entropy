@@ -11,7 +11,7 @@ Cox-Stuart, difference-sign, turning-point, Mann-Kendall rank),
 diagnostics.  (`randtoolbox::coll.test` was not run.)
 
 Sample size: **5 000 000 u32 words** for every generator except
-`Dual_EC_DRBG`, which uses **1 000 000** because each block requires two
+`Dual_EC_DRBG`, which uses **1 000 000** because each block requires three
 P-256 scalar multiplications (≈ 10 min/MB). `randtests::rank.test` is O(n²)
 Mann-Kendall; it is run on the first 5 000 samples to keep the per-RNG
 runtime under a second.
@@ -1127,6 +1127,10 @@ Mean = 0.500013  Var = 0.083317  Min = 0.000000  Max = 1.000000
 
 
 ## PCG64
+
+> This section predates the 2026-09-10 `Pcg64` fix: `dump_rng pcg64` now
+> emits pcg-c's stream, which starts one word later than the stream
+> measured here.
 
 Sample size: 5,000,000 u32 words (19.07 MB)
 
