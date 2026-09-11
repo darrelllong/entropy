@@ -6,7 +6,23 @@
 //!
 //! Uses an O(n log n) FFT on the full input sequence via [`crate::math::fft_magnitudes`].
 //!
+//! The threshold T = √(log(1/0.05)·n) and d = (N₁ − N₀)/√(n·0.95·0.05/4) are
+//! the forms SP 800-22 Rev. 1a prints in §2.6.4 and §3.6.  The publication
+//! does not say where these forms come from; §3.6 lists Kim, Umeno and
+//! Hasegawa's "Corrections of the NIST Statistical Test Suite for Randomness"
+//! and Killman et al.'s note on the DFT test among its references.
+//!
 //! Minimum recommended sequence length: n ≥ 1 000.
+//!
+//! # References
+//! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.6 and §3.6.
+//!   [pubs/NIST-SP-800-22r1a.pdf]
+//! * S. Kim, K. Umeno and A. Hasegawa, "Corrections of the NIST Statistical
+//!   Test Suite for Randomness," Cryptology ePrint Archive, Report 2004/018,
+//!   2004.  [Cited in §3.6]
+//! * W. Killman, J. Schüth, W. Thumser and I. Uludag, "A Note Concerning the
+//!   DFT Test in NIST Special Publication 800-22," T-Systems, Systems
+//!   Integration, July 2004.  [Cited in §3.6]
 
 use crate::{
     math::{erfc, fft_magnitudes},
