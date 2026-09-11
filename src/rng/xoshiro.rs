@@ -14,9 +14,15 @@
 //! linear-complexity tests at extreme depth.
 //!
 //! # References
-//! D. Blackman and S. Vigna, "Scrambled Linear Pseudorandom Number
-//! Generators", *ACM Transactions on Mathematical Software* 47(4), 2021.
-//! DOI: 10.1145/3460772.  [BIB.md: blackman2021xoshiro]
+//! * D. Blackman and S. Vigna, "Scrambled Linear Pseudorandom Number
+//!   Generators", *ACM Transactions on Mathematical Software* 47(4), 2021.
+//!   DOI: 10.1145/3460772.  [BIB.md: blackman2021xoshiro]
+//!   [pubs/blackman-vigna-2021-scrambled-linear-prngs.pdf] (arXiv:1805.01407v3)
+//!   [Figs. 1 and 4 give the xoroshiro128 and xoshiro256 code, Table 2 their
+//!   engine parameters (A, B, C) = (24, 16, 37) and (A, B) = (17, 45), and
+//!   Table 3 the `**` scrambler's (S, R, T) = (5, 7, 9)]
+//! * D. Blackman and S. Vigna, reference C: `next()` in
+//!   [pubs/vigna-xoshiro256starstar.c] and [pubs/vigna-xoroshiro128starstar.c]
 //!
 //! # Author
 //! David Blackman, Sebastiano Vigna (algorithm); Darrell Long (Rust port).
@@ -153,8 +159,9 @@ mod tests {
 
     // Known-answer test: first three outputs of xoshiro256** with state
     // {1, 2, 3, 4}, cross-checked against an independent Python replica of
-    // Vigna's C reference implementation.  (11520, 0, 1509978240 is the
-    // well-known published prefix for this state.)
+    // Vigna's C reference implementation and against `next()` compiled from
+    // pubs/vigna-xoshiro256starstar.c (5000 outputs).  In decimal the prefix
+    // is 11520, 0, 1509978240.
     #[test]
     fn xoshiro256_reference() {
         let mut rng = Xoshiro256::new(1, 2, 3, 4);
@@ -166,7 +173,8 @@ mod tests {
 
     // Known-answer test: first three outputs of xoroshiro128** with state
     // {1, 2}, cross-checked against an independent Python replica of Vigna's
-    // C reference implementation.
+    // C reference implementation and against `next()` compiled from
+    // pubs/vigna-xoroshiro128starstar.c (5000 outputs).
     #[test]
     fn xoroshiro128_reference() {
         let mut rng = Xoroshiro128::new(1, 2);

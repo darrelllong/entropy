@@ -1,12 +1,20 @@
 //! Marsaglia's Xorshift generators.
 //!
+//! Both are example procedures from §3 of the paper (p. 4): `xor()`, a 32-bit
+//! xorshift with [a, b, c] = [13, 17, 5], and `xor64()`, a 64-bit one with
+//! [13, 7, 17].  The paper prints the middle statement of `xor()` as
+//! `y=(y>>17)`; the [13, 17, 5] xorshift it describes, and [`Xorshift32`],
+//! use `y^=(y>>17)`.  The paper's seeds are 2463534242 and
+//! 88172645463325252; the constructors here take any non-zero seed.
+//!
 //! # Author
 //! George Marsaglia, "Xorshift RNGs", *Journal of Statistical Software* 8(14),
 //! 2003.  <https://doi.org/10.18637/jss.v008.i14>
+//! [pubs/marsaglia-2003-xorshift-rngs.pdf]
 
 use super::Rng;
 
-/// 32-bit Xorshift (Marsaglia, 2003, listing 1).
+/// 32-bit Xorshift (Marsaglia, 2003, §3: `xor()`).
 ///
 /// Passes most NIST tests but has known weaknesses in linear-complexity and
 /// some spectral measures — a good "medium-quality" comparison target.
@@ -37,7 +45,7 @@ impl Rng for Xorshift32 {
     }
 }
 
-/// 64-bit Xorshift (Marsaglia, 2003, listing 2).
+/// 64-bit Xorshift (Marsaglia, 2003, §3: `xor64()`).
 ///
 /// Better statistical quality than the 32-bit variant.
 ///
@@ -83,6 +91,8 @@ mod tests {
     /// Seed 1 through Marsaglia's 32-bit xorshift with the (13, 17, 5) triple
     /// used here.  Values from an independent replica of the generator; the
     /// first four also match the fixed-seed `dump_rng xorshift32` output.
+    /// Marsaglia's `xor()` compiled with `y^=(y>>17)` agrees for 5000 outputs
+    /// at seeds 1 and 2463534242.
     #[test]
     fn xorshift32_seed_1_kat() {
         let expected: [u32; 8] = [
@@ -101,7 +111,8 @@ mod tests {
 
     /// Seed 1 through Marsaglia's 64-bit xorshift with the (13, 7, 17) triple
     /// used here: `next_u64` returns the state and `next_u32` its high half.
-    /// Values from an independent replica of the generator.
+    /// Values from an independent replica of the generator; Marsaglia's
+    /// `xor64()` agrees for 5000 outputs at seeds 1 and 88172645463325252.
     #[test]
     fn xorshift64_seed_1_kat() {
         let expected: [u64; 8] = [

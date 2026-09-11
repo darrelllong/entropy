@@ -147,7 +147,7 @@ The default runner compares 43 built-in generators across six categories:
 - `ConstantRng`, `CounterRng`
 
 **Historical broken generators (negative controls)**
-- Unix libc: System V `rand()`, `mrand48()`, BSD `random()`, Linux glibc `rand()/random()`, FreeBSD `rand_r()` compat
+- Unix libc: System V `rand()`, `mrand48()`, BSD `random()` and Linux glibc `rand()/random()` (one generator, seeded as glibc does), FreeBSD `rand_r()` compat
 - Windows: CRT `rand()`, VB6/VBA `Rnd()`, `.NET Random` compat
 - Classic LCGs: ANSI C, MINSTD, Borland C++
 

@@ -16,9 +16,12 @@
 //!
 //! # References
 //! * K. Thompson and D. M. Ritchie, *Unix Programmer's Manual*, 7th Edition,
-//!   Bell Laboratories, 1979.  [`rand(3)` source of the 1103515245/12345 parameters
-//!   used in `SystemVRand`.  `WindowsMsvcRand` uses Microsoft's distinct
-//!   214013/2531011 parameters, not this pair.]
+//!   Bell Laboratories, 1979.  [pubs/v7-unix-programmers-manual-vol1.pdf]
+//!   [`rand(3)` describes a multiplicative congruential generator with period
+//!   2³² returning 0 to 2¹⁵ − 1, the shape of `SystemVRand`; it does not print
+//!   the 1103515245/12345 parameters, which are those of the sample `rand()`
+//!   in the C standard and POSIX (not in `pubs/`).  `WindowsMsvcRand` uses
+//!   Microsoft's distinct 214013/2531011 parameters, not this pair.]
 //! * S. K. Park and K. W. Miller, "Random number generators: good ones are
 //!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
 //!   DOI: 10.1145/63039.63042.
@@ -33,6 +36,14 @@
 //!   [§2 surveys historical weak libc generators of this class as prior failure modes]
 //! * IEEE Std 1003.1 (POSIX.1), *The Open Group Base Specifications*, Issue 8, 2024.
 //!   [Normative specification of `rand()`, `rand_r()`, and `mrand48()`]
+//! * The GNU C Library 2.40, `stdlib/random_r.c` and `stdlib/random.c`.
+//!   [pubs/glibc-2.40-random_r.c] [pubs/glibc-2.40-random.c]
+//!   [`__srandom_r` and `__random_r` on the TYPE_3 state are `BsdRandom`;
+//!   `random.c` makes `srand` a weak alias of `__srandom`]
+//! * The FreeBSD Project, `lib/libc/stdlib/rand.c` and `random.c` at commit
+//!   0d022baa047a.  [pubs/freebsd-0d022baa047a-rand.c]
+//!   [pubs/freebsd-0d022baa047a-random.c]  [`do_rand`, behind `rand_r`, is
+//!   `BsdRandCompat`; `random.c` seeds differently from `BsdRandom`]
 
 use super::Rng;
 
@@ -67,7 +78,7 @@ impl PackedBits {
 }
 
 /// One step of the Park–Miller table fill in glibc's `__srandom_r`
-/// (`stdlib/random_r.c`).
+/// (`stdlib/random_r.c`, [pubs/glibc-2.40-random_r.c]).
 ///
 /// glibc keeps the running value as `int32_t word = seed` and applies
 /// Schrage's decomposition to that *signed* word: `hi = word / 127773`,
@@ -344,10 +355,16 @@ impl Rng for WindowsDotNetRandom {
 /// `random()` and therefore Linux glibc `rand()`. It is much better than the
 /// 15-bit System V LCG, but it is still a weak historical userspace PRNG.
 ///
-/// Seeding follows glibc's `__srandom_r`.  The macOS libc `srandom` agrees at
-/// seed 1 and at the seeds ≥ 2³¹ that were checked, but it does not map seed 0
-/// to 1 and it replaces a zero word during the table fill, so seeds 0,
-/// 2³¹ − 1 and 2³¹ + 1 produce different streams there.
+/// Seeding follows glibc's `__srandom_r` [pubs/glibc-2.40-random_r.c]:
+/// `__initstate_r` with a 128-byte state and then `__random_r`, compiled from
+/// that file, match `next_raw` for 2000 outputs at each of the seeds 0, 1, 2,
+/// 12345, 2³¹ − 1, 2³¹, 2³¹ + 1, 3 000 000 000 and 2³² − 1.  The macOS libc
+/// `srandom` agrees at all of those except 0, 2³¹ − 1 and 2³¹ + 1: it does not
+/// map seed 0 to 1, and it replaces a zero word during the table fill.
+/// Current FreeBSD agrees at none of them: `srandom_r` in
+/// [pubs/freebsd-0d022baa047a-random.c] fills the table with `parkmiller32`,
+/// which moves each word into [1, 2³¹ − 2] before the Park–Miller step and
+/// back down by one after it.
 #[derive(Debug, Clone)]
 pub struct BsdRandom {
     state: [u32; 31],
@@ -418,6 +435,9 @@ impl Rng for BsdRandom {
 /// glibc's `rand()` is just `random()` under the hood, so the Linux userspace
 /// generator many programs used before `/dev/random`, `/dev/urandom`, and
 /// `getrandom(2)` became the norm is this same Berkeley-derived TYPE_3 engine.
+///
+/// In [pubs/glibc-2.40-random.c], `srand` is a weak alias of `__srandom`;
+/// `rand` itself is in `stdlib/rand.c`, which is not in `pubs/`.
 pub type LinuxLibcRandom = BsdRandom;
 
 // ── FreeBSD compatibility rand_r() ───────────────────────────────────────────
@@ -425,7 +445,12 @@ pub type LinuxLibcRandom = BsdRandom;
 /// FreeBSD 12 compatibility `rand()` / current `rand_r()` core.
 ///
 /// This is the single-word Park-Miller compatibility path kept around by
-/// FreeBSD for ABI reasons. FreeBSD's own source calls it garbage.
+/// FreeBSD for ABI reasons: `do_rand` in [pubs/freebsd-0d022baa047a-rand.c],
+/// reached through `rand_r` and the compatibility symbol `__rand_fbsd12`.
+/// FreeBSD's own source calls it garbage ("Can't fix this garbage; too little
+/// state").  Current FreeBSD `rand()` runs `random_r` on a TYPE_3 state
+/// instead.  `rand_r` compiled from that file matches `next_raw` for 2000
+/// outputs at each of the seeds 0, 1, 12345, 2³¹ − 1 and 2³² − 1.
 #[derive(Debug, Clone)]
 pub struct BsdRandCompat {
     state: u32,
@@ -528,6 +553,9 @@ mod tests {
         }
     }
 
+    /// glibc's `__random_r` after `__srandom_r(1)`, compiled from
+    /// [pubs/glibc-2.40-random_r.c], returns these values, and so does the
+    /// macOS libc `random()` after `srandom(1)`.
     #[test]
     fn bsd_random_matches_well_known_seed_1_prefix() {
         let mut rng = BsdRandom::new(1);
@@ -545,11 +573,10 @@ mod tests {
 
     /// Seeds ≥ 2³¹ enter glibc's `__srandom_r` table fill as negative
     /// `int32_t` words; a word that reaches 0 (seed 2³¹ − 1) stays 0; and
-    /// seed 0 is replaced by 1 before the fill.  glibc's source is not
-    /// available offline and the macOS libc is BSD, so the reference values
-    /// come from an independent replica of the glibc seeding loop with C
-    /// `int32_t` semantics (written in C and again in Python; the two agree
-    /// and both reproduce the seed-1 prefix above), not from glibc itself.
+    /// seed 0 is replaced by 1 before the fill.  The values first came from
+    /// independent C and Python replicas of the glibc seeding loop; glibc's
+    /// own `__initstate_r` and `__random_r`, compiled from
+    /// [pubs/glibc-2.40-random_r.c], produce the same outputs.
     #[test]
     fn glibc_random_seeds_through_signed_int32_words() {
         const SEED_ABOVE_2_POW_31: u32 = 3_000_000_000;
@@ -600,6 +627,8 @@ mod tests {
         }
     }
 
+    /// `rand_r` compiled from [pubs/freebsd-0d022baa047a-rand.c] returns
+    /// these values for seed 1.
     #[test]
     fn freebsd_compat_rand_r_prefix_matches_reference_math() {
         let mut rng = BsdRandCompat::new(1);
