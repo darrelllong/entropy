@@ -571,12 +571,14 @@ fn ad_errfix(n: usize, x: f64) -> f64 {
 /// The errors are mostly positive, overstating the tail and so giving
 /// conservative p-values.  The largest reliably resolved errors are just
 /// past the switch: at z = 6.62 the tail is +8.46 ± 0.07% for n = 8,
-/// +4.62 ± 0.14% for n = 16 and +2.46 ± 0.14% for n = 32.  The only
-/// understatement resolved beyond sampling noise is at n = 8: −0.20 ± 0.02%
-/// at z = 4, with the lowest value, −0.27%, at z = 4.41.  For the other n the
-/// lowest values below the switch are within three standard errors of zero
-/// (−0.12 ± 0.04% for n = 16 at z = 4.44, −0.29 ± 0.16% for n = 128 at
-/// z = 5.32).  Past z ≈ 10 the simulated tails carry standard errors of 1%
+/// +4.62 ± 0.14% for n = 16 and +2.46 ± 0.14% for n = 32.  Below the switch
+/// the table's lowest values, with their standard errors, are −0.27 ± 0.02%
+/// for n = 8 at z = 4.41 (−0.20 ± 0.02% at z = 4), −0.12 ± 0.04% for n = 16
+/// at z = 4.44, −0.04 ± 0.04% for n = 32 at z = 4.32, −0.16 ± 0.17% for
+/// n = 64 at z = 5.48 and −0.29 ± 0.16% for n = 128 at z = 5.32.  Only the
+/// n = 8 understatement is resolved by more than three standard errors; the
+/// others, each the lowest of 261 values of z, are within three standard
+/// errors of zero.  Past z ≈ 10 the simulated tails carry standard errors of 1%
 /// to 5%, and the extremes there, of either sign, lie within one run's
 /// sampling noise, so their sign is unresolved.  The negative ones run down
 /// to −5.0%: −1.07 ± 1.10% for n = 8 at z = 12, −0.58 ± 1.54% for n = 16 at
