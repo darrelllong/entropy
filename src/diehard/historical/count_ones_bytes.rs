@@ -80,7 +80,10 @@
 //! p = 0.31.  Q5 − Q4 had mean 2 499.99 and variance 5 034, against
 //! Marsaglia's 2 500 and 5 000.  22.5% of streams had at least one of their 25
 //! windows below 0.01, as 1 − 0.99²⁵ = 22.2% predicts for independent
-//! windows.  A test below runs a fixed eight-stream version under
+//! windows.  Rerun on the landing tree, whose `erfc` sums Marsaglia's cPhi
+//! series, another 10 000 streams gave 1.042% (0.020%) and 0.100% (0.006%), a
+//! KS p of 0.09, and 23.3% of streams (standard deviation 0.4%) with some
+//! window below 0.01.  A test below runs a fixed eight-stream version under
 //! `cargo test --release`.
 //!
 //! # Why it is outside the default battery
@@ -213,10 +216,10 @@ mod tests {
         2_485.843_775_383_7,
     ];
 
-    /// Every window's Q5 − Q4 matches the NumPy replica to 10⁻⁶ and the
-    /// gfortran print to 0.01 (largest gap 0.0079: two-decimal rounding plus
-    /// `REAL*4`).  Tiling words 2 to 256 005 once per window then gives each
-    /// of the 25 results those numbers.
+    /// Fidelity: every window's Q5 − Q4 against an independent NumPy replica
+    /// of `wknt1s` in double precision, to 10⁻⁶, and against the gfortran
+    /// build's print.  The second tolerance, 0.01, follows that printout, not
+    /// this code: two decimals from `REAL*4` sums (largest gap 0.0079).
     #[test]
     fn windows_match_the_gfortran_build_on_the_review_input() {
         let words = oracle::words(WORDS_PER_WINDOW + 1);
@@ -233,15 +236,31 @@ mod tests {
                 "bits {jk}: {d}"
             );
         }
-        let results = count_ones_bytes_25_fresh(&block.repeat(WINDOWS));
+    }
+
+    /// Sum of the 25 p-values when each window reads `in.bin` words 2 to
+    /// 256 005, pinned on the landing tree, whose `erfc` sums Marsaglia's cPhi
+    /// series.
+    const GOLDEN_P_SUM: f64 = 11.841_968_816_007_894;
+
+    /// Regression: the 25 results on the review input, in window order, each
+    /// note heading with its window and Q5 − Q4, and the p-values pinned to
+    /// 10⁻¹² through their sum.
+    #[test]
+    fn results_on_the_review_input_are_pinned() {
+        let words = oracle::words(WORDS_PER_WINDOW + 1);
+        let results = count_ones_bytes_25_fresh(&words[1..].repeat(WINDOWS));
+        assert_eq!(results.len(), WINDOWS);
         for (jk, r) in (1..=WINDOWS).zip(&results) {
-            let want = format!(
+            let head = format!(
                 "bits {jk} to {}, Q5-Q4={:.2},",
                 jk + 7,
                 NUMPY_Q5_MINUS_Q4[jk - 1]
             );
-            assert!(r.note.as_deref().unwrap_or("").starts_with(&want), "{r}");
+            assert!(r.note.as_deref().unwrap_or("").starts_with(&head), "{r}");
         }
+        let sum: f64 = results.iter().map(|r| r.p_value).sum();
+        assert!((sum - GOLDEN_P_SUM).abs() < 1e-12, "{sum:?}");
     }
 
     /// Clearing every word's top byte breaks the windows that read any of

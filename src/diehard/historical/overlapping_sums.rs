@@ -81,8 +81,10 @@
 //!   separately seeded PCG64 generator: p < 0.01 in 997 (0.997%; binomial
 //!   standard deviation 0.031%) and p < 0.001 in 88 (0.088%; 0.010%), with
 //!   p > 0.99 in 0.98%; a Kolmogorov–Smirnov test of the 100 000 p-values gives
-//!   p = 0.65.  A test below runs a fixed 400-stream version under
-//!   `cargo test --release`.
+//!   p = 0.65.  Rerun on the landing tree, whose `erfc` sums Marsaglia's cPhi
+//!   series and whose Anderson–Darling tail is scaled by n, another 100 000
+//!   streams gave 0.977% (0.031%) and 0.095% (0.010%), with a KS p of 0.97.  A
+//!   test below runs a fixed 400-stream version under `cargo test --release`.
 //!
 //! # Dieharder's verdict
 //!
@@ -355,15 +357,11 @@ mod tests {
     ];
     const FORTRAN_FINAL: f64 = 0.712980;
 
-    /// This module's p-value on the same words, pinned.  It passes through
-    /// `normal_cdf` 10⁵ times, so the tolerance leaves room for a more
-    /// accurate `erfc`.
-    const GOLDEN_P: f64 = 0.291_314_442_603_088_9;
-
-    /// With Marsaglia's `KSTEST` formula in place of `anderson_darling_cdf`,
-    /// the three layers reproduce every value the gfortran build printed to
-    /// 10⁻⁴; the largest gaps, 5.9·10⁻⁵ (test 4) and 5.5·10⁻⁵ (the last
-    /// layer), come from the Fortran's `REAL*4` arithmetic.
+    /// Fidelity: with Marsaglia's `KSTEST` formula in place of
+    /// `anderson_darling_cdf`, the three layers reproduce every value the
+    /// gfortran build printed.  The tolerance, 10⁻⁴, follows that printout, not
+    /// this code: the build prints six decimals from `REAL*4` arithmetic, and
+    /// the largest gaps are 5.9·10⁻⁵ (test 4) and 5.5·10⁻⁵ (the last layer).
     #[test]
     fn layers_match_the_gfortran_build_on_the_review_input() {
         let words = oracle::words(WORDS);
@@ -373,11 +371,22 @@ mod tests {
         }
         let last = oracle::diehard_kstest_cdf(OUTER, anderson_darling_statistic(&mut fortran));
         assert!((last - FORTRAN_FINAL).abs() < 1e-4, "last layer {last}");
+    }
 
-        let result = overlapping_sums_fortran(&words);
+    /// This module's p-value on `in.bin` words 1 to 199 000, pinned on the
+    /// landing tree, whose `erfc` sums Marsaglia's cPhi series and whose
+    /// Anderson–Darling tail is scaled by n.
+    const GOLDEN_P: f64 = 0.291_241_975_102_919_7;
+
+    /// Regression: the p-value on the review input, to 10⁻⁹.  It passes
+    /// through `normal_cdf` 10⁵ times and `anderson_darling_cdf` 1 011 times, so
+    /// a change to either moves it and must re-pin it here.
+    #[test]
+    fn p_value_on_the_review_input_is_pinned() {
+        let result = overlapping_sums_fortran(&oracle::words(WORDS));
         assert!(
-            (result.p_value - GOLDEN_P).abs() < 1e-4,
-            "{:.17} {result}",
+            (result.p_value - GOLDEN_P).abs() < 1e-9,
+            "{:?} {result}",
             result.p_value
         );
     }

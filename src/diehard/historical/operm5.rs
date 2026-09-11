@@ -232,6 +232,8 @@ mod tests {
     /// The harness printed ten decimals.
     const PRINTED_TOL: f64 = 1e-9;
 
+    /// Fidelity: χ² matches Dieharder's own C on the review input in both
+    /// orders, to the ten decimals the harness printed.
     #[test]
     fn statistic_matches_dieharder_c_on_the_review_input() {
         let words = oracle::words(WORDS);
@@ -246,14 +248,19 @@ mod tests {
             (signed - DIEHARDER_C_SIGNED).abs() < PRINTED_TOL,
             "{signed}"
         );
+    }
 
-        let result = operm5_dieharder(&words);
+    /// Q(48, χ²/2) on the review input from this crate's `igamc`, pinned on
+    /// the landing tree.
+    const GOLDEN_P: f64 = 0.439_998_873_488_646_64;
+
+    /// Regression: the result on the review input, note and p-value.
+    #[test]
+    fn result_on_the_review_input_is_pinned() {
+        let result = operm5_dieharder(&oracle::words(WORDS));
         assert_eq!(result.note.as_deref(), Some("n=1000000, df=96, χ²=97.4328"));
         assert!((result.p_value - GOLDEN_P).abs() < 1e-12, "{result}");
     }
-
-    /// Q(48, 97.432823…/2) from this crate's `igamc`, pinned.
-    const GOLDEN_P: f64 = 0.439_998_873_488_646_64;
 
     #[test]
     fn kperm_numbers_the_120_orderings_once_each() {
