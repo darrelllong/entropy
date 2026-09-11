@@ -11,6 +11,18 @@
 //! * C. Doty-Humphrey, "PractRand: Practically Random — A C++ Library of
 //!   Statistical Tests for RNGs," 2018 (`practrand` in BIB.md; not in
 //!   `pubs/`).
+//!
+//! Stream consumption.  For each generator the three probes read one stream
+//! in turn: HammingCorr, then HammingIndep, then FPF.  The number of words a
+//! Hamming test draws depends on its `s` and `L` (see
+//! `entropy::research::testu01_hamming`), so changing `--hc-s`, `--hc-l`,
+//! `--hi-s` or `--hi-l` also changes the words FPF reads and every FPF line.
+//! When the Hamming tests moved to TestU01's exact block packing, the
+//! defaults drew the same words as before and printed identical output.
+//! Other settings did not: with `--hc-l 7 --hc-s 5 --hi-l 3 --hi-s 16
+//! --hc-r 0 --hi-r 0 --fpf-bits 100000`, all eight FPF lines changed for
+//! MT19937, Xorshift32 and AES-128-CTR, and MT19937's FPF sample count went
+//! from 6246 to 6240.
 
 use entropy::research::{
     practrand_fpf::{fpf_cross_result, fpf_platter_result, fpf_test, FpfConfig},
