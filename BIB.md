@@ -61,7 +61,7 @@ The point of keeping these files in-tree is auditability: readers should be able
   number  = {3},
   year    = {2002},
   doi     = {10.18637/jss.v007.i03},
-  note    = {[pubs/marsaglia-tsang-2002-difficult-tests.pdf]}
+  note    = {[pubs/marsaglia-tsang-2002-difficult-tests.pdf]; the C attached to the article, whose ADKS aggregate defines the Gorilla second stage: [pubs/marsaglia-tsang-2002-tuftests.c]}
 }
 ```
 
@@ -247,13 +247,13 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
 @misc{etsi-snow3g,
   author = {{ETSI/SAGE}},
   title  = {Specification of the 3GPP Confidentiality and Integrity Algorithms UEA2 \& UIA2, Document 2: {SNOW 3G} Specification},
-  note   = {Version 1.1. The SNOW 3G cipher wrapped by src/rng/stream_rng.rs. [pubs/etsi-sage-snow3g-spec-v1.1.pdf]}
+  note   = {Version 1.1. The SNOW 3G cipher wrapped by src/rng/stream_rng.rs. [pubs/etsi-sage-snow3g-spec-v1.1.pdf]; Document 3, Implementors' Test Data v1.1, as GSMA publishes it in Word format: [pubs/etsi-sage-snow3g-testdata-v1.1.doc]}
 }
 
 @misc{etsi-zuc,
   author = {{ETSI/SAGE}},
   title  = {Specification of the 3GPP Confidentiality and Integrity Algorithms 128-EEA3 \& 128-EIA3, Document 2: {ZUC} Specification},
-  note   = {Version 1.6. The ZUC-128 cipher wrapped by src/rng/stream_rng.rs. [pubs/etsi-sage-zuc-spec-v1.6.pdf]}
+  note   = {Version 1.6. The ZUC-128 cipher wrapped by src/rng/stream_rng.rs. [pubs/etsi-sage-zuc-spec-v1.6.pdf]; Document 3, Implementor's Test Data v1.1: [pubs/etsi-sage-zuc-testdata-v1.1.pdf]}
 }
 
 @article{park1988minstd,
@@ -559,7 +559,7 @@ previously missing from this bibliography.
   number  = {2},
   year    = {2004},
   doi     = {10.18637/jss.v009.i02},
-  note    = {[pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]}
+  note    = {[pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]; the C attached to the article: [pubs/marsaglia-marsaglia-2004-ADinf.c], [pubs/marsaglia-marsaglia-2004-AnDarl.c]}
 }
 
 @article{marsaglia2003kolmogorov,
@@ -648,9 +648,9 @@ previously missing from this bibliography.
 
 @misc{glibc-2.40-random,
   author       = {{The GNU C Library contributors}},
-  title        = {{GNU} C Library 2.40, stdlib/random.c and stdlib/random\_r.c},
+  title        = {{GNU} C Library 2.40, stdlib/random.c, stdlib/random\_r.c and stdlib/rand.c},
   howpublished = {https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz},
-  note         = {The srandom/random implementation LinuxLibcRandom emulates. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], license [pubs/glibc-2.40-COPYING.LIB]}
+  note         = {The srandom/random implementation LinuxLibcRandom emulates. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], [pubs/glibc-2.40-rand.c], whose rand() returns (int) \_\_random(), license [pubs/glibc-2.40-COPYING.LIB]}
 }
 
 @misc{freebsd-libc-random,

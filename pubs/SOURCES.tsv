@@ -40,3 +40,9 @@ diehard-f2c-source-1996.tar.gz	https://web.archive.org/web/20160119023143id_/htt
 diehard-c-wang-1998.tar.gz	https://web.archive.org/web/20160119042640id_/http://stat.fsu.edu/pub/diehard/die-c.tar.gz (sha256 e028a755c1441e5af90f060cd5d8fceaa5967a6a66fbc1f4c66410be712208ae; same archived site)	2026-09-11
 marsaglia-zaman-1993-monkey-tests.pdf	ps2pdf of source/monkey.ps in pubs/diehard-f2c-source-1996.tar.gz (monkey.ps sha256 6f01fc5349c700305a402e15048a93c8e474b9c04c6b71c31f2270c5a962e471; Ghostscript 10.06.0)	2026-09-11
 marsaglia-1985-current-view-keynote.pdf	ps2pdf of source/keynote.ps in pubs/diehard-f2c-source-1996.tar.gz (keynote.ps sha256 fb16a2aa2a82607ae98363d9003bc30dfeb07847ad18693348bcd6c3809a7afc; Ghostscript 10.06.0)	2026-09-11
+marsaglia-marsaglia-2004-ADinf.c	https://www.jstatsoft.org/article/download/v009i02/3126 (zip sha256 8ebaf582a444ea489dbe5057fa3b5efbdb22349793f8575047bc697bdc6d52c1; member ADinf.c)	2026-09-11
+marsaglia-marsaglia-2004-AnDarl.c	https://www.jstatsoft.org/article/download/v009i02/3127 (zip sha256 4f2cd8056932cf54627721afaee31ca155996be48bf1f3ccf102b823ae988529; member AnDarl.c)	2026-09-11
+marsaglia-tsang-2002-tuftests.c	https://www.jstatsoft.org/article/download/v007i03/3088 (zip sha256 cf77462ac9be37833293440d57178b70f509d7de1f2778df138035db98498199; member tuftests.c)	2026-09-11
+etsi-sage-zuc-testdata-v1.1.pdf	https://www.gsma.com/security/wp-content/uploads/2019/05/eea3eia3testdatav11.pdf	2026-09-11
+etsi-sage-snow3g-testdata-v1.1.doc	https://www.gsma.com/solutions-and-impact/technologies/security/wp-content/uploads/2019/05/Doc3-UEA2-UIA2-Spec-Implementors-Test-Data.doc	2026-09-11
+glibc-2.40-rand.c	https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz (sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2; member stdlib/rand.c)	2026-09-11
