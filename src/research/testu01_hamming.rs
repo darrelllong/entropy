@@ -60,8 +60,8 @@
 //! `erfc(|z|/√2) = 2·min(Φ(z), 1 − Φ(z))` instead of TestU01's `1 − Φ(z)`,
 //! so that a small value flags either an excess or a deficit of
 //! correlation, both of which TestU01's `gofw_Suspectp` rule flags.  That
-//! p-value is capped at 1: [`crate::math::erfc`] is accurate only to about
-//! 10⁻⁷ and returns slightly more than 1 near 0.
+//! p-value is capped at 1 only as a guard: [`crate::math::erfc`] returns
+//! exactly 1 at 0 and never more than 1 for a non-negative argument.
 
 use super::strip_b;
 use crate::{
@@ -250,7 +250,7 @@ pub fn hamming_corr(
     }
     let rho_hat = 4.0 * sum / ((n - 1) as f64 * l as f64);
     let z_score = rho_hat * ((n - 1) as f64).sqrt();
-    // `math::erfc` exceeds 1 by up to about 10⁻⁷ near 0.
+    // A guard only: `math::erfc` never exceeds 1 for a non-negative argument.
     let p_value = erfc(z_score.abs() / SQRT_2).min(1.0);
     HammingCorrSummary {
         n,
@@ -568,8 +568,7 @@ mod tests {
 
     /// `sstring_HammingCorr` across every packing path.  TestU01 reports
     /// `1 − Φ(z)`; this crate reports `2·min(Φ(z), 1 − Φ(z))`.  The statistic
-    /// is pinned to 10⁻¹², but the p-value only to 10⁻⁶, a tolerance that
-    /// absorbs `math::erfc`'s error of about 10⁻⁷.
+    /// is pinned to 10⁻¹² and the p-value to 10⁻⁶.
     #[test]
     fn hamming_corr_matches_testu01() {
         // (n, r, s, L, statistic z, TestU01 p-value, generator calls)
@@ -759,7 +758,8 @@ mod tests {
         assert!((sum - 1.0).abs() < 1e-12);
     }
 
-    /// Regression: a zero correlation gave p = erfc(0) = 1.0000002.
+    /// Regression: a zero correlation gave p = erfc(0) = 1.0000002 with the
+    /// Numerical Recipes erfc this crate used before Marsaglia's cPhi.
     #[test]
     fn hamming_corr_p_value_is_at_most_one() {
         // r = 0, s = 4, L = 4: the first block weighs 2 = L/2, so the one
