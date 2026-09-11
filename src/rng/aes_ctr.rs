@@ -217,6 +217,12 @@ fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
 // AES-128-CTR RNG
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// The AES-128 key of the NIST SP 800-38A Appendix F.5 CTR example vectors,
+/// used by [`AesCtr::with_nist_key`] and the F.5 known-answer test.
+const NIST_SP800_38A_F5_KEY: [u8; 16] = [
+    0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c,
+];
+
 /// AES-128 in counter mode (NIST SP 800-38A § 6.5).
 ///
 /// Each invocation of `next_u32` returns one 32-bit word from the keystream
@@ -236,8 +242,8 @@ fn aes_encrypt(block: &[u8; 16], rk: &[u32; 44]) -> [u8; 16] {
 /// build had an optional AES-NI fast path via the `x86-alt` sub-crate;
 /// it has been removed for the published crate.
 ///
-/// Default key: NIST SP 800-38A Appendix F.5 AES-128-CTR test vector key
-/// `2b7e1516 28aed2a6 abf71588 09cf4f3c`.
+/// Default key: the NIST SP 800-38A Appendix F.5 AES-128-CTR test-vector key
+/// (see [`AesCtr::with_nist_key`]).
 /// Default counter: all zeros.
 pub struct AesCtr {
     rk: [u32; 44], // T-table round keys
@@ -261,17 +267,11 @@ impl AesCtr {
         }
     }
 
-    /// Construct with the NIST SP 800-38A AES-128-CTR test vector key and
-    /// counter = 0.
-    ///
-    /// Key: `2b7e151628aed2a6abf7158809cf4f3c`
+    /// Construct with the NIST SP 800-38A Appendix F.5 AES-128-CTR test-vector
+    /// key, `2b7e1516 28aed2a6 abf71588 09cf4f3c`, and counter = 0.
     #[must_use]
     pub fn with_nist_key() -> Self {
-        let key: [u8; 16] = [
-            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
-            0x4f, 0x3c,
-        ];
-        Self::new(&key, 0)
+        Self::new(&NIST_SP800_38A_F5_KEY, 0)
     }
 
     /// Fill `buf` by encrypting the current counter block, then increment.
@@ -317,8 +317,7 @@ impl Rng for AesCtr {
 mod tests {
     use super::*;
 
-    // NIST SP 800-38A Appendix F.5, AES-128 CTR.
-    // Key:          2b7e151628aed2a6abf7158809cf4f3c
+    // NIST SP 800-38A Appendix F.5, AES-128 CTR, key NIST_SP800_38A_F5_KEY.
     // Counter blk1: f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff
     // Plaintext 1:  6bc1bee22e409f96e93d7e117393172a
     // Ciphertext 1: 874d6191b620e3261bef6864990db6ce
@@ -330,12 +329,8 @@ mod tests {
     // Keystream 2 = 362b7c3c6773516318a077d7fc5073ae
     #[test]
     fn nist_sp_800_38a_ctr_f5() {
-        let key: [u8; 16] = [
-            0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf,
-            0x4f, 0x3c,
-        ];
         let ctr0: u128 = 0xf0f1f2f3_f4f5f6f7_f8f9fafb_fcfdfeff_u128;
-        let mut rng = AesCtr::new(&key, ctr0);
+        let mut rng = AesCtr::new(&NIST_SP800_38A_F5_KEY, ctr0);
 
         // Expected: keystream words = Enc(key, counter_i) as big-endian u32s.
         // keystream_1 = ec8cdf73 98607cb0 f2d21675 ea9ea1e4
