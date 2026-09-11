@@ -14,13 +14,14 @@
 //!                                    (nist::, diehard::, dieharder::, or maurer::,
 //!                                    which the NIST battery emits) only that
 //!                                    battery is generated, saving time.
-//!   --rng   <label>                  Run only RNGs whose label contains <label>
-//!                                    (repeatable).
+//!   --rng   <label>                  Run only RNGs whose label contains <label>,
+//!                                    ignoring case (repeatable).
 //!   --quick                          Use reduced sample counts in DIEHARD/DIEHARDER.
 //!   --fail-on-fail                   Exit 1 if any shown test FAILed.
 //!   --help                           Print this message and exit.
 //!
-//! Exit codes: 0 = ran to completion; 1 = usage error, or FAILs under
+//! Exit codes: 0 = ran to completion; 1 = usage error (including a
+//! `--rng`/`--suite`/`--test` selection that runs no RNG), or FAILs under
 //! `--fail-on-fail`; 2 = an RNG task panicked (results incomplete).
 //! ```
 //!
@@ -189,8 +190,14 @@ impl Args {
             .is_none_or(|pat| name.contains(pat.as_str()))
     }
 
+    /// Case-insensitive substring match of `label` against any `--rng` filter.
     fn matches_rng(&self, label: &str) -> bool {
-        self.rng_filters.is_empty() || self.rng_filters.iter().any(|pat| label.contains(pat))
+        let label = label.to_lowercase();
+        self.rng_filters.is_empty()
+            || self
+                .rng_filters
+                .iter()
+                .any(|pat| label.contains(&pat.to_lowercase()))
     }
 }
 
@@ -206,7 +213,8 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--r
                  The selected batteries still run in full; this filters output.
                  Prefix nist::/diehard::/dieharder:: (or maurer::, emitted by
                  the NIST battery) also limits which battery runs.
- --rng           Run only RNGs whose label contains <label>. Repeatable.
+ --rng           Run only RNGs whose label contains <label>, ignoring case.
+                 Repeatable.  A selection that runs no RNG is a usage error.
  --quick         Reduced sample counts in DIEHARD/DIEHARDER (faster, less sensitive).
  --fail-on-fail  Exit 1 if any shown test FAILed.  Without it, exit 0 only
                  means the battery ran to completion.  Negative-control RNGs
@@ -214,8 +222,9 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--r
                  so combine this with --rng for single-RNG CI runs.
 
  Exit codes: 0 = ran to completion (tests may still have FAILed unless
- --fail-on-fail); 1 = usage error, or FAILs with --fail-on-fail;
- 2 = an RNG task panicked and its results are missing.
+ --fail-on-fail); 1 = usage error (including a selection that runs no RNG),
+ or FAILs with --fail-on-fail; 2 = an RNG task panicked and its results are
+ missing.
 
  Examples:
   run_tests                              # full battery, all RNGs
@@ -247,8 +256,13 @@ struct RngResults {
 
 type RunFn = Box<dyn FnOnce() -> RngResults + Send + 'static>;
 
-fn make_runs(args: Args) -> Vec<(&'static str, RunFn)> {
+/// Build the work queue for the generators `args` selects.  Selecting nothing
+/// is a usage error: either no label matched `--rng`, or every match runs
+/// only a suite that `--suite`/`--test` excluded.
+fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     let mut runs = Vec::new();
+    // Matched labels skipped because their only suite, NIST, is not selected.
+    let mut excluded: Vec<&'static str> = Vec::new();
 
     macro_rules! run {
         ($label:expr, $rng:expr) => {{
@@ -261,11 +275,15 @@ fn make_runs(args: Args) -> Vec<(&'static str, RunFn)> {
     macro_rules! run_nist {
         ($label:expr, $rng:expr) => {{
             if args.matches_rng($label) {
-                let a = args.clone();
-                runs.push((
-                    $label,
-                    Box::new(move || run_nist_only($label, $rng, &a)) as RunFn,
-                ));
+                if args.run_suite(&Suite::Nist) {
+                    let a = args.clone();
+                    runs.push((
+                        $label,
+                        Box::new(move || run_nist_only($label, $rng, &a)) as RunFn,
+                    ));
+                } else {
+                    excluded.push($label);
+                }
             }
         }};
     }
@@ -398,10 +416,17 @@ fn make_runs(args: Args) -> Vec<(&'static str, RunFn)> {
     );
 
     if runs.is_empty() {
-        die("no RNG labels matched --rng filter");
+        return Err(if excluded.is_empty() {
+            "no RNG label matched the --rng filter (matching ignores case)".to_string()
+        } else {
+            format!(
+                "{} runs only the NIST suite, which --suite/--test excluded",
+                excluded.join(", ")
+            )
+        });
     }
 
-    runs
+    Ok(runs)
 }
 
 fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
@@ -454,7 +479,7 @@ fn main() {
         .map(|n| n.get())
         .unwrap_or(1);
 
-    let runs = make_runs(args.clone());
+    let runs = make_runs(args.clone()).unwrap_or_else(|msg| die(&msg));
     let n_rngs = runs.len();
 
     let worker_count = n_cores.min(n_rngs);
@@ -751,5 +776,39 @@ mod tests {
         ] {
             assert_eq!(group_thousands(n), grouped);
         }
+    }
+
+    fn scheduled(argv: &[&str]) -> Result<Vec<&'static str>, String> {
+        make_runs(run_args(argv)).map(|runs| runs.into_iter().map(|(label, _)| label).collect())
+    }
+
+    #[test]
+    fn rng_filter_ignores_case() {
+        let dual_ec = ["Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)"];
+        assert_eq!(scheduled(&["--rng", "dual_ec"]).unwrap(), dual_ec);
+        assert_eq!(scheduled(&["--rng", "DUAL_EC"]).unwrap(), dual_ec);
+        assert_eq!(scheduled(&["--rng", "windows"]).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn a_selection_that_runs_no_rng_is_a_usage_error() {
+        let err = scheduled(&["--rng", "no such generator"]).unwrap_err();
+        assert!(err.contains("--rng"), "{err}");
+        for argv in [
+            &["--suite", "diehard", "--rng", "Dual_EC"][..],
+            &["--test", "dieharder::gcd", "--rng", "dual_ec"][..],
+        ] {
+            let err = scheduled(argv).unwrap_err();
+            assert!(
+                err.contains("Dual_EC_DRBG") && err.contains("NIST"),
+                "{err}"
+            );
+        }
+        assert_eq!(
+            scheduled(&["--suite", "nist", "--rng", "Dual_EC"])
+                .unwrap()
+                .len(),
+            1
+        );
     }
 }
