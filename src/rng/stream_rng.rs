@@ -39,8 +39,9 @@
 //!   version 1.6.  [the ZUC-128 cipher]
 //!
 //! # Author
-//! M. Boesgaard, M. Vesterager and E. Zenner (Rabbit, RFC 4503); Daniel J.
-//! Bernstein (Salsa20); ETSI SAGE (SNOW 3G and ZUC-128 specifications);
+//! M. Boesgaard, M. Vesterager, T. Pedersen, J. Christiansen and O. Scavenius
+//! (Rabbit, FSE 2003; RFC 4503 by Boesgaard, Vesterager and Zenner describes
+//! it); Daniel J. Bernstein (Salsa20); ETSI SAGE (SNOW 3G and ZUC-128 specifications);
 //! Darrell Long (Rust adapter).
 
 use cryptography::StreamCipher;

@@ -23,7 +23,8 @@
 //!   *NIST SP 800-38A*, 2001, §6.5.  [pubs/NIST-SP-800-38A.pdf]
 //!
 //! # Author
-//! Morris Dworkin, NIST (CTR mode, SP 800-38A); Darrell Long (Rust adapter).
+//! Morris Dworkin, NIST (SP 800-38A, the recommendation that specifies CTR
+//! mode); Darrell Long (Rust adapter).
 //! The wrapped block ciphers come from the sibling `cryptography` crate.
 
 use cryptography::BlockCipher;
