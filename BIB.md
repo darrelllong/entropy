@@ -179,16 +179,18 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   number  = {14},
   year    = {2003},
   doi     = {10.18637/jss.v008.i14},
-  note    = {32-bit and 64-bit Xorshift generators; listing 1 defines xorshift32. [pubs/marsaglia-2003-xorshift-rngs.pdf]}
+  note    = {32-bit and 64-bit Xorshift generators; section 3 (p. 4) gives xor(), the 32-bit [13,17,5] generator,
+             whose middle step is misprinted as y=(y>>17) without the xor, and xor64() with [13,7,17]. [pubs/marsaglia-2003-xorshift-rngs.pdf]}
 }
 
 @misc{wangyi2022wyhash,
   author = {Wang, Yi},
-  title  = {wyhash and wyrand, version 4.2},
+  title  = {wyhash and wyrand},
   year   = {2022},
   url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8) Weyl-sequence counter with 128-bit
-             multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.}
+  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8, whose wyhash.h is final version 4.3) Weyl-sequence counter with 128-bit
+             multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.  src/rng/wyrand.rs uses the
+             wyrand constants of old\_versions/wyhash\_final2.h and wyhash\_final4.h, not those of 4.3.}
 }
 
 @misc{jenkins2007smallprng,

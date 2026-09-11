@@ -10,8 +10,9 @@
 //! guarantees the period is at least 2⁶⁴; in practice it exceeds 2¹⁹².
 //!
 //! ## JSF64
-//! Bob Jenkins' "Small Fast" generator.  State: four 64-bit words, no
-//! explicit counter.  Simpler than SFC64 but equally fast.
+//! Bob Jenkins' "Small Fast" generator, the three-rotate (7, 13, 37) version
+//! from the "64-bit variants" section of his page.  State: four 64-bit words,
+//! no explicit counter.  Simpler than SFC64 but equally fast.
 //!
 //! # References
 //! C. Doty-Humphrey, "PractRand" (SFC64 source), 2014.
@@ -95,7 +96,9 @@ impl Rng for Sfc64 {
 
 /// Jenkins Small Fast 64-bit generator.
 ///
-/// Four-word state; period is at least 2⁶⁴ for all practical seeds.
+/// Four-word state.  Jenkins gives no guaranteed minimum period: for the
+/// 32-bit version he expects an average cycle of about 2¹²⁶ results, and for
+/// the 64-bit variants his page gives no figure.
 pub struct Jsf64 {
     a: u64,
     b: u64,
@@ -106,7 +109,8 @@ pub struct Jsf64 {
 impl Jsf64 {
     /// Construct from a single 64-bit seed.
     ///
-    /// Runs 20 warm-up steps per Jenkins' recommendation.
+    /// Seeds as the page's `raninit` does (`a = 0xf1ea5eed`,
+    /// `b = c = d = seed`) and discards 20 outputs.
     #[must_use]
     pub fn new(seed: u64) -> Self {
         let mut rng = Self {
@@ -214,7 +218,10 @@ mod tests {
 
     // Known-answer test: first three outputs of Jsf64::new(0xdeadbeef),
     // cross-checked against an independent Python replica of Jenkins'
-    // smallprng (64-bit rot 7/13/37 variant, a = 0xf1ea5eed, 20 warm-ups).
+    // smallprng (64-bit rot 7/13/37 variant, a = 0xf1ea5eed, 20 warm-ups) and
+    // against the page's 64-bit `raninit`/`ranval` compiled from
+    // pubs/jenkins-2007-smallprng.html (5000 outputs at seeds 0xdeadbeef, 0
+    // and 1).
     #[test]
     fn jsf64_known_answer() {
         let mut rng = Jsf64::new(0xdead_beef);
