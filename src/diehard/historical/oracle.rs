@@ -1,5 +1,6 @@
 //! What the golden tests compare against: the input of the DIEHARD fidelity
-//! review's gfortran build of `diehard.f`, regenerated in memory.
+//! review's gfortran build of `diehard.f`, regenerated in memory, and the
+//! formula that build's `KSTEST` prints.
 //!
 //! The review built Marsaglia's `fortran/diehard.f` with gfortran 16.2 and
 //! `-fno-automatic`, patched only so that `jkreset` also resets `jtbl`'s
@@ -33,6 +34,23 @@ pub(super) fn words(n: usize) -> Vec<u32> {
     }
     out.truncate(n);
     out
+}
+
+/// Marsaglia's `KSTEST` p (`fortran/diehard.f` lines 1668–1709): his
+/// asymptotic approximation to the Anderson–Darling CDF at A² = `z`, which
+/// the routine returns without the small-sample correction it computes, so
+/// `n` does not enter.  The golden tests use it to compare with the values
+/// the gfortran build printed.
+pub(super) fn diehard_kstest_cdf(_n: usize, z: f64) -> f64 {
+    if z < 0.01 {
+        0.0
+    } else if z <= 2.0 {
+        2.0 * (-1.2337 / z).exp() * (1.0 + z / 8.0 - 0.04958 * z * z / (1.325 + z)) / z.sqrt()
+    } else if z <= 4.0 {
+        1.0 - 0.6621361 * (-1.091638 * z).exp() - 0.95059 * (-2.005138 * z).exp()
+    } else {
+        1.0 - 0.4938691 * (-1.050321 * z).exp() - 0.5946335 * (-1.527198 * z).exp()
+    }
 }
 
 /// Sums (mod 2⁶⁴) and last words of `in.bin`'s prefixes, read from the file
