@@ -154,6 +154,13 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   note        = {[not in pubs/] PCG32 (XSH-RR) and PCG64 (XSL-RR).}
 }
 
+@misc{oneill-pcg-c,
+  author = {O'Neill, M. E.},
+  title  = {pcg-c: the reference C implementation of the {PCG} family},
+  url    = {https://github.com/imneme/pcg-c},
+  note   = {include/pcg_variants.h and the test-high expected outputs that src/rng/pcg.rs pins. [not in pubs/]}
+}
+
 @article{marsaglia2003xorshift,
   author  = {Marsaglia, George},
   title   = {Xorshift {RNG}s},
@@ -190,6 +197,44 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   year      = {2008},
   note      = {[not in pubs/] ChaCha20 stream cipher; 20-round
                variant used in Linux /dev/urandom, macOS arc4random, and TLS 1.3.}
+}
+
+@misc{rfc8439,
+  author       = {Nir, Y. and Langley, A.},
+  title        = {{ChaCha20} and {Poly1305} for {IETF} Protocols},
+  howpublished = {RFC 8439},
+  year         = {2018},
+  month        = jun,
+  note         = {The 96-bit-nonce, 32-bit-counter layout that cryptography::ChaCha20 follows. [not in pubs/]}
+}
+
+@misc{bernstein2005salsa20,
+  author = {Bernstein, D. J.},
+  title  = {{Salsa20} specification},
+  year   = {2005},
+  url    = {https://cr.yp.to/snuffle/spec.pdf},
+  note   = {The Salsa20 cipher wrapped by src/rng/stream_rng.rs. [not in pubs/]}
+}
+
+@misc{boesgaard2006rabbit,
+  author       = {Boesgaard, M. and Vesterager, M. and Zenner, E.},
+  title        = {A Description of the {Rabbit} Stream Cipher Algorithm},
+  howpublished = {RFC 4503},
+  year         = {2006},
+  month        = may,
+  note         = {Rabbit, wrapped by src/rng/stream_rng.rs; its known-answer test uses Appendix A.2. [not in pubs/]}
+}
+
+@misc{etsi-snow3g,
+  author = {{ETSI/SAGE}},
+  title  = {Specification of the 3GPP Confidentiality and Integrity Algorithms UEA2 \& UIA2, Document 2: {SNOW 3G} Specification},
+  note   = {Version 1.1. The SNOW 3G cipher wrapped by src/rng/stream_rng.rs. [not in pubs/]}
+}
+
+@misc{etsi-zuc,
+  author = {{ETSI/SAGE}},
+  title  = {Specification of the 3GPP Confidentiality and Integrity Algorithms 128-EEA3 \& 128-EIA3, Document 2: {ZUC} Specification},
+  note   = {Version 1.6. The ZUC-128 cipher wrapped by src/rng/stream_rng.rs. [not in pubs/]}
 }
 
 @article{park1988minstd,
