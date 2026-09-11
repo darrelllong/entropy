@@ -25,7 +25,7 @@ pub use aes_ctr::AesCtr;
 pub use bad::{ConstantRng, CounterRng};
 pub use block_ctr::BlockCtrRng;
 pub use c_stdlib::{
-    BsdRandCompat, BsdRandom, CRand, LinuxLibcRandom, Rand48, SystemVRand, WindowsDotNetRandom,
+    BsdRandCompat, BsdRandom, LinuxLibcRandom, Rand48, SystemVRand, WindowsDotNetRandom,
     WindowsMsvcRand, WindowsVb6Rnd,
 };
 pub use chacha20_rng::ChaCha20Rng;

@@ -129,9 +129,6 @@ impl Rng for SystemVRand {
     }
 }
 
-/// Compatibility alias for existing internal users.
-pub type CRand = SystemVRand;
-
 // ── Windows CRT rand() ───────────────────────────────────────────────────────
 
 /// Faithful Windows CRT `rand()` as used by MSVCRT-family runtimes:
@@ -140,6 +137,12 @@ pub type CRand = SystemVRand;
 ///
 /// This is the notoriously weak 15-bit generator associated with many classic
 /// Windows/MSVC-era programs. It is included as a bad historical control.
+///
+/// The same generator as [`LcgVariant::Msvc`](super::LcgVariant::Msvc), the
+/// parameterised-LCG view: for any seed the two give identical `next_raw` and
+/// `next_u32` streams, and their tests share one known-answer vector.  The
+/// battery runs only this type; `dump_rng` and `pilot_rng` expose both, as
+/// `windows_msvc_rand` and `msvc_lcg`.
 #[derive(Debug, Clone)]
 pub struct WindowsMsvcRand {
     state: u32,
@@ -496,6 +499,13 @@ impl Rng for Rand48 {
     }
 }
 
+/// First five `rand()` values after `srand(1)` for the MSVC CRT recurrence
+/// (`x = 214013·x + 2531011 mod 2³²`, output bits 30..16), as an independent
+/// replica of that recurrence produces them.  Shared by the
+/// [`WindowsMsvcRand`] and `LcgVariant::Msvc` known-answer tests.
+#[cfg(test)]
+pub(super) const MSVC_RAND_SEED_1_PREFIX: [u32; 5] = [41, 18_467, 6_334, 26_500, 19_169];
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -605,8 +615,7 @@ mod tests {
     #[test]
     fn windows_msvc_rand_matches_known_seed_1_prefix() {
         let mut rng = WindowsMsvcRand::new(1);
-        let expected = [41, 18_467, 6_334, 26_500, 19_169];
-        for want in expected {
+        for want in super::MSVC_RAND_SEED_1_PREFIX {
             assert_eq!(rng.next_raw(), want);
         }
     }

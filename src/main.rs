@@ -229,7 +229,6 @@ fn die(msg: &str) -> ! {
 
 struct RngResults {
     name: &'static str,
-    nist_n: usize,
     nist: Vec<TestResult>,
     diehard: Vec<TestResult>,
     dieharder: Vec<TestResult>,
@@ -416,7 +415,6 @@ fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
     };
     RngResults {
         name,
-        nist_n: NIST_N,
         nist,
         diehard,
         dieharder,
@@ -433,7 +431,6 @@ fn run_nist_only<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResu
     };
     RngResults {
         name,
-        nist_n: NIST_N,
         nist,
         diehard: vec![],
         dieharder: vec![],
@@ -567,7 +564,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
         if !shown.is_empty() {
             println!(
                 "\n  ── NIST SP 800-22 ({} bits) ──",
-                group_thousands(r.nist_n)
+                group_thousands(NIST_N)
             );
             for t in shown {
                 println!("  {t}");

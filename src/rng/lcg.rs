@@ -32,6 +32,10 @@ pub enum LcgVariant {
     Borland,
     /// Microsoft Visual C `rand()`: a = 214_013, c = 2_531_011, m = 2³².
     /// Returns bits 30..16 — very poor quality.
+    ///
+    /// The same generator as [`WindowsMsvcRand`](super::WindowsMsvcRand), the
+    /// libc-wrapper view: for any seed the two give identical `next_raw` and
+    /// `next_u32` streams, and their tests share one known-answer vector.
     Msvc,
 }
 
@@ -158,14 +162,33 @@ impl Rng for Lcg32 {
 #[cfg(test)]
 mod tests {
     use super::{Lcg32, LcgVariant};
-    use crate::rng::Rng;
+    use crate::rng::c_stdlib::MSVC_RAND_SEED_1_PREFIX;
+    use crate::rng::{Rng, WindowsMsvcRand};
 
     #[test]
     fn msvc_raw_matches_known_seed_1_prefix() {
         // C-API faithfulness: 15-bit values from Microsoft Visual C `rand()`.
         let mut rng = Lcg32::new(LcgVariant::Msvc, 1);
-        let got: Vec<u32> = (0..5).map(|_| rng.next_raw()).collect();
-        assert_eq!(got, vec![41, 18_467, 6_334, 26_500, 19_169]);
+        let got = MSVC_RAND_SEED_1_PREFIX.map(|_| rng.next_raw());
+        assert_eq!(got, MSVC_RAND_SEED_1_PREFIX);
+    }
+
+    /// `LcgVariant::Msvc` and `WindowsMsvcRand` are one generator: identical
+    /// raw values and identical packed words for several seeds.
+    #[test]
+    fn msvc_variant_and_windows_msvc_rand_agree() {
+        for seed in [0u32, 1, 12_345, u32::MAX] {
+            let mut lcg = Lcg32::new(LcgVariant::Msvc, u64::from(seed));
+            let mut crt = WindowsMsvcRand::new(seed);
+            for _ in 0..64 {
+                assert_eq!(lcg.next_raw(), crt.next_raw(), "next_raw, seed {seed}");
+            }
+            let mut lcg = Lcg32::new(LcgVariant::Msvc, u64::from(seed));
+            let mut crt = WindowsMsvcRand::new(seed);
+            for _ in 0..64 {
+                assert_eq!(lcg.next_u32(), crt.next_u32(), "next_u32, seed {seed}");
+            }
+        }
     }
 
     #[test]
