@@ -571,19 +571,22 @@ fn ad_errfix(n: usize, x: f64) -> f64 {
 /// The errors are mostly positive, overstating the tail and so giving
 /// conservative p-values.  The largest reliably resolved errors are just
 /// past the switch: at z = 6.62 the tail is +8.46 ± 0.07% for n = 8,
-/// +4.62 ± 0.14% for n = 16 and +2.46 ± 0.14% for n = 32.  Understatements
-/// of up to about 1% occur at some z.  For n = 8 the tail is −0.20 ± 0.02% at
-/// z = 4 (−0.27% at z = 4.41, the region's lowest) and −1.07 ± 1.10% at
-/// z = 12; for n = 16 it is −0.58 ± 1.55% at z = 11.24.  For n = 32 beyond
-/// z ≈ 10 the sign is unresolved: +1.69 ± 1.41% at z = 11 and +1.32 ± 2.37%
-/// at z = 12, each within 1.2 standard errors of zero.  The table's n = 32
-/// tail figures, +0.9% and +3.5%, are both single-run extremes from that
-/// stretch (z = 10.82 and 11.15, standard errors about 1.3% and 1.5%), so the
-/// 3.5% is not a resolved error larger than the one at the switch.  The
-/// widest figures for n = 64 and 128 likewise fall near z = 11.6, where the
-/// simulated tails carry standard errors of about 5%.  None of this can move
-/// a verdict at α = 0.01, whose upper tail sits near z = 3.9, inside the
-/// body bound.
+/// +4.62 ± 0.14% for n = 16 and +2.46 ± 0.14% for n = 32.  The only
+/// understatement resolved beyond sampling noise is at n = 8: −0.20 ± 0.02%
+/// at z = 4, with the lowest value, −0.27%, at z = 4.41.  For the other n the
+/// lowest values below the switch are within three standard errors of zero
+/// (−0.12 ± 0.04% for n = 16 at z = 4.44, −0.29 ± 0.16% for n = 128 at
+/// z = 5.32).  Past z ≈ 10 the simulated tails carry standard errors of 1%
+/// to 5%, and the extremes there, of either sign, lie within one run's
+/// sampling noise, so their sign is unresolved.  The negative ones run down
+/// to −5.0%: −1.07 ± 1.10% for n = 8 at z = 12, −0.58 ± 1.54% for n = 16 at
+/// z = 11.24, and the table's −0.7 ± 3.3% and −5.0 ± 4.2% for n = 64 and 128
+/// near z = 11.1 and 11.6.  The positive ones likewise: for n = 32,
+/// +1.69 ± 1.41% at z = 11 and +1.32 ± 2.37% at z = 12, and the table's +0.9%
+/// and +3.5% (standard errors about 1.3% and 1.5%, at z = 10.82 and 11.15), so
+/// the 3.5% is not a resolved error larger than the one at the switch; nor is
+/// the +5.8 ± 5.0% for n = 64 near z = 11.8.  None of this can move a verdict
+/// at α = 0.01, whose upper tail sits near z = 3.9, inside the body bound.
 ///
 /// Minimum n.  For n < 8 this function returns NaN.  The method fails there
 /// before the tail does.  A simulation of 2·10⁹ samples each, made before
