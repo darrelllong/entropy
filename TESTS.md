@@ -52,8 +52,8 @@ The battery has **739 test slots** at this sample size:
   the NIST SP 800-22 suite is run.
 
 **Expected false positives.**  At α = 0.01, a perfect generator should fail
-roughly 1% of tests by chance.  With up to 739 active tests, the expected
-false-fail count is approximately 7.  Isolated failures below that threshold
+roughly 1% of tests by chance.  With 707–733 scored tests per generator
+(the rest report SKIP), the expected false-fail count is approximately 7.  Isolated failures below that threshold
 are noise, not structure.
 
 ## Summary Table

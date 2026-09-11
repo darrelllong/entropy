@@ -53,6 +53,9 @@ RE_STATES       = 8
 REV_STATES      = 18
 EXCURSION_TOTAL = RE_STATES + REV_STATES   # 26
 
+# maurer::universal_l11..l16 need K >= 1000*2^L blocks, so they SKIP at 16 Mbit.
+MAURER_SKIPS_16MBIT = 6
+
 # Minimum zero-crossing cycles for the excursion families to run.
 EXCURSION_J_MIN = 500
 
@@ -298,8 +301,8 @@ The battery has **{FULL_SLOTS} test slots** at this sample size:
   the NIST SP 800-22 suite is run.
 
 **Expected false positives.**  At α = 0.01, a perfect generator should fail
-roughly 1% of tests by chance.  With up to {FULL_SLOTS} active tests, the expected
-false-fail count is approximately 7.  Isolated failures below that threshold
+roughly 1% of tests by chance.  With {FULL_SLOTS - MAURER_SKIPS_16MBIT - EXCURSION_TOTAL}–{FULL_SLOTS - MAURER_SKIPS_16MBIT} scored tests per generator
+(the rest report SKIP), the expected false-fail count is approximately 7.  Isolated failures below that threshold
 are noise, not structure.
 """
 
