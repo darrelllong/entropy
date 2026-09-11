@@ -14,8 +14,11 @@
 //!   *IEEE Transactions on Information Theory* 15(1), pp. 122–127, January 1969.
 //!   DOI: 10.1109/TIT.1969.1054260.
 //!   [Berlekamp-Massey algorithm used to compute LFSR length of each block]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/linearComplexity.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same classes; differs in
+//!   the sign in μ, which changes no class, and in π₀]
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Run the linear complexity test.
 ///
@@ -36,24 +39,65 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
         );
     }
 
-    // Theoretical mean μ = M/2 + (9 + (−1)^M)/36 − (M/3 + 2/9)/2^M.
-    // SP 800-22 §2.10.4 and NIST STS linear.c: the numerator is (9 + (−1)^M),
-    // which is 10 for even M and 8 for odd M — NOT (9 + M%2).
-    let pow_neg1_m = if m.is_multiple_of(2) {
-        1.0_f64
-    } else {
+    let nu = class_counts(bits, m);
+
+    let chi_sq: f64 = nu
+        .iter()
+        .zip(PI.iter())
+        .map(|(&count, &p)| {
+            let exp = num_blocks as f64 * p;
+            (count as f64 - exp).powi(2) / exp
+        })
+        .sum();
+
+    let p_value = chi2_pvalue(chi_sq, 6);
+
+    TestResult::with_note(
+        "nist::linear_complexity",
+        p_value,
+        format!("n={n}, M={m}, N={num_blocks}, χ²={chi_sq:.4}"),
+    )
+}
+
+/// π₀, …, π₆ of SP 800-22 §2.10.4 step (6), the probabilities of the seven
+/// classes of Tᵢ derived in §3.10.  STS 2.1.2's `linearComplexity.c` has
+/// π₀ = 0.01047, which moves its χ² slightly; SP 800-22's §2.10.8 and
+/// Appendix B figures use that value (see the tests).
+const PI: [f64; 7] = [
+    0.010417, 0.031250, 0.125000, 0.500000, 0.250000, 0.062500, 0.020833,
+];
+
+/// The theoretical mean μ of SP 800-22 §2.10.4 step (3), which the
+/// publication numbers (1):
+///
+/// μ = M/2 + (9 + (−1)^{M+1})/36 − (M/3 + 2/9)/2^M.
+///
+/// The middle term is 8/36 for even M and 10/36 for odd M, the (4 + r)/18
+/// with r = M mod 2 in §3.10's ξ.  With this μ every Tᵢ lies within
+/// (M/3 + 2/9)/2^M of an integer, which is why the class boundaries sit at
+/// half-integers.
+///
+/// STS 2.1.2's `linearComplexity.c` adds (9 + (−1)^M)/36 instead, which moves
+/// every Tᵢ down by 1/18; that never crosses a boundary, so its class counts
+/// are the ones this μ gives.
+fn mean(m: usize) -> f64 {
+    let pow_neg1_m_plus_1 = if m.is_multiple_of(2) {
         -1.0_f64
+    } else {
+        1.0_f64
     };
-    let mu = m as f64 / 2.0 + (9.0 + pow_neg1_m) / 36.0
-        - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32);
+    m as f64 / 2.0 + (9.0 + pow_neg1_m_plus_1) / 36.0
+        - (m as f64 / 3.0 + 2.0 / 9.0) / 2f64.powi(m as i32)
+}
+
+/// ν₀, …, ν₆ of §2.10.4 step (5): how many M-bit blocks of `bits` put Tᵢ in
+/// each class.
+fn class_counts(bits: &[u8], m: usize) -> [usize; 7] {
+    let mu = mean(m);
 
     // Category boundaries for T = (−1)^M (L − μ) + 2/9.
     // Six categories: T ≤ −2.5, (−2.5,−1.5], (−1.5,−0.5], (−0.5,0.5],
     //                 (0.5,1.5], (1.5,2.5], T > 2.5  (7 categories total).
-    let pi = [
-        0.010417, 0.031250, 0.125000, 0.500000, 0.250000, 0.062500, 0.020833,
-    ];
-
     let mut nu = [0usize; 7];
     let sign = if m.is_multiple_of(2) { 1.0 } else { -1.0 };
 
@@ -77,23 +121,7 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
         };
         nu[idx] += 1;
     }
-
-    let chi_sq: f64 = nu
-        .iter()
-        .zip(pi.iter())
-        .map(|(&count, &p)| {
-            let exp = num_blocks as f64 * p;
-            (count as f64 - exp).powi(2) / exp
-        })
-        .sum();
-
-    let p_value = igamc(3.0, chi_sq / 2.0); // df = 6
-
-    TestResult::with_note(
-        "nist::linear_complexity",
-        p_value,
-        format!("n={n}, M={m}, N={num_blocks}, χ²={chi_sq:.4}"),
-    )
+    nu
 }
 
 /// Berlekamp-Massey algorithm: returns the linear complexity (shortest LFSR
@@ -144,8 +172,103 @@ pub fn berlekamp_massey(s: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nist::test_vectors::bits;
+    use crate::nist::test_vectors::{bits, e_bits};
     use crate::rng::{Mt19937, Rng};
+
+    /// π₀ as STS 2.1.2's `linearComplexity.c` has it, 0.01047, where §2.10.4
+    /// step (6) and §3.10 print 0.010417 (the class probability is 1/96).
+    const STS_PI0: f64 = 0.01047;
+
+    /// Pearson χ² of class counts against class probabilities.
+    fn chi_square(nu: [usize; 7], pi: [f64; 7]) -> f64 {
+        let total = nu.iter().sum::<usize>() as f64;
+        nu.iter()
+            .zip(pi)
+            .map(|(&v, p)| (v as f64 - total * p).powi(2) / (total * p))
+            .sum()
+    }
+
+    /// The battery's M = 500 is even, so μ = 250 + 8/36 − (500/3 + 2/9)/2^500,
+    /// whose last term (about 5 × 10⁻¹⁴⁹) is far below f64 resolution.  Every
+    /// Tᵢ is then an integer, Lᵢ − 250; STS's sign would put 250 + 10/36.
+    #[test]
+    fn mean_for_even_block_length() {
+        let mu = mean(500);
+        assert!((mu - (250.0 + 8.0 / 36.0)).abs() < 1e-12, "μ = {mu}");
+        for l in 247..=253 {
+            let t = (l as f64 - mu) + 2.0 / 9.0;
+            assert!((t - (l as f64 - 250.0)).abs() < 1e-12, "L = {l}: T = {t}");
+        }
+    }
+
+    /// The first 100 000 bits of e with the battery's M = 500, at the fewest
+    /// blocks the gate accepts (N = 200), so debug builds and CI score linear
+    /// complexity end to end.  STS 2.1.2 counts ν = (4, 5, 25, 106, 44, 13, 3)
+    /// on these bits and prints χ² = 3.411513 and P-value = 0.755703 with its
+    /// π₀ = 0.01047; the printed π₀ gives χ² = 3.439789 and P-value = 0.751963.
+    #[test]
+    fn matches_sts_on_100_000_bits_of_e() {
+        const STS_NU: [usize; 7] = [4, 5, 25, 106, 44, 13, 3];
+        let e = e_bits(100_000);
+        assert_eq!(class_counts(&e, 500), STS_NU);
+        let r = linear_complexity(&e, 500);
+        assert!((r.p_value - 0.751963).abs() < 1e-6, "{r}");
+        assert!(
+            r.note.as_deref().unwrap().contains("N=200, χ²=3.4398"),
+            "{r}"
+        );
+        let mut sts_pi = PI;
+        sts_pi[0] = STS_PI0;
+        let sts = chi_square(STS_NU, sts_pi);
+        assert!((sts - 3.411513).abs() < 1e-6, "χ² = {sts}");
+        assert!((chi2_pvalue(sts, 6) - 0.755703).abs() < 1e-6);
+    }
+
+    /// SP 800-22 §2.10.8 on 10⁶ bits of e with M = 1000: the printed counts
+    /// ν = (11, 31, 116, 501, 258, 57, 26) and, from them, χ² = 2.700348 and
+    /// P-value = 0.845406.  Those two figures use STS's π₀ = 0.01047; with
+    /// the π₀ = 0.010417 of §2.10.4 the same counts give χ² = 2.706147 and
+    /// P-value = 0.844721, which this module returns.
+    #[test]
+    #[cfg_attr(
+        debug_assertions,
+        ignore = "about 13 s unoptimised; run with cargo test --release"
+    )]
+    fn matches_section_2_10_8_counts() {
+        const PRINTED_NU: [usize; 7] = [11, 31, 116, 501, 258, 57, 26];
+        let e = e_bits(1_000_000);
+        assert_eq!(class_counts(&e, 1000), PRINTED_NU);
+        let r = linear_complexity(&e, 1000);
+        assert!((r.p_value - 0.844721).abs() < 1e-6, "{r}");
+        assert!((chi_square(PRINTED_NU, PI) - 2.706147).abs() < 1e-6);
+        let mut sts_pi = PI;
+        sts_pi[0] = STS_PI0;
+        let printed = chi_square(PRINTED_NU, sts_pi);
+        assert!((printed - 2.700348).abs() < 1e-6, "χ² = {printed}");
+        assert!((chi2_pvalue(printed, 6) - 0.845406).abs() < 1e-6);
+    }
+
+    /// SP 800-22 Appendix B prints P-value = 0.826335 for 10⁶ bits of e with
+    /// M = 500.  STS 2.1.2 counts ν = (21, 52, 250, 1006, 492, 135, 44) on
+    /// these bits and reaches that figure (χ² = 2.858915) with π₀ = 0.01047;
+    /// the printed π₀ gives χ² = 2.860066 and P-value = 0.826194.
+    #[test]
+    #[cfg_attr(
+        debug_assertions,
+        ignore = "about 7 s unoptimised; run with cargo test --release"
+    )]
+    fn matches_appendix_b_e_row() {
+        const STS_NU: [usize; 7] = [21, 52, 250, 1006, 492, 135, 44];
+        let e = e_bits(1_000_000);
+        assert_eq!(class_counts(&e, 500), STS_NU);
+        let r = linear_complexity(&e, 500);
+        assert!((r.p_value - 0.826194).abs() < 1e-6, "{r}");
+        let mut sts_pi = PI;
+        sts_pi[0] = STS_PI0;
+        let sts = chi_square(STS_NU, sts_pi);
+        assert!((sts - 2.858915).abs() < 1e-6, "χ² = {sts}");
+        assert!((chi2_pvalue(sts, 6) - 0.826335).abs() < 1e-6);
+    }
 
     /// The loop as it stood before the scratch buffer, cloning C(D) on every
     /// discrepancy.
@@ -179,12 +302,15 @@ mod tests {
         l
     }
 
-    /// SP 800-22 §2.10.4 step (2): the block 1101011110001 (M = 13) has
-    /// Lᵢ = 4.  (The §2.10.8 example runs on 10⁶ bits of e, which the crate
-    /// does not ship.)
+    /// SP 800-22 §2.10.4: the block 1101011110001 (M = 13) has Lᵢ = 4, and
+    /// M = 13 gives μ = 6.777222 and Tᵢ = 2.999444.
     #[test]
     fn matches_section_2_10_4_example() {
         assert_eq!(berlekamp_massey(&bits("1101011110001")), 4);
+        let mu = mean(13);
+        assert!((mu - 6.777222).abs() < 1e-6, "μ = {mu}");
+        let t = -(4.0 - mu) + 2.0 / 9.0;
+        assert!((t - 2.999444).abs() < 1e-6, "T = {t}");
     }
 
     /// The scratch-buffer loop returns what the cloning loop returned, on

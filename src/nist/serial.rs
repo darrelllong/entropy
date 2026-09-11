@@ -8,7 +8,7 @@
 //! Recommended defaults: m = 3, n ≥ 1 000 000.  SP 800-22 §2.11.7 asks for
 //! m < ⌊log₂ n⌋ − 2, which this module enforces exactly.
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Run the serial test and return one result: whichever of the two
 /// [`serial_both`] entries has the smaller p-value, unchanged.
@@ -61,20 +61,7 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
         ];
     }
 
-    let psi_m = psi_sq(bits, m, n);
-    let psi_m1 = psi_sq(bits, m - 1, n);
-    let psi_m2 = psi_sq(bits, m - 2, n);
-
-    // ∇ψ² is a sum of squares and ∇²ψ² is non-negative too, but the
-    // subtractions can leave rounding residue just below zero, where igamc
-    // returns NaN and a scored entry would be reported as skipped.
-    let del1 = (psi_m - psi_m1).max(0.0);
-    let del2 = (psi_m - 2.0 * psi_m1 + psi_m2).max(0.0);
-
-    // §2.11.4 step 5: ∇ψ² ~ χ²(2^{m−1}) and ∇²ψ² ~ χ²(2^{m−2}), so the igamc
-    // shape parameters (df/2) are 2^{m−2} and 2^{m−3} respectively.
-    let p1 = igamc(2.0_f64.powi(m as i32 - 2), del1 / 2.0);
-    let p2 = igamc(2.0_f64.powi(m as i32 - 3), del2 / 2.0);
+    let [(del1, p1), (del2, p2)] = statistics(bits, m);
 
     vec![
         TestResult::with_note(
@@ -87,6 +74,28 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
             p2,
             format!("n={n}, m={m}, ∇²ψ²={del2:.4}"),
         ),
+    ]
+}
+
+/// ∇ψ²ₘ and ∇²ψ²ₘ of `bits`, each with its P-value, without the gates of
+/// [`serial_both`] (m ≥ 2 is still required).
+fn statistics(bits: &[u8], m: usize) -> [(f64, f64); 2] {
+    let n = bits.len();
+    let psi_m = psi_sq(bits, m, n);
+    let psi_m1 = psi_sq(bits, m - 1, n);
+    let psi_m2 = psi_sq(bits, m - 2, n);
+
+    // ∇ψ² is a sum of squares and ∇²ψ² is non-negative too, but the
+    // subtractions can leave rounding residue just below zero, where igamc
+    // returns NaN and a scored entry would be reported as skipped.
+    let del1 = (psi_m - psi_m1).max(0.0);
+    let del2 = (psi_m - 2.0 * psi_m1 + psi_m2).max(0.0);
+
+    // §2.11.4 step 5: ∇ψ² ~ χ²(2^{m−1}) and ∇²ψ² ~ χ²(2^{m−2}), which the
+    // publication writes as igamc(2^{m−2}, ∇ψ²/2) and igamc(2^{m−3}, ∇²ψ²/2).
+    [
+        (del1, chi2_pvalue(del1, 1 << (m - 1))),
+        (del2, chi2_pvalue(del2, 1 << (m - 2))),
     ]
 }
 
@@ -114,6 +123,7 @@ fn psi_sq(bits: &[u8], l: usize, n: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nist::test_vectors::e_bits;
     use crate::rng::{Mt19937, Rng};
 
     /// SP 800-22 §2.11.6 worked example: ε = 0011011101, m = 3.
@@ -126,18 +136,36 @@ mod tests {
         assert!((psi_sq(&EXAMPLE, 1, 10) - 0.4).abs() < 1e-12);
     }
 
-    /// The publication's p-values for the worked example: with m = 3,
-    /// P-value1 = igamc(2^{m−2}, ∇ψ²/2) = igamc(2, 0.8) ≈ 0.808792 and
-    /// P-value2 = igamc(2^{m−3}, ∇²ψ²/2) = igamc(1, 0.4) ≈ 0.670320.
-    /// This pins the df/statistic pairing that was once cross-wired.
+    /// The publication's P-values for the worked example (n = 10, m = 3):
+    /// P-value1 = igamc(2^{m−2}, ∇ψ²/2) = igamc(2, 0.8) = 0.808792 and
+    /// P-value2 = igamc(2^{m−3}, ∇²ψ²/2) = igamc(1, 0.4) = 0.670320.  The
+    /// example is below `serial_both`'s n ≥ 1000 floor, so it runs through
+    /// `statistics`, the code that pairs each statistic with its degrees of
+    /// freedom for `serial_both`.  Swapping the pairing gives 0.449329 and
+    /// 0.938448, so this pins the pairing that was once cross-wired.
     #[test]
     fn p_value_pairing_matches_nist_worked_example() {
-        let del1 = 2.8 - 1.2;
-        let del2 = 2.8 - 2.0 * 1.2 + 0.4;
-        let p1 = igamc(2.0_f64.powi(1), del1 / 2.0);
-        let p2 = igamc(2.0_f64.powi(0), del2 / 2.0);
-        assert!((p1 - 0.808792).abs() < 1e-5, "p1 = {p1}");
-        assert!((p2 - 0.670320).abs() < 1e-5, "p2 = {p2}");
+        let [(del1, p1), (del2, p2)] = statistics(&EXAMPLE, 3);
+        assert!((del1 - 1.6).abs() < 1e-12, "∇ψ² = {del1}");
+        assert!((del2 - 0.8).abs() < 1e-12, "∇²ψ² = {del2}");
+        assert!((p1 - 0.808792).abs() < 1e-6, "p1 = {p1}");
+        assert!((p2 - 0.670320).abs() < 1e-6, "p2 = {p2}");
+    }
+
+    /// SP 800-22 §2.11.8 on 10⁶ bits of e with m = 2: ψ²₂ = 0.343128,
+    /// ψ²₁ = 0.003364 and ψ²₀ = 0, so ∇ψ²₂ = 0.339764 and ∇²ψ²₂ = 0.336400,
+    /// with P-value1 = 0.843764 and P-value2 = 0.561915.
+    #[test]
+    fn matches_section_2_11_8_example() {
+        let e = e_bits(1_000_000);
+        let (psi_2, psi_1) = (psi_sq(&e, 2, e.len()), psi_sq(&e, 1, e.len()));
+        assert!((psi_2 - 0.343128).abs() < 1e-6, "ψ²₂ = {psi_2}");
+        assert!((psi_1 - 0.003364).abs() < 1e-6, "ψ²₁ = {psi_1}");
+        assert!((psi_2 - psi_1 - 0.339764).abs() < 1e-6);
+        assert!((psi_2 - 2.0 * psi_1 - 0.336400).abs() < 1e-6);
+        let both = serial_both(&e, 2);
+        assert!((both[0].p_value - 0.843764).abs() < 1e-6, "{}", both[0]);
+        assert!((both[1].p_value - 0.561915).abs() < 1e-6, "{}", both[1]);
     }
 
     #[test]

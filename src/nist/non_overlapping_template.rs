@@ -10,8 +10,15 @@
 //! to test a single caller-supplied template.
 //!
 //! Minimum recommended: n ≥ 10^6 for reliable results with m = 9.
+//!
+//! # References
+//! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.7 and Appendix E.
+//!   [pubs/NIST-SP-800-22r1a.pdf]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/nonOverlappingTemplateMatchings.c`
+//!   and `templates/template9`.  [pubs/NIST-STS-2.1.2-src-and-constants.zip]
+//!   [Same N = 8, μ, σ² and scan]
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Template lengths accepted by the single-template entry points.
 ///
@@ -29,7 +36,8 @@ const TEMPLATE_LEN_NOTE: &str = "template length m must be in 2..=21";
 ///
 /// A template is aperiodic if it has no period p with 1 ≤ p < m such that
 /// T[i] = T[i+p] for all i in 0..m-p.  This generates the same set as
-/// Appendix E of SP 800-22 Rev 1a (2010).
+/// Appendix E of SP 800-22 Rev 1a (2010), in the order of STS 2.1.2's
+/// `templates/template9`.
 fn aperiodic_templates_9() -> Vec<Vec<u8>> {
     let m = 9usize;
     (0u16..512)
@@ -117,7 +125,7 @@ pub fn non_overlapping_template_raw(bits: &[u8], template: &[u8]) -> TestResult 
         })
         .sum();
 
-    let p_value = igamc(num_blocks as f64 / 2.0, chi_sq / 2.0);
+    let p_value = chi2_pvalue(chi_sq, num_blocks);
 
     let tmpl_str: String = template.iter().map(|b| b.to_string()).collect();
     TestResult::with_note(

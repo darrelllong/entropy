@@ -14,9 +14,12 @@
 //! * G. Marsaglia and L. H. Tsay, "Matrices and the structure of random
 //!   number sequences," *Linear Algebra and its Applications* 67,
 //!   pp. 147–156, 1985.  [Same result, as cited in §3.5]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/rank.c` and `src/matrix.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [p₃₂ and p₃₁ from the same
+//!   product, matrices filled row by row (`def_matrix`), P = exp(−χ²/2)]
 
 use crate::{
-    math::{gf2_rank, igamc},
+    math::{chi2_pvalue, gf2_rank},
     result::TestResult,
 };
 
@@ -77,7 +80,7 @@ pub fn matrix_rank(bits: &[u8]) -> TestResult {
 
     let chi_sq = rank_chi_square(f_32, f_31, f_less);
 
-    let p_value = igamc(1.0, chi_sq / 2.0); // df = 2, so igamc(1, χ²/2)
+    let p_value = chi2_pvalue(chi_sq, 2);
 
     TestResult::with_note(
         "nist::matrix_rank",
@@ -105,6 +108,7 @@ fn gf2_rank_32x32(bits: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nist::test_vectors::e_bits;
 
     /// p₃₂ and p₃₁ from an independent exact rational evaluation of the §3.5
     /// formula (Python `fractions`), in shortest round-trip form.
@@ -138,7 +142,17 @@ mod tests {
     fn chi_square_reproduces_section_2_5_8_example() {
         let chi_sq = rank_chi_square(23, 60, 14);
         assert!((chi_sq - 1.2619656).abs() < 5e-8, "χ² = {chi_sq}");
-        let p = igamc(1.0, chi_sq / 2.0);
+        let p = chi2_pvalue(chi_sq, 2);
         assert!((p - 0.532069).abs() < 1e-6, "p = {p}");
+    }
+
+    /// SP 800-22 §2.5.8 end to end on the first 100 000 bits of e: the
+    /// counts above and P-value = 0.532069.
+    #[test]
+    fn matches_section_2_5_8_example() {
+        let r = matrix_rank(&e_bits(100_000));
+        assert!((r.p_value - 0.532069).abs() < 1e-6, "{r}");
+        let note = r.note.as_deref().unwrap();
+        assert!(note.contains("N=97, F32=23, F31=60, F≤30=14"), "{r}");
     }
 }

@@ -642,7 +642,7 @@ previously missing from this bibliography.
   author       = {{National Institute of Standards and Technology}},
   title        = {{NIST} Statistical Test Suite, version 2.1.2},
   howpublished = {https://csrc.nist.gov/CSRC/media/Projects/Random-Bit-Generation/documents/sts-2\_1\_2.zip},
-  note         = {Source code, templates and the constant expansions data.e, data.pi, data.sqrt2 and data.sqrt3; repacked without the generator-output files in data/ and the empty experiments/ tree. Original sha256 0238d2f1d26e120e3cc748ed2d4c674cdc636de37fc4027c76cc2a394fff9157. [pubs/NIST-STS-2.1.2-src-and-constants.zip]}
+  note         = {Source code, templates and the constant expansions data.e, data.pi, data.sqrt2 and data.sqrt3; repacked without the generator-output files in data/ and the empty experiments/ tree. Original sha256 0238d2f1d26e120e3cc748ed2d4c674cdc636de37fc4027c76cc2a394fff9157. tests/data/e\_1e6\_bits.bin packs the first 10\^6 digits of data.e for the SP 800-22 worked examples. [pubs/NIST-STS-2.1.2-src-and-constants.zip]}
 }
 
 @misc{testu01-source,

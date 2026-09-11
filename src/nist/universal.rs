@@ -19,6 +19,9 @@
 //!   [pubs/maurer-1992-universal-test.pdf]
 //!   [Table I: expected value of f_TU and variance of log₂ Aₙ for L = 1..16;
 //!   eq. (13): c(L, K)]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/universal.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same L table, Q, K and
+//!   c(L, K); μ and σ² to the printed digits]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -33,6 +36,16 @@ use std::f64::consts::SQRT_2;
 /// entries come from an uncited source; neither table prints them.  They
 /// agree with the printed digits to within one unit in the last place (σ²
 /// for L = 8 is 3.23866…, which both tables print as 3.238).
+///
+/// With p = 2^−L, μ is Σ_{i≥1} p(1 − p)^{i−1} log₂ i and σ² is
+/// Σ_{i≥1} p(1 − p)^{i−1} (log₂ i)² − μ².  The L = 6..16 entries are those
+/// sums, but not to all 12 decimals: against an accurate evaluation
+/// (`constants_match_maurer_series`) μ is within 4 × 10⁻¹¹ and σ² within
+/// 6 × 10⁻¹⁰, the worst of each at L = 16, and σ² is off by more than 10⁻¹¹
+/// at every L ≥ 11.  That test holds each entry to twice its own gap.
+/// STS 2.1.2's `universal.c` uses the printed digits instead (6.1962507 and
+/// 3.125 for L = 7), which is why STS and SP 800-22 Appendix B report
+/// P-value = 0.282568 for 10⁶ bits of e where this module gives 0.282591.
 const EXPECTED_LOG_GAP_STATS: [(f64, f64); 17] = [
     (0.0, 0.0), // L=0 unused
     (0.7326495, 0.690),
@@ -190,6 +203,7 @@ fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {
 /// prints the later Coron–Naccache approximation
 /// c(L, K) = 0.7 − 0.8/L + (1.6 + 12.8/L)·K^(−4/L) (its reference [2], SAC '98)
 /// but says it is not embedded in the test suite code, so it is not used here.
+/// STS 2.1.2's `universal.c` computes this c(L, K).
 fn universal_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
     let l = l as f64;
     let k = k as f64;
@@ -205,9 +219,11 @@ fn bits_to_index(bits: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        choose_l, universal, universal_parametric_all, universal_sigma, EXPECTED_LOG_GAP_STATS,
+        choose_l, universal, universal_parametric_all, universal_sigma, universal_statistic,
+        EXPECTED_LOG_GAP_STATS,
     };
     use crate::math::erfc;
+    use crate::nist::test_vectors::e_bits;
     use std::f64::consts::SQRT_2;
 
     /// μ and σ² as printed in Maurer (1992) Table I for L = 1..16; SP 800-22
@@ -253,6 +269,120 @@ mod tests {
         }
     }
 
+    /// Neumaier's compensated running sum: the rounding error of each addition
+    /// is carried separately, so the order of the terms does not matter.
+    #[derive(Default)]
+    struct CompensatedSum {
+        sum: f64,
+        compensation: f64,
+    }
+
+    impl CompensatedSum {
+        fn add(&mut self, term: f64) {
+            let next = self.sum + term;
+            self.compensation += if self.sum.abs() >= term.abs() {
+                (self.sum - next) + term
+            } else {
+                (term - next) + self.sum
+            };
+            self.sum = next;
+        }
+
+        fn value(&self) -> f64 {
+            self.sum + self.compensation
+        }
+    }
+
+    /// μ and σ² of the table's doc for block length `l`: with p = 2^−L, the
+    /// sums over i ≤ 45·2^L of p(1 − p)^{i−1} log₂ i and of
+    /// p(1 − p)^{i−1} (log₂ i)², less μ² for σ².  The tail left out weighs
+    /// (1 − p)^{45·2^L} < e^−45.
+    fn maurer_series(l: usize) -> (f64, f64) {
+        let p = 2f64.powi(-(l as i32));
+        let ln_q = (-p).ln_1p();
+        let mut mean = CompensatedSum::default();
+        let mut second = CompensatedSum::default();
+        for i in 1..=(45usize << l) {
+            let w = p * ((i - 1) as f64 * ln_q).exp();
+            let lg = (i as f64).log2();
+            mean.add(w * lg);
+            second.add(w * lg * lg);
+        }
+        let mean = mean.value();
+        (mean, second.value() - mean * mean)
+    }
+
+    /// The same sums for L = 6..16, as (μ, σ²), evaluated over the same
+    /// i ≤ 45·2^L in 40-digit decimal arithmetic (Python `decimal`).
+    const DECIMAL_SERIES: [(f64, f64); 11] = [
+        (5.217705249861323, 2.9540323993817217),
+        (6.196250654101877, 3.1253918686088884),
+        (7.183665553492268, 3.238662160971426),
+        (8.176424757913649, 3.3112008794777728),
+        (9.172324308195728, 3.3564569069687407),
+        (10.170032291924027, 3.3840870306566133),
+        (11.168764874404863, 3.4006541450941707),
+        (12.168070314223677, 3.4104380091402215),
+        (13.167692567127945, 3.4161418217073805),
+        (14.16748844859603, 3.419430397502266),
+        (15.167378763677508, 3.421308342471886),
+    ];
+
+    /// How far each L = 6..16 table entry is from `DECIMAL_SERIES`, as
+    /// (μ, σ²), measured with 40-digit decimals and rounded up to two
+    /// significant figures.
+    const TABLE_GAPS: [(f64, f64); 11] = [
+        (3.3e-13, 2.8e-13),
+        (1.3e-13, 1.2e-13),
+        (2.7e-13, 4.3e-13),
+        (6.5e-13, 3.3e-12),
+        (7.3e-13, 5.3e-12),
+        (1.1e-12, 1.6e-11),
+        (2.9e-12, 1.4e-11),
+        (4.7e-12, 3.7e-11),
+        (1.0e-11, 9.1e-11),
+        (2.1e-11, 2.6e-10),
+        (4.0e-11, 5.7e-10),
+    ];
+
+    /// The L = 6..16 table entries against an accurate evaluation of their
+    /// series.  `maurer_series` agrees with `DECIMAL_SERIES` to 3.1 × 10⁻¹⁴
+    /// as measured, and is held to 10⁻¹² here.  The table does not reach
+    /// that: `TABLE_GAPS` runs from about 10⁻¹³ at L = 7 to 4.0 × 10⁻¹¹ in μ
+    /// and 5.7 × 10⁻¹⁰ in σ² at L = 16.  Each entry is held to twice its own
+    /// gap, and never less than 10⁻¹³.  That leaves room for the reference's
+    /// error and the rounding of the table's literals, but no entry can move
+    /// by much more than its present error without failing.  Summing the
+    /// terms first to last in plain f64 reproduces the table to about
+    /// 2.5 × 10⁻¹², so the entries were probably made that way.
+    #[test]
+    fn constants_match_maurer_series() {
+        const TOLERANCE_FLOOR: f64 = 1e-13;
+        for (l, &(mu, var)) in EXPECTED_LOG_GAP_STATS.iter().enumerate().skip(6) {
+            let (mean, variance) = maurer_series(l);
+            let (decimal_mean, decimal_variance) = DECIMAL_SERIES[l - 6];
+            assert!(
+                (mean - decimal_mean).abs() < 1e-12,
+                "series μ, L = {l}: {mean}"
+            );
+            assert!(
+                (variance - decimal_variance).abs() < 1e-12,
+                "series σ², L = {l}: {variance}"
+            );
+            let (mu_gap, variance_gap) = TABLE_GAPS[l - 6];
+            let mu_tolerance = (2.0 * mu_gap).max(TOLERANCE_FLOOR);
+            let variance_tolerance = (2.0 * variance_gap).max(TOLERANCE_FLOOR);
+            assert!(
+                (mean - mu).abs() < mu_tolerance,
+                "μ, L = {l}: {mu} vs {mean}"
+            );
+            assert!(
+                (variance - var).abs() < variance_tolerance,
+                "σ², L = {l}: {var} vs {variance}"
+            );
+        }
+    }
+
     #[test]
     fn published_table_covers_l16() {
         let (mu, var) = EXPECTED_LOG_GAP_STATS[16];
@@ -293,6 +423,27 @@ mod tests {
         let p = erfc((f_n - mu7).abs() / (sigma * SQRT_2));
         assert!((sigma - 0.002702824).abs() < 1e-9, "shipped σ = {sigma}");
         assert!((p - 0.427772059).abs() < 1e-8, "shipped p = {p}");
+    }
+
+    /// SP 800-22 Appendix B prints P-value = 0.282568 for 10⁶ bits of e, where
+    /// L = 7, Q = 1280 and K = 141 577.  STS 2.1.2 reports sum = 877 667.758407
+    /// and reaches that P-value with the printed μ = 6.1962507 and σ² = 3.125;
+    /// the 12-digit table entries this module uses give 0.282591 for the same
+    /// sum.
+    #[test]
+    fn matches_appendix_b_e_row() {
+        let e = e_bits(1_000_000);
+        let r = universal(&e);
+        assert!((r.p_value - 0.282591).abs() < 1e-6, "{r}");
+        let (l, q) = (7, 1280);
+        let k = e.len() / l - q;
+        assert_eq!(k, 141_577);
+        let f_n = universal_statistic(&e, l, q, k);
+        let sum = f_n * k as f64;
+        assert!((sum - 877_667.758407).abs() < 1e-5, "sum = {sum}");
+        let sigma = universal_sigma(l, k, 3.125);
+        let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
+        assert!((p - 0.282568).abs() < 1e-6, "p = {p}");
     }
 
     /// The SP 800-22 §2.9.7 table, as (L, minimum n).
