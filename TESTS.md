@@ -115,11 +115,20 @@ Stephens-corrected asymptotic series beyond.  (July 2026 fixes corrected an
 H-matrix bug that had collapsed exact-branch p-values toward 1 and an
 asymptotic-series non-convergence misroute that reported p = 1 for
 catastrophically large $D$; the tables above were harvested with the
-corrected code.)  DIEHARD's own summary, which it calls a KSTEST, is not this
-statistic but Marsaglia's Anderson–Darling statistic, printed as a CDF value,
-so a value near 1 fails; its per-test values ($\Phi(z)$ and chi-square CDFs)
-are CDF values too.  The DIEHARD tests below report upper-tail p-values and
-summarize them with the KS test above, so small values fail.
+corrected code.)
+
+Every DIEHARD p-value below is small when the test fails.  Seven results
+summarize several p-values with the KS test above and report its p-value:
+`birthday_spacings`, `runs_up` and `runs_down` feed it upper-tail chi-square
+p-values, `bitstream` two-sided normal p-values $\mathrm{erfc}(|z|/\sqrt{2})$,
+and `parking_lot`, `minimum_distance_2d` and `spheres_3d` CDF values that are
+uniform under the null ($\Phi(z)$ for parking lots, $1-\exp(\cdot)$ for the
+two distance tests).  The other ten report a single p-value: an upper-tail
+chi-square for the three rank tests, `squeeze` and `craps_throws`, and a
+two-sided normal p-value for `opso`, `oqso`, `dna`, `count_ones_stream` and
+`craps_wins`.  DIEHARD itself prints CDF values, such as $\Phi(z)$ and
+chi-square CDFs, and summarizes with a routine it calls KSTEST that computes
+Marsaglia's Anderson–Darling statistic and prints its CDF value.
 
 ### NIST SP 800-22
 
@@ -361,10 +370,12 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   proportions, and $A$ the Grafton/Knuth inverse-covariance matrix; the core
   statistic is $V = (R-nb)^\top A (R-nb)/n$, converted to
   $p = Q(3,V/2)$, with a final KS across $10$ repetitions for each direction.
-  Dieharder counts only one of the two final runs, which puts the KS p-value
-  of a good generator below $0.01$ in $2.5$–$2.7\%$ of null trials instead of
-  $1\%$.
-  DIEHARD runs the block of $10$ sequences twice.
+  Dieharder's `diehard_runs.c` counts only one of the two final runs.  Under
+  that rule, at this crate's $10$ sequences of $10{,}000$ words, the KS
+  p-value of a good generator fell below $0.01$ in about $2.5$–$2.7\%$ of
+  null trials instead of $1\%$; Dieharder's own defaults, $100$ sequences of
+  $100{,}000$ words, were not measured.  DIEHARD runs the block of $10$
+  sequences twice.
 
 - **`craps_wins`.** Simulate $N=200{,}000$ craps games, each die drawn from a
   word's high bits as Dieharder does (GSL's `uniform_int` quotient with
@@ -434,8 +445,12 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   ($2\min(p,1-p)$) and the extreme is then Šidák-corrected, so both failure
   directions map to small p.  The per-level chi-square keeps a calibration
   defect inherited from Dieharder: `chisq_binomial` scores only cells with
-  more than $10$ observed counts, so the cells scored depend on the data, and
-  the reported p-value falls below $0.01$ in about $1.3$–$1.5\%$ of null trials.
+  more than $10$ observed counts, so the cells scored depend on the data.  In
+  null trials the reported p-value fell below $0.01$ in $1.30\%$ of $20{,}000$
+  at $2{,}000$ words, $1.27\%$ of $20{,}000$ at $10{,}000$, $1.50\%$ of
+  $5{,}000$ at $100{,}000$ and $1.50\%$ of $1{,}000$ at $1{,}000{,}000$; the
+  rate at the battery's $16{,}000{,}000$ words, where the Šidák step spans
+  more levels, was not measured.
   Adjacent levels also share one cell (level $j$'s all-ones block is level
   $j+1$'s all-zeros block), as in the C; both are kept for fidelity.
 
@@ -459,8 +474,11 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 - **`gcd_distribution`.** Draw $100{,}000$ random integer pairs $(u,v)$,
   compute $g=\gcd(u,v)$, and compare the observed gcd histogram to the
-  classical law $\Pr(g=k)=6/(\pi^2 k^2)$ for $k=2,\dots,22$, with $g\ge23$
-  pooled and $g=1$ not scored, as in the Marsaglia-Tsang Dieharder source.
+  classical law $\Pr(g=k)=6/(\pi^2 k^2)$.  As in the Marsaglia-Tsang Dieharder
+  source, the table has $\lfloor\sqrt{6N/(100\pi^2)}\rfloor$ cells, the last
+  pooling every larger gcd, and $g=1$ is not scored; at this crate's
+  $N=100{,}000$ that scores $k=2,\dots,22$ and pools $g\ge23$, where
+  Dieharder's default $N=10^7$ gives $246$ cells.
   The reported p-value is the corresponding chi-square fit; a stream of zero
   words, which leaves nothing to score, fails.
 
@@ -596,12 +614,18 @@ underweight.
   upper tail $u = 1-\Phi(z)$.  The aggregate is the Anderson–Darling
   statistic $A$ of the 32 sorted p-values, with each product
   $u_i(1-u_{33-i})$ floored at $10^{-30}$, as `tuftests.c`'s ADKS computes
-  it.  Marsaglia–Marsaglia (2004)'s $AD(32,\cdot)$ converts $A$ to
-  $\Pr(A_{32} < A)$, the value the paper prints, using the limiting
-  distribution alone in the extreme upper tail ($A > 6.61$); the probe prints
-  $A$ and $1-\Pr(A_{32} < A)$, so small values fail.  The aggregate detects
-  positional asymmetries and bit-plane correlations invisible to the
-  standard birthday-problem tests.
+  it.  The crate converts $A$ to $\Pr(A_{32} < A)$ with Marsaglia and
+  Marsaglia's (2004) distribution, $x + \mathrm{errfix}(32, x)$ for
+  $x = \mathrm{ADinf}(A)$, up to $x^* = 0.9995$ ($A \approx 6.61$).  Above
+  that, by the crate's own documented departure, chosen from simulation, the
+  upper tail is $(1-x)\,(1-\mathrm{errfix}(32, x^*)/(1-x^*))$: the limiting
+  tail scaled by $1.0521$, which overstates the simulated $n = 32$ tail by
+  $0.9$–$3.5\%$ for $6.61 < A \le 12$, largest at the switch.  The probe prints
+  $A$ and $1-\Pr(A_{32} < A)$, so small values fail.  The ADKS values the
+  paper prints came from `tuftests.c`'s `ad32` fit, which differs from the
+  2004 distribution by up to $0.0056$.  The aggregate detects positional
+  asymmetries and bit-plane correlations invisible to the standard
+  birthday-problem tests.
 
 - **Multi-scale approximate entropy (ApEn)**.  A sweep of the NIST SP 800-22
   §2.12 bit-level ApEn statistic over embedding dimensions $m = 2,\dots,6$
