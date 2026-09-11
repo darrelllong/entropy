@@ -61,20 +61,7 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
         ];
     }
 
-    let psi_m = psi_sq(bits, m, n);
-    let psi_m1 = psi_sq(bits, m - 1, n);
-    let psi_m2 = psi_sq(bits, m - 2, n);
-
-    // ∇ψ² is a sum of squares and ∇²ψ² is non-negative too, but the
-    // subtractions can leave rounding residue just below zero, where igamc
-    // returns NaN and a scored entry would be reported as skipped.
-    let del1 = (psi_m - psi_m1).max(0.0);
-    let del2 = (psi_m - 2.0 * psi_m1 + psi_m2).max(0.0);
-
-    // §2.11.4 step 5: ∇ψ² ~ χ²(2^{m−1}) and ∇²ψ² ~ χ²(2^{m−2}), which the
-    // publication writes as igamc(2^{m−2}, ∇ψ²/2) and igamc(2^{m−3}, ∇²ψ²/2).
-    let p1 = chi2_pvalue(del1, 1 << (m - 1));
-    let p2 = chi2_pvalue(del2, 1 << (m - 2));
+    let [(del1, p1), (del2, p2)] = statistics(bits, m);
 
     vec![
         TestResult::with_note(
@@ -87,6 +74,28 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
             p2,
             format!("n={n}, m={m}, ∇²ψ²={del2:.4}"),
         ),
+    ]
+}
+
+/// ∇ψ²ₘ and ∇²ψ²ₘ of `bits`, each with its P-value, without the gates of
+/// [`serial_both`] (m ≥ 2 is still required).
+fn statistics(bits: &[u8], m: usize) -> [(f64, f64); 2] {
+    let n = bits.len();
+    let psi_m = psi_sq(bits, m, n);
+    let psi_m1 = psi_sq(bits, m - 1, n);
+    let psi_m2 = psi_sq(bits, m - 2, n);
+
+    // ∇ψ² is a sum of squares and ∇²ψ² is non-negative too, but the
+    // subtractions can leave rounding residue just below zero, where igamc
+    // returns NaN and a scored entry would be reported as skipped.
+    let del1 = (psi_m - psi_m1).max(0.0);
+    let del2 = (psi_m - 2.0 * psi_m1 + psi_m2).max(0.0);
+
+    // §2.11.4 step 5: ∇ψ² ~ χ²(2^{m−1}) and ∇²ψ² ~ χ²(2^{m−2}), which the
+    // publication writes as igamc(2^{m−2}, ∇ψ²/2) and igamc(2^{m−3}, ∇²ψ²/2).
+    [
+        (del1, chi2_pvalue(del1, 1 << (m - 1))),
+        (del2, chi2_pvalue(del2, 1 << (m - 2))),
     ]
 }
 
@@ -127,19 +136,20 @@ mod tests {
         assert!((psi_sq(&EXAMPLE, 1, 10) - 0.4).abs() < 1e-12);
     }
 
-    /// The publication's p-values for the worked example: with m = 3,
-    /// P-value1 = igamc(2^{m−2}, ∇ψ²/2) = igamc(2, 0.8) ≈ 0.808792 and
-    /// P-value2 = igamc(2^{m−3}, ∇²ψ²/2) = igamc(1, 0.4) ≈ 0.670320, the χ²
-    /// tails with 4 and 2 degrees of freedom.  This pins the df/statistic
-    /// pairing that was once cross-wired.
+    /// The publication's P-values for the worked example (n = 10, m = 3):
+    /// P-value1 = igamc(2^{m−2}, ∇ψ²/2) = igamc(2, 0.8) = 0.808792 and
+    /// P-value2 = igamc(2^{m−3}, ∇²ψ²/2) = igamc(1, 0.4) = 0.670320.  The
+    /// example is below `serial_both`'s n ≥ 1000 floor, so it runs through
+    /// `statistics`, the code that pairs each statistic with its degrees of
+    /// freedom for `serial_both`.  Swapping the pairing gives 0.449329 and
+    /// 0.938448, so this pins the pairing that was once cross-wired.
     #[test]
     fn p_value_pairing_matches_nist_worked_example() {
-        let del1 = 2.8 - 1.2;
-        let del2 = 2.8 - 2.0 * 1.2 + 0.4;
-        let p1 = chi2_pvalue(del1, 4);
-        let p2 = chi2_pvalue(del2, 2);
-        assert!((p1 - 0.808792).abs() < 1e-5, "p1 = {p1}");
-        assert!((p2 - 0.670320).abs() < 1e-5, "p2 = {p2}");
+        let [(del1, p1), (del2, p2)] = statistics(&EXAMPLE, 3);
+        assert!((del1 - 1.6).abs() < 1e-12, "∇ψ² = {del1}");
+        assert!((del2 - 0.8).abs() < 1e-12, "∇²ψ² = {del2}");
+        assert!((p1 - 0.808792).abs() < 1e-6, "p1 = {p1}");
+        assert!((p2 - 0.670320).abs() < 1e-6, "p2 = {p2}");
     }
 
     /// SP 800-22 §2.11.8 on 10⁶ bits of e with m = 2: ψ²₂ = 0.343128,
