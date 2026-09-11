@@ -124,6 +124,7 @@ fn build_walk(bits: &[u8]) -> (Vec<i32>, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nist::test_vectors::e_bits;
     use crate::rng::{Mt19937, Rng};
     use std::collections::HashMap;
 
@@ -180,6 +181,41 @@ mod tests {
             assert!(!r.skipped(), "{r}");
             assert_eq!(r.p_value.to_bits(), want.p_value.to_bits(), "{r}");
             assert_eq!(r.note, want.note);
+        }
+    }
+
+    /// SP 800-22 §2.15.8 on 10⁶ bits of e: J = 1490 and, for each state, the
+    /// printed number of visits and P-value.
+    #[test]
+    fn matches_section_2_15_8_example() {
+        const PRINTED: [(i32, usize, f64); 18] = [
+            (-9, 1450, 0.858946),
+            (-8, 1435, 0.794755),
+            (-7, 1380, 0.576249),
+            (-6, 1366, 0.493417),
+            (-5, 1412, 0.633873),
+            (-4, 1475, 0.917283),
+            (-3, 1480, 0.934708),
+            (-2, 1468, 0.816012),
+            (-1, 1502, 0.826009),
+            (1, 1409, 0.137861),
+            (2, 1369, 0.200642),
+            (3, 1396, 0.441254),
+            (4, 1479, 0.939291),
+            (5, 1599, 0.505683),
+            (6, 1628, 0.445935),
+            (7, 1619, 0.512207),
+            (8, 1620, 0.538635),
+            (9, 1610, 0.593930),
+        ];
+        let results = random_excursions_variant_all(&e_bits(1_000_000));
+        for (r, (x, visits, p)) in results.iter().zip(PRINTED) {
+            let note = r.note.as_deref().unwrap();
+            assert!(
+                note.contains(&format!("x={x}, ξ(x)={visits}, J=1490")),
+                "{r}"
+            );
+            assert!((r.p_value - p).abs() < 1e-6, "{r}");
         }
     }
 }

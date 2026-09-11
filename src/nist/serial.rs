@@ -114,6 +114,7 @@ fn psi_sq(bits: &[u8], l: usize, n: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nist::test_vectors::e_bits;
     use crate::rng::{Mt19937, Rng};
 
     /// SP 800-22 §2.11.6 worked example: ε = 0011011101, m = 3.
@@ -138,6 +139,22 @@ mod tests {
         let p2 = igamc(2.0_f64.powi(0), del2 / 2.0);
         assert!((p1 - 0.808792).abs() < 1e-5, "p1 = {p1}");
         assert!((p2 - 0.670320).abs() < 1e-5, "p2 = {p2}");
+    }
+
+    /// SP 800-22 §2.11.8 on 10⁶ bits of e with m = 2: ψ²₂ = 0.343128,
+    /// ψ²₁ = 0.003364 and ψ²₀ = 0, so ∇ψ²₂ = 0.339764 and ∇²ψ²₂ = 0.336400,
+    /// with P-value1 = 0.843764 and P-value2 = 0.561915.
+    #[test]
+    fn matches_section_2_11_8_example() {
+        let e = e_bits(1_000_000);
+        let (psi_2, psi_1) = (psi_sq(&e, 2, e.len()), psi_sq(&e, 1, e.len()));
+        assert!((psi_2 - 0.343128).abs() < 1e-6, "ψ²₂ = {psi_2}");
+        assert!((psi_1 - 0.003364).abs() < 1e-6, "ψ²₁ = {psi_1}");
+        assert!((psi_2 - psi_1 - 0.339764).abs() < 1e-6);
+        assert!((psi_2 - 2.0 * psi_1 - 0.336400).abs() < 1e-6);
+        let both = serial_both(&e, 2);
+        assert!((both[0].p_value - 0.843764).abs() < 1e-6, "{}", both[0]);
+        assert!((both[1].p_value - 0.561915).abs() < 1e-6, "{}", both[1]);
     }
 
     #[test]

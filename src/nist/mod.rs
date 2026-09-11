@@ -93,8 +93,42 @@ pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
 
 #[cfg(test)]
 mod tests {
-    use super::run_all;
+    use super::*;
+    use crate::nist::test_vectors::e_bits;
     use crate::rng::Mt19937;
+
+    /// SP 800-22 Appendix B, second table: the P-values for the first 10⁶
+    /// bits of e, with the parameters the table names.  Appendix B prints the
+    /// cumulative sums as 0.669887 and 0.724266, within 10⁻⁶ of the 0.6698865
+    /// and 0.7242653 this crate computes; STS 2.1.2 prints 0.669886 and
+    /// 0.724265.  The other rows are pinned beside their modules' §2.x.8
+    /// examples or differ for reasons given there: overlapping template
+    /// (§2.8.8), universal and linear complexity (their Appendix B tests),
+    /// random excursions for x = +1 (§2.14.8) and the variant for x = −1
+    /// (§2.15.8).
+    #[test]
+    fn matches_appendix_b_e_table() {
+        let e = e_bits(1_000_000);
+        let rows = [
+            (frequency::frequency(&e), 0.953749),
+            (block_frequency::block_frequency(&e, 128), 0.211072),
+            (cumulative_sums::cumulative_sums_forward(&e), 0.669887),
+            (cumulative_sums::cumulative_sums_backward(&e), 0.724266),
+            (runs::runs(&e), 0.561917),
+            (longest_run::longest_run(&e), 0.718945),
+            (matrix_rank::matrix_rank(&e), 0.306156),
+            (spectral::spectral(&e), 0.847187),
+            (
+                non_overlapping_template::non_overlapping_template(&e, 9),
+                0.078790,
+            ),
+            (approximate_entropy::approximate_entropy(&e, 10), 0.700073),
+            (serial::serial_both(&e, 16).swap_remove(0), 0.766182),
+        ];
+        for (r, p) in rows {
+            assert!((r.p_value - p).abs() < 1e-6, "{r}");
+        }
+    }
 
     /// `run_all` keeps its 200-slot layout when the walk is too short for
     /// the excursion tests.

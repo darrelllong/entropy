@@ -142,6 +142,8 @@ fn chi_sq_for_state(x: i32, nu: &[usize; 6], j: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::math::chi2_pvalue;
+    use crate::nist::test_vectors::e_bits;
 
     /// A walk with J = 1 still yields one skipped entry per state, and the
     /// Bonferroni wrapper passes the skip through.
@@ -170,5 +172,57 @@ mod tests {
         assert_eq!(below.len(), 8);
         assert!(at.iter().all(|r| !r.skipped()));
         assert!(below.iter().all(TestResult::skipped));
+    }
+
+    /// SP 800-22 §2.14.8 on 10⁶ bits of e: J = 1490 cycles and, for
+    /// x = −4, …, −1, the printed P-values 0.573306, 0.197996, 0.164011 and
+    /// 0.007779.  For x = +1, …, +4 this module and STS 2.1.2 give 0.786868,
+    /// 0.440912, 0.797854 and 0.778186 (Appendix B prints the first), where
+    /// §2.14.8 prints 0.778616, 0.365752, 0.790853 and 0.792378.  The walk
+    /// returns to zero for the last time at step 991 028 and ends at
+    /// S_n = +58.  The printed rows are what the positive states score when
+    /// that final excursion still counts toward J but its visits are dropped;
+    /// the negative states are unaffected because the excursion stays above
+    /// zero.
+    #[test]
+    fn matches_section_2_14_8_example() {
+        const STS_P: [f64; 8] = [
+            0.573306, 0.197996, 0.164011, 0.007779, 0.786868, 0.440912, 0.797854, 0.778186,
+        ];
+        const PRINTED_POSITIVE: [(f64, f64); 4] = [
+            (2.485906, 0.778616),
+            (5.429381, 0.365752),
+            (2.404171, 0.790853),
+            (2.393928, 0.792378),
+        ];
+        let e = e_bits(1_000_000);
+        for (r, p) in random_excursions_all(&e).iter().zip(STS_P) {
+            assert!(r.note.as_deref().unwrap().contains("J=1490"), "{r}");
+            assert!((r.p_value - p).abs() < 1e-6, "{r}");
+        }
+
+        // Visit counts for x = +1, …, +4 over the cycles that close.
+        let mut nu = [[0usize; 6]; 4];
+        let mut visits = [0usize; 4];
+        let (mut s, mut closed) = (0i32, 0usize);
+        for &b in &e {
+            s += if b == 1 { 1 } else { -1 };
+            if (1..=4).contains(&s) {
+                visits[s as usize - 1] += 1;
+            } else if s == 0 {
+                for (row, v) in nu.iter_mut().zip(&mut visits) {
+                    row[(*v).min(5)] += 1;
+                    *v = 0;
+                }
+                closed += 1;
+            }
+        }
+        assert_eq!((closed, s), (1489, 58));
+        for ((x, row), (chi_sq, p)) in (1..=4).zip(&mut nu).zip(PRINTED_POSITIVE) {
+            row[0] += 1; // the final excursion, scored as visiting no state
+            let got = chi_sq_for_state(x, row, closed + 1);
+            assert!((got - chi_sq).abs() < 1e-6, "x = {x}: χ² = {got}");
+            assert!((chi2_pvalue(got, 5) - p).abs() < 1e-6, "x = {x}");
+        }
     }
 }

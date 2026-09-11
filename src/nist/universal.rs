@@ -205,9 +205,11 @@ fn bits_to_index(bits: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{
-        choose_l, universal, universal_parametric_all, universal_sigma, EXPECTED_LOG_GAP_STATS,
+        choose_l, universal, universal_parametric_all, universal_sigma, universal_statistic,
+        EXPECTED_LOG_GAP_STATS,
     };
     use crate::math::erfc;
+    use crate::nist::test_vectors::e_bits;
     use std::f64::consts::SQRT_2;
 
     /// μ and σ² as printed in Maurer (1992) Table I for L = 1..16; SP 800-22
@@ -293,6 +295,27 @@ mod tests {
         let p = erfc((f_n - mu7).abs() / (sigma * SQRT_2));
         assert!((sigma - 0.002702824).abs() < 1e-9, "shipped σ = {sigma}");
         assert!((p - 0.427772059).abs() < 1e-8, "shipped p = {p}");
+    }
+
+    /// SP 800-22 Appendix B prints P-value = 0.282568 for 10⁶ bits of e, where
+    /// L = 7, Q = 1280 and K = 141 577.  STS 2.1.2 reports sum = 877 667.758407
+    /// and reaches that P-value with the printed μ = 6.1962507 and σ² = 3.125;
+    /// the 12-digit table entries this module uses give 0.282591 for the same
+    /// sum.
+    #[test]
+    fn matches_appendix_b_e_row() {
+        let e = e_bits(1_000_000);
+        let r = universal(&e);
+        assert!((r.p_value - 0.282591).abs() < 1e-6, "{r}");
+        let (l, q) = (7, 1280);
+        let k = e.len() / l - q;
+        assert_eq!(k, 141_577);
+        let f_n = universal_statistic(&e, l, q, k);
+        let sum = f_n * k as f64;
+        assert!((sum - 877_667.758407).abs() < 1e-5, "sum = {sum}");
+        let sigma = universal_sigma(l, k, 3.125);
+        let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
+        assert!((p - 0.282568).abs() < 1e-6, "p = {p}");
     }
 
     /// The SP 800-22 §2.9.7 table, as (L, minimum n).

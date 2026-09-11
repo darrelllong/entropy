@@ -105,6 +105,7 @@ fn gf2_rank_32x32(bits: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::nist::test_vectors::e_bits;
 
     /// p₃₂ and p₃₁ from an independent exact rational evaluation of the §3.5
     /// formula (Python `fractions`), in shortest round-trip form.
@@ -140,5 +141,15 @@ mod tests {
         assert!((chi_sq - 1.2619656).abs() < 5e-8, "χ² = {chi_sq}");
         let p = igamc(1.0, chi_sq / 2.0);
         assert!((p - 0.532069).abs() < 1e-6, "p = {p}");
+    }
+
+    /// SP 800-22 §2.5.8 end to end on the first 100 000 bits of e: the
+    /// counts above and P-value = 0.532069.
+    #[test]
+    fn matches_section_2_5_8_example() {
+        let r = matrix_rank(&e_bits(100_000));
+        assert!((r.p_value - 0.532069).abs() < 1e-6, "{r}");
+        let note = r.note.as_deref().unwrap();
+        assert!(note.contains("N=97, F32=23, F31=60, F≤30=14"), "{r}");
     }
 }
