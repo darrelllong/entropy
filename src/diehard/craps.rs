@@ -230,9 +230,11 @@ fn expected_throw_probs() -> [f64; 22] {
     ];
     let p7 = 6.0 / 36.0;
 
-    // Extend to k=200 so that P(≥22 throws) is fully accumulated into index 21.
-    // The geometric tail decays exponentially; by k=200 the remaining probability
-    // is negligible (< 10⁻⁴⁰ for the slowest-resolving point).
+    // Extend to k=200 so that P(≥22 throws) is accumulated into index 21.
+    // The mass left beyond k = 200 is Σₓ pₓ·(1 − pₓ − p₇)¹⁹⁹ ≈ 2.3 × 10⁻²⁶,
+    // nearly all from the slowest-resolving points 4 and 10 (each
+    // 3/36 · (27/36)¹⁹⁹ ≈ 1.1 × 10⁻²⁶): far below f64 resolution, so the
+    // renormalisation below only mops up rounding.
     for k in 2usize..=200 {
         let mut prob = 0.0f64;
         for &(_x, px) in &points {
