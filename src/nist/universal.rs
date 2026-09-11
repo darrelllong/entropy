@@ -42,10 +42,10 @@ use std::f64::consts::SQRT_2;
 /// sums, but not to all 12 decimals: against an accurate evaluation
 /// (`constants_match_maurer_series`) μ is within 4 × 10⁻¹¹ and σ² within
 /// 6 × 10⁻¹⁰, the worst of each at L = 16, and σ² is off by more than 10⁻¹¹
-/// at every L ≥ 11.  STS 2.1.2's `universal.c` uses the printed digits
-/// instead (6.1962507 and 3.125 for L = 7), which is why STS and SP 800-22
-/// Appendix B report P-value = 0.282568 for 10⁶ bits of e where this module
-/// gives 0.282591.
+/// at every L ≥ 11.  That test holds each entry to twice its own gap.
+/// STS 2.1.2's `universal.c` uses the printed digits instead (6.1962507 and
+/// 3.125 for L = 7), which is why STS and SP 800-22 Appendix B report
+/// P-value = 0.282568 for 10⁶ bits of e where this module gives 0.282591.
 const EXPECTED_LOG_GAP_STATS: [(f64, f64); 17] = [
     (0.0, 0.0), // L=0 unused
     (0.7326495, 0.690),
@@ -328,18 +328,36 @@ mod tests {
         (15.167378763677508, 3.421308342471886),
     ];
 
+    /// How far each L = 6..16 table entry is from `DECIMAL_SERIES`, as
+    /// (μ, σ²), measured with 40-digit decimals and rounded up to two
+    /// significant figures.
+    const TABLE_GAPS: [(f64, f64); 11] = [
+        (3.3e-13, 2.8e-13),
+        (1.3e-13, 1.2e-13),
+        (2.7e-13, 4.3e-13),
+        (6.5e-13, 3.3e-12),
+        (7.3e-13, 5.3e-12),
+        (1.1e-12, 1.6e-11),
+        (2.9e-12, 1.4e-11),
+        (4.7e-12, 3.7e-11),
+        (1.0e-11, 9.1e-11),
+        (2.1e-11, 2.6e-10),
+        (4.0e-11, 5.7e-10),
+    ];
+
     /// The L = 6..16 table entries against an accurate evaluation of their
     /// series.  `maurer_series` agrees with `DECIMAL_SERIES` to 3.1 × 10⁻¹⁴
     /// as measured, and is held to 10⁻¹² here.  The table does not reach
-    /// that.  Its measured worst gaps, both at L = 16, are 4.0 × 10⁻¹¹ in μ
-    /// and 5.6 × 10⁻¹⁰ in σ², and σ² misses by more than 10⁻¹¹ at every
-    /// L ≥ 11, so the tolerances are the ones the table meets.  Summing the
+    /// that: `TABLE_GAPS` runs from about 10⁻¹³ at L = 7 to 4.0 × 10⁻¹¹ in μ
+    /// and 5.7 × 10⁻¹⁰ in σ² at L = 16.  Each entry is held to twice its own
+    /// gap, and never less than 10⁻¹³.  That leaves room for the reference's
+    /// error and the rounding of the table's literals, but no entry can move
+    /// by much more than its present error without failing.  Summing the
     /// terms first to last in plain f64 reproduces the table to about
     /// 2.5 × 10⁻¹², so the entries were probably made that way.
     #[test]
     fn constants_match_maurer_series() {
-        const MU_TOLERANCE: f64 = 5e-11;
-        const VARIANCE_TOLERANCE: f64 = 6e-10;
+        const TOLERANCE_FLOOR: f64 = 1e-13;
         for (l, &(mu, var)) in EXPECTED_LOG_GAP_STATS.iter().enumerate().skip(6) {
             let (mean, variance) = maurer_series(l);
             let (decimal_mean, decimal_variance) = DECIMAL_SERIES[l - 6];
@@ -351,12 +369,15 @@ mod tests {
                 (variance - decimal_variance).abs() < 1e-12,
                 "series σ², L = {l}: {variance}"
             );
+            let (mu_gap, variance_gap) = TABLE_GAPS[l - 6];
+            let mu_tolerance = (2.0 * mu_gap).max(TOLERANCE_FLOOR);
+            let variance_tolerance = (2.0 * variance_gap).max(TOLERANCE_FLOOR);
             assert!(
-                (mean - mu).abs() < MU_TOLERANCE,
+                (mean - mu).abs() < mu_tolerance,
                 "μ, L = {l}: {mu} vs {mean}"
             );
             assert!(
-                (variance - var).abs() < VARIANCE_TOLERANCE,
+                (variance - var).abs() < variance_tolerance,
                 "σ², L = {l}: {var} vs {variance}"
             );
         }
