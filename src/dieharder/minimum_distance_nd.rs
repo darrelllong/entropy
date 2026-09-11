@@ -18,7 +18,9 @@
 //! Robert G. Brown, *Dieharder* (2006), test `rgb_minimum_distance`.
 //! Source: `dieharder-3.31.1/libdieharder/rgb_minimum_distance.c`
 
-use crate::{math::ks_test, result::TestResult, rng::Rng};
+use crate::{
+    diehard::nearest_pair::min_squared_distance, math::ks_test, result::TestResult, rng::Rng,
+};
 
 /// Fischler Q correction values indexed by dimension d (Q[d] for d=2..=5).
 /// Source: `static double rgb_md_Q[] = {0.0,0.0,0.4135,0.5312,0.6202,1.3789}`.
@@ -40,42 +42,22 @@ const Q_CORRECTION: [f64; 6] = [0.0, 0.0, 0.4135, 0.5312, 0.6202, 1.3789];
 /// # Author
 /// Robert G. Brown, Dieharder (2006), `rgb_minimum_distance`.
 pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestResult {
-    if !(2..=5).contains(&d) {
-        return TestResult::insufficient(
-            "dieharder::minimum_distance_nd",
-            "d must be 2..=5 (Fischler Q table only covers these dimensions)",
-        );
-    }
-
     let n_points = if quick { 500 } else { 8_000 };
     let repeats = if quick { 20 } else { 100 };
 
-    // Flat point storage: coords[i * d + k] is coordinate k of point i.
-    // One contiguous allocation per repeat avoids n_points small heap objects
-    // and improves cache locality in the O(n²) distance scan.
-    let mut coords = vec![0.0f64; n_points * d];
-    let mut p_values = Vec::with_capacity(repeats);
-    for _ in 0..repeats {
-        for v in coords.iter_mut() {
-            *v = rng.next_f64();
+    // One scan per dimension, each monomorphised over a fixed-size point.
+    let mut p_values = match d {
+        2 => fischler_pvalues::<2>(rng, n_points, repeats),
+        3 => fischler_pvalues::<3>(rng, n_points, repeats),
+        4 => fischler_pvalues::<4>(rng, n_points, repeats),
+        5 => fischler_pvalues::<5>(rng, n_points, repeats),
+        _ => {
+            return TestResult::insufficient(
+                "dieharder::minimum_distance_nd",
+                "d must be 2..=5 (Fischler Q table only covers these dimensions)",
+            );
         }
-
-        let mindist = min_dist_nd(&coords, n_points, d);
-
-        // Volume of a d-ball of radius mindist.
-        let dvolume = ball_volume(mindist, d);
-
-        // Fischler formula (rgb_minimum_distance.c):
-        //   earg = −n(n−1)·dvolume/2
-        //   qarg = 1 + ((2+Q[d])/6)·n³·dvolume²
-        //   p = 1 − exp(earg)·qarg
-        let n = n_points as f64;
-        let earg = -n * (n - 1.0) * dvolume / 2.0;
-        let qarg = 1.0 + ((2.0 + Q_CORRECTION[d]) / 6.0) * n.powi(3) * dvolume.powi(2);
-        let p = 1.0 - earg.exp() * qarg;
-
-        p_values.push(p.clamp(1e-15, 1.0 - 1e-15));
-    }
+    };
 
     let p_value = ks_test(&mut p_values);
 
@@ -84,6 +66,40 @@ pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestRes
         p_value,
         format!("d={d}, n={n_points}, repeats={repeats}"),
     )
+}
+
+/// One Fischler p-value per repeat, each from `n_points` uniform points in
+/// the unit `D`-cube, drawn point by point and coordinate by coordinate.
+fn fischler_pvalues<const D: usize>(
+    rng: &mut impl Rng,
+    n_points: usize,
+    repeats: usize,
+) -> Vec<f64> {
+    let n = n_points as f64;
+    // One point buffer, refilled each repeat.
+    let mut points = vec![[0.0f64; D]; n_points];
+    let mut p_values = Vec::with_capacity(repeats);
+    for _ in 0..repeats {
+        for coord in points.iter_mut().flatten() {
+            *coord = rng.next_f64();
+        }
+
+        let mindist = min_squared_distance(&points).sqrt();
+
+        // Volume of a d-ball of radius mindist.
+        let dvolume = ball_volume(mindist, D);
+
+        // Fischler formula (rgb_minimum_distance.c):
+        //   earg = −n(n−1)·dvolume/2
+        //   qarg = 1 + ((2+Q[d])/6)·n³·dvolume²
+        //   p = 1 − exp(earg)·qarg
+        let earg = -n * (n - 1.0) * dvolume / 2.0;
+        let qarg = 1.0 + ((2.0 + Q_CORRECTION[D]) / 6.0) * n.powi(3) * dvolume.powi(2);
+        let p = 1.0 - earg.exp() * qarg;
+
+        p_values.push(p.clamp(1e-15, 1.0 - 1e-15));
+    }
+    p_values
 }
 
 /// Volume of a d-ball of radius r.
@@ -105,26 +121,6 @@ fn ball_volume(r: f64, d: usize) -> f64 {
         let double_factorial: f64 = (1..=d).step_by(2).map(|k| k as f64).product();
         2.0 * (2.0 * PI).powf(half_d_minus1 as f64) * r.powi(d as i32) / double_factorial
     }
-}
-
-/// Minimum Euclidean distance among all pairs of d-dimensional points.
-///
-/// `coords` is a flat array with stride `d`: `coords[i*d + k]` is coordinate
-/// `k` of point `i`.  Contiguous layout keeps the O(n²) scan cache-friendly.
-fn min_dist_nd(coords: &[f64], n: usize, d: usize) -> f64 {
-    let mut min_dist = f64::MAX;
-    for i in 0..n {
-        for j in i + 1..n {
-            let pi = &coords[i * d..(i + 1) * d];
-            let pj = &coords[j * d..(j + 1) * d];
-            let dist_sq: f64 = pi.iter().zip(pj).map(|(a, b)| (a - b).powi(2)).sum();
-            let dist = dist_sq.sqrt();
-            if dist < min_dist {
-                min_dist = dist;
-            }
-        }
-    }
-    min_dist
 }
 
 #[cfg(test)]

@@ -178,7 +178,7 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | Maurer (1992): parametric universal family `L=5..16` | Added alongside the NIST single setting (which selects `L` from the sample size over `L=6..16`); emits a result for every `L` but runs a setting only when the sample holds the `K ≥ 1000·2^L` test blocks behind SP 800-22's §2.9.7 table, so at the battery's 16 Mbit `L=5..10` run and `L=11..16` skip |
 | NIST SP 800-22: non_overlapping_template | Faithful for all 148 aperiodic 9-bit templates with the standard `N = 8` block setup |
 | NIST SP 800-22: random_excursions, random_excursions_variant | Faithful family outputs; runner emits all per-state results |
-| DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to the Dieharder reference implementation; documented deviations where the crate samples differently (the monkey tests draw disjoint letter fields and use exact iid missing-word moments) |
+| DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to Marsaglia's `diehard.f` or Dieharder's C; each module documents which it follows and where it departs from DIEHARD (runs and birthday spacings count as `diehard.f` does; the monkey tests draw disjoint letter fields and use exact iid missing-word moments; summaries are KS where DIEHARD's are Anderson–Darling) |
 | Removed on purpose | See the explicit removed-test list below |
 | DIEHARDER: fill_tree, gcd | Faithful; runner emits both underlying sub-results |
 | DIEHARDER: bit_distribution | Faithful `rgb_bitdist` core statistic with explicit per-width, per-pattern Vtest outputs instead of Brown's random one-pattern collapse |

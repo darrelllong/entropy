@@ -16,8 +16,14 @@
 //! df = 38.  Dropping those cells instead (df = 37) would never see a
 //! generator that over-produces extreme squeeze lengths.
 //!
-//! Cell probabilities from George Marsaglia, DIEHARD (1995), as transcribed
-//! in Robert G. Brown's Dieharder 3.31.1, `diehard_squeeze.c`.
+//! DIEHARD itself does neither.  Marsaglia's `sqeez` (`fortran/diehard.f`
+//! lines 219–281) scores all 43 cells with no pooling (lines 254–256), five
+//! of them expecting 0.98 to 3.27 counts, and reports `chisq(chsq,42)`, the
+//! CDF with df = 42 (line 272).  The pooling here is Dieharder's.
+//!
+//! Cell probabilities from George Marsaglia, DIEHARD (1995) (`ex` in `sqeez`,
+//! lines 228–233), as transcribed in Robert G. Brown's Dieharder 3.31.1,
+//! `diehard_squeeze.c`.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
