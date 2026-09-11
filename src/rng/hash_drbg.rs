@@ -5,9 +5,15 @@
 //! no keying material is used; the state is a single 440-bit value V (the
 //! NIST-specified `seedlen` for SHA-256) and a constant C derived from V.
 //!
-//! Hashgen produces output by hashing an incrementing counter concatenated
-//! with V, delivering 32 bytes per SHA-256 call.  After each generate
-//! request V and C are updated per §10.1.1.5.
+//! Hashgen produces output by hashing V, V + 1, V + 2, … (mod 2^seedlen),
+//! delivering 32 bytes per SHA-256 call.  After each generate
+//! request V and the reseed counter are updated per §10.1.1.4; C changes
+//! only at instantiation and reseeding.
+//!
+//! Every mod-2^seedlen addition (the Hashgen counter, `V + w`, and
+//! `V + H + C + reseed_counter`) goes through rump's `BigUint`, reached as
+//! `cryptography::vt::BigUint`; V and C are kept as big-endian byte strings
+//! only because SHA-256 consumes bytes.
 //!
 //! The streaming [`Rng`] path batches `GENERATE_BLOCKS` blocks per refill;
 //! for a CAVP-conformant single `Generate(N bits)` (exactly ⌈N/32⌉ blocks then
@@ -18,19 +24,22 @@
 //! up to 7 trailing bytes before refilling.
 //!
 //! # Reseed interval
-//! SP 800-90A §10.1.1 Table 2 specifies a reseed interval of 2⁴⁸ generate
+//! SP 800-90A §10.1 Table 2 specifies a reseed interval of 2⁴⁸ generate
 //! calls for 256-bit security strength.  `reseed_counter` is incremented once
 //! per generate call (in `finalise_generate`) and checked at the top of each
 //! `refill`; the implementation panics if the limit is exceeded.  The test
 //! battery never approaches this bound.
 //!
-//! # Backtracking resistance
-//! This implementation provides **no backtracking resistance**.  Compromising
-//! the process memory reveals V and C, which fully determines all past and
-//! future output since instantiation.  "Security rests on SHA-256 one-wayness"
-//! means one-way chaining, not forward secrecy.  Correct for a test harness;
-//! do not copy into applications requiring backtracking or prediction
-//! resistance.
+//! # Backtracking and prediction resistance
+//! SP 800-90A §8.8 designs every DRBG mechanism for backtracking resistance,
+//! and this implementation keeps it: after each generate request V becomes
+//! `V + Hash(0x03 ‖ V) + C + reseed_counter`, an update the standard relies
+//! on SHA-256 to make one-way.  A memory compromise therefore reveals V and
+//! C, and with them all *future* output, but earlier output only as far as
+//! the bytes of the current refill still held in the 256-byte output
+//! buffer.  There is **no prediction resistance**: nothing reseeds, so a
+//! compromised state predicts every later output.  Correct for a test
+//! harness; do not copy into applications that need prediction resistance.
 //!
 //! # Seedlen rationale (SP 800-90A Table 2)
 //! For SHA-256 (outlen=256 bits, security_strength=256 bits):
@@ -44,15 +53,17 @@
 //! # Author
 //! NIST (specification); Darrell Long (Rust implementation).
 
-use cryptography::Sha256;
+use cryptography::{vt::BigUint, Sha256};
 
 use super::{OsRng, Rng};
 
 const SEEDLEN: usize = 55; // 440 bits — Table 2, SHA-256 row
+const SEEDLEN_BITS: usize = SEEDLEN * 8;
 const OUTLEN: usize = 32; // SHA-256 output = 256 bits = 32 bytes
-                          // Number of Hashgen blocks per generate call.  SP 800-90A §10.1.1.4 says
-                          // all blocks are produced from a local data variable before the §10.1.1.5
-                          // update is applied; GENERATE_BLOCKS controls the batch size.
+
+// Number of Hashgen blocks per generate call.  SP 800-90A §10.1.1.4 says
+// all blocks are produced from a local data variable before the §10.1.1.4
+// update is applied; GENERATE_BLOCKS controls the batch size.
 const GENERATE_BLOCKS: usize = 8;
 const GENERATE_SIZE: usize = OUTLEN * GENERATE_BLOCKS; // 256 bytes
 
@@ -129,7 +140,7 @@ impl HashDrbg {
         }
     }
 
-    /// SP 800-90A §10.1.1.5 Generate: produce exactly `nbytes` as a single
+    /// SP 800-90A §10.1.1.4 Generate: produce exactly `nbytes` as a single
     /// discrete Generate call — Hashgen emits ⌈nbytes/32⌉ blocks, then V is
     /// updated once.  This is the CAVP-conformant path.
     ///
@@ -138,50 +149,46 @@ impl HashDrbg {
     pub fn generate(&mut self, nbytes: usize, additional_input: &[u8]) -> Vec<u8> {
         assert!(
             self.reseed_counter < (1u64 << 48),
-            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.1 Table 2)"
+            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
         );
         if !additional_input.is_empty() {
-            // §10.1.1.5 step 2: w = Hash(0x02 ‖ V ‖ additional_input);
+            // §10.1.1.4 step 2: w = Hash(0x02 ‖ V ‖ additional_input);
             //                   V = (V + w) mod 2^seedlen.
             let mut input = Vec::with_capacity(1 + SEEDLEN + additional_input.len());
             input.push(0x02);
             input.extend_from_slice(&self.v);
             input.extend_from_slice(additional_input);
             let w = Sha256::digest(&input);
-            add_bytes_mod(&mut self.v, &w);
+            add_mod_seedlen(&mut self.v, &[&w[..]]);
         }
         // Hashgen(nbytes) with a local counter starting at V.
-        let mut data = self.v;
         let mut out = Vec::with_capacity(nbytes);
-        while out.len() < nbytes {
-            out.extend_from_slice(&Sha256::digest(&data));
-            add1_mod2seedlen(&mut data);
-        }
+        hashgen(&self.v, nbytes.div_ceil(OUTLEN), |_, block| {
+            out.extend_from_slice(block);
+        });
         out.truncate(nbytes);
         self.finalise_generate();
         out
     }
 
     /// Produce GENERATE_BLOCKS Hashgen blocks (§10.1.1.4) into buf, then
-    /// update V once per §10.1.1.5.  The local data counter is snapshotted
+    /// update V once per §10.1.1.4.  The local data counter is snapshotted
     /// from V and incremented only within this call, not stored in the struct.
     fn refill(&mut self) {
         // SP 800-90A §10.1.1.4 step 1: enforce reseed interval.
         assert!(
             self.reseed_counter < (1u64 << 48),
-            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.1 Table 2)"
+            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
         );
-        let mut data = self.v;
-        for i in 0..GENERATE_BLOCKS {
-            let block = Sha256::digest(&data);
-            self.buf[i * OUTLEN..(i + 1) * OUTLEN].copy_from_slice(&block);
-            add1_mod2seedlen(&mut data);
-        }
+        let buf = &mut self.buf;
+        hashgen(&self.v, GENERATE_BLOCKS, |i, block| {
+            buf[i * OUTLEN..(i + 1) * OUTLEN].copy_from_slice(block);
+        });
         self.offset = 0;
         self.finalise_generate();
     }
 
-    /// §10.1.1.5: update V after a generate call.
+    /// §10.1.1.4: update V after a generate call.
     fn finalise_generate(&mut self) {
         // H = Hash(0x03 || V)
         let h = {
@@ -192,10 +199,10 @@ impl HashDrbg {
         };
 
         // V = (V + H + C + reseed_counter) mod 2^seedlen
-        // Accumulate into V in-place using big-endian arithmetic.
-        add_bytes_mod(&mut self.v, &h);
-        add_bytes_mod(&mut self.v, &self.c.clone());
-        add_u64_mod(&mut self.v, self.reseed_counter);
+        add_mod_seedlen(
+            &mut self.v,
+            &[&h[..], &self.c[..], &self.reseed_counter.to_be_bytes()[..]],
+        );
         self.reseed_counter = self.reseed_counter.wrapping_add(1);
     }
 
@@ -237,39 +244,48 @@ fn hash_df(input: &[u8]) -> [u8; SEEDLEN] {
     out
 }
 
-// ── Arithmetic helpers (big-endian mod 2^seedlen) ────────────────────────────
+// ── Arithmetic mod 2^seedlen, via rump ───────────────────────────────────────
+//
+// SP 800-90A reads V, C, the Hashgen counter and every addend as unsigned
+// big-endian integers.  The additions are rump `BigUint` arithmetic and the
+// reduction is `low_bits(seedlen)`; nothing here carries by hand.
 
-/// data = (data + 1) mod 2^seedlen (big-endian, in-place).
-fn add1_mod2seedlen(data: &mut [u8; SEEDLEN]) {
-    let mut carry = 1u16;
-    for b in data.iter_mut().rev() {
-        carry += *b as u16;
-        *b = carry as u8;
-        carry >>= 8;
-    }
+/// Write `value mod 2^seedlen` into `dst` as exactly `SEEDLEN` big-endian
+/// bytes, then wipe the padded encoding.  rump's `to_be_bytes_padded` first
+/// builds an unpadded copy and frees it unwiped; the reduced `BigUint` is
+/// scrubbed on drop by rump's `wipe` feature, which cryptography-rs enables.
+fn store_mod_seedlen(dst: &mut [u8; SEEDLEN], value: &BigUint) {
+    let mut bytes = value.low_bits(SEEDLEN_BITS).to_be_bytes_padded(SEEDLEN);
+    dst.copy_from_slice(&bytes);
+    cryptography::zeroize_slice(&mut bytes);
 }
 
-/// data = (data + addend[..]) mod 2^seedlen, addend is right-aligned.
-fn add_bytes_mod(data: &mut [u8; SEEDLEN], addend: &[u8]) {
-    let mut carry = 0u16;
-    let data_len = data.len();
-    let add_len = addend.len();
-    for i in (0..data_len).rev() {
-        let add_byte = if i + add_len >= data_len {
-            addend[i + add_len - data_len]
-        } else {
-            0
-        };
-        carry += data[i] as u16 + add_byte as u16;
-        data[i] = carry as u8;
-        carry >>= 8;
+/// `acc ← (acc + Σ addends) mod 2^seedlen`, each addend a big-endian
+/// unsigned integer (so shorter addends are implicitly right-aligned).
+fn add_mod_seedlen(acc: &mut [u8; SEEDLEN], addends: &[&[u8]]) {
+    let mut sum = BigUint::from_be_bytes(acc);
+    for addend in addends {
+        sum += &BigUint::from_be_bytes(addend);
     }
+    store_mod_seedlen(acc, &sum);
 }
 
-/// data = (data + n) mod 2^seedlen, n is a 64-bit counter.
-fn add_u64_mod(data: &mut [u8; SEEDLEN], n: u64) {
-    let bytes = n.to_be_bytes();
-    add_bytes_mod(data, &bytes);
+/// Hashgen (SP 800-90A §10.1.1.4): hash `data = V`, `V + 1`, …
+/// (mod 2^seedlen), handing each 32-byte block and its index to `sink`.
+fn hashgen(v: &[u8; SEEDLEN], blocks: usize, mut sink: impl FnMut(usize, &[u8])) {
+    let one = BigUint::one();
+    let mut data = BigUint::from_be_bytes(v);
+    for i in 0..blocks {
+        let mut bytes = data.to_be_bytes_padded(SEEDLEN);
+        sink(i, &Sha256::digest(&bytes)[..]);
+        cryptography::zeroize_slice(&mut bytes);
+        data += &one;
+        // `data` stays below 2^seedlen, so the sum reaches 2^seedlen only
+        // when it wraps, and 2^seedlen ≡ 0.
+        if data.bits() > SEEDLEN_BITS {
+            data = BigUint::zero();
+        }
+    }
 }
 
 impl Default for HashDrbg {
@@ -322,11 +338,57 @@ mod tests {
         assert_eq!(out.len(), SEEDLEN);
     }
 
+    /// (2^440 − 1) + 1 ≡ 0 (mod 2^seedlen).
     #[test]
-    fn add1_wraps() {
+    fn add_mod_seedlen_wraps_at_2_pow_440() {
         let mut v = [0xffu8; SEEDLEN];
-        add1_mod2seedlen(&mut v);
-        assert!(v.iter().all(|&b| b == 0)); // 2^440 ≡ 0
+        add_mod_seedlen(&mut v, &[&[1]]);
+        assert_eq!(v, [0u8; SEEDLEN]);
+    }
+
+    /// Carries cross rump's 64-bit limb boundaries, and seedlen's top limb
+    /// holds only 56 of its 440 bits, so a carry out of bit 439 must vanish
+    /// rather than survive as bit 440.
+    #[test]
+    fn add_mod_seedlen_carries_across_limbs_and_truncates_top() {
+        let mut v = [0u8; SEEDLEN];
+        v[SEEDLEN - 8..].fill(0xff); // 2^64 − 1
+        add_mod_seedlen(&mut v, &[&[1]]);
+        let mut want = [0u8; SEEDLEN];
+        want[SEEDLEN - 9] = 1; // 2^64
+        assert_eq!(v, want);
+
+        // (2^440 − 1) + (2^440 − 1) ≡ 2^440 − 2.
+        let mut v = [0xffu8; SEEDLEN];
+        add_mod_seedlen(&mut v, &[&[0xffu8; SEEDLEN]]);
+        let mut want = [0xffu8; SEEDLEN];
+        want[SEEDLEN - 1] = 0xfe;
+        assert_eq!(v, want);
+    }
+
+    /// The §10.1.1.4 update adds three addends of different widths (32-byte
+    /// H, 55-byte C, 8-byte counter) in one call; each is right-aligned.
+    #[test]
+    fn add_mod_seedlen_right_aligns_mixed_width_addends() {
+        let mut v = [0u8; SEEDLEN];
+        let h = [0x01u8; OUTLEN];
+        let c = [0x02u8; SEEDLEN];
+        let counter = 3u64.to_be_bytes();
+        add_mod_seedlen(&mut v, &[&h, &c, &counter]);
+        let mut want = [0x02u8; SEEDLEN];
+        want[SEEDLEN - OUTLEN..].fill(0x03);
+        want[SEEDLEN - 1] = 0x06;
+        assert_eq!(v, want);
+    }
+
+    /// Hashgen's counter wraps mod 2^seedlen: starting from 2^440 − 1, the
+    /// second block hashes the all-zero string.
+    #[test]
+    fn hashgen_counter_wraps() {
+        let mut blocks = Vec::new();
+        hashgen(&[0xffu8; SEEDLEN], 2, |i, b| blocks.push((i, b.to_vec())));
+        assert_eq!(blocks[0], (0, Sha256::digest(&[0xffu8; SEEDLEN]).to_vec()));
+        assert_eq!(blocks[1], (1, Sha256::digest(&[0u8; SEEDLEN]).to_vec()));
     }
 
     fn hex(s: &str) -> Vec<u8> {
@@ -359,7 +421,7 @@ mod tests {
     }
 
     /// Exercises the `generate` path *with* non-empty additional input (the
-    /// KAT above uses empty input, leaving the §10.1.1.5 step-2
+    /// KAT above uses empty input, leaving the §10.1.1.4 step-2
     /// `w = Hash(0x02‖V‖add)` update untested).  Golden bits reproduced by the
     /// same from-spec Hash_DRBG replica.
     #[test]
@@ -378,5 +440,27 @@ mod tests {
              8733e896af59437d15623c165f64011b1399e0d7c9222977fc2ef9aeacdfa23e",
         );
         assert_eq!(returned, expected);
+    }
+
+    /// Streaming [`Rng`] path golden: 4096 `next_u32` words (64 refills of
+    /// eight Hashgen blocks, each followed by the §10.1.1.4 update) from the
+    /// same instantiation as the KATs above.  Values come from an independent
+    /// Python replica of this streaming layout, so the Hashgen counter and
+    /// the V update are pinned on the path the battery actually runs.
+    #[test]
+    fn hash_drbg_streaming_path_golden() {
+        let entropy: Vec<u8> = (0x00u8..0x37).collect();
+        let nonce: Vec<u8> = (0x40u8..0x50).collect();
+        let mut drbg = HashDrbg::from_entropy(&entropy, &nonce, &[]);
+        let words: Vec<u32> = (0..4096).map(|_| drbg.next_u32()).collect();
+        assert_eq!(
+            [words[0], words[63], words[64], words[255]],
+            [0x83f2_33a1, 0xf254_631f, 0x1e8e_3355, 0xca0d_ba53]
+        );
+        let bytes: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        assert_eq!(
+            Sha256::digest(&bytes).to_vec(),
+            hex("258cfe0eaacdb03eac051981f14a3bec4612925213adc1de394a4ab55129c9aa")
+        );
     }
 }

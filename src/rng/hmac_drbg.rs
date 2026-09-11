@@ -22,16 +22,24 @@
 //! [`HmacDrbg::generate`]; that is the path the known-answer test exercises.
 //!
 //! # Reseed interval
-//! SP 800-90A §10.1.2 Table 2 specifies a reseed interval of 2⁴⁸ generate
+//! SP 800-90A §10.1 Table 2 specifies a reseed interval of 2⁴⁸ generate
 //! calls for 256-bit security strength.  This implementation tracks the call
 //! count and panics if the limit is reached; no automatic reseed is provided.
 //! In practice the test battery never approaches 2⁴⁸ calls.
 //!
-//! # Backtracking resistance
-//! This implementation provides **no backtracking resistance**.  Compromising
-//! the process memory at any point reveals K and V and allows full recovery of
-//! all past and future output since instantiation.  This is correct for a test
-//! harness; do not copy this design into applications requiring forward secrecy.
+//! # Backtracking and prediction resistance
+//! SP 800-90A §8.8 designs every DRBG mechanism for backtracking resistance,
+//! and this implementation keeps it: `HMAC_DRBG_Update` runs after every
+//! 32-byte block on the streaming path and after each [`generate`] request,
+//! and the standard relies on HMAC-SHA-256 to make that update one-way.  A
+//! memory compromise therefore reveals K and V, and with them all *future*
+//! output, but earlier output only as far as the current block still held
+//! in the 32-byte output buffer.  There is **no prediction resistance**:
+//! nothing reseeds, so a compromised state predicts every later output.
+//! Correct for a test harness; do not copy into applications that need
+//! prediction resistance.
+//!
+//! [`generate`]: HmacDrbg::generate
 //!
 //! For uniform-width access (all `next_u32` or all `next_u64`) all 256 bits
 //! per block are used; mixing widths at a refill boundary silently discards
@@ -57,7 +65,7 @@ pub struct HmacDrbg {
     v: [u8; OUT],
     buf: [u8; OUT],
     offset: usize,
-    /// Generate-call counter; panics at 2⁴⁸ per SP 800-90A §10.1.2 Table 2.
+    /// Generate-call counter; panics at 2⁴⁸ per SP 800-90A §10.1 Table 2.
     reseed_counter: u64,
 }
 
@@ -118,7 +126,7 @@ impl HmacDrbg {
     pub fn generate(&mut self, nbytes: usize, additional_input: &[u8]) -> Vec<u8> {
         assert!(
             self.reseed_counter < (1u64 << 48),
-            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.2 Table 2)"
+            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
         );
         let add = (!additional_input.is_empty()).then_some(additional_input);
         if let Some(a) = add {
@@ -137,12 +145,12 @@ impl HmacDrbg {
     }
 
     fn refill(&mut self) {
-        // SP 800-90A §10.1.2.4 step 1: enforce reseed interval.
+        // SP 800-90A §10.1.2.5 step 1: enforce reseed interval.
         assert!(
             self.reseed_counter < (1u64 << 48),
-            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1.2 Table 2)"
+            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
         );
-        // Generate step: advance V, buffer it, then re-key per §10.1.2.4.
+        // Generate step: advance V, buffer it, then re-key per §10.1.2.5.
         let mac = hmac_sha256(&self.k, &self.v);
         self.v.copy_from_slice(&mac);
         self.buf = self.v;
@@ -164,24 +172,34 @@ impl HmacDrbg {
 
 // ── SP 800-90A §10.1.2.2 HMAC_DRBG_Update ─────────────────────────────────
 
-/// Stack scratch buffer capacity: V (32 B) + separator (1 B) + provided_data.
-/// The SP 800-90A instantiation in this file passes at most 48 bytes of seed
-/// material, giving a maximum message of 81 bytes; 128 B gives ample margin.
-const SCRATCH: usize = 128;
+/// Stack scratch for the common short messages: `V ‖ sep ‖ provided_data`
+/// with up to 48 bytes of seed material (the `from_os_rng` instantiation)
+/// fits here, so `drbg_update` itself adds no heap allocation on the
+/// streaming path (`refill`, which passes no `provided_data`).  The HMAC
+/// computations still allocate inside cryptography-rs.
+const STACK_SCRATCH: usize = 2 * OUT + 1 + 16;
 
+/// SP 800-90A §10.1 Table 2 allows personalization strings and additional
+/// input up to 2³⁵ bits, so longer messages spill to a heap buffer sized to
+/// the input.  Whichever buffer is used is wiped before it goes out of
+/// scope, matching the hygiene applied to `K` and `V` in [`Drop`].
 fn drbg_update(k: &mut [u8; OUT], v: &mut [u8; OUT], provided_data: Option<&[u8]>) {
     let pd = provided_data.unwrap_or(&[]);
-    debug_assert!(
-        OUT + 1 + pd.len() <= SCRATCH,
-        "drbg_update: provided_data too long"
-    );
+    let len = OUT + 1 + pd.len();
+    let mut stack = [0u8; STACK_SCRATCH];
+    let mut heap = Vec::new();
+    let msg: &mut [u8] = if len <= STACK_SCRATCH {
+        &mut stack[..len]
+    } else {
+        heap.resize(len, 0);
+        heap.as_mut_slice()
+    };
 
     // K = HMAC(K, V || 0x00 [|| provided_data])
-    let mut msg = [0u8; SCRATCH];
     msg[..OUT].copy_from_slice(v);
     msg[OUT] = 0x00;
-    msg[OUT + 1..OUT + 1 + pd.len()].copy_from_slice(pd);
-    let mac = hmac_sha256(k, &msg[..OUT + 1 + pd.len()]);
+    msg[OUT + 1..].copy_from_slice(pd);
+    let mac = hmac_sha256(k, msg);
     k.copy_from_slice(&mac);
 
     // V = HMAC(K, V)
@@ -193,13 +211,14 @@ fn drbg_update(k: &mut [u8; OUT], v: &mut [u8; OUT], provided_data: Option<&[u8]
         msg[..OUT].copy_from_slice(v);
         msg[OUT] = 0x01;
         // pd slice and length unchanged — reuse msg[OUT+1..] already written
-        let mac = hmac_sha256(k, &msg[..OUT + 1 + pd.len()]);
+        let mac = hmac_sha256(k, msg);
         k.copy_from_slice(&mac);
 
         // V = HMAC(K, V)
         let mac = hmac_sha256(k, v);
         v.copy_from_slice(&mac);
     }
+    cryptography::zeroize_slice(msg);
 }
 
 #[inline]
@@ -291,6 +310,29 @@ mod tests {
         assert_eq!(returned, expected);
     }
 
+    /// Regression: `drbg_update` used a fixed 128-byte stack scratch, so any
+    /// personalization string longer than 47 bytes or additional input longer
+    /// than 95 bytes panicked in release builds.  SP 800-90A permits up to
+    /// 2³⁵ bits of each.  The golden outputs come from an independent
+    /// from-spec HMAC_DRBG replica (Python `hmac`/`hashlib`), so a fix that
+    /// silently truncated the input to the old budget would fail here.
+    #[test]
+    fn hmac_drbg_long_personalization_and_additional_input_kat() {
+        let long_pers = [0xa5u8; 200];
+        let mut a = HmacDrbg::from_entropy(&[1u8; 32], &[2u8; 16], &long_pers);
+        assert_eq!(
+            a.generate(32, &[]),
+            hex("b075870331a47cbb0bb09b6bc44181ad8dad91363ba0cb309e7aafc62a96f1aa")
+        );
+
+        let long_add = [0x5au8; 1024];
+        let mut b = HmacDrbg::from_entropy(&[1u8; 32], &[2u8; 16], &[]);
+        assert_eq!(
+            b.generate(32, &long_add),
+            hex("3d00f0409313ca86990ac50c6376cb3a35589c4eb7c0a209bed5cd8ebc819391")
+        );
+    }
+
     /// Exercises the `generate` path *with* non-empty additional input (the
     /// DRBGVS KAT above uses empty input, leaving the two extra Update rounds
     /// untested).  Additional inputs 0x00..0x1f then 0x20..0x3f; golden bits
@@ -311,5 +353,27 @@ mod tests {
              27589fac10944dee9b34870798d5bb9ee024218642d74fa3c5833666a9b745ec",
         );
         assert_eq!(returned, expected);
+    }
+
+    /// Streaming [`Rng`] path golden: 4096 `next_u32` words (512 refills,
+    /// each one HMAC step followed by `HMAC_DRBG_Update` with no provided
+    /// data).  Values come from an independent Python `hmac`/`hashlib`
+    /// replica of this streaming layout; the KATs above only reach
+    /// [`HmacDrbg::generate`].
+    #[test]
+    fn hmac_drbg_streaming_path_golden() {
+        let entropy: Vec<u8> = (0x00u8..0x20).collect();
+        let nonce: Vec<u8> = (0x20u8..0x30).collect();
+        let mut drbg = HmacDrbg::from_entropy(&entropy, &nonce, &[]);
+        let words: Vec<u32> = (0..4096).map(|_| drbg.next_u32()).collect();
+        assert_eq!(
+            [words[0], words[7], words[8], words[255]],
+            [0x8780_fb0f, 0x8768_d53a, 0x5676_7608, 0xe6f5_8492]
+        );
+        let bytes: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
+        assert_eq!(
+            Sha256::digest(&bytes).to_vec(),
+            hex("1a6cb87172228bbfb066badc2be0ca8a1a4c1b3efb572ee1e1a70be2e34e55a7")
+        );
     }
 }

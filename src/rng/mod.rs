@@ -135,3 +135,20 @@ pub trait Rng {
         (0..n).map(|_| self.next_f64()).collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// Every `Drop` impl in this module clears state through
+    /// `cryptography::zeroize_slice`.  Committed cryptography-rs 0.7
+    /// (342989a) makes it an unconditional volatile write; a sibling change
+    /// that turned it into a feature-gated no-op would silently disable all
+    /// of those wipes, so pin the behaviour here.  Nothing guards the other
+    /// half, rump's drop-time limb scrubbing: it cannot be observed from safe
+    /// code, and no test inspects the resolved dependency features.
+    #[test]
+    fn zeroize_slice_clears_memory() {
+        let mut buf = [0xa5u8; 64];
+        cryptography::zeroize_slice(&mut buf);
+        assert_eq!(buf, [0u8; 64]);
+    }
+}
