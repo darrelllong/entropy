@@ -113,6 +113,9 @@ pub const IV16: [u8; 16] = sequential_bytes();
 /// `constant_label_names_constant_rng_word` in src/main.rs fails if the
 /// `Constant (…)` label `run_tests` prints disagrees with it, and
 /// tests/dump_rng.rs pins the bytes `dump_rng` writes.
+/// scripts/bench_rngs.sh:177 prints the same `Constant (…)` label for its
+/// `pilot_rng` run; no test covers that copy, so update it with any change
+/// here.
 #[doc(hidden)]
 pub const CONSTANT_RNG_WORD: u32 = 0xDEAD_DEAD;
 
@@ -121,6 +124,8 @@ pub const CONSTANT_RNG_WORD: u32 = 0xDEAD_DEAD;
 /// produces.  `JSF64_TEST_SEED` in the src/rng/sfc.rs tests has the same value,
 /// but that seed is the one the known-answer vector was checked at against
 /// Jenkins's C, so the two stay separate constants.
+/// scripts/bench_rngs.sh:172 prints this seed in its `JSF64 (seed=…)` label;
+/// no test covers that copy, so update it with any change here.
 #[doc(hidden)]
 pub const JSF64_PROBE_SEED: u64 = 0xdead_beef;
 

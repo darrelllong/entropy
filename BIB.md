@@ -85,7 +85,7 @@ The point of keeping these files in-tree is auditability: readers should be able
   howpublished = {Cryptographic Algorithm Validation Program},
   year         = {2013},
   url          = {https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/drbg/drbgtestvectors.zip},
-  note         = {Known-answer vectors for the SP 800-90A DRBGs, generated 2 April 2013.  Kept here: HMAC\_DRBG.rsp from drbgvectors\_no\_reseed.zip, whose [SHA-256] [PredictionResistance = False] [EntropyInputLen = 256] [NonceLen = 128] [PersonalizationStringLen = 0] [AdditionalInputLen = 0] [ReturnedBitsLen = 1024] COUNT = 0 is the HMAC\_DRBG known-answer test in src/rng/hmac\_drbg.rs. [pubs/NIST-CAVP-drbgtestvectors-no_reseed-HMAC_DRBG.rsp]}
+  note         = {Known-answer vectors for the SP 800-90A DRBGs, generated 2 April 2013.  Kept here: HMAC\_DRBG.rsp from drbgvectors\_no\_reseed.zip.  Four of its sections open with the header [SHA-256] [PredictionResistance = False] [EntropyInputLen = 256] [NonceLen = 128] [PersonalizationStringLen = 0] [AdditionalInputLen = 0] [ReturnedBitsLen = 1024], each with its own COUNT = 0; the HMAC\_DRBG known-answer test in src/rng/hmac\_drbg.rs is in the first of them, header at line 4104, and is its COUNT = 0 record at line 4112, the one whose EntropyInput is DRBGVS\_ENTROPY\_INPUT there. [pubs/NIST-CAVP-drbgtestvectors-no_reseed-HMAC_DRBG.rsp]}
 }
 
 @techreport{nist800-90-2006,

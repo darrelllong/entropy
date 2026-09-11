@@ -302,13 +302,16 @@ mod tests {
     const DRBGVS_NONCE: &str = "659ba96c601dc69fc902940805ec0ca8";
 
     /// NIST CAVP DRBGVS HMAC_DRBG known-answer test: CAVS 14.3 `HMAC_DRBG.rsp`
-    /// from `drbgvectors_no_reseed.zip` in the CAVP DRBG test vectors, section
-    /// `[SHA-256] [PredictionResistance = False] [EntropyInputLen = 256]
-    /// [NonceLen = 128] [PersonalizationStringLen = 0] [AdditionalInputLen = 0]
-    /// [ReturnedBitsLen = 1024]`, `COUNT = 0`.
+    /// from `drbgvectors_no_reseed.zip` in the CAVP DRBG test vectors.
     /// [pubs/NIST-CAVP-drbgtestvectors-no_reseed-HMAC_DRBG.rsp]
     ///
-    /// That record's EntropyInput and Nonce are the constants above, its
+    /// Four sections of that file open with the same header,
+    /// `[SHA-256] [PredictionResistance = False] [EntropyInputLen = 256]
+    /// [NonceLen = 128] [PersonalizationStringLen = 0] [AdditionalInputLen = 0]
+    /// [ReturnedBitsLen = 1024]`, and each has its own `COUNT = 0`.  The vector
+    /// is in the first of them, whose header is at line 4104: its `COUNT = 0`
+    /// record at line 4112, the one whose EntropyInput is
+    /// `DRBGVS_ENTROPY_INPUT`.  Its Nonce is `DRBGVS_NONCE`, its
     /// PersonalizationString and both AdditionalInput fields are empty, and its
     /// ReturnedBits (prefix `e528e9ab…`) are the expected bits: two Generate
     /// calls, the second returned.  A from-spec SP 800-90A replica reproduced
