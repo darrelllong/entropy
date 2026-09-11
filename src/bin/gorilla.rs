@@ -3,10 +3,12 @@
 //! Anderson–Darling ("ADKS") aggregate: the statistic A₃₂ (`agg_ad_A`) and
 //! the p-value 1 − Pr(A₃₂ < A) (`agg_ad_p`), which is small when the 32
 //! per-bit p-values are far from uniform.  The paper prints Pr(A₃₂ < A)
-//! itself.  For 4 < A ≤ 12, `agg_ad_p` lies between
-//! 0.04% below and 3.5% above the simulated n = 32 tail in a 10⁹-sample run,
-//! the largest errors just past A = 6.61; beyond A ≈ 10 the simulation's
-//! standard errors exceed 1% and the sign is unresolved (see
+//! itself.  For 4 < A ≤ 12, `agg_ad_p`'s largest reliably resolved error
+//! against the simulated n = 32 tail is just past the tail switch,
+//! +2.46 ± 0.14% at A = 6.62.  A 10⁹-sample run puts the error between 0.04%
+//! below and 3.5% above the simulated tail over that range, but the 3.5%
+//! extreme lies beyond A ≈ 10, where the run's standard errors exceed 1%,
+//! its sampling noise dominates and the sign is unresolved (see
 //! `entropy::math::anderson_darling_cdf`).
 //! See `entropy::research::marsaglia_tsang`.
 
