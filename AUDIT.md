@@ -183,10 +183,10 @@ G. **Linear complexity took the sign of its mean from STS, not SP 800-22** —
    (M/3 + 2/9)/2^M of an integer, the other sign lowers it by 1/18, and the
    class boundaries are half-integers.
    **Fixed:** the mean follows §2.10.4 (8cf4be3), and tests check μ and Tᵢ
-   for M = 13 and for the battery's M = 500 (f281a34).  An f64 check over
-   every M in 500..=5000 found no class that differs, and p-values on e,
-   MT19937 streams and `run_all` are bit-identical.
-   <!-- CHECK: 8cf4be3 says the class check covered every M in 500..=5000, the range the module accepts; AUDIT-NOTES.md says M 1..5000. Written as the commit states. -->
+   for M = 13 and for the battery's M = 500 (f281a34).  f64 checks found no
+   class that differs over every M in 500..=5000 (the implementer's) or
+   M = 1..5000 (the reviewer's), and p-values on e, MT19937 streams and
+   `run_all` are bit-identical.
 
 H. **System.Random panicked on overflow in debug builds** —
    `src/rng/c_stdlib.rs:258-300` (`WindowsDotNetRandom::new`).  C# evaluates
@@ -246,9 +246,10 @@ K. **`monobit2` inherits a calibration defect from `chisq_binomial`** —
    (bde3347) called the reported p-value "somewhat heavy near zero" and put
    the cause elsewhere.  CONFIRMED by null simulation on MT19937: level 0
    alone, before the Šidák step, fell below 0.01 in 1.44% of 20 000 trials at
-   2 000 words, and the reported p-value in 1.30% of 20 000 trials at
-   2 000 words, 1.27% of 20 000 at 10 000, 1.50% of 5 000 at 100 000 and
-   1.50% of 1 000 at 1 000 000.  The shared cells of item 41 can also turn a
+   2 000 words, and the reported p-value in 1.27–1.50% of trials: 1.30% of
+   20 000 at 2 000 words (the review measured 1.26% there), 1.27% of 20 000
+   at 10 000, 1.50% of 5 000 at 100 000 and 1.50% of 1 000 at 1 000 000.
+   The shared cells of item 41 can also turn a
    pass into a fail: 100 000 MT19937 words with six all-ones level-0 blocks
    and six all-zeros level-1 blocks written in score p = 0 at seeds 1, 2, 3
    and 5489, against 0.345, 0.435, 0.140 and 0.848 with separate histograms.
@@ -258,7 +259,6 @@ K. **`monobit2` inherits a calibration defect from `chisq_binomial`** —
    words, the fewest with two block sizes, covers the flat layout's second
    segment (7424f0f).  Both behaviours are kept for fidelity, as the
    fill-tree off-by-one (14) is.
-   <!-- CHECK: the brief gives the reported rate at .01 as 1.26–1.50%; monobit2.rs:66-68 and 5bd2bb6 give 1.27–1.50%, and AUDIT-NOTES.md gives both 1.26–1.38% and 1.27–1.50%. Written as the code states. -->
 
 L. **DIEHARD departures were undocumented or misstated** — `src/diehard/`.
    Checked against `diehard.f`, several modules departed from DIEHARD without
@@ -314,7 +314,6 @@ L. **DIEHARD departures were undocumented or misstated** — `src/diehard/`.
    **Fixed:** each module now documents its departures, and the misstatements
    are corrected (f31f192, c413022, d1684fb, ea40a1e, 3f3f2a3, 39060f6).  No
    output changes.
-   <!-- CHECK: the brief says DIEHARD's windows do not re-read the same words. That holds for the 6×8 windows (window 2 starts at word 600 001, window 25 at 596 481), but by d1684fb and birthday_spacings.rs five of cdbday's nine windows read words 1–256 000 exactly. The note says the every-window claims were wrong and gives both cases. -->
 
 M. **The March removal of three DIEHARD tests rested on wrong reasons** —
    `README.md:200-209`; the removed modules at `3b41af8^:src/diehard/`
@@ -353,18 +352,45 @@ M. **The March removal of three DIEHARD tests rested on wrong reasons** —
    variant (c413022).  README.md:200-209 still gives the old reasons.
    <!-- PENDING historical suite -->
 
-N. **`math::erfc` is good only to about 10⁻⁷** — `src/math.rs:12-41`.
-   `erfc`, and `normal_cdf` through it, is Numerical Recipes' `erfcc`, whose
-   stated fractional error is below 1.2 × 10⁻⁷; the doc records a measured
-   absolute error up to 2 × 10⁻⁷ near 0.  At 0 the code returns the
-   exponential of its coefficients' sum, 1.0000002, so a two-sided p-value
-   erfc(|z|/√2) exceeds 1 for a zero statistic; HammingCorr printed
-   p = 1.0000002 for this reason.  CONFIRMED by evaluating the code's
-   coefficients.  Marsaglia's 2004 paper on evaluating the normal
-   distribution, with its C, is in `pubs/` (be5c958) as the basis for a
-   replacement.
-   <!-- PENDING erfc -->
-   <!-- CHECK: Numerical Recipes in C (2nd ed.) prints erfcc's last coefficient as 0.17087277, which gives erfc(0) = 1.00000003, inside its 1.2e-7 bound; src/math.rs:34 has 0.17087294, which gives 1.0000002. NR is not in pubs/, so that printed value is from memory and unverified. -->
+N. **`math::erfc` was good only to about 10⁻⁷** — `src/math.rs:12-41`.
+   `erfc`, and `normal_cdf` through it, was Numerical Recipes' `erfcc`,
+   whose stated fractional error is below 1.2 × 10⁻⁷, with a transcription
+   slip: its last coefficient was 0.17087294, where published copies of
+   Numerical Recipes print 0.17087277.  At 0 the code returned the
+   exponential of its coefficients' sum, 1.0000002 where the book's gives
+   1.00000003, so a two-sided p-value erfc(|z|/√2) exceeded 1 for a zero
+   statistic; HammingCorr printed p = 1.0000002 for this reason.  CONFIRMED
+   by evaluating both coefficient sets and against public copies of the
+   book's `erfcc`.
+   **Fixed:** `erfc` and `normal_cdf` follow `cPhi` from Marsaglia's
+   "Evaluating the Normal Distribution" (2004, in `pubs/` since be5c958):
+   the upper tail is Mills' ratio R times the normal density, with R summed
+   as a Taylor series about his tabled values at z = 0, 2, …, 16 (6806a53).
+   `mills_ratio` documents three departures that f64 needs.  The series
+   expands about the tabled point at or above x, not the nearest one; it
+   stops only once the terms it leaves out are provably at most ε·R/4; and
+   past the table an asymptotic series carries it to underflow.  The
+   stopping rule came from review.  6806a53 kept `cPhi`'s stop at the first
+   pair of terms that rounds away, which in f64 can be a pair where rounding
+   error and the true term cancel: 1 154 of 20 million arguments in [0, 16)
+   were more than 4 ulp off, up to 1.5 × 10⁻¹⁰ relative error at
+   u = 14.886 (erfc at x = 10.526), and monotonicity reversed for z ≥ 8,
+   with Φ rising by 1.5 × 10⁻¹⁰ between neighbouring floats near −14.886.
+   6f2af66 added the provable stopping rule and reference rows for x√2 in
+   (6, 16]; reverting the rule or the expansion point now fails the tests.
+   Against a 70-digit decimal oracle on 2.4 million random arguments
+   (e11df66), the largest errors are 3.539·(1 + x²)·ε for erfc from 0 up,
+   2.560·ε below 0, 3.351·(1 + x²/2)·ε for Φ below 0 and 2.646·ε from 0 up;
+   the test tolerances are 7 in the same units, about twice those.
+   erfc(0) = 1 exactly and erfc(x) ≤ 1 for x ≥ 0, so a two-sided p-value no
+   longer exceeds 1.  The eight goldens that pass through `erfc` or
+   `normal_cdf` moved by exactly the old `erfcc` error at their arguments,
+   at most 4.67 × 10⁻⁸, and were re-pinned (f015ebf); the largest move among
+   the SP 800-22 pins is 1.05 × 10⁻⁷, in §2.15.8.  Merged in 89eb68b,
+   83a841c and 93e6621.  **Left:** the research probes' two-sided p-values
+   stay capped at 1 (6754bf8), but the comments at
+   `testu01_hamming.rs:63-64, 253, 572`, `knuth.rs:358` and
+   `testu01_lz.rs:247` still say `erfc` exceeds 1 by about 10⁻⁷ near 0.
 
 ## Correctness risks (statistic differs from the cited reference)
 
@@ -443,11 +469,21 @@ N. **`math::erfc` is good only to about 10⁻⁷** — `src/math.rs:12-41`.
     **Documented, not changed:** the audit read TestU01's `sstring.c` online, but the fixing pass had no copy to implement from, so the extraction stands. The README and module docs now
     describe it exactly: a block equals the paper's concatenated bit stream
     only when `s` divides `L`.
-    TestU01's source entered `pubs/` on 2026-09-11
-    (`TestU01-2009-57e98bf33880.tar.gz`, f098126).  On this tip the
-    extraction is unchanged, and `testu01_hamming.rs:13-14, 33` still say
-    `sstring.c` is not in `pubs/`.
-    <!-- PENDING research round 2 -->
+    **Fixed on 2026-09-11:** TestU01's source entered `pubs/`
+    (`TestU01-2009-57e98bf33880.tar.gz`, f098126), and the blocks are packed
+    exactly as `sstring.c`'s `HammingCorr_L`/`_S` and `HammingIndep_L`/`_S`
+    pack them: for L ≥ s, ⌊L/s⌋ fields and then the leading L mod s bits of
+    one more word; for L < s, ⌊s/L⌋ blocks from each field, low bits first.
+    Where lumping leaves a single class, HammingIndep splits the pair table
+    into two columns as `sstring_HammingIndep` does, instead of reporting NaN
+    (e7c2a96).  Statistics and generator calls are pinned against TestU01
+    1.2.3 built from `pubs/`, and the reviewer matched 25 more cases.  Output
+    changes only when s does not divide L or lumping leaves one class, not at
+    the `upstream_tests` defaults (s = 10, L = 300).  FPF reads the same
+    stream after both Hamming tests, so non-default Hamming parameters change
+    the words FPF sees and every FPF line; in one such run all eight FPF lines
+    changed for MT19937, Xorshift32 and AES-128-CTR (`upstream_tests.rs:14-24`,
+    2d42290).
 
 13. **glibc `random()` seeding differs for seeds >= 2^31** —
     `src/rng/c_stdlib.rs:68-77, 342-348`.  `park_miller31` seeds via
@@ -507,13 +543,43 @@ N. **`math::erfc` is good only to about 10⁻⁷** — `src/math.rs:12-41`.
     CONFIRMED (paper p. 6).
     **Documented, not changed:** the docs call the aggregate a KS test and a
     deviation from the paper's ADKS. Anderson–Darling needed its
-    distribution's source, which was not in `pubs/` on 2026-09-10.  Since
-    2026-09-11 `pubs/` holds Marsaglia and Marsaglia's 2004 paper on the
-    Anderson–Darling distribution with its `ADinf.c` and `AnDarl.c`, and the
-    `tuftests.c` attached to Marsaglia–Tsang 2002, which defines ADKS
-    (f098126, e018c34).  On this tip the aggregate is still KS, and
-    `marsaglia_tsang.rs:19-22` still says no source for ADKS is in `pubs/`.
-    <!-- PENDING research round 2 -->
+    distribution's source, which was not in `pubs/` on 2026-09-10.
+    **Fixed on 2026-09-11:** `pubs/` gained Marsaglia and Marsaglia's 2004
+    paper on the Anderson–Darling distribution with its `ADinf.c` and
+    `AnDarl.c`, and the `tuftests.c` attached to Marsaglia–Tsang 2002
+    (f098126, e018c34).  `tuftests.c` shows that ADKS is the
+    Anderson–Darling statistic A₃₂ of the 32 per-bit p-values, each product
+    floored at 10⁻³⁰, printed as Pr(A₃₂ < A).  `gorilla_aggregate_ad`
+    computes it and converts it with `math::anderson_darling_cdf`, a port of
+    the paper's ADinf + errfix pinned to the paper and to the attached C
+    (3f38169).  From the per-bit values printed on p. 6 it reproduces the
+    ADKS printed for KISS, SHR3 (only with the floor), LFIB4 and both
+    congruential generators, to within the four-decimal rounding of those
+    inputs.  LFIB4 tells the conversions apart: the paper prints 0.724, as
+    AD(32, ·) gives, where `tuftests.c`'s fit `ad32()` gives 0.727 and a KS
+    test 0.587.  `anderson_darling_cdf` returns NaN for n < 8, where the
+    method is off by up to 1.3 × 10⁻³ at n = 4 (0c52658).  errfix does not
+    vanish as ADinf → 1, so past ADinf = 0.9995 (z > 6.6127) the upper tail
+    is the limiting tail scaled by errfix's relative size at the switch,
+    which meets the body continuously; the rule is empirical and documented
+    as such.  Against `examples/anderson_darling_tail.rs`, a seeded
+    simulator whose output does not depend on the thread count (08f0ef1;
+    4 × 10⁹ samples for n = 8, 10⁹ for 16 and 32, 2 × 10⁸ for 64 and 128),
+    the body is within 9.2 × 10⁻⁵ for z ≤ 4, and the tail errors carry signs
+    and standard errors.  They are mostly positive, so p-values are mostly
+    conservative, and largest just past the switch: +8.46 ± 0.07% (n = 8),
+    +4.62 ± 0.14% (n = 16) and +2.46 ± 0.14% (n = 32) at z = 6.62.  The only
+    resolved understatement is −0.27 ± 0.02% for n = 8 at z = 4.41, and the
+    extremes past z ≈ 10 are within one run's sampling noise (833cef4,
+    a54b1f2, 414a5b0, 7d39dc8).  None of this can move a verdict at
+    α = 0.01, whose upper tail sits near z = 3.9.  `gorilla_all` reads all 32
+    bit positions from the same words, where `tuftests.c` draws fresh words
+    for each; the module documents why the aggregate's null distribution is
+    unchanged, since the bits of an iid uniform word are independent, and a
+    240 000-replicate simulation agrees.  For |z| > 5.4 the module also
+    departs from `tuftests.c`, which stores Φ in single precision (f6f191e).
+    `gorilla_aggregate_ks` stays, deprecated (bd8f749), and the `gorilla`
+    binary prints `agg_ad_A` and `agg_ad_p` in place of `agg_ks_p`.
 
 18. **Craps dice use low bits** — `src/diehard/craps.rs:157-170`.
     `v % 6` after rejection; Marsaglia and Dieharder use high bits.
@@ -682,10 +748,19 @@ N. **`math::erfc` is good only to about 10⁻⁷** — `src/math.rs:12-41`.
     `testu01_lz`, `upstream_tests`, `webster_tavares`,
     `bitplane_complexity`, plus the `dump_rng`/`pilot_rng` dispatch
     tables; `upstream_tests.rs:176-252` repeats each label twice.
-    **Left:** the shared CLI boilerplate is unchanged on this tip, though
-    `--rng` now ignores case in every binary.
-    <!-- PENDING research round 2 -->
-    <!-- CHECK: the brief lists item 33 as changed, but the shared CLI (d4a1cd1, src/bin/common/) is on audit-research, which 229e104 does not contain; the note keeps what is true on this tip. -->
+    `--rng` ignores case in every binary (2026-09-10).  **Fixed on
+    2026-09-11:** `src/bin/common/cli.rs` holds the argument cursor, the
+    `--rng` filter and the usage exit, with unit tests, and
+    `src/bin/common/family.rs` holds the seeded generator family, visited
+    lazily so `--rng` still decides what is constructed.  `bib_tests`,
+    `bitplane_complexity`, `gorilla`, `testu01_lz`, `upstream_tests` and
+    `webster_tavares` share them, and `upstream_tests` no longer writes each
+    label twice (d4a1cd1).  Options, help text, error messages, exit codes
+    and output are unchanged: each binary's help and usage-error runs and a
+    small release run were captured before and after and diffed.  `dump_rng`
+    and `pilot_rng` keep their dispatch tables, whose name lists
+    `tests/registry.rs` locks together, because `pilot_rng`'s timing loops
+    are monomorphised per generator.
 34. **Dead public API** (no callers in `src/` or `tests/`):
     `nist::serial::serial`, `nist::random_excursions::random_excursions`,
     `nist::random_excursions_variant::random_excursions_variant`,
@@ -734,7 +809,33 @@ N. **`math::erfc` is good only to about 10⁻⁷** — `src/math.rs:12-41`.
     one scratch buffer. Outputs are unchanged.
 39. **Repeated hex literals** (project rule): `src/rng/aes_ctr.rs:270-273`
     and `:333-336` inline the NIST F.5 key twice.
-    **Fixed.**
+    **Fixed.**  The item missed other repeats, found on 2026-09-11: the
+    DRBGVS entropy input and nonce written out in two HMAC_DRBG tests
+    (`hmac_drbg.rs:303-304, 346-347` at 229e104); wyhash's first prime in
+    `wyrand.rs` and `seed.rs`; the VB6 `Rnd` and `rand48` parameters;
+    Jenkins's `raninit` word and the JSF64 test seed; an AES-128 zero-key
+    keystream word in `block_ctr.rs`; xoshiro test states; and the Constant
+    word that `run_tests`, `dump_rng` and `pilot_rng` each wrote out, with
+    the jsf64 seed of the last two.  **Fixed on 2026-09-11:** each is one
+    named constant (590ca29, 25cac16).  The generator parameters are public
+    associated constants, so docs.rs shows them:
+    `WindowsVb6Rnd::{MULTIPLIER, INCREMENT, MASK}`,
+    `Rand48::{MULTIPLIER, INCREMENT, MODULUS}`, `Jsf64::INITIAL_A` and
+    `WyRand::{INCREMENT, MIX}` (19efccd).  `seed_material` XORs its own
+    `SEED_MATERIAL_MASK` rather than `WyRand::INCREMENT`, and
+    `seed_material_pinned_bytes` pins its output (7a529ed).  A test ties the
+    printed "Constant (0xDEAD_DEAD)" label to `CONSTANT_RNG_WORD`, and
+    `tests/dump_rng.rs` gains a jsf64 pin (43a1ee8).  The HMAC_DRBG test
+    cites its CAVP record, whose file is now in `pubs/`: `HMAC_DRBG.rsp`
+    from `drbgvectors_no_reseed.zip` (CAVS 14.3), in the first of four
+    sections with the same header, at line 4104, record `COUNT = 0` at line
+    4112 (69741ff, 5b7e460).  Output is bit-identical: `dump_rng <name> 4096`
+    matches 229e104 for all 40 deterministic names.  Merged in 1e26fd5.  Two
+    values repeat by design.  0xa0761d6478bd642f is both `WyRand::INCREMENT`
+    and `SEED_MATERIAL_MASK`, one value in two roles.  0xdeadbeef is five
+    distinct choices: `JSF64_PROBE_SEED`, the JSF64 known-answer seed, a
+    `bit_distribution` test word, an xoroshiro test state, and the `strip_b`
+    test word at `research/mod.rs:35`, picked for its nibbles 0xD and 0xE.
 40. **CI**: `.github/workflows/ci.yml:38-45` checks out the sibling
     crates at unpinned default branches, so any push there changes what
     CI builds; no `cargo fmt --check` step; MSRV job is Ubuntu-only.
@@ -745,10 +846,10 @@ N. **`math::erfc` is good only to about 10⁻⁷** — `src/math.rs:12-41`.
     says what pinning costs: the siblings' downstream jobs build this crate
     but run only `cargo test` on ubuntu-latest stable, so moving the pins
     means first running the whole matrix locally against the new sibling
-    commits (ee554d1).  **Left:** CI runs only debug tests, so the three tests
-    that run only in release builds (the `dct` golden and two
-    linear-complexity pins on e) never run there; `ci-release-tests`
-    (003e8d7) adds that step and is not merged.
+    commits (ee554d1).  The stable jobs also run
+    `cargo test --release -- --include-ignored`, so the three tests too slow
+    for debug builds (the `dct` golden and two linear-complexity pins on e)
+    now run in CI (003e8d7, merged in 3a2bf85).
 41. **Nits**: `hash_drbg.rs:140,171` and `hmac_drbg.rs:120,142` refuse
     the last permitted call (`>=` vs spec `>`); `serial.rs:42` gates
     n >= 1000 without spec basis; `craps.rs:201-203` tail-mass comment
@@ -819,7 +920,8 @@ Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
   (7424f0f).  The goldens pass in debug and release builds on aarch64 and
   x86_64 macOS and on x86_64 Linux (moore, glibc, rustc 1.95); the `dct`
   golden runs only in release builds.  They are this code's own output, not
-  reference values from the C.
+  reference values from the C.  The eight goldens that pass through `erfc`
+  or `normal_cdf` were re-pinned when it changed (item N).
 - No KAT for `Rand48`, `Xorshift32/64`, `Pcg64`, or `Lcg32`
   AnsiC/Borland.  (`DualEcDrbg` and the streaming paths of both DRBGs were
   pinned on 2026-09-10; see item C.)  `ChaCha20Rng` has no deterministic constructor, so it cannot be
@@ -855,8 +957,13 @@ Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
   `grouped_tail_g_test`, `gorilla_aggregate_ks` untested; the PractRand
   FPF truncation rule is unverified (no source available).
   **Addressed:** each of those now has a test, `hamming_indep` against an
-  independent replica. The FPF truncation rule is still unverified, because
-  PractRand's source is not in `pubs/`.
+  independent replica.  **Addressed on 2026-09-11:** HammingCorr and
+  HammingIndep statistics and generator calls, and multi-replication LZ
+  phrase counts, are pinned against TestU01 1.2.3 built from `pubs/`
+  (e7c2a96, 27b0b39; item 12), and `anderson_darling_cdf` against the 2004
+  paper, its C and the in-repo tail simulation (item 17).  **Still
+  missing:** the FPF truncation rule is unverified, because PractRand's
+  source is not in `pubs/`.
 
 ## Follow-up — 2026-09-11
 
@@ -873,18 +980,25 @@ neighbouring repositories' audits say about this crate.
   each finding was fixed on the branch and sent back.  The NIST
   (`audit-nist`), generator (`audit-rng`), .NET (`fix-dotnet`) and DIEHARD
   (`audit-diehard`) branches were merged only after their reviewers conceded
-  every finding.
+  every finding.  On the research (`audit-research`), erfc (`math-erfc`),
+  hex-literal (`fix-hex-literals`) and TESTS.md (`docs-tests-theory`)
+  branches the reviewers conceded every finding up to a last round of
+  documentation and tolerance fixes, which were checked against the
+  reviewers' figures before merging.  `ci-release-tests` adds one CI step,
+  whose command the Linux runs below execute.
 - *Staging.*  Each merge was made on `merge-staging` and verified there
   against `git archive` copies of the committed sibling crates, cryptography
   342989a and rump 3ff885c, which is what CI builds: `cargo fmt --check`,
   clippy with `-D warnings`, `cargo test`, `cargo test --release --
   --include-ignored`, rustdoc with `-D missing_docs`, and a 1.87 check.  At
   229e104 all pass, with 346 tests in the debug run (3 ignored) and 349 in
-  the release run.
-- *Linux.*  On moore (x86-64, glibc, rustc 1.95) the earlier staging commit
-  489dc5a, which held every audit branch at the time, passed 387 debug tests
-  with 3 ignored and 390 release tests with `--include-ignored`.  229e104
-  itself has not been run there.
+  the release run, and at main 93e6621 with 797 across the two runs.
+- *Linux.*  On moore (x86-64, glibc, rustc 1.95), every run passed in debug
+  and in release with `--include-ignored`: 229e104 with 346 and 349 tests,
+  83a841c (erfc and research) with 395 and 398, which shows `erfc`'s
+  ε-scaled test tolerances hold on glibc's libm, and main 93e6621 with 397
+  and 400.  The earlier staging commit 489dc5a passed with 387 and 390.
+  fd6df95, main's tip, changes only TESTS.md.
 - *DIEHARD fidelity review.*  A read-only review compared every DIEHARD
   module with `diehard.f`.  It ran gfortran 16.2 builds of the Fortran as an
   oracle on 4 000 000 words, built with `-fno-automatic`, without which
@@ -893,8 +1007,8 @@ neighbouring repositories' audits say about this crate.
   8, 10, 18, 27, F, L and M; its claim that DIEHARD rereads the same words
   for every window was wrong (item L).
 
-**Additions to `pubs/`** (f098126, f5ecb2a, ffb3aee, e018c34, be5c958).
-Forty-nine files, each listed with its origin and retrieval date in
+**Additions to `pubs/`** (f098126, f5ecb2a, ffb3aee, e018c34, be5c958,
+69741ff).  Fifty files, each listed with its origin and retrieval date in
 `pubs/SOURCES.tsv`, which also gives sha256 for the DIEHARD archives and for
 the files repacked or extracted from larger downloads:
 
@@ -918,7 +1032,8 @@ the files repacked or extracted from larger downloads:
   Marsaglia–Tsang 2002; Marsaglia 2004 on the normal distribution with its
   `sources.c`; Marsaglia–Tsang–Wang 2003 on the Kolmogorov distribution; and
   Wald–Wolfowitz 1940.
-- Dual_EC: Bernstein–Lange–Niederhagen 2015.
+- DRBGs: Bernstein–Lange–Niederhagen 2015 on Dual_EC, and the CAVP
+  `HMAC_DRBG.rsp` from NIST's no-reseed DRBG test vectors (item 39).
 
 PractRand, Hamano–Kaneko 2007, Numerical Recipes and TAOCP are still not in
 `pubs/`.
@@ -947,7 +1062,7 @@ PractRand, Hamano–Kaneko 2007, Numerical Recipes and TAOCP are still not in
   rewind modes, little-endian words by default, a step that runs out of
   input reported as SKIP with exit code 2 rather than cycled or padded, and
   the corpus sha256 and per-step consumption in the output, about 172 MB at
-  the default sizes.  Nothing is built.
+  the default sizes.  It is being built.
   <!-- PENDING corpus adapter -->
 - `wipe-opt-in` (41f93ca) turns on cryptography-rs's opt-in `wipe` feature,
   which that crate is introducing for rump's limb scrubbing (item B).  It
@@ -983,13 +1098,16 @@ contract is implemented in `run_tests`.
 
 ## Status after the 2026-09-11 follow-up
 
-Items 1–6 and A–L are fixed or documented (B withdrawn), and so are most of
-items 7–41; each carries a note above.  M and N, and items 12, 17 and 33,
-wait on branches that are not merged.
+Items 1–6, A–L and N are fixed or documented (B withdrawn), and so are most
+of items 7–41; each carries a note above.  Item M waits on the historical
+DIEHARD suite.
 
-- **Merged** (main at 229e104): `audit-nist` (79f48b4), `audit-rng`
-  (fd36369), `fix-dotnet` (601ab91), `kat-etsi` (ccf18e7) and
-  `audit-diehard` (e410409, 229e104).
+- **Merged** (main at fd6df95): `audit-nist` (79f48b4), `audit-rng`
+  (fd36369), `fix-dotnet` (601ab91), `kat-etsi` (ccf18e7), `audit-diehard`
+  (e410409, 229e104), `fix-hex-literals` (1e26fd5), `math-erfc` with the
+  re-pinned goldens (89eb68b, 83a841c, 93e6621), `audit-research` (956976b,
+  d6555c8, 72580dc, 00c2a2c), `docs-tests-theory` (0a417eb),
+  `ci-release-tests` (3a2bf85), and the regenerated TESTS.md (fd6df95).
 - **Kept for fidelity to the cited reference:** the Dieharder fill-tree
   off-by-one (14); SP 800-22's four-decimal longest-run tables for M = 128
   and M = 10⁴, the latter also STS's (15); both MSVC `rand()` types (35);
@@ -999,36 +1117,52 @@ wait on branches that are not merged.
 - **Kept by choice and documented:** fresh words for each birthday window
   (27); KS summaries with upper-tail or two-sided p-values where DIEHARD
   reports Anderson–Darling and CDF values (L); the 6×8 test's single window
-  (10); the unused public test functions (34); the serial test's n ≥ 1000
-  floor and TAOCP's leading gap in the Knuth gap test (41); and SKIP where
-  STS writes P = 0 below the random-excursion cycle gate.
+  (10); the Gorilla aggregate's scaled upper tail and shared words (17); the
+  unused public test functions (34); the serial test's n ≥ 1000 floor and
+  TAOCP's leading gap in the Knuth gap test (41); and SKIP where STS writes
+  P = 0 below the random-excursion cycle gate.
+- **TESTS.md:** Theory By Test was corrected and reviewed (0a417eb).  It
+  gives each DIEHARD test's p-value convention and summary, DIEHARD's
+  Anderson–Darling `KSTEST`, the approximate uniformity of the CDF values
+  that parking lot, minimum distance and 3-D spheres feed their KS tests,
+  the Gorilla aggregate's AD(32, ·) body and this crate's tail rule,
+  monobit2's rejection rates with the word counts they were measured at,
+  and the word counts and N behind the runs and gcd figures.  It also
+  carries the departures in items 8, 18, 27, F and L, and corrects these
+  prose errors: `minimum_distance_nd` runs only d = 5; `gcd_step_counts`
+  scores k = 6–32 with df 26; `gcd_distribution` leaves g = 1 unscored and
+  pools g ≥ 23; universal's σ is c(L,K)·√(var/K); ApEn's bound is
+  m < ⌊log₂ n⌋ − 5; the Gorilla σ = 4170 came from simulation; Lempel–Ziv
+  reports two p-values with no outer KS; Webster–Tavares reads the low 32
+  bits of the first `next_u64`; `craps_throws` has df 21 where DIEHARD pools
+  from 21 up with df 20; and the gap test folds a tail pool that still
+  expects fewer than 5 into the last kept cell.
+  `tests/run_all.sh` then ran on dyson on 2026-09-11, in 9 min 53 s, at
+  33dc35c, whose default battery is main's: it differs only by the opt-in
+  historical suite and by erfc test and doc changes.
+  `scripts/parse_battery.py` rebuilt the header, summary table, Failure
+  Highlights and Auxiliary Probes, and left Theory By Test byte-identical
+  (fd6df95).
+- **Battery outputs that changed** in that run, at the fixed seeds: the runs
+  fix (F) removed Camellia-128-CTR's `diehard::runs_up` failure, leaving 11,
+  all `bit_distribution`, and Twofish-128-CTR and CAST-128-CTR each fail
+  `diehard::runs_down` once, about the one such failure a calibrated test is
+  expected to give across the battery at α = 0.01; with the runs and
+  birthday-spacings (27) changes VB6 `Rnd()` goes from 529 to 528 failures;
+  and the Gorilla probe prints `agg_ad_A` and `agg_ad_p` in place of
+  `agg_ks_p` (17).  p-values that pass through `erfc` move by at most about
+  10⁻⁷ (N).  OS-seeded generators differ from the previous run by chance,
+  and Failure Highlights stay one line per generator.
 - **Open:**
-  - TestU01's Hamming packing (12), the Gorilla Anderson–Darling aggregate
-    (17) and shared CLI code for the research binaries (33) are on
-    `audit-research`.
-    <!-- PENDING research round 2 -->
-  - `math::erfc` (N).
-    <!-- PENDING erfc -->
   - The historical DIEHARD suite: the three removed tests (M), DIEHARD's
     25-window 6×8 sweep (10) and an inventory in place of README's
-    "Removed On Purpose".  `diehard-historical` is in progress.
+    "Removed On Purpose".  `diehard-historical` is under review fixes.
     <!-- PENDING historical suite -->
-  - The finite byte-corpus adapter (Follow-up).
+  - The finite byte-corpus input (Follow-up), which is being built.
     <!-- PENDING corpus adapter -->
-  - TESTS.md still comes from the battery run of 41330b0 on dyson, so it
-    predates the output changes below, and its Theory section needs the
-    corrections on `docs-tests-theory`.
-    <!-- PENDING TESTS.md regeneration -->
-  - `ci-release-tests`, `docs-tests-theory` and `diehard-historical` were
-    branched from an earlier staging commit that held research's first
-    round, so they merge after `audit-research`.
-  - The release-only tests in CI (40) and the `wipe` feature (Follow-up).
-  - `hmac_drbg.rs`'s tests repeat the entropy hex literal at lines 303 and 346
-    and the nonce literal at 304 and 347, against item 39's rule; BIB.md dates
-    wyhash 2022 where the `pubs/` snapshot is a March 2026 commit; and the
-    README and USAGE text on the gorilla columns must follow item 17.
+  - Comments in three research modules still give `erfc`'s old error as
+    the reason for their p-value caps (N).
+  - The `wipe` feature waits on cryptography (Follow-up), and BIB.md dates
+    wyhash 2022 where the `pubs/` snapshot is a March 2026 commit.
   - Coverage: SFC64 and PractRand's FPF truncation rule are unverified, and
     §2.9.8's input is unavailable (Test coverage).
-- **Battery outputs that change:** `diehard::runs_up` and
-  `diehard::runs_down` (F) and `diehard::birthday_spacings` (27) now; the
-  gorilla binary's aggregate columns once `audit-research` merges (17).
