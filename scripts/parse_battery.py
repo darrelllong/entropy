@@ -298,8 +298,8 @@ The battery has **{FULL_SLOTS} test slots** at this sample size:
   Counter, ANSI C LCG, MINSTD) always land here; a handful of non-degenerate
   generators can too, depending on their random seed.
 
-- **{NIST_SLOTS} results** — `Dual_EC_DRBG` only: two P-256 scalar multiplications per
-  30-byte output block makes DIEHARD and DIEHARDER prohibitively slow, so only
+- **{NIST_SLOTS} results** — `Dual_EC_DRBG` only: three P-256 scalar multiplications per
+  30-byte output block make DIEHARD and DIEHARDER prohibitively slow, so only
   the NIST SP 800-22 suite is run.
 
 **Expected false positives.**  At α = 0.01, a perfect generator should fail

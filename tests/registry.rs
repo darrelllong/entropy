@@ -9,7 +9,7 @@
 //! 2. every listed name actually dispatches in `pilot_rng`.
 //!
 //! `PILOT_RNG_WORDS` is kept tiny so the whole sweep stays fast even for the
-//! slow generators (Dual_EC_DRBG needs two P-256 scalar multiplications per
+//! slow generators (Dual_EC_DRBG needs three P-256 scalar multiplications per
 //! 30-byte block, which is expensive in unoptimised test builds).
 
 use std::process::Command;
