@@ -1,0 +1,392 @@
+# Code Audit — 2026-09-10
+
+Scope: every file under `src/`, `tests/`, `scripts/`, `.github/`, and the
+manifest, at commit `40447e3` plus the cleanup recorded below.  Method: full
+read of each module by four independent reviewers, formulas and constants
+compared against the primary sources in `pubs/` (SP 800-22 Rev 1a text,
+SP 800-90A, Marsaglia's `tests.txt` and Diehard sources, the Dieharder
+3.31.1 C sources, TestU01's `scomp.c`/`sstring.c`, Marsaglia–Tsang 2002,
+Webster–Tavares 1985), and cheap claims executed against the built crate
+and against the macOS libc where a reference implementation exists.
+
+Baseline state: `cargo clippy --all-targets -D warnings` clean,
+`cargo fmt --check` clean, `cargo test --release` 153/153, no `unsafe`,
+no debug output, no TODO/FIXME markers, no dead files in `pubs/` or
+`stats/`.
+
+Every finding cites `file:line`.  **CONFIRMED** means it was reproduced by
+running code or checked digit by digit against the source; **PLAUSIBLE**
+means it rests on code reading alone.
+
+## Cleanup performed
+
+| Removed | Reason |
+|---|---|
+| `tests/build_radar_svg.py` | March 2026 one-chart radar script, never referenced; superseded by `scripts/make_radar.py`, which produces all three SVGs in `assets/`. |
+| `src/bench_rngs.rs` and its `[[bin]]` entry | Self-described legacy in-process benchmark over 18 generators with drifting labels and a stale "43 generators" count; undocumented in README/USAGE; the canonical path is `pilot_rng` + `scripts/bench_rngs.sh`. |
+
+Kept after inspection: `scripts/r_report_analysis.py`,
+`scripts/r_report_summary.py`, and `scripts/r_gap_test_diagnostic.R` are
+not wired into `run_r_report.sh` but were deliberately maintained in the
+July 2026 hardening commit and parse old and new reports.
+
+## Bugs (reachable panics, hangs, or wrong verdicts)
+
+All six items below were fixed on 2026-09-10; each fix carries a regression
+test or a reproducible CLI check, and the patch went through repeated rounds of
+adversarial review whose findings are folded into the notes below.  The line numbers
+are those of the audited revision.
+
+1. **HMAC_DRBG panics on legal input lengths** — `src/rng/hmac_drbg.rs:169-183`.
+   `drbg_update` copies `provided_data` into a fixed 128-byte stack buffer
+   guarded only by `debug_assert!`.  A personalization string over 47 bytes
+   (`from_entropy`, line 92) or additional input over 95 bytes (`generate`,
+   line 118) panics in release with an out-of-range slice.  SP 800-90A
+   allows 2^35 bits.  CONFIRMED.
+   **Fixed:** messages up to 81 bytes still use a stack scratch (so the patch adds no allocation of its own on the streaming path; the HMAC computations inside cryptography-rs still allocate); longer ones use a heap buffer sized to the input, and both are wiped after use.  A known-answer test pins the output for a 200-byte personalization string and 1 KiB of additional input against an independent from-spec replica, so a fix that silently truncated would fail.
+
+2. **Non-overlapping template entry points unguarded on `m`** —
+   `src/nist/non_overlapping_template.rs:54, 73-75, 100-106`.
+   `non_overlapping_template(bits, 0)` indexes `template[m-1]`; `m >= 64`
+   overflows `1u64 << m` (masked shift in release gives a silently wrong
+   chi-square); `non_overlapping_template_raw(bits, &[])` underflows
+   `2*m-1` and in release the matcher never advances, an infinite loop.
+   CONFIRMED (panics reproduced; loop by reading).
+   **Fixed:** both entry points return a skipped result unless `m` is in 2..=21 (the template lengths the NIST STS ships) and the template contains only 0/1 symbols (a non-binary template can never match and previously rejected any stream).  The χ² is now summed over exactly N = 8 blocks; for n < 64 `chunks_exact` could produce up to 10 blocks at the template lengths now accepted.  Tests cover the length bounds, bad symbols, the short-stream block count, and the §2.7.8 count example.
+
+3. **Dual_EC accepts `outlen` below 32 bits, then panics on first draw** —
+   `src/rng/dual_ec.rs:83-88, 200-210`.  `new` admits any positive multiple
+   of 8 while `next_u32` assumes a block holds at least 4 bytes.
+   CONFIRMED (`outlen = 8` panics).
+   **Fixed:** `new` requires a multiple of 8 in `32..=max_outlen`, with `max_outlen` 240 / 368 / 504 for P-256 / P-384 / P-521 (the values SP 800-90 gives and the constructors already used), computed as `8·⌊(seedlen − 13 − log₂h)/8⌋`, a rule that reproduces them.  No edition of SP 800-90 containing Dual_EC is in `pubs/`, so the values were not re-checked against the source.  Tests pin the three table values, reject 0, 8, 12, 16, 24, 248, 256 and 264 on P-256 with Q ≠ P, and check that `next_u32` splices words correctly across 5-byte blocks.
+
+4. **`upstream_tests` CLI has no range validation** —
+   `src/bin/upstream_tests.rs:35-110`.  `--hi-d 9` or `--hi-n 10` abort
+   with a library panic (exit 101) instead of the documented exit 1;
+   `--hc-l 0` silently yields a NaN correlation (`testu01_hamming.rs:165`).
+   The sibling binaries validate their flags.  CONFIRMED.
+   **Fixed:** every flag is range-checked before the library is called (exit 1 with the flag's name), with `r` checked on its own before `r + s` so the check itself cannot overflow (the same guard was added to the library asserts and to `testu01_lz`).  `hamming_indep` now bounds `L` to 1..=4096 (the pair table is `(L+1)²` words; an unbounded `L` was killed by the OOM killer) and computes the binomial weights in log space (`2⁻ᴸ` underflowed to 0 at `L ≥ 1075`, which zeroed every expectation and fabricated a rejection).  The help text lists all ten flags with defaults and constraints.
+
+5. **SAC probe misdeclares seed widths** — `src/bin/webster_tavares.rs:143-202`.
+   ANSI C LCG, MINSTD and VB6 are declared 32-bit but `Lcg32::new` keeps
+   31 bits, MINSTD reduces mod 2^31-1, and VB6 keeps 24 bits.  The
+   "input bits exceed seed width" warning therefore never fires, and
+   the dead input bits are reported as non-avalanching.  CONFIRMED.
+   **Fixed:** ANSI C is declared 31 bits (masked), VB6 24 (masked), `mrand48` 32 (srand48 fills only the high 32 bits of the state), and MINSTD 64: its `mod 2³¹−1` reduction folds every seed bit into the state rather than discarding any, so the original audit statement that MINSTD truncates was wrong.  The comment now states the criterion: a bit is dead only when it is discarded, not when the seed map is many-to-one.  The warning fires for ANSI C and VB6 at the default 32-bit input.
+
+6. **Craps can loop forever** — `src/diehard/craps.rs:138-147`.
+   `play_craps` has no throw cap; a stream that sets a point and never
+   rolls that point or 7 hangs the battery.  DIEHARD and Dieharder share
+   the flaw.  PLAUSIBLE (not triggered by any registry generator).
+   **Fixed:** a game is cut off at 1 000 throws and scored as a loss in the ≥22 cell (an honest generator reaches the cap with probability about 2.6 × 10⁻¹²⁶ per game); a rigged-stream test pins the cap and checks that a full run on that stream terminates.  That run is also rejected, but because its other games are all two-throw wins, not because of the cap.
+
+### Found while fixing
+
+A. **Hash_DRBG hand-rolled its 440-bit arithmetic** —
+   `src/rng/hash_drbg.rs:242-273`.  The Hashgen counter, `V + w`, and
+   `V + H + C + reseed_counter` were byte-wise carry loops.  **Fixed:** all
+   three go through rump's `BigUint` (`+=`, `low_bits(440)`,
+   `to_be_bytes_padded`).  New tests pin carries across limb boundaries,
+   truncation of the partial top limb, mixed-width addends, and the Hashgen
+   counter wrap.  Dual_EC's byte padding, `rightmost(outlen)` truncation,
+   and hex decoding were moved onto rump as well.  Built against the
+   committed sibling crates, streaming Hash_DRBG runs at about 87% of the
+   hand-rolled baseline's throughput on this machine, because each rump
+   conversion allocates.
+
+B. **Withdrawn: "state wiping was compiled out."**  This was diagnosed
+   against uncommitted edits in the sibling cryptography checkout, which at
+   the time gated both `zeroize_slice` and rump's limb scrubbing behind a
+   new opt-in `wipe` feature.  Committed cryptography-rs 0.7 (342989a, the
+   revision CI checks out) has no such feature: `zeroize_slice` is an
+   unconditional volatile write and the crate always enables
+   `rust-mp/wipe`, so the manifest comment and `DualEcDrbg`'s drop docs
+   were correct.  Enabling the feature here broke dependency resolution
+   against the committed crate and was reverted.  A test now fails if
+   `zeroize_slice` stops clearing memory.  The same uncommitted work later
+   made `zeroize_slice` unconditional again but still left rump's limb
+   scrubbing opt-in.  If it lands that way, this crate will need
+   `features = ["wipe"]`, and no test here would notice: the scrubbing
+   itself cannot be observed from safe code, and no test inspects the
+   resolved dependency features.
+
+C. **Streaming paths and Dual_EC output were unpinned** — the DRBG
+   known-answer tests reached only `generate`, and no Dual_EC output was
+   tested.  **Fixed:** 4096-word streaming goldens for Hash_DRBG and
+   HMAC_DRBG, and a fifteen-word P-256 known-answer test for the battery's
+   Dual_EC seed, all from independent Python replicas.  The three Dual_EC Q
+   literals are checked to lie on their curves.
+
+D. **DRBG module docs denied backtracking resistance** —
+   `src/rng/hash_drbg.rs:27-33`, `src/rng/hmac_drbg.rs:30-34`.  Both said a
+   memory compromise exposes all past output.  SP 800-90A §8.8 designs
+   every DRBG mechanism for backtracking resistance, and both
+   implementations run the one-way update after each generate step, so a
+   compromise exposes future output and only the already-generated bytes
+   still in the output buffer.  What they lack is prediction resistance,
+   because nothing reseeds.  CONFIRMED against the PDF.  **Fixed:** both
+   module docs now say so.  The Hash_DRBG doc also no longer describes
+   Hashgen as hashing a counter concatenated with V, and the Dual_EC module
+   header no longer cites SP 800-90 Table 4.  The six citations of
+   Appendix A.1 Tables A-1 to A-3 for the Q points remain; that edition is
+   not in `pubs/` (item 21).
+
+## Correctness risks (statistic differs from the cited reference)
+
+7. **Universal test sigma uses the Coron–Naccache constant while citing
+   NIST** — `src/nist/universal.rs:165-171`.  Implements
+   `c = 0.7 - 0.8/L + (1.6 + 12.8/L) K^(-4/L)`; SP 800-22 §2.9.4 uses
+   `(4 + 32/L) K^(-3/L) / 15`, and §3.9 says the other form is not in
+   the suite.  Negligible at the battery's K (p 0.282887 vs STS 0.282568
+   on 10^6 bits of e) but a 40 % sigma difference at L=16, K=1000, which
+   `universal_parametric_all` (line 125) permits.  The unit test
+   `uses_nist_correction_factor` (line 191) pins the non-NIST value.
+   CONFIRMED.
+
+8. **Squeeze drops sub-cutoff cells instead of pooling** —
+   `src/diehard/squeeze.rs:59-71`.  Dieharder's `Vtest_eval` pools
+   cells with expectation under 5 into a tail cell scored when the pool
+   reaches 5.  At N = 100 000 the five weak cells sum to 9.28, so
+   Dieharder scores 38 cells; this code scores 37 and never sees
+   over-production of extreme squeeze lengths.  The same drop pattern in
+   birthday spacings, binary rank, GCD and craps is numerically
+   equivalent to the C at their fixed sample sizes.  CONFIRMED.
+
+9. **31x31 binary rank tests the low 31 bits** —
+   `src/diehard/binary_rank.rs:127-137`.  Marsaglia specifies the
+   leftmost 31 bits (`tests.txt:35-36`).  Verdicts will differ from
+   DIEHARD on generators with weak low bits.  CONFIRMED.
+
+10. **6x8 binary rank uses only byte 0** — `src/diehard/binary_rank.rs:56-88`.
+    DIEHARD sweeps 25 byte positions and KS-combines; Dieharder uses the
+    low byte.  Bytes 1–3 are never rank-tested and the doc says "a
+    specified byte position".  CONFIRMED vs Dieharder.
+
+11. **Webster–Tavares BIC masks degenerate linear maps** —
+    `src/research/webster_tavares.rs:50-54`.  A never/always-flipping
+    avalanche variable forces rho = 0, so Xorshift32/64 print
+    `BICmax = 0.0000`, the ideal value, precisely because they are
+    GF(2)-linear.  CONFIRMED (ran binary).
+
+12. **Hamming bit extraction is not TestU01's** —
+    `src/research/testu01_hamming.rs:46-61`.  Takes the low
+    `min(remaining, s)` bits of a fresh chunk per call; TestU01 packs
+    `s/L` blocks per word for `L < s` and strips top bits for the tail.
+    Valid statistic, but README line 190's "faithful TestU01 bit
+    extraction" overstates it.  CONFIRMED against `sstring.c`.
+
+13. **glibc `random()` seeding differs for seeds >= 2^31** —
+    `src/rng/c_stdlib.rs:68-77, 342-348`.  `park_miller31` seeds via
+    `u32 -> i64` (always non-negative); glibc runs Schrage on a signed
+    `int32_t`, so high seeds diverge.  Seed 1 (the battery) is
+    unaffected.  PLAUSIBLE.
+
+14. **Fill-tree reproduces a Dieharder off-by-one** —
+    `src/dieharder/fill_tree.rs:156-163`.  Cell 14 (expected 23.5) is
+    excluded from the chi-square as in `dab_filltree.c:71`, and the
+    truncated multinomial is not renormalised.  The comment acknowledges
+    it; flagged as a known-wrong statistic kept for fidelity.  The
+    `word_count > SIZE*2` bail-out (lines 132-135) is unreachable.
+    CONFIRMED.
+
+15. **Matrix-rank and longest-run probabilities truncated to 4 digits** —
+    `src/nist/matrix_rank.rs:20-22`, `src/nist/longest_run.rs:23-31`.
+    STS uses the exact values; on 10^5 bits of e the code reproduces the
+    spec's counts exactly but reports p 0.531905 vs 0.532069.  CONFIRMED.
+
+16. **Approximate-entropy m gate looser than NIST** —
+    `src/research/approx_entropy.rs:69-76` admits `2^m <= n/10`;
+    §2.12.7 requires `m < log2(n) - 5`, i.e. `2^m < n/32`.
+    `src/nist/approximate_entropy.rs:29` allows equality where the spec
+    is strict.  CONFIRMED.
+
+17. **Gorilla aggregate is KS, paper uses Anderson–Darling** —
+    `src/research/marsaglia_tsang.rs:14, 113-123`.  Doc says "the
+    second-stage aggregate check described in Marsaglia and Tsang".
+    CONFIRMED (paper p. 6).
+
+18. **Craps dice use low bits** — `src/diehard/craps.rs:157-170`.
+    `v % 6` after rejection; Marsaglia and Dieharder use high bits.
+    Unbiased but a different bit-plane.  CONFIRMED.
+
+19. **Universal parametric path emits p-values for any K >= 1** —
+    `src/nist/universal.rs:122-131`.  Spec wants K near 1000·2^L; below
+    that the normal approximation is meaningless yet no SKIP is issued.
+    PLAUSIBLE.
+
+20. **GCD reports SKIP on an all-zero stream** —
+    `src/dieharder/gcd.rs:64-66, 79, 118, 137`.  Every pair is skipped,
+    df is 0, `igamc(0,0)` is NaN, both results SKIP rather than FAIL.
+    CONFIRMED by reading.
+
+## Documentation drift and citation gaps
+
+21. `src/rng/dual_ec.rs:3, 15, 39` cite "SP 800-90 (June 2006) §9"; the
+    final places Dual_EC in §10.3, and no version containing Dual_EC is
+    in `pubs/` (project rule: keep `pubs/` current).  Lines 44-45 credit
+    only the port, not NIST.  Lines 171-189 apply the step-13 backtrack
+    update after every block, i.e. a sequence of one-block Generate
+    calls; undocumented deviation from multi-block Generate.  CONFIRMED.
+22. `src/rng/spongebob.rs:18-20` claims SHA3-512 dispatches to aarch64
+    intrinsics; the sibling crate gates that behind the opt-in
+    `arm-sha3` feature, which this crate never enables.  CONFIRMED.
+23. `scripts/parse_battery.py:301` says Dual_EC costs two scalar
+    multiplications per block; the code and `src/main.rs:384-386` say
+    three.  Regenerated TESTS.md carries the wrong number.  CONFIRMED.
+24. `src/rng/mt19937.rs:74-76` attributes the seed-19650218 vector to the
+    `mt19937ar.c` output table, which is actually `init_by_array`
+    output; the values are correct but the provenance is wrong, and the
+    canonical `init_genrand(5489)` vector is untested.  CONFIRMED.
+25. `src/nist/universal.rs:7-9, 25-26`: header L/Q thresholds disagree
+    with the §2.9.7 table (L=7 starts at 904 960, L=15 at 496 435 200);
+    the 12-digit variances are attributed to tables that give 3–4
+    digits.  CONFIRMED.
+26. `src/nist/serial.rs:13-19` doc says `serial()` returns a pair with
+    `p_value = min(p1,p2)`; it returns one `TestResult`.  CONFIRMED.
+27. `src/diehard/birthday_spacings.rs:9-13` claims Dieharder excludes
+    tail bins under 5; `chisq_poisson` keeps all bins with df 7.
+    CONFIRMED.
+28. `src/diehard/monkey.rs:7-14` says letter extraction deviates from
+    Dieharder for all three; OPSO and OQSO extraction are identical, only
+    DNA differs.  CONFIRMED.
+29. Missing author citations (project rule): `src/diehard/monkey.rs`
+    (no Author anywhere), `src/rng/stream_rng.rs` (no References or
+    Author), `src/rng/block_ctr.rs:21-23` (no Author),
+    `src/research/practrand_fpf.rs:1-5` (no Doty-Humphrey),
+    `src/research/testu01_hamming.rs:1-5` and `testu01_lz.rs:1-5` (no
+    L'Ecuyer and Simard), `src/bin/bitplane_complexity.rs:1` (no
+    Berlekamp–Massey reference), `src/bin/upstream_tests.rs` and
+    `src/bin/testu01_lz.rs` (nothing), `src/nist/overlapping_template.rs:49`
+    (Hamano–Kaneko corrected pi uncited), `src/nist/spectral.rs` (Kim et
+    al. corrected T and d uncited).  `src/research/knuth.rs:1-9, 332`
+    names the above/below-median Wald–Wolfowitz test as TAOCP's runs
+    test, which is runs-up/down.  CONFIRMED.
+30. `src/bin/upstream_tests.rs:128-141` help lists 3 of 10 accepted
+    flags and advertises "FPF(4,14,6)" though the stride-4 overlap is
+    dropped (`practrand_fpf.rs:14-21`).  `src/main.rs:22-24` places the
+    `--help` line after the exit-code paragraph.  `src/rng/mod.rs:79-87`
+    endianness list omits `BlockCtrRng`/`StreamRng` and `AesCtr`.
+    CONFIRMED.
+31. Sample sizes far below Dieharder defaults with no doc note:
+    `gcd.rs:26` 10^5 vs 10^7 pairs; `fill_tree.rs:24` 10^5 vs 1.5×10^7;
+    `dct.rs:26` 5 000 vs 50 000 blocks; `minimum_distance_nd.rs:41-42`
+    8 000×100 vs 10 000×1 000.  CONFIRMED.
+
+## Code quality
+
+32. **Duplicated helpers that belong in `math.rs`**: `chi_square_pvalue`
+    in `practrand_fpf.rs:50` and `testu01_hamming.rs:63` re-implement
+    `math::chi2_pvalue`; every NIST test inlines `igamc(df/2, x/2)`
+    instead of calling it; `binomial_pmf` (`bit_distribution.rs:25`) and
+    `binomial_pdf` (`monobit2.rs:133`); `poisson_pmf`
+    (`birthday_spacings.rs:133`); `strip_b` in `testu01_hamming.rs:25`
+    and `testu01_lz.rs:74`; three O(n^2) nearest-pair scans
+    (`minimum_distance.rs:70`, `spheres_3d.rs:56` takes sqrt per pair,
+    `minimum_distance_nd.rs:105`); two run counters in
+    `runs_float.rs:119-197`; a `hex()` test helper in `hash_drbg.rs:332` and
+    `hmac_drbg.rs:265`, duplicated by the production `decode_hex` in
+    `dual_ec.rs:249` (replaced by rump's `from_str_radix` on 2026-09-10); the `take_bytes` refill idiom
+    in five generators.
+33. **Boilerplate copied across seven binaries**: `Args::parse`, `die`,
+    `matches_rng`, and the 14-case RNG list in `bib_tests`, `gorilla`,
+    `testu01_lz`, `upstream_tests`, `webster_tavares`,
+    `bitplane_complexity`, plus the `dump_rng`/`pilot_rng` dispatch
+    tables; `upstream_tests.rs:176-252` repeats each label twice.
+34. **Dead public API** (no callers in `src/` or `tests/`):
+    `nist::serial::serial`, `nist::random_excursions::random_excursions`,
+    `nist::random_excursions_variant::random_excursions_variant`,
+    `nist::non_overlapping_template::non_overlapping_template`,
+    `diehard::craps::craps`, `diehard::runs_float::runs_float`,
+    `dieharder::fill_tree::fill_tree`, `dieharder::gcd::gcd`,
+    `dieharder::bit_distribution::bit_distribution`, the `CRand` alias
+    (`c_stdlib.rs:120`), `RngResults.nist_n` (`main.rs:232, 419, 436`,
+    always `NIST_N`), and the `(31,31)` match arm in
+    `binary_rank.rs:190-196` (identical to the generic arm).
+35. **Same generator twice**: `LcgVariant::Msvc` (`lcg.rs:33-35, 95-102`)
+    and `WindowsMsvcRand` (`c_stdlib.rs:131-160`) each pin the same
+    41, 18467, … vector; `msvc_lcg` exists only in the two binaries, so
+    the binaries carry 44 names and the battery 43.
+36. **Variable-length result vectors**: `random_excursions_all`
+    (`random_excursions.rs:84-87`) and the variant (`:63-66`) return a
+    single SKIP entry instead of 8/18 when the walk is too short, so
+    `run_all`'s documented 200-slot layout (`nist/mod.rs:45-52`) shrinks
+    to 176.
+37. **Exit-code drift**: `dump_rng` uses 2 for usage errors
+    (`dump_rng.rs:167,177,193`), `pilot_rng` uses 1
+    (`pilot_rng.rs:146,201`), research binaries use 1 via `die` but 101
+    on panics.  `--rng` matching (`main.rs:186`) is case-sensitive, so
+    `--rng dual_ec` matches nothing; `--suite diehard --rng Dual_EC`
+    exits 0 silently.
+38. **Memory**: `testu01_lz.rs:84` reserves `n_bits/4 + 1` trie nodes
+    (256 MiB at k=25, 2 GiB at k=28) against about 56 MiB used.
+    `random_excursions_variant.rs:70` uses a `HashMap` for 18 fixed
+    states.  `linear_complexity.rs:122` clones the connection vector on
+    every discrepancy.
+39. **Repeated hex literals** (project rule): `src/rng/aes_ctr.rs:270-273`
+    and `:333-336` inline the NIST F.5 key twice.
+40. **CI**: `.github/workflows/ci.yml:38-45` checks out the sibling
+    crates at unpinned default branches, so any push there changes what
+    CI builds; no `cargo fmt --check` step; MSRV job is Ubuntu-only.
+41. **Nits**: `hash_drbg.rs:140,171` and `hmac_drbg.rs:120,142` refuse
+    the last permitted call (`>=` vs spec `>`); `serial.rs:42` gates
+    n >= 1000 without spec basis; `craps.rs:201-203` tail-mass comment
+    off by eight orders of magnitude; `bitstream.rs:101-108`
+    `msb_first_ordering` asserts nothing; `monobit2.rs:46-56` flat
+    layout aliases adjacent levels (inherited from `dab_monobit2.c`);
+    `knuth.rs:278` `partial_cmp().unwrap()` panics on NaN input;
+    `knuth.rs:169-186` skips the leading gap that TAOCP Algorithm G
+    counts (PLAUSIBLE).
+
+## Test coverage
+
+Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
+
+- No spec known-answer tests for NIST frequency, runs, longest run, or
+  cumulative sums even though the §2.x.8 examples pass through the
+  public API today; no Berlekamp–Massey KAT; no 10^6-bit e fixture, so
+  the matrix-rank, serial and random-excursion examples are unpinned.
+- Fourteen DIEHARD/DIEHARDER modules have no unit tests at all
+  (birthday spacings, count-ones, parking lot, runs, 3-D spheres,
+  squeeze, minimum distance, byte distribution, DCT, GCD, KS uniform,
+  lagged sums, minimum distance n-D, permutations); no golden p-values
+  for a fixed seed; no check that the reference tables sum to 1.
+- No KAT for `Rand48`, `Xorshift32/64`, `Pcg64`, or `Lcg32`
+  AnsiC/Borland.  (`DualEcDrbg` and the streaming paths of both DRBGs were
+  pinned on 2026-09-10; see item C.)  `ChaCha20Rng` has no deterministic constructor, so it cannot be
+  pinned to RFC 8439.  `tests/dump_rng.rs:110-142` pins 5 of 44 names.
+- `src/main.rs` has zero tests; `Args::parse` reads `std::env::args`
+  directly.
+- Research: `hamming_indep`, `lumped_chi_square`, `truncate_table_bits`,
+  `grouped_tail_g_test`, `gorilla_aggregate_ks` untested; the PractRand
+  FPF truncation rule is unverified (no source available).
+
+## Verified correct
+
+Every generator known-answer vector in the tree is genuine, and several
+generators without one were checked as well: MT19937, PCG32/64,
+SFC64, JSF64, wyrand, xorshift, rand48, Hash_DRBG, HMAC_DRBG and Dual_EC
+P-256 output were reproduced from independent replicas of the
+reference algorithms, and `mrand48`/`random`/`rand` were cross-checked
+against the macOS libc.  NIST frequency, block frequency, runs, longest
+run, spectral, approximate entropy, cumulative sums, serial, both random
+excursion tests and the non-overlapping template match STS on 10^6 bits
+of e to 5–6 digits.  DIEHARD/DIEHARDER tables (`SDATA`, `KPROB`,
+`TARGET_DATA`, Fischler Q, runs A/B, rank probabilities, parking lot,
+bitstream, birthday, craps, count-the-1's, byte distribution, DCT,
+monobit2) match the C digit for digit.  TestU01 LZ mu/sigma tables and
+end-phrase rule, HammingCorr/HammingIndep statistics, Gorilla constants,
+SAC/BIC definitions and Knuth chi-square degrees of freedom all match
+their sources.  `#![forbid(unsafe_code)]` holds, all-zero seeds are
+rejected where required, wrapping arithmetic is used throughout, CTR
+counters wrap, `OsRng` uses `read_exact`, and the documented 0/1/2 exit
+contract is implemented in `run_tests`.
+
+## Suggested order of repair
+
+1. Items 1–5 (bounds checks; each is a few lines).
+2. Items 7–9 and 11 (statistics that differ from the cited reference in
+   ways a user comparing against DIEHARD/STS would notice).
+3. Item 34 dead API and item 32 duplicated helpers, which shrink the
+   surface the remaining doc fixes (21–31) have to cover.
+4. Coverage: NIST §2.x.8 KATs through the public API and a fixed-seed
+   golden run of the two batteries.
