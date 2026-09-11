@@ -249,7 +249,7 @@ included to demonstrate that the backdoor is statistically invisible — it
 being cryptographically compromised — and to provide a reference
 implementation of a known-bad design. It must never be used to
 produce any material in any context. The harness limits it to the NIST battery
-because two P-256 scalar multiplications per 30-byte block make DIEHARD and
+because three P-256 scalar multiplications per 30-byte block make DIEHARD and
 DIEHARDER runs prohibitively slow.
 
 ---
