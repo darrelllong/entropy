@@ -29,6 +29,9 @@ use crate::{result::TestResult, rng::Rng};
 
 /// Run all 15 NIST SP 800-22 tests and return the results.
 ///
+/// Always returns 200 results, in the order of the capacity comment in the
+/// body; a test whose preconditions fail is skipped in its slot.
+///
 /// Uses the recommended default parameters from SP 800-22 §2.  The sequence
 /// length `n` should be at least 1 000 000 for the full battery; 100 000 is
 /// the minimum for most tests.
@@ -86,4 +89,53 @@ pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
         &bits,
     ));
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_all;
+    use crate::rng::Mt19937;
+
+    /// `run_all` keeps its 200-slot layout when the walk is too short for
+    /// the excursion tests.
+    #[test]
+    fn run_all_keeps_200_slots_when_excursions_skip() {
+        let results = run_all(&mut Mt19937::new(5489), 20_000);
+        let names: Vec<&str> = results.iter().map(|r| r.name).collect();
+        assert_eq!(names.len(), 200);
+        assert_eq!(
+            names[..12],
+            [
+                "nist::frequency",
+                "nist::block_frequency",
+                "nist::runs",
+                "nist::longest_run",
+                "nist::matrix_rank",
+                "nist::spectral",
+                "nist::overlapping_template",
+                "nist::universal",
+                "nist::linear_complexity",
+                "nist::approximate_entropy",
+                "nist::cumulative_sums_forward",
+                "nist::cumulative_sums_backward",
+            ]
+        );
+        assert!(names[12..160]
+            .iter()
+            .all(|&n| n == "nist::non_overlapping_template"));
+        assert_eq!(
+            names[160..162],
+            ["nist::serial_delta1", "nist::serial_delta2"]
+        );
+        assert!(names[162..174]
+            .iter()
+            .all(|n| n.starts_with("maurer::universal_l")));
+        assert!(names[174..182]
+            .iter()
+            .all(|&n| n == "nist::random_excursions"));
+        assert!(names[182..]
+            .iter()
+            .all(|&n| n == "nist::random_excursions_variant"));
+        assert!(results[174..].iter().all(|r| r.skipped()));
+    }
 }

@@ -53,6 +53,11 @@ pub fn random_excursions_variant(bits: &[u8]) -> TestResult {
 }
 
 /// Run all 18 sub-tests and return a result per state.
+///
+/// Always returns 18 results, for x = −9, …, −1, +1, …, +9 in that order.
+/// When the walk has fewer than max(0.005·√n, 500) cycles every entry is a
+/// skipped `nist::random_excursions_variant` result, so the vector keeps its
+/// length.
 pub fn random_excursions_variant_all(bits: &[u8]) -> Vec<TestResult> {
     // Build random walk.
     let (walk, j) = build_walk(bits);
@@ -60,10 +65,11 @@ pub fn random_excursions_variant_all(bits: &[u8]) -> Vec<TestResult> {
     // §2.15.4 (as in sts): J must be at least max(0.005·√n, 500).
     let j_min = (0.005 * (bits.len() as f64).sqrt()).max(500.0);
     if (j as f64) < j_min {
-        return vec![TestResult::insufficient(
-            "nist::random_excursions_variant",
-            &format!("J={j} < {j_min:.0}"),
-        )];
+        let why = format!("J={j} < {j_min:.0}");
+        return STATES
+            .iter()
+            .map(|_| TestResult::insufficient("nist::random_excursions_variant", &why))
+            .collect();
     }
 
     // Count total visits per state across the entire walk (excluding endpoints).
@@ -106,4 +112,25 @@ fn build_walk(bits: &[u8]) -> (Vec<i32>, usize) {
     }
     let j = walk.iter().filter(|&&v| v == 0).count() - 1;
     (walk, j)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A walk with J = 1 still yields one skipped entry per state, and the
+    /// Bonferroni wrapper passes the skip through.
+    #[test]
+    fn short_walk_yields_one_skipped_entry_per_state() {
+        let bits = [1u8; 1000];
+        let results = random_excursions_variant_all(&bits);
+        assert_eq!(results.len(), STATES.len());
+        for r in &results {
+            assert_eq!(r.name, "nist::random_excursions_variant");
+            assert!(r.skipped(), "{r}");
+        }
+        let family = random_excursions_variant(&bits);
+        assert_eq!(family.name, "nist::random_excursions_variant");
+        assert!(family.skipped(), "{family}");
+    }
 }

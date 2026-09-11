@@ -49,6 +49,10 @@ pub fn random_excursions(bits: &[u8]) -> TestResult {
 }
 
 /// Run all 8 sub-tests and return a result for each state.
+///
+/// Always returns 8 results, for x = −4, …, −1, +1, …, +4 in that order.
+/// When the walk has fewer than max(0.005·√n, 500) cycles every entry is a
+/// skipped `nist::random_excursions` result, so the vector keeps its length.
 pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
     // Build the random walk partial sums S' = 0, S₁, …, Sₙ, 0.  Append the
     // closing zero only when Sₙ ≠ 0: if the walk already ends at zero, an
@@ -81,10 +85,11 @@ pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
     // §2.14.4 step 3 (as in sts): J must be at least max(0.005·√n, 500).
     let j_min = (0.005 * (bits.len() as f64).sqrt()).max(500.0);
     if (j as f64) < j_min {
-        return vec![TestResult::insufficient(
-            "nist::random_excursions",
-            &format!("J={j} < {j_min:.0}"),
-        )];
+        let why = format!("J={j} < {j_min:.0}");
+        return STATES
+            .iter()
+            .map(|_| TestResult::insufficient("nist::random_excursions", &why))
+            .collect();
     }
 
     // For each state x, count how many cycles visit x exactly k times, k=0..=5.
@@ -132,4 +137,38 @@ fn chi_sq_for_state(x: i32, nu: &[usize; 6], j: usize) -> f64 {
             (nu[k] as f64 - expected).powi(2) / expected
         })
         .sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A walk with J = 1 still yields one skipped entry per state, and the
+    /// Bonferroni wrapper passes the skip through.
+    #[test]
+    fn short_walk_yields_one_skipped_entry_per_state() {
+        let bits = [1u8; 1000];
+        let results = random_excursions_all(&bits);
+        assert_eq!(results.len(), STATES.len());
+        for r in &results {
+            assert_eq!(r.name, "nist::random_excursions");
+            assert!(r.skipped(), "{r}");
+        }
+        let family = random_excursions(&bits);
+        assert_eq!(family.name, "nist::random_excursions");
+        assert!(family.skipped(), "{family}");
+    }
+
+    /// Alternating bits close a cycle every two steps: n = 1000 gives
+    /// J = 500, the smallest J that runs, and n = 998 gives J = 499.
+    #[test]
+    fn cycle_count_gate_keeps_eight_entries() {
+        let alternating: Vec<u8> = (0..1000).map(|i| (i % 2) as u8).collect();
+        let at = random_excursions_all(&alternating);
+        let below = random_excursions_all(&alternating[..998]);
+        assert_eq!(at.len(), 8);
+        assert_eq!(below.len(), 8);
+        assert!(at.iter().all(|r| !r.skipped()));
+        assert!(below.iter().all(TestResult::skipped));
+    }
 }
