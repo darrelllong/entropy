@@ -14,8 +14,9 @@ Throughput measured with `pilot-bench` `run_program --preset normal`.
 > that has since been removed (see its entry below).
 
 All results are in millions of 32-bit words per second (`MW/s`); 90% CI shown.
-The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`) with FEAT_SHA2 and
-FEAT_SHA3 hardware acceleration.  The `dmz.lan` column is an Intel Core i5
+The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`); its FEAT_SHA2 and
+FEAT_SHA3 extensions go unused, because every hash in this crate runs portable
+Rust (see SpongeBob and Squidward below).  The `dmz.lan` column is an Intel Core i5
 (`Linux x86_64`).  The `moore` column is an AMD EPYC 7452 32-core (`Linux x86_64`,
 `moore.soe.ucsc.edu`).  The `tolkien` column is an Apple M1 (`macOS aarch64`,
 4 performance + 4 efficiency cores); the `baase` column is an ARM Cortex-X925
@@ -399,12 +400,12 @@ $x_{i+1} = \text{SHA3-512}(x_i)$.
 The adapter exposes that state as a sequential stream of 32-bit words, with a
 fresh 64-byte digest every time the previous one is exhausted. This is a very
 simple hash-chain CSPRNG design: no linear recurrence, no tiny hidden state,
-and no claim that raw speed is the point. On Dyson, FEAT_SHA3 hardware
-Keccak-f[1600] (EOR3, RAX1, BCAX intrinsics) is used automatically through
-`cryptography::Sha3_512`.  On moore (x86_64), there is no SHA3 hardware path,
-yet SpongeBob (34.5 MW/s) slightly outpaces Dyson (32.4 MW/s), suggesting the
-AMD EPYC's higher clock for software Keccak compensates for the lack of
-FEAT_SHA3. The first full battery in [TESTS.md](TESTS.md) looks
+and no claim that raw speed is the point. Every machine here runs the
+portable Keccak-f[1600]: `cryptography::Sha3_512` uses the aarch64 EOR3, RAX1
+and BCAX intrinsics only under the sibling crate's opt-in `arm-sha3` feature,
+which this crate does not enable.  SpongeBob on moore (34.5 MW/s) slightly
+outpacing Dyson (32.4 MW/s) is therefore software against software. The first
+full battery in [TESTS.md](TESTS.md) looks
 promising but not spotless, so the right read is "plausible modern generator,
 worth more runs," not "already proved perfect."
 
