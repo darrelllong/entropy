@@ -16,8 +16,9 @@ use crate::{math::igamc, result::TestResult};
 /// The entry keeps its own name and note: `nist::serial_delta1` for ∇ψ²_m or
 /// `nist::serial_delta2` for ∇²ψ²_m, with a tie going to ∇ψ²_m.  The
 /// publication's test passes only if both p-values are ≥ α, which is the
-/// verdict this entry's pass/fail check gives.  When the preconditions fail,
-/// both entries are skipped and the `nist::serial_delta2` one is returned.
+/// verdict this entry's pass/fail check gives.  A skipped entry is returned
+/// only when both are skipped (the preconditions failed), and then it is the
+/// `nist::serial_delta2` one.
 ///
 /// # Reference
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.11.
@@ -27,10 +28,12 @@ pub fn serial(bits: &[u8], m: usize) -> TestResult {
     // smaller p-value (most conservative) as the single reported verdict.
     let r1 = results[0].clone();
     let r2 = results[1].clone();
-    if r1.p_value <= r2.p_value {
-        r1
-    } else {
-        r2
+    // A skipped (NaN) entry never masks a scored one.
+    match (r1.skipped(), r2.skipped()) {
+        (false, true) => r1,
+        (true, false) => r2,
+        _ if r1.p_value <= r2.p_value => r1,
+        _ => r2,
     }
 }
 
@@ -62,8 +65,11 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
     let psi_m1 = psi_sq(bits, m - 1, n);
     let psi_m2 = psi_sq(bits, m - 2, n);
 
-    let del1 = psi_m - psi_m1;
-    let del2 = psi_m - 2.0 * psi_m1 + psi_m2;
+    // ∇ψ² is a sum of squares and ∇²ψ² is non-negative too, but the
+    // subtractions can leave rounding residue just below zero, where igamc
+    // returns NaN and a scored entry would be reported as skipped.
+    let del1 = (psi_m - psi_m1).max(0.0);
+    let del2 = (psi_m - 2.0 * psi_m1 + psi_m2).max(0.0);
 
     // §2.11.4 step 5: ∇ψ² ~ χ²(2^{m−1}) and ∇²ψ² ~ χ²(2^{m−2}), so the igamc
     // shape parameters (df/2) are 2^{m−2} and 2^{m−3} respectively.
@@ -167,5 +173,32 @@ mod tests {
         let skipped = serial(&bits[..999], 3);
         assert_eq!(skipped.name, "nist::serial_delta2");
         assert!(skipped.skipped(), "{skipped}");
+    }
+
+    /// Regression: rounding could leave ∇²ψ² a hair below zero, where
+    /// `igamc` returns NaN, so the entry skipped on valid input and
+    /// `serial()` returned that skip even when ∇ψ² failed.  This 12-bit
+    /// periodic pattern makes ∇²ψ² exactly 0, so P-value2 must be 1; MT19937
+    /// seed 37 at n = 1040 hit the same skip.
+    #[test]
+    fn rounding_below_zero_does_not_skip_a_scored_entry() {
+        let pattern: Vec<u8> = (0..12).map(|i| ((0b101001u32 >> i) & 1) as u8).collect();
+        let bits: Vec<u8> = pattern.iter().cycle().take(1000).copied().collect();
+        let both = serial_both(&bits, 2);
+        assert!(!both[1].skipped(), "{}", both[1]);
+        assert!((both[1].p_value - 1.0).abs() < 1e-12, "{}", both[1]);
+        assert!(!both[0].passed(), "{}", both[0]);
+        let one = serial(&bits, 2);
+        assert!(!one.skipped() && !one.passed(), "{one}");
+
+        use crate::rng::{Mt19937, Rng};
+        let bits = Mt19937::new(37).collect_bits(1040);
+        let both = serial_both(&bits, 2);
+        assert!(
+            both.iter().all(|r| !r.skipped()),
+            "{} | {}",
+            both[0],
+            both[1]
+        );
     }
 }
