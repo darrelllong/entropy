@@ -371,7 +371,7 @@ const AD_INF_Z_MAX: f64 = 30.0;
 /// Port of `cPhi` from `ADinf.c`, the code attached to G. Marsaglia and
 /// J. C. W. Marsaglia, "Evaluating the Anderson-Darling Distribution,"
 /// *Journal of Statistical Software* 9(2), 2004 (`marsaglia2004anderson` in
-/// BIB.md; the attachment is not in `pubs/`).  It stores the Mills ratio
+/// BIB.md).  [pubs/marsaglia-marsaglia-2004-ADinf.c]  It stores the Mills ratio
 /// R(x) = cPhi(x)/φ(x) at x = 0, 2, …, 16 and reaches |x| by a Taylor series
 /// in h = |x| − 2j.  Two gaps in the C are closed here.  The C reads past its
 /// nine-entry table once |x| ≥ 17, which `ADf` reaches for 144.5 < t ≤ 150;
@@ -419,7 +419,7 @@ fn c_phi(x: f64) -> f64 {
 }
 
 /// f(z, j), the j-th term of the series for ADinf (Marsaglia and Marsaglia
-/// 2004, §2, p. 2): `ADf` in `ADinf.c`.
+/// 2004, §2, p. 2): `ADf` in `ADinf.c`.  [pubs/marsaglia-marsaglia-2004-ADinf.c]
 ///
 /// With t = (4j + 1)²π²/(8z) it sums c₀ + c₁(z/8) + c₂(z/8)²/2! + …, where
 /// c₀ = π e⁻ᵗ (2t)^(−1/2), c₁ = π (π/2)^(1/2) erfc(√t) and
@@ -455,7 +455,7 @@ fn ad_inf_term(z: f64, j: usize) -> f64 {
 
 /// Limiting Anderson–Darling distribution ADinf(z) = lim Pr(Aₙ < z), to
 /// about 15 digits: `ADinf` in `ADinf.c` (Marsaglia and Marsaglia 2004, §2,
-/// pp. 2–3).
+/// pp. 2–3).  [pubs/marsaglia-marsaglia-2004-ADinf.c]
 ///
 /// ADinf(z) = (1/z) Σⱼ C(−½, j) (4j + 1) f(z, j).  Below z = 0.01 it returns 0,
 /// as the C does (ADinf(0.01) ≈ 5.3·10⁻⁵³).  Above `AD_INF_Z_MAX` = 30 this
@@ -487,7 +487,7 @@ fn ad_inf(z: f64) -> f64 {
 
 /// errfix(n, x), the fitted correction that turns x = ADinf(z) into
 /// Pr(Aₙ < z) (Marsaglia and Marsaglia 2004, §3, p. 4): `errfix` in
-/// `AnDarl.c`.
+/// `AnDarl.c`.  [pubs/marsaglia-marsaglia-2004-AnDarl.c]
 ///
 /// The C squares an `int` n, which overflows for n ≥ 46341; this port squares
 /// a float.
@@ -524,8 +524,9 @@ fn ad_errfix(n: usize, x: f64) -> f64 {
 /// distribution, evaluated by the series of §2, and errfix a correction
 /// fitted to simulation, good to about ±5·10⁻⁵ for n = 8, 16, 32, 64 and 128
 /// and ±5·10⁻⁴ for other n (p. 4).  The code ports the article's attached
-/// `ADinf.c` (`ADinf`, `ADf`, `cPhi`) and `AnDarl.c` (`errfix`), which are
-/// not in `pubs/`.  `AnDarl.c` warns that the test is not well suited to
+/// `ADinf.c` (`ADinf`, `ADf`, `cPhi`) and `AnDarl.c` (`errfix`).
+/// [pubs/marsaglia-marsaglia-2004-ADinf.c] [pubs/marsaglia-marsaglia-2004-AnDarl.c]
+/// `AnDarl.c` warns that the test is not well suited to
 /// n < 7, where accuracy may drop to three digits.
 ///
 /// Departures from the attachments:
@@ -968,7 +969,8 @@ mod tests {
         }
     }
 
-    /// `ADinf` and `cPhi` against the attachment `ADinf.c`, compiled unchanged
+    /// `ADinf` and `cPhi` against the attachment `ADinf.c`
+    /// [pubs/marsaglia-marsaglia-2004-ADinf.c], compiled unchanged
     /// except for renaming its interactive `main`.  The relative tolerance
     /// leaves room for libm's `exp` and `sqrt` to differ by an ulp.
     #[test]
@@ -1026,7 +1028,8 @@ mod tests {
         );
     }
 
-    /// `errfix` against the attachment `AnDarl.c`, compiled unchanged except
+    /// `errfix` against the attachment `AnDarl.c`
+    /// [pubs/marsaglia-marsaglia-2004-AnDarl.c], compiled unchanged except
     /// for renaming its interactive `main`, and with `-ffp-contract=off`.
     /// Clang otherwise fuses multiply-adds, and above x = 0.8, where the terms
     /// of g₃ cancel from about 10³ to 10⁻³, that moves the result by up to
@@ -1080,7 +1083,8 @@ mod tests {
         }
     }
 
-    /// [`anderson_darling_cdf`] against `AnDarl.c`'s `AD(n, z)`, which feeds
+    /// [`anderson_darling_cdf`] against `AnDarl.c`'s `AD(n, z)`
+    /// [pubs/marsaglia-marsaglia-2004-AnDarl.c], which feeds
     /// errfix the short approximation `adinf` in place of ADinf; on a 0.0005
     /// grid over [0.01, 12] the two differ by at most 1.95·10⁻⁵, at z = 0.97.
     /// `AnDarl.c`'s own `ADtest` examples, two samples of 10, are pinned both

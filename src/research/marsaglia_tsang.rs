@@ -6,7 +6,8 @@
 //! randomness", Journal of Statistical Software 7(3), 2002
 //! (`marsaglia2002difficult` in BIB.md).
 //! [pubs/marsaglia-tsang-2002-difficult-tests.pdf]  The article's attached
-//! C code, `gorilla()` and `ad32()` in `tuftests.c`, is not in `pubs/`.
+//! C code is `gorilla()` and `ad32()` in `tuftests.c`.
+//! [pubs/marsaglia-tsang-2002-tuftests.c]
 //!
 //! The paper's Gorilla test (pp. 5–6):
 //! - selects one bit position from each 32-bit output word
@@ -242,8 +243,10 @@ mod tests {
     /// From the per-bit values printed on p. 6 the aggregate reproduces each
     /// printed ADKS to within 10⁻³, the slack the four-decimal rounding of
     /// the inputs allows.  The statistic and Pr(A₃₂ < A) are also pinned to
-    /// `tuftests.c`'s computation redone in double precision, converted by
-    /// ADinf + errfix from the attachments `ADinf.c` and `AnDarl.c`; the two
+    /// `tuftests.c`'s computation [pubs/marsaglia-tsang-2002-tuftests.c],
+    /// redone in double precision and converted by ADinf + errfix from the
+    /// attachments `ADinf.c` [pubs/marsaglia-marsaglia-2004-ADinf.c] and
+    /// `AnDarl.c` [pubs/marsaglia-marsaglia-2004-AnDarl.c]; the two
     /// congruential generators' statistics exceed 30, where ADinf is 1.
     #[test]
     fn aggregate_reproduces_the_adks_values_printed_in_the_paper() {
