@@ -49,11 +49,25 @@ const LN_HALF: f64 = -std::f64::consts::LN_2;
 /// with MT19937 (20 000 trials each at 2 000 and 10 000 words, 5 000 at
 /// 100 000, 1 000 at 1 000 000 and 300 at 16 000 000) never put a count in a
 /// shared cell, and separate histograms gave bit-identical p-values in every
-/// trial.  Below 16 000 000 words the reported p-value was somewhat heavy
-/// near zero, with P(p < 0.01) between 1.3% and 1.5%; blocks aligned to
-/// word 0 gave 1.2% to 1.4%, so that excess comes from elsewhere in the
-/// statistic.  On a stream that does fill a shared cell, such as a constant
-/// one, every level already scores p = 0.
+/// trial.
+///
+/// The shared cells can turn a pass into a fail on a stream that fills them,
+/// a sensitivity outside the null rather than a false alarm under it.
+/// MT19937 output of 100 000 words with six all-ones level-0 blocks and six
+/// all-zeros level-1 blocks written into it scores p = 0 at seeds 1, 2, 3 and
+/// 5489, against 0.345, 0.435, 0.140 and 0.848 with separate histograms: six
+/// counts in each of two cells stay under the 10-count threshold, but twelve
+/// in one shared cell do not.
+///
+/// **Calibration defect, inherited from Dieharder.**  `chisq_binomial`
+/// (`chisq.c` line 166) scores a cell only when its observed count exceeds
+/// 10, so the cells that enter each level's chi-square depend on the data
+/// and its p-value is not uniform under H₀.  Level 0 alone, before the Šidák
+/// step, fell below 0.01 in 1.44% of 20 000 null trials at 2 000 words.  The
+/// reported p-value fell below 0.01 in 1.30% of 20 000 trials at 2 000 words,
+/// 1.27% of 20 000 at 10 000, 1.50% of 5 000 at 100 000 and 1.50% of 1 000
+/// at 1 000 000.  The statistic is kept for fidelity to the C, as the
+/// fill-tree off-by-one is.
 ///
 /// # Author
 /// David Bauer, Dieharder (2006), `dab_monobit2`.
