@@ -292,21 +292,28 @@ mod tests {
         assert_ne!(a.next_u64(), b.next_u64());
     }
 
-    /// EntropyInput of the NIST DRBGVS HMAC_DRBG SHA-256 vector that
-    /// `hmac_drbg_sha256_nist_drbgvs_kat` and
-    /// `hmac_drbg_sha256_additional_input_kat` both instantiate from.
+    /// EntropyInput of the CAVP HMAC_DRBG vector cited on
+    /// `hmac_drbg_sha256_nist_drbgvs_kat`, which
+    /// `hmac_drbg_sha256_additional_input_kat` also instantiates from.
     const DRBGVS_ENTROPY_INPUT: &str =
         "ca851911349384bffe89de1cbdc46e6831e44d34a4fb935ee285dd14b71a7488";
 
-    /// Nonce of the same DRBGVS vector.
+    /// Nonce of the same CAVP vector.
     const DRBGVS_NONCE: &str = "659ba96c601dc69fc902940805ec0ca8";
 
-    /// NIST DRBGVS HMAC_DRBG SHA-256 known-answer test: PredictionResistance =
-    /// False, no reseed, empty personalization and additional input,
-    /// ReturnedBitsLen = 1024 (two Generate calls, the second returned).  The
-    /// expected bits match the published vector (prefix `e528e9ab…`) and were
-    /// independently reproduced by a from-spec SP 800-90A replica.  This pins
-    /// the HMAC_DRBG_Update / Generate math, not just "output advances".
+    /// NIST CAVP DRBGVS HMAC_DRBG known-answer test: CAVS 14.3 `HMAC_DRBG.rsp`
+    /// from `drbgvectors_no_reseed.zip` in the CAVP DRBG test vectors, section
+    /// `[SHA-256] [PredictionResistance = False] [EntropyInputLen = 256]
+    /// [NonceLen = 128] [PersonalizationStringLen = 0] [AdditionalInputLen = 0]
+    /// [ReturnedBitsLen = 1024]`, `COUNT = 0`.
+    /// [pubs/NIST-CAVP-drbgtestvectors-no_reseed-HMAC_DRBG.rsp]
+    ///
+    /// That record's EntropyInput and Nonce are the constants above, its
+    /// PersonalizationString and both AdditionalInput fields are empty, and its
+    /// ReturnedBits (prefix `e528e9ab…`) are the expected bits: two Generate
+    /// calls, the second returned.  A from-spec SP 800-90A replica reproduced
+    /// them.  This pins the HMAC_DRBG_Update / Generate math, not just "output
+    /// advances".
     #[test]
     fn hmac_drbg_sha256_nist_drbgvs_kat() {
         let entropy = hex(DRBGVS_ENTROPY_INPUT);
