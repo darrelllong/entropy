@@ -57,11 +57,10 @@ use std::thread;
 
 // 16 M bits: enough for the signed-random-walk in random_excursions to
 // complete ~3 191 zero-crossing cycles (J = √(2n/π) >> 500 minimum) for any
-// non-degenerate generator, and for every slot of the parametric Maurer
-// family (L=5..16, maurer::universal_l*) to run.  Caveat: at this size the
-// L=15 and L=16 slots run with K ≈ 739 k and ≈ 345 k blocks — far below the
-// K ≥ 1000·2^L (32.8 M / 65.5 M) calibration assumption — so their power is
-// degraded; treat those two slots as indicative only.
+// non-degenerate generator.  The parametric Maurer family (L=5..16,
+// maurer::universal_l*) runs a setting only when the sample holds the
+// K ≥ 1000·2^L blocks behind SP 800-22's §2.9.7 table: at this size L=5..10
+// run and L=11..16 report SKIP.
 const NIST_N: usize = 16_000_000;
 const DIEHARD_N: usize = 16_000_000;
 
