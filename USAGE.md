@@ -26,15 +26,16 @@ cargo run --release -- --suite diehard --suite diehard-historical --rng AES
 
 Running every suite, the default, never includes it, and `--test` selects it
 only through the `diehard_historical::` prefix. Its tests read one capture of
-16 000 000 words, and `--quick` does not change them. Each result name states
-its variant:
+16 000 000 words and report 53 results per generator, and `--quick` does not
+change them. Each result name states its variant:
 
 | Result name | Variant | Words |
 |---|---|---|
 | `diehard_historical::operm5_dieharder` | OPERM5 as corrected in Dieharder 3.31.1: `kperm` index, Moenkehues' pseudoinverse, df 96, one pass | 1 000 005 |
 | `diehard_historical::overlapping_sums_fortran` | Overlapping sums as Marsaglia's `diehard.f` computes them: y(1) coefficients, his table f, three Anderson–Darling layers | 199 000 |
 | `diehard_historical::count_ones_bytes_25_fresh` | Count-the-1s on DIEHARD's 25 byte windows, each on its own words; 25 results | 6 400 100 |
-| `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on DIEHARD's 25 bit windows, each on its own words; one Anderson–Darling summary | 15 000 000 |
+| `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on each of DIEHARD's 25 bit windows, each on its own words; 25 results | 15 000 000 |
+| `diehard_historical::rank_6x8_25_fresh_summary` | Anderson–Darling summary of those 25 window p-values | (same words) |
 
 From the library, `entropy::diehard::historical::run_all(&mut rng, n_words)`
 runs the same tests, and each module under `entropy::diehard::historical`

@@ -233,11 +233,11 @@ The modules live in [src/diehard/historical](src/diehard/historical). Each modul
 - **Restored as:** DIEHARD's `wknt1s`, with Q5 − Q4 on all 25 byte windows, bits 1–8 through 25–32: 25 results and no summary.
 - **Limitations:** each window reads its own 256 004 words, 6 400 100 in all. DIEHARD instead rereads nearly the same words for every window, which leaves its 25 results weakly dependent: in simulation, adjacent windows' Q5 − Q4 correlate at 0.024. The p-value is two-sided where DIEHARD prints Φ(z). The test adds 25 result slots per generator.
 
-### 6x8 binary rank over 25 windows: `diehard_historical::rank_6x8_25_fresh`
+### 6x8 binary rank over 25 windows: `diehard_historical::rank_6x8_25_fresh` and `diehard_historical::rank_6x8_25_fresh_summary`
 
 - **Not removed:** the default battery's `diehard::binary_rank_6x8` reads only DIEHARD's last window, bits 25–32, and stays as it is (AUDIT.md item 10). The fidelity review recommended DIEHARD's full sweep.
-- **Restored as:** `cdbinrnk` over all 25 windows, each on its own 600 000 words, with one Anderson–Darling summary as DIEHARD computes (over 10 000 null streams its summary fell below 0.01 in 0.94%; with every window on the same words, as DIEHARD reads them, it fell below 0.01 in 2.55%).
-- **Limitations:** it needs 15 000 000 words. A single broken window can pass the summary, because A² gives the smallest p-value a weight of 1/25, so read the smallest-window p-value in the note. Fresh words replace DIEHARD's rereads, and the cell probabilities are exact where DIEHARD's have six digits.
+- **Restored as:** `cdbinrnk` over all 25 windows, each on its own 600 000 words: 25 window results, then one Anderson–Darling summary of their p-values, the layout DIEHARD prints. Over 10 000 null streams on the landing tree, 1.012% of the 250 000 window p-values and 1.05% of the summaries fell below 0.01, and 22.2% of streams had some window below 0.01, as independent windows predict. With every window on identical words, as the aligned gfortran build reads them (DIEHARD's own rereads start 128 to 3 520 words later and shift matrix boundaries by 0, 2 or 4 words), the summary fell below 0.01 in 2.38%.
+- **Limitations:** it needs 15 000 000 words and adds 26 result slots. The summary alone has little power against one broken window: an adversarial review found that with one of 25 p-values set to 0 the summary fell below 0.01 in only 7.9% of simulated draws, and in 10.0% of 600 streams whose window 8 was broken. The window results catch it: in 1 000 such streams window 8's own result fell below 10⁻¹⁰ every time, while the summary fell below 0.01 in 8.2%. Read the window results first. Fresh words replace DIEHARD's rereads, and the cell probabilities are exact where DIEHARD's have six digits.
 
 `DIEHARDER`: nothing removed. Deprecated internals such as the Kuiper KS path are intentionally not exposed as active tests in this crate.
 

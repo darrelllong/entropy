@@ -10,7 +10,8 @@
 //! | `diehard_historical::operm5_dieharder` | OPERM5 as corrected in Dieharder 3.31.1 ([`operm5`]) |
 //! | `diehard_historical::overlapping_sums_fortran` | Overlapping sums as Marsaglia's `diehard.f` computes them ([`overlapping_sums`]) |
 //! | `diehard_historical::count_ones_bytes_25_fresh` | Count-the-1s on DIEHARD's 25 byte windows, fresh words per window, 25 results ([`count_ones_bytes`]) |
-//! | `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on DIEHARD's 25 bit windows, fresh words per window, one Anderson–Darling summary ([`rank_6x8`]) |
+//! | `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on each of DIEHARD's 25 bit windows, fresh words per window, 25 results ([`rank_6x8`]) |
+//! | `diehard_historical::rank_6x8_25_fresh_summary` | Anderson–Darling summary of those 25 window p-values ([`rank_6x8`]) |
 //!
 //! Each module says what the test is, which reference it follows, where and
 //! why it departs from Marsaglia's `fortran/diehard.f`, the calibration
@@ -47,7 +48,12 @@ const fn larger(a: usize, b: usize) -> usize {
     }
 }
 
-/// Run every historical DIEHARD test on one capture of `n_u32` words.
+/// Results [`run_all`] returns: one each for OPERM5 and overlapping sums, 25
+/// for count-the-1s and 26 for the 6×8 rank test.
+pub const RESULTS: usize = 2 + count_ones_bytes::WINDOWS + rank_6x8::RESULTS;
+
+/// Run every historical DIEHARD test on one capture of `n_u32` words,
+/// returning [`RESULTS`] results.
 ///
 /// Each test reads from the start of the same capture, as
 /// [`crate::diehard::run_all`] does; a test given fewer words than it needs
@@ -70,7 +76,7 @@ pub fn run_all(rng: &mut impl Rng, n_u32: usize) -> Vec<TestResult> {
         overlapping_sums::overlapping_sums_fortran(&words),
     ];
     results.extend(count_ones_bytes::count_ones_bytes_25_fresh(&words));
-    results.push(rank_6x8::rank_6x8_25_fresh(&words));
+    results.extend(rank_6x8::rank_6x8_25_fresh(&words));
     results
 }
 
@@ -93,4 +99,17 @@ fn anderson_darling_statistic(u: &mut [f64]) -> f64 {
         })
         .sum();
     -(n as f64) - log_sum / n as f64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{run_all, RESULTS};
+    use crate::rng::Mt19937;
+
+    #[test]
+    fn run_all_reports_every_result_even_when_it_skips() {
+        let results = run_all(&mut Mt19937::new(5489), 0);
+        assert_eq!(results.len(), RESULTS);
+        assert!(results.iter().all(|r| r.skipped()));
+    }
 }

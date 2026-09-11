@@ -1,6 +1,7 @@
 //! The 6×8 binary rank test over DIEHARD's 25 bit windows, each window on its
-//! own words, with one Anderson–Darling summary.  Result name:
-//! `diehard_historical::rank_6x8_25_fresh`.
+//! own words: 25 window results and one Anderson–Darling summary.  Result
+//! names: `diehard_historical::rank_6x8_25_fresh`, once per window, then
+//! `diehard_historical::rank_6x8_25_fresh_summary`.
 //!
 //! # What it is
 //!
@@ -8,9 +9,10 @@
 //! left, form a 6 × 8 matrix over GF(2), whose rank is 6 with probability
 //! 0.7731, 5 with probability 0.2174 and at most 4 with probability 0.0094.
 //! For each of 25 windows, b = 1 to 25, 100 000 matrices give a χ² on the
-//! counts of those three cells (df 2) and the p-value exp(−χ²/2).  An
-//! Anderson–Darling statistic of the 25 p-values against U(0, 1) gives the
-//! single result, p = 1 − CDF.
+//! counts of those three cells (df 2) and the p-value exp(−χ²/2), one result
+//! per window.  An Anderson–Darling statistic of the 25 p-values against
+//! U(0, 1) gives a 26th result, the summary, with p = 1 − CDF.  DIEHARD
+//! prints the same layout: the 25 window p-values, then their summary.
 //!
 //! # Reference followed
 //!
@@ -40,9 +42,11 @@
 //!   starts at word 600 001 and window 25 at word 596 481.  Its 25 windows
 //!   share nearly all their words, with matrix boundaries shifted by 0, 2 or 4
 //!   words, so their p-values are dependent, which its summary does not allow
-//!   for.  Simulated with all 25 windows on the same 600 000 words, as the
-//!   aligned build reads them, the summary fell below 0.01 in 2.55% and
-//!   below 0.001 in 0.45% of 10 000 streams.  Here window b reads words
+//!   for.  Simulated with all 25 windows on identical 600 000 words, as the
+//!   aligned build reads them rather than as DIEHARD's offset rereads do, the
+//!   summary fell below 0.01 in 2.38% and below 0.001 in 0.41% of 10 000
+//!   streams on the landing tree (2.55% and 0.45% in an earlier 10 000).
+//!   Here window b reads words
 //!   (b − 1)·600 000 + 1 to b·600 000, 15 000 000 words in all, and under the
 //!   null the 25 p-values are independent.
 //! - **Cell probabilities** are exact, where line 929 has six digits.
@@ -62,22 +66,34 @@
 //! within 6.6·10⁻⁶; with the exact probabilities used here χ² moves by up to
 //! 0.0015.
 //!
-//! # A limitation of the summary
+//! # Window results and the summary
 //!
-//! The Anderson–Darling statistic weighs the smallest p-value by 1/25, and
-//! `KSTEST` floors each product at 10⁻²⁰, so one window with p = 0 raises A²
-//! by at most ln(10²⁰)/25 ≈ 1.8: a generator with a single broken window can
-//! pass the summary, as a test below shows.  The note gives the smallest
-//! window p-value and its bits.
+//! The summary alone has little power against one broken window.  A² gives
+//! the smallest p-value little weight, and a p-value of 0 does more than add
+//! its own floored term: it moves every smaller p-value up a rank, and each
+//! move adds (2/25)·ln((1 − u)/u).  An adversarial review of this module drew
+//! 10⁶ sets of 24 uniform p-values and one 0: A² rose by up to 4.80, and the
+//! summary fell below 0.01 in only 7.9% of the sets.  On real data, with
+//! window 8's byte zeroed in each of 600 PCG64 streams, the summary fell below
+//! 0.01 in 10.0% of them.  The window's own result catches it: in 1 000 such
+//! streams simulated for this module, window 8's result fell below 10⁻¹⁰
+//! every time, the other 24 windows fell below 0.01 at their null rate
+//! (0.92% of 24 000 p-values), and the summary fell below 0.01 in 8.2%.  Read
+//! the 25 window results first; the summary asks whether they are jointly
+//! uniform.
 //!
 //! # Calibration evidence
 //!
-//! 10 000 streams of 15 000 000 words, each from a separately seeded PCG64
-//! generator: the summary's p-value fell below 0.01 in 94 (0.94%; binomial
-//! standard deviation 0.10%) and below 0.001 in 15 (0.15%; 0.03%), with
-//! p > 0.99 in 0.83%; a Kolmogorov–Smirnov test of the 10 000 p-values gives
-//! p = 0.61.  A test below runs a fixed 20-stream version under
-//! `cargo test --release`.
+//! On the landing tree, 10 000 streams of 15 000 000 words, each from a
+//! separately seeded PCG64 generator, gave 250 000 window p-values: p < 0.01
+//! in 2 530 (1.012%; binomial standard deviation 0.020%) and p < 0.001 in
+//! 239 (0.096%; 0.006%), a Kolmogorov–Smirnov p of 0.86, and 22.2% of
+//! streams (standard deviation 0.4%) with some window below 0.01, as
+//! 1 − 0.99²⁵ = 22.2% predicts for independent windows.  The summary fell
+//! below 0.01 in 105 (1.05%; 0.10%) and below 0.001 in 11 (0.11%; 0.03%),
+//! with a KS p of 0.73; an earlier 10 000 streams, before the landing tree's
+//! change to the Anderson–Darling tail, gave 0.94% and 0.15%.  A test below
+//! runs a fixed 20-stream version under `cargo test --release`.
 //!
 //! # Why it is outside the default battery
 //!
@@ -99,53 +115,72 @@ use crate::{
     result::TestResult,
 };
 
-/// Result name.
+/// Name of each window's result.
 const NAME: &str = "diehard_historical::rank_6x8_25_fresh";
+/// Name of the Anderson–Darling summary.
+const SUMMARY_NAME: &str = "diehard_historical::rank_6x8_25_fresh_summary";
 /// Bit windows: bits b to b + 7 from the left, b = 1 to 25.
 pub const WINDOWS: usize = 25;
+/// Results the test reports: one per window, then the summary.
+pub const RESULTS: usize = WINDOWS + 1;
 /// Words each window reads: six rows for each of 100 000 matrices.
 pub const WORDS_PER_WINDOW: usize = RANK_6X8_ROWS * RANK_6X8_MATRICES;
 /// Words the test reads.
 pub const WORDS: usize = WINDOWS * WORDS_PER_WINDOW;
 
 /// The 6×8 rank test on each of DIEHARD's 25 bit windows, window b reading
-/// the b-th block of [`WORDS_PER_WINDOW`] words, summarised by one
-/// Anderson–Darling test.
+/// the b-th block of [`WORDS_PER_WINDOW`] words: [`RESULTS`] results, the 25
+/// windows in order and then their Anderson–Darling summary.
 ///
-/// Reports SKIP for fewer than [`WORDS`] words.  See the module documentation
-/// for the statistic and its departures from `diehard.f`.
+/// Reports [`RESULTS`] SKIPs for fewer than [`WORDS`] words.  See the module
+/// documentation for the statistic, its departures from `diehard.f` and why
+/// the window results matter more than the summary.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
-pub fn rank_6x8_25_fresh(words: &[u32]) -> TestResult {
+pub fn rank_6x8_25_fresh(words: &[u32]) -> Vec<TestResult> {
     if words.len() < WORDS {
-        return TestResult::insufficient(NAME, "need 15 000 000 words");
+        let reason = "need 15 000 000 words";
+        let mut skipped: Vec<TestResult> = (0..WINDOWS)
+            .map(|_| TestResult::insufficient(NAME, reason))
+            .collect();
+        skipped.push(TestResult::insufficient(SUMMARY_NAME, reason));
+        return skipped;
     }
     let windows = windows(&words[..WORDS]);
+    let mut results: Vec<TestResult> = windows
+        .iter()
+        .map(|w| {
+            TestResult::with_note(
+                NAME,
+                w.p_value,
+                format!(
+                    "bits {} to {}, ranks ≤4/5/6: {}/{}/{}, χ²={:.4}",
+                    25 - w.shift,
+                    32 - w.shift,
+                    w.counts[0],
+                    w.counts[1],
+                    w.counts[2],
+                    w.chi_square
+                ),
+            )
+        })
+        .collect();
     let mut p: Vec<f64> = windows.iter().map(|w| w.p_value).collect();
     let a2 = anderson_darling_statistic(&mut p);
     let cdf = anderson_darling_cdf(WINDOWS, a2);
-    let worst = windows
-        .iter()
-        .min_by(|a, b| a.p_value.total_cmp(&b.p_value))
-        .expect("25 windows");
-    TestResult::with_note(
-        NAME,
+    results.push(TestResult::with_note(
+        SUMMARY_NAME,
         1.0 - cdf,
-        format!(
-            "25 windows of {RANK_6X8_MATRICES} matrices, A²={a2:.4}, CDF={cdf:.6}; \
-             smallest window p={:.6} (bits {} to {}, χ²={:.4})",
-            worst.p_value,
-            25 - worst.shift,
-            32 - worst.shift,
-            worst.chi_square
-        ),
-    )
+        format!("A²={a2:.4} over the 25 window p-values, CDF={cdf:.6}"),
+    ));
+    results
 }
 
-/// One bit window's χ² and p-value; `shift` is DIEHARD's kr.
+/// One bit window's rank counts, χ² and p-value; `shift` is DIEHARD's kr.
 struct Window {
     shift: u32,
+    counts: [usize; 3],
     chi_square: f64,
     p_value: f64,
 }
@@ -156,9 +191,11 @@ fn windows(words: &[u32]) -> Vec<Window> {
         .chunks_exact(WORDS_PER_WINDOW)
         .zip((0..WINDOWS as u32).rev())
         .map(|(block, shift)| {
-            let chi_square = rank_6x8_chi_square(&window_counts(block, shift));
+            let counts = window_counts(block, shift);
+            let chi_square = rank_6x8_chi_square(&counts);
             Window {
                 shift,
+                counts,
                 chi_square,
                 p_value: igamc(1.0, chi_square / 2.0),
             }
@@ -175,10 +212,13 @@ fn window_counts(block: &[u32], shift: u32) -> [usize; 3] {
 #[cfg(test)]
 mod tests {
     use super::super::{anderson_darling_statistic, oracle};
-    use super::{rank_6x8_25_fresh, window_counts, windows, WINDOWS, WORDS, WORDS_PER_WINDOW};
+    use super::{
+        rank_6x8_25_fresh, window_counts, NAME, RESULTS, SUMMARY_NAME, WINDOWS, WORDS,
+        WORDS_PER_WINDOW,
+    };
     use crate::{
         diehard::binary_rank::{rank_6x8_chi_square, RANK_6X8_MATRICES},
-        math::ks_test,
+        math::{igamc, ks_test},
         rng::{Mt19937, Pcg64, Rng},
     };
 
@@ -232,13 +272,13 @@ mod tests {
             .sum()
     }
 
-    /// This module's p-value when every window reads those words, pinned.
-    const GOLDEN_P: f64 = 0.548_258_484_323_871_1;
-
-    /// All 75 rank counts equal the build's.  With its six-digit probabilities
-    /// the χ² values match its three-decimal sums to 6·10⁻⁴ (largest gap
-    /// 4.8·10⁻⁴) and its `KSTEST` over the 25 p-values matches its summary to
-    /// 2·10⁻⁵ (gap 6.6·10⁻⁶); the exact probabilities move χ² by up to 0.0015.
+    /// Fidelity to the gfortran build.  All 75 rank counts must equal its
+    /// print.  The other tolerances follow its printout, not this code: it
+    /// prints χ² to three decimals from six-digit probabilities, and with
+    /// those probabilities this code matches its sums to 6·10⁻⁴ (largest gap
+    /// 4.8·10⁻⁴) and its `KSTEST` summary, printed to six decimals from
+    /// `REAL*4` values, to 2·10⁻⁵ (gap 6.6·10⁻⁶).  The exact probabilities
+    /// used here move χ² by up to 0.0015.
     #[test]
     fn windows_match_the_gfortran_build_on_the_review_input() {
         let words = oracle::words(WORDS_PER_WINDOW);
@@ -261,15 +301,48 @@ mod tests {
             (summary - FORTRAN_SUMMARY).abs() < 2e-5,
             "summary {summary}"
         );
+    }
 
-        let result = rank_6x8_25_fresh(&words.repeat(WINDOWS));
-        assert!((result.p_value - GOLDEN_P).abs() < 1e-12, "{result}");
+    /// Sum of the 25 window p-values when every window reads `in.bin` words 1
+    /// to 600 000, pinned on the landing tree.
+    const GOLDEN_WINDOW_P_SUM: f64 = 12.040_389_484_609_312;
+    /// The summary's p-value on the same input, pinned on the landing tree.
+    const GOLDEN_SUMMARY_P: f64 = 0.548_258_484_323_871_1;
+
+    /// Regression: the 26 results on the review input, in order, pinned to
+    /// 10⁻¹².  Each window's note carries the counts the fidelity test checks.
+    #[test]
+    fn results_on_the_review_input_are_pinned() {
+        let words = oracle::words(WORDS_PER_WINDOW);
+        let results = rank_6x8_25_fresh(&words.repeat(WINDOWS));
+        assert_eq!(results.len(), RESULTS);
+        let mut sum = 0.0;
+        for (b, (r, (counts, _))) in (1..).zip(results.iter().zip(&FORTRAN_WINDOWS)) {
+            assert_eq!(r.name, NAME);
+            let chi = rank_6x8_chi_square(counts);
+            assert_eq!(r.p_value.to_bits(), igamc(1.0, chi / 2.0).to_bits(), "{r}");
+            let head = format!(
+                "bits {b} to {}, ranks ≤4/5/6: {}/{}/{},",
+                b + 7,
+                counts[0],
+                counts[1],
+                counts[2]
+            );
+            assert!(r.note.as_deref().unwrap_or("").starts_with(&head), "{r}");
+            sum += r.p_value;
+        }
+        assert!((sum - GOLDEN_WINDOW_P_SUM).abs() < 1e-12, "sum {sum}");
+        let summary = &results[WINDOWS];
+        assert_eq!(summary.name, SUMMARY_NAME);
+        assert!(
+            (summary.p_value - GOLDEN_SUMMARY_P).abs() < 1e-12,
+            "{summary}"
+        );
     }
 
     /// Zeroing window 8's byte (bits 8 to 15) in window 8's block gives every
-    /// matrix there rank 0: that window's p-value is 0 and no other window
-    /// moves.  The summary does not fail on that one window, because its
-    /// floored product adds at most ln(10²⁰)/25 ≈ 1.8 to A²; the note names it.
+    /// matrix there rank 0: window 8's result fails and no other window's
+    /// moves.  The summary is not asserted; see the module documentation.
     #[test]
     fn each_window_reads_its_own_bits_and_block() {
         let mut words = Mt19937::new(5489).collect_u32s(WORDS);
@@ -278,27 +351,27 @@ mod tests {
         for w in &mut words[(b - 1) * WORDS_PER_WINDOW..b * WORDS_PER_WINDOW] {
             *w &= !byte;
         }
-        for (i, w) in (1..).zip(windows(&words)) {
+        let results = rank_6x8_25_fresh(&words);
+        for (i, r) in (1..=WINDOWS).zip(&results) {
             if i == b {
-                assert!(w.p_value < 1e-10, "bits {i}: p = {}", w.p_value);
+                assert!(r.p_value < 1e-10, "{r}");
             } else {
-                assert!(w.p_value > 1e-6, "bits {i}: p = {}", w.p_value);
+                assert!(r.p_value > 1e-6, "{r}");
             }
         }
-        let result = rank_6x8_25_fresh(&words);
-        let note = result.note.as_deref().unwrap_or_default();
-        assert!(
-            note.contains("smallest window p=0.000000 (bits 8 to 15"),
-            "{result}"
-        );
+        assert_eq!(results[WINDOWS].name, SUMMARY_NAME);
     }
 
     #[test]
     fn short_inputs_skip_and_constant_input_fails() {
-        assert!(rank_6x8_25_fresh(&[]).skipped());
-        assert!(rank_6x8_25_fresh(&vec![0; WORDS - 1]).skipped());
-        let r = rank_6x8_25_fresh(&vec![0; WORDS]);
-        assert!(!r.skipped() && !r.passed(), "{r}");
+        for words in [vec![], vec![0; WORDS - 1]] {
+            let results = rank_6x8_25_fresh(&words);
+            assert_eq!(results.len(), RESULTS);
+            assert!(results.iter().all(|r| r.skipped()));
+        }
+        let results = rank_6x8_25_fresh(&vec![0; WORDS]);
+        assert_eq!(results.len(), RESULTS);
+        assert!(results.iter().all(|r| !r.skipped() && !r.passed()));
     }
 
     /// Streams from separately seeded PCG64 generators.
@@ -306,8 +379,9 @@ mod tests {
 
     /// A small, fixed version of the null calibration in the module
     /// documentation: over 20 PCG64 streams the 500 window p-values pass a KS
-    /// test, and at most two summaries fall below 0.01 (Binomial(20, 0.01)
-    /// exceeds 2 with probability 0.001).
+    /// test with at most 12 below 0.01 (Binomial(500, 0.01) exceeds 12 with
+    /// probability 0.002), and at most two summaries fall below 0.01
+    /// (Binomial(20, 0.01) exceeds 2 with probability 0.001).
     #[test]
     #[cfg_attr(
         debug_assertions,
@@ -315,15 +389,21 @@ mod tests {
     )]
     fn null_streams_give_uniform_p_values() {
         let mut window_p = Vec::new();
-        let mut below = 0;
+        let mut summaries_below = 0;
         for i in 0..SMOKE_STREAMS {
             let words = Pcg64::new(u128::from(i), u128::from(SMOKE_STREAMS)).collect_u32s(WORDS);
-            window_p.extend(windows(&words).iter().map(|w| w.p_value));
-            below += usize::from(rank_6x8_25_fresh(&words).p_value < 0.01);
+            let results = rank_6x8_25_fresh(&words);
+            window_p.extend(results[..WINDOWS].iter().map(|r| r.p_value));
+            summaries_below += usize::from(results[WINDOWS].p_value < 0.01);
         }
+        let windows_below = window_p.iter().filter(|&&p| p < 0.01).count();
         assert!(
-            below <= 2,
-            "{below} of {SMOKE_STREAMS} summaries below 0.01"
+            windows_below <= 12,
+            "{windows_below} of 500 windows below 0.01"
+        );
+        assert!(
+            summaries_below <= 2,
+            "{summaries_below} of {SMOKE_STREAMS} summaries below 0.01"
         );
         let ks = ks_test(&mut window_p);
         assert!(ks > 1e-3, "KS p = {ks}");

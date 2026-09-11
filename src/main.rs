@@ -239,8 +239,9 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
                  diehard-historical runs the historical DIEHARD tests, which
                  no default run includes: OPERM5 as Dieharder 3.31.1 corrects
                  it, overlapping sums as diehard.f computes them, and
-                 count-the-1s and the 6x8 rank on DIEHARD's 25 bit windows.
-                 README.md inventories them and their limitations.
+                 count-the-1s and the 6x8 rank on DIEHARD's 25 bit windows,
+                 {} results per generator.  README.md inventories them and
+                 their limitations.
  --test          Show only tests whose name contains <name>.
                  The selected batteries still run in full; this filters output.
                  Prefix nist::/diehard::/dieharder::/diehard_historical:: (or
@@ -266,7 +267,8 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
   run_tests --rng Windows                # only the Windows generators
   run_tests --test frequency             # all tests containing \"frequency\"
   run_tests --suite diehard --quick
-  run_tests --suite diehard-historical --rng MT19937"
+  run_tests --suite diehard-historical --rng MT19937",
+        diehard::historical::RESULTS
     );
 }
 
