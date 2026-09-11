@@ -168,7 +168,11 @@ impl Rng for Jsf64 {
 mod tests {
     use super::*;
 
-    /// Seed of the JSF64 tests, and of the known-answer vector below.
+    /// Seed of the JSF64 tests, and of the known-answer vector below, which
+    /// was checked at this seed against Jenkins's C.  `JSF64_PROBE_SEED` in
+    /// `crate::seed`, the harness seed of `dump_rng` and `pilot_rng`, has the
+    /// same value but stays a separate constant, so a harness change cannot
+    /// move this vector.
     const JSF64_TEST_SEED: u64 = 0xdead_beef;
 
     #[test]

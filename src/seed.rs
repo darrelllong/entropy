@@ -99,15 +99,18 @@ pub const IV16: [u8; 16] = sequential_bytes();
 // binaries, not the library.
 
 /// The word [`ConstantRng`](crate::rng::ConstantRng) repeats in `run_tests`,
-/// `dump_rng` and `pilot_rng`.  The `Constant (…)` labels in `run_tests` and
-/// scripts/bench_rngs.sh print it, and tests/dump_rng.rs pins its bytes; all
-/// must follow any change here.
+/// `dump_rng` and `pilot_rng`.  The unit test
+/// `constant_label_names_constant_rng_word` in src/main.rs fails if the
+/// `Constant (…)` label `run_tests` prints disagrees with it, and
+/// tests/dump_rng.rs pins the bytes `dump_rng` writes.
 #[doc(hidden)]
 pub const CONSTANT_RNG_WORD: u32 = 0xDEAD_DEAD;
 
 /// The seed `dump_rng` and `pilot_rng` give [`Jsf64`](crate::rng::Jsf64) for
-/// the name `jsf64`; the `JSF64 (seed=…)` label in scripts/bench_rngs.sh
-/// prints it.
+/// the name `jsf64`, a harness choice; tests/dump_rng.rs pins the words it
+/// produces.  `JSF64_TEST_SEED` in the src/rng/sfc.rs tests has the same value,
+/// but that seed is the one the known-answer vector was checked at against
+/// Jenkins's C, so the two stay separate constants.
 #[doc(hidden)]
 pub const JSF64_PROBE_SEED: u64 = 0xdead_beef;
 
