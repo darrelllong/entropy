@@ -15,7 +15,7 @@
 //!
 //! Each die is `1 + gsl_rng_uniform_int(rng, 6)`, as in Dieharder's
 //! `diehard_craps.c`, so the high bits of each word pick the face (see
-//! [`uniform_bounded`]).
+//! `uniform_bounded`).
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
