@@ -1,6 +1,6 @@
 # Full Battery Results
 
-Full `run_tests` battery harvested from `tolkien` (Apple M1, 4P+4E cores) on 2026-07-22.
+Full `run_tests` battery harvested from `dyson` (Apple M4 Pro, 8P+4E cores) on 2026-09-10.
 
 Sample size: **16 Mbit** per generator for NIST; DIEHARD/DIEHARDER
 consume **16 M 32-bit words** (plus what the live-drawing tests take
@@ -35,26 +35,24 @@ conditionally skipped based on properties of the sample, not the generator.
 
 The battery has **739 test slots** at this sample size:
 
-- **739 results** — the "full active battery" outcome: the signed-random-walk
-  tests (`random_excursions` and `random_excursions_variant`) completed
-  successfully (J ≥ 500 zero-crossing cycles).  At 16 Mbit the expected
-  cycle count is J ≈ 3191 (= √(2n/π)),
-  which is comfortably above the threshold for well-behaved generators.
-
-- **715 results** — 24 fewer slots than the full battery.  The excursion
-  families normally emit 8 + 18 = 26 individual per-state results; when the
-  signed random walk produces fewer than J = 500 complete zero-crossing cycles
-  both families are each collapsed to a single family-level SKIP entry,
-  yielding 26 − 2 = 24 fewer slots.  Degenerate generators (Constant,
-  Counter, ANSI C LCG, MINSTD) always land here; a handful of non-degenerate
-  generators can too, depending on their random seed.
+- **739 results** — every generator except `Dual_EC_DRBG`.  Some slots report
+  SKIP rather than PASS or FAIL, depending on the sample:
+  - the 8 + 18 = 26 per-state `random_excursions` and
+    `random_excursions_variant` slots skip when the signed random walk completes
+    fewer than J = 500 zero-crossing cycles.  At 16 Mbit the expected
+    cycle count is J ≈ 3191 (= √(2n/π)), comfortably above
+    the threshold for well-behaved generators.  Degenerate generators (Constant,
+    Counter, ANSI C LCG, MINSTD) always skip them; a handful of others can,
+    depending on their random seed.
+  - the parametric Maurer slots skip for any `L` whose sample holds fewer than
+    K = 1000·2^L test blocks (at 16 Mbit, L = 11..16).
 
 - **200 results** — `Dual_EC_DRBG` only: three P-256 scalar multiplications per
   30-byte output block make DIEHARD and DIEHARDER prohibitively slow, so only
   the NIST SP 800-22 suite is run.
 
 **Expected false positives.**  At α = 0.01, a perfect generator should fail
-roughly 1% of tests by chance.  With 715–739 active tests, the expected
+roughly 1% of tests by chance.  With up to 739 active tests, the expected
 false-fail count is approximately 7.  Isolated failures below that threshold
 are noise, not structure.
 
@@ -62,49 +60,49 @@ are noise, not structure.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 739 | 733 | 6 | 0 |
-| MT19937 (seed=19650218) | 739 | 729 | 10 | 0 |
-| Xorshift64 (seed=1) | 739 | 734 | 5 | 0 |
-| Xorshift32 (seed=1) | 739 | 726 | 13 | 0 |
-| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 727 | 12 | 0 |
-| BAD Unix System V mrand48() (seed=1) | 739 | 732 | 7 | 0 |
-| BAD Unix BSD random() TYPE_3 (seed=1) | 739 | 728 | 11 | 0 |
-| BAD Unix Linux glibc rand()/random() (seed=1) | 739 | 728 | 11 | 0 |
-| BAD Unix FreeBSD12 rand_r() compat (seed=1) | 739 | 729 | 10 | 0 |
-| BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1) | 739 | 729 | 10 | 0 |
-| BAD Windows VB6/VBA Rnd() (project seed=1) | 739 | 204 | 535 | 0 |
-| BAD Windows .NET Random(seed=1) compat | 739 | 732 | 7 | 0 |
-| ANSI C sample LCG (1103515245,12345; seed=1) | 715 | 15 | 698 | 2 |
-| LCG MINSTD (seed=1) | 715 | 20 | 693 | 2 |
-| BAD Borland C++ rand() LCG (seed=1) | 739 | 726 | 13 | 0 |
-| AES-128-CTR (NIST key) | 739 | 734 | 5 | 0 |
-| Camellia-128-CTR (key=00..0f) | 739 | 732 | 7 | 0 |
-| Twofish-128-CTR (key=00..0f) | 739 | 729 | 10 | 0 |
-| Serpent-128-CTR (key=00..0f) | 739 | 728 | 11 | 0 |
-| SM4-CTR (key=00..0f) | 739 | 732 | 7 | 0 |
-| Grasshopper-CTR (key=00..1f) | 739 | 735 | 4 | 0 |
-| CAST-128-CTR (key=00..0f) | 739 | 732 | 7 | 0 |
-| SEED-CTR (key=00..0f) | 739 | 733 | 6 | 0 |
-| Rabbit (key=00..0f, iv=00..07) | 739 | 733 | 6 | 0 |
-| Salsa20 (key=00..1f, nonce=00..07) | 739 | 732 | 7 | 0 |
-| Snow3G (key=00..0f, iv=00..0f) | 739 | 730 | 9 | 0 |
-| ZUC-128 (key=00..0f, iv=00..0f) | 739 | 737 | 2 | 0 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 729 | 10 | 0 |
-| Squidward (SHA-256 chain, OsRng seed) | 739 | 735 | 4 | 0 |
-| PCG32 (OsRng seed) | 739 | 735 | 4 | 0 |
-| PCG64 (OsRng seed) | 739 | 732 | 7 | 0 |
-| Xoshiro256 (OsRng seed) | 739 | 732 | 7 | 0 |
-| Xoroshiro128 (OsRng seed) | 739 | 730 | 9 | 0 |
-| WyRand (OsRng seed) | 739 | 734 | 5 | 0 |
-| SFC64 (OsRng seed) | 739 | 735 | 4 | 0 |
-| JSF64 (OsRng seed) | 715 | 701 | 12 | 2 |
-| ChaCha20 CSPRNG (OsRng key) | 739 | 736 | 3 | 0 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 715 | 707 | 6 | 2 |
-| Hash_DRBG SHA-256 (OsRng seed) | 739 | 730 | 9 | 0 |
-| cryptography::CtrDrbgAes256 (seed=00..2f) | 715 | 705 | 8 | 2 |
-| Constant (0xDEAD_DEAD) | 715 | 0 | 713 | 2 |
-| Counter (0,1,2,…) | 715 | 1 | 712 | 2 |
-| Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01) | 200 | 197 | 3 | 0 |
+| OsRng (/dev/urandom) | 739 | 725 | 8 | 6 |
+| MT19937 (seed=19650218) | 739 | 726 | 7 | 6 |
+| Xorshift64 (seed=1) | 739 | 726 | 7 | 6 |
+| Xorshift32 (seed=1) | 739 | 720 | 13 | 6 |
+| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 726 | 7 | 6 |
+| BAD Unix System V mrand48() (seed=1) | 739 | 726 | 7 | 6 |
+| BAD Unix BSD random() TYPE_3 (seed=1) | 739 | 722 | 11 | 6 |
+| BAD Unix Linux glibc rand()/random() (seed=1) | 739 | 722 | 11 | 6 |
+| BAD Unix FreeBSD12 rand_r() compat (seed=1) | 739 | 720 | 13 | 6 |
+| BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1) | 739 | 726 | 7 | 6 |
+| BAD Windows VB6/VBA Rnd() (project seed=1) | 739 | 204 | 529 | 6 |
+| BAD Windows .NET Random(seed=1) compat | 739 | 724 | 9 | 6 |
+| ANSI C sample LCG (1103515245,12345; seed=1) | 739 | 10 | 697 | 32 |
+| LCG MINSTD (seed=1) | 739 | 17 | 690 | 32 |
+| BAD Borland C++ rand() LCG (seed=1) | 739 | 723 | 10 | 6 |
+| AES-128-CTR (NIST key) | 739 | 728 | 5 | 6 |
+| Camellia-128-CTR (key=00..0f) | 739 | 721 | 12 | 6 |
+| Twofish-128-CTR (key=00..0f) | 739 | 723 | 10 | 6 |
+| Serpent-128-CTR (key=00..0f) | 739 | 724 | 9 | 6 |
+| SM4-CTR (key=00..0f) | 739 | 727 | 6 | 6 |
+| Grasshopper-CTR (key=00..1f) | 739 | 728 | 5 | 6 |
+| CAST-128-CTR (key=00..0f) | 739 | 728 | 5 | 6 |
+| SEED-CTR (key=00..0f) | 739 | 721 | 12 | 6 |
+| Rabbit (key=00..0f, iv=00..07) | 739 | 724 | 9 | 6 |
+| Salsa20 (key=00..1f, nonce=00..07) | 739 | 725 | 8 | 6 |
+| Snow3G (key=00..0f, iv=00..0f) | 739 | 725 | 8 | 6 |
+| ZUC-128 (key=00..0f, iv=00..0f) | 739 | 729 | 4 | 6 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 721 | 12 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 739 | 728 | 5 | 6 |
+| PCG32 (OsRng seed) | 739 | 721 | 12 | 6 |
+| PCG64 (OsRng seed) | 739 | 729 | 4 | 6 |
+| Xoshiro256 (OsRng seed) | 739 | 724 | 9 | 6 |
+| Xoroshiro128 (OsRng seed) | 739 | 727 | 6 | 6 |
+| WyRand (OsRng seed) | 739 | 724 | 9 | 6 |
+| SFC64 (OsRng seed) | 739 | 729 | 4 | 6 |
+| JSF64 (OsRng seed) | 739 | 731 | 2 | 6 |
+| ChaCha20 CSPRNG (OsRng key) | 739 | 724 | 9 | 6 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 726 | 7 | 6 |
+| Hash_DRBG SHA-256 (OsRng seed) | 739 | 700 | 7 | 32 |
+| cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 699 | 8 | 32 |
+| Constant (0xDEAD_DEAD) | 739 | 0 | 707 | 32 |
+| Counter (0,1,2,…) | 739 | 1 | 706 | 32 |
+| Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01) | 200 | 192 | 2 | 6 |
 
 ## Theory By Test
 
@@ -181,9 +179,13 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $f_n = \frac{1}{K}\sum_{i=1}^K \log_2 A_i$,
   which is normalized as
   $z = (f_n-\mu_L)/(c(L,K)\sigma_L)$ and scored with
-  $p=\mathrm{erfc}(|z|/\sqrt{2})$. The crate reports both the NIST
-  wrapper (which selects $L$ from $n$ over NIST's domain $L\in[6,16]$)
-  and the broader Maurer parametric family over $L=5,\dots,16$.
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$, with $c(L,K)$ taken from SP 800-22
+  §2.9.4. The crate reports both the NIST wrapper (which selects $L$ from
+  $n$ over NIST's domain $L\in[6,16]$) and the broader Maurer parametric
+  family over $L=5,\dots,16$.  A parametric setting runs only when the
+  sample holds $K \ge 1000\cdot 2^L$ test blocks, the $K$ behind every row of
+  §2.9.7's table, so at 16 Mbit $L=5,\dots,10$ run and $L=11,\dots,16$
+  report SKIP.
 
 - **`linear_complexity`.** Break the stream into blocks of length $M=500$,
   run Berlekamp-Massey on each block, and compare the resulting linear
@@ -227,9 +229,9 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $\chi^2_x = \sum_{k=0}^5 (\nu_k(x)-J\pi_k(x))^2/(J\pi_k(x))$ with
   $p = Q(5/2,\chi_x^2/2)$, where $J$ is the number of cycles.  Both
   excursion families require $J \ge \max(0.005\sqrt{n}, 500)$ per
-  §2.14.4/§2.15.4,
-  and a walk ending exactly at zero no longer contributes a spurious empty
-  trailing cycle.
+  §2.14.4/§2.15.4; below that they still report every per-state slot, as
+  SKIP.  A walk ending exactly at zero no longer contributes a spurious
+  empty trailing cycle.
 
 - **`random_excursions_variant`.** Use the same cycle decomposition, but now
   test only the total visit count $\xi(x)$ to each
@@ -257,10 +259,10 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   The reported p-value comes from the pooled chi-square on those bins.
 
 - **`binary_rank_31x31`.** This is the same GF(2) rank test, but on
-  $31\times 31$ matrices with exact probabilities recomputed for that size
-  rather than reusing the $32\times 32$ constants. The goal is to catch
-  linear dependence that appears only after a slightly different slicing of
-  the raw words.
+  $31\times 31$ matrices whose rows are the leftmost 31 bits of each word, as
+  Marsaglia specifies, with exact probabilities recomputed for that size
+  rather than reusing the $32\times 32$ constants. A generator that returns
+  zero-extended 31-bit words leaves a column of zeros here and fails.
 
 - **`binary_rank_6x8`.** Build $100{,}000$ matrices with $6$ rows and $8$
   columns from byte-level slices, compute the rank over $\mathbb{F}_2$, and
@@ -326,7 +328,9 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $k_{t+1}=\lceil k_t U_t\rceil$ until $k_t=1$ or a cap is reached. The test
   compares the empirical distribution of the stopping time $J$ to Marsaglia's
   tabulated cell probabilities by a chi-square
-  $\chi^2=\sum_i (O_i-E_i)^2/E_i$ over $43$ pooled cells.
+  $\chi^2=\sum_i (O_i-E_i)^2/E_i$.  Cells expected below $5$ are pooled into
+  tail cells exactly as Dieharder's `Vtest_eval` does, which at
+  $N=100{,}000$ leaves $39$ scored cells ($df=38$).
 
 - **`runs_up` and `runs_down`.** For sequences of $10{,}000$ integers, count
   monotone run lengths $1,2,3,4,5,6+$ in the upward and downward directions.
@@ -335,8 +339,9 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $V = (R-nb)^\top A (R-nb)/n$, converted to
   $p = Q(3,V/2)$, with a final KS across $10$ repetitions for each direction.
 
-- **`craps_wins`.** Simulate $N=200{,}000$ craps games and count the number of
-  wins $W$. Under fair dice,
+- **`craps_wins`.** Simulate $N=200{,}000$ craps games, each die drawn from a
+  word's high bits as Dieharder does (GSL's `uniform_int` quotient with
+  rejection), and count the number of wins $W$. Under fair dice,
   $W \approx \mathrm{Bin}(N,p_{\mathrm{win}})$ with
   $p_{\mathrm{win}} = 244/495$, so the code standardizes
   $z = (W-Np_{\mathrm{win}})/\sqrt{Np_{\mathrm{win}}(1-p_{\mathrm{win}})}$ and
@@ -346,7 +351,9 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   game length: one throw, two throws, and so on, with the tail pooled at
   $\ge 22$ throws. The expected cell probabilities come from exact craps
   theory, and the reported p-value is the chi-square fit of the observed game
-  length histogram to that law.
+  length histogram to that law.  A game still unresolved after 1000 throws
+  is stopped and scored as a loss in the tail cell, so a degenerate stream
+  cannot hang the battery.
 
 ### DIEHARDER
 
@@ -420,7 +427,8 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $g=\gcd(u,v)$, and compare the observed gcd histogram to the classical law
   $\Pr(g=k)=6/(\pi^2 k^2)$, with the far tail pooled exactly as in the
   Marsaglia-Tsang Dieharder source. The reported p-value is the corresponding
-  chi-square fit.
+  chi-square fit; a stream of zero words, which leaves nothing to score,
+  fails.
 
 - **`gcd_step_counts`.** The same integer pairs are also scored by the number
   of Euclidean algorithm steps needed to reduce $(u,v)$ to their gcd. Those
@@ -458,7 +466,7 @@ underweight.
   $df = \mathrm{cells} - 1$.  Tests uniformity of the real-valued projection
   and independence of successive words.
 
-- **Knuth runs test** (Wald–Wolfowitz runs above/below the median).  Compute
+- **Wald–Wolfowitz runs test** (runs above/below the median; not TAOCP's run test).  Compute
   the sample median, classify each output value as above or below it
   (values equal to the median are dropped), and count the runs $R$ of
   consecutive same-side values.  Conditional on $n_1$ values above and $n_2$
@@ -497,8 +505,9 @@ underweight.
 
 - **TestU01 Hamming** (`sstring_HammingCorr` / `sstring_HammingIndep`).
   `HammingCorr`: Extract $n$ successive $L$-bit blocks from the bit stream
-  (TestU01 `unif01_StripB`-style extraction; the auxiliary run uses a single
-  block length, $L = 300$ by default) and compute each block's Hamming weight
+  (each word contributes a TestU01 `unif01_StripB` field of $s$ bits, so a
+  block equals the paper's concatenated bit stream only when $s$ divides $L$,
+  as at the defaults $s = 10$, $L = 300$) and compute each block's Hamming weight
   $W_i$.  The statistic is the lag-1 correlation of successive centered
   weights,
   $\hat\rho = 4\sum_{i}(W_i - L/2)(W_{i+1} - L/2)\,/\,((n-1)L)$,
@@ -510,15 +519,22 @@ underweight.
   TestU01's `gofs_MinExpected = 10` cell lumping.  Detects linear
   dependencies across block boundaries.
 
-- **Webster–Tavares strict avalanche criterion (SAC)**.  For each bit position
-  $i$ in a $k$-word window, flip bit $i$ in the input seed and measure the
-  fraction of output bits that change.  Under the SAC, every output bit should
-  flip with probability exactly $\tfrac12$ when any single input bit is flipped.
-  The crate computes the pairwise correlation coefficient $\rho_{ij}$ between the
-  flip indicators for input bit $i$ and output bit $j$, and reports a chi-square
-  on the full $k \times k$ correlation matrix.  Cryptographic generators should
-  pass; LCGs and short-state generators fail badly because their internal
-  diffusion is limited.
+- **Webster–Tavares strict avalanche and bit independence (SAC/BIC)**.  Treat
+  a generator's seed as the input and its first output value as the output
+  (32 input and 32 output bits by default).  For each input bit $j$,
+  complement it in every sampled seed and record which output bits change.
+  The dependence matrix entry $A_{ij}$ is the fraction of samples in which
+  output bit $i$ flips; the SAC wants $A_{ij} = \tfrac12$, and the probe
+  reports the mean and maximum of $|A_{ij} - \tfrac12|$ (`SACmean`,
+  `SACmax`).  For bit independence it correlates the change indicators of
+  every output-bit pair under each flipped input bit and reports the mean
+  and maximum $|\rho|$ (`BICmean`, `BICmax`).  A pair whose indicator never
+  or always fires has no defined correlation; such pairs are counted in
+  `BICdegen` and left out of the BIC figures, so a GF(2)-linear generator
+  such as Xorshift32 shows up as entirely degenerate rather than perfectly
+  independent.  Cryptographic generators should land near the ideal values;
+  LCGs and short-state generators do not, because their seeding diffuses
+  little.
 
 - **Gorilla** (Marsaglia–Tsang).  For each of the 32 bit positions, extract that
   bit from $2^{26}+25$ successive words to form a stream of $2^{26}+25$ bits.
@@ -544,60 +560,60 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 6/739 — `diehard::runs_down`, `diehard::spheres_3d`, `dieharder::bit_distribution` (×4)
-- **MT19937 (seed=19650218)**: 10/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template` (×2)
-- **Xorshift64 (seed=1)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **OsRng (/dev/urandom)**: 8/739 — `diehard::spheres_3d`, `dieharder::bit_distribution` (×5), `dieharder::byte_distribution`, `nist::non_overlapping_template`
+- **MT19937 (seed=19650218)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
+- **Xorshift64 (seed=1)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 13/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `dieharder::monobit2`, `nist::matrix_rank`
-- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 12/739 — `diehard::opso`, `dieharder::bit_distribution` (×8), `nist::non_overlapping_template` (×2), `nist::spectral`
+- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 7/739 — `diehard::opso`, `dieharder::bit_distribution` (×2), `dieharder::minimum_distance_nd`, `nist::non_overlapping_template` (×2), `nist::spectral`
 - **BAD Unix System V mrand48() (seed=1)**: 7/739 — `diehard::dna`, `diehard::opso`, `diehard::oqso`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
 - **BAD Unix BSD random() TYPE_3 (seed=1)**: 11/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
 - **BAD Unix Linux glibc rand()/random() (seed=1)**: 11/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
-- **BAD Unix FreeBSD12 rand_r() compat (seed=1)**: 10/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×2), `nist::spectral`
-- **BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)**: 10/739 — `dieharder::bit_distribution` (×7), `dieharder::dct`, `nist::random_excursions`, `nist::spectral`
-- **BAD Windows VB6/VBA Rnd() (project seed=1)**: 535/739 — `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::runs_up`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×497), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums`, `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l05`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
-- **BAD Windows .NET Random(seed=1) compat**: 7/739 — `dieharder::bit_distribution` (×3), `dieharder::dct`, `nist::non_overlapping_template` (×3)
-- **ANSI C sample LCG (1103515245,12345; seed=1)**: 698/715 — `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l12`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
-- **LCG MINSTD (seed=1)**: 693/715 — `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `maurer::universal_l11`, `maurer::universal_l12`, `maurer::universal_l13`, `maurer::universal_l14`, `maurer::universal_l15`, `maurer::universal_l16`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
-- **BAD Borland C++ rand() LCG (seed=1)**: 13/739 — `diehard::opso`, `dieharder::bit_distribution` (×9), `dieharder::minimum_distance_nd`, `nist::non_overlapping_template`, `nist::spectral`
+- **BAD Unix FreeBSD12 rand_r() compat (seed=1)**: 13/739 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template` (×2), `nist::spectral`
+- **BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions`, `nist::spectral`
+- **BAD Windows VB6/VBA Rnd() (project seed=1)**: 529/739 — `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::runs_up`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×496), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l05`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
+- **BAD Windows .NET Random(seed=1) compat**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
+- **ANSI C sample LCG (1103515245,12345; seed=1)**: 697/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
+- **LCG MINSTD (seed=1)**: 690/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
+- **BAD Borland C++ rand() LCG (seed=1)**: 10/739 — `diehard::opso`, `dieharder::bit_distribution` (×7), `nist::non_overlapping_template`, `nist::spectral`
 - **AES-128-CTR (NIST key)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
-- **Camellia-128-CTR (key=00..0f)**: 7/739 — `diehard::runs_up`, `dieharder::bit_distribution` (×6)
+- **Camellia-128-CTR (key=00..0f)**: 12/739 — `diehard::runs_up`, `dieharder::bit_distribution` (×11)
 - **Twofish-128-CTR (key=00..0f)**: 10/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×4)
-- **Serpent-128-CTR (key=00..0f)**: 11/739 — `dieharder::bit_distribution` (×5), `dieharder::minimum_distance_nd`, `nist::block_frequency`, `nist::non_overlapping_template` (×4)
-- **SM4-CTR (key=00..0f)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::serial_delta2`
-- **Grasshopper-CTR (key=00..1f)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
-- **CAST-128-CTR (key=00..0f)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
-- **SEED-CTR (key=00..0f)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
-- **Rabbit (key=00..0f, iv=00..07)**: 6/739 — `dieharder::bit_distribution` (×3), `maurer::universal_l09`, `nist::non_overlapping_template` (×2)
-- **Salsa20 (key=00..1f, nonce=00..07)**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
-- **Snow3G (key=00..0f, iv=00..0f)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
-- **ZUC-128 (key=00..0f, iv=00..0f)**: 2/739 — `dieharder::bit_distribution` (×2)
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 10/739 — `dieharder::bit_distribution` (×9), `nist::non_overlapping_template`
-- **Squidward (SHA-256 chain, OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
-- **PCG32 (OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
-- **PCG64 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
-- **Xoshiro256 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
-- **Xoroshiro128 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
-- **WyRand (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2)
-- **SFC64 (OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
-- **JSF64 (OsRng seed)**: 12/715 — `diehard::binary_rank_6x8`, `dieharder::bit_distribution` (×11)
-- **ChaCha20 CSPRNG (OsRng key)**: 3/739 — `dieharder::bit_distribution` (×3)
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 6/715 — `dieharder::bit_distribution` (×3), `maurer::universal_l16`, `nist::non_overlapping_template` (×2)
-- **Hash_DRBG SHA-256 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×8), `nist::linear_complexity`
-- **cryptography::CtrDrbgAes256 (seed=00..2f)**: 8/715 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5)
-- **Constant (0xDEAD_DEAD)**: 713/715 — expected for degenerate generator.
-- **Counter (0,1,2,…)**: 712/715 — expected for degenerate generator.
-- **Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)**: 3/200 — `maurer::universal_l15`, `nist::non_overlapping_template` (×2)
+- **Serpent-128-CTR (key=00..0f)**: 9/739 — `dieharder::bit_distribution` (×4), `nist::block_frequency`, `nist::non_overlapping_template` (×4)
+- **SM4-CTR (key=00..0f)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::serial_delta2`
+- **Grasshopper-CTR (key=00..1f)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **CAST-128-CTR (key=00..0f)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **SEED-CTR (key=00..0f)**: 12/739 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template` (×2)
+- **Rabbit (key=00..0f, iv=00..07)**: 9/739 — `dieharder::bit_distribution` (×6), `maurer::universal_l09`, `nist::non_overlapping_template` (×2)
+- **Salsa20 (key=00..1f, nonce=00..07)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
+- **Snow3G (key=00..0f, iv=00..0f)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3)
+- **ZUC-128 (key=00..0f, iv=00..0f)**: 4/739 — `dieharder::bit_distribution` (×4)
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 12/739 — `dieharder::bit_distribution` (×6), `maurer::universal_l10`, `nist::non_overlapping_template` (×4), `nist::universal`
+- **Squidward (SHA-256 chain, OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **PCG32 (OsRng seed)**: 12/739 — `dieharder::bit_distribution` (×9), `nist::non_overlapping_template` (×3)
+- **PCG64 (OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
+- **Xoshiro256 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×2)
+- **Xoroshiro128 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
+- **WyRand (OsRng seed)**: 9/739 — `diehard::parking_lot`, `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`, `nist::random_excursions`
+- **SFC64 (OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
+- **JSF64 (OsRng seed)**: 2/739 — `dieharder::bit_distribution` (×2)
+- **ChaCha20 CSPRNG (OsRng key)**: 9/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template`, `nist::random_excursions`
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
+- **Hash_DRBG SHA-256 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×4), `dieharder::ks_uniform`, `maurer::universal_l05`, `nist::non_overlapping_template`
+- **cryptography::CtrDrbgAes256 (seed=00..2f)**: 8/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5)
+- **Constant (0xDEAD_DEAD)**: 707/739 — expected for degenerate generator.
+- **Counter (0,1,2,…)**: 706/739 — expected for degenerate generator.
+- **Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)**: 2/200 — `nist::non_overlapping_template` (×2)
 
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **2** (`ZUC-128 (key=00..0f, iv=00..0f)`) and the highest is **13** (`Xorshift32 (seed=1)`).
+- Among non-trivial generators, the lowest FAIL count is **2** (`JSF64 (OsRng seed)`) and the highest is **13** (`Xorshift32 (seed=1)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 
 ## Auxiliary Probes
 
 These probes are not part of `run_tests`; they are recorded separately here
-from `tests/run_all.sh` on `tolkien` (2026-07-22).
+from `tests/run_all.sh` on `dyson` (2026-09-10).
 
 These probes exercise statistical properties not covered by the NIST/DIEHARD/DIEHARDER
 battery.  They run with their default parameters; use the individual binaries for
@@ -611,7 +627,7 @@ bib_tests  (Knuth + NIST ApEn profile m=2..6)
 MT19937
   [PASS] knuth::permutation                                p = 0.106832  (t=5, blocks=40000, χ²=138.5000, df=119)
   [PASS] knuth::gap                                        p = 0.966310  ([0.250,0.500) gaps=49922, r=15, cells=16, χ²=6.6641, df=15)
-  [PASS] knuth::runs_median                                p = 0.582269  (median=0.500112, below=100000, above=100000, runs=100124, z=0.5501)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.582269  (median=0.500112, below=100000, above=100000, runs=100124, z=0.5501)
   [INFO] approx_entropy_m02   ApEn=0.693144 (phi_m=-1.386294, phi_m1=-2.079438)
   [INFO] approx_entropy_m03   ApEn=0.693144 (phi_m=-2.079438, phi_m1=-2.772581)
   [INFO] approx_entropy_m04   ApEn=0.693141 (phi_m=-2.772581, phi_m1=-3.465723)
@@ -621,7 +637,7 @@ MT19937
 Xorshift32
   [PASS] knuth::permutation                                p = 0.622050  (t=5, blocks=40000, χ²=113.6180, df=119)
   [PASS] knuth::gap                                        p = 0.237153  ([0.250,0.500) gaps=50065, r=15, cells=16, χ²=18.5028, df=15)
-  [PASS] knuth::runs_median                                p = 0.190081  (median=0.499376, below=100000, above=100000, runs=100294, z=1.3103)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.190081  (median=0.499376, below=100000, above=100000, runs=100294, z=1.3103)
   [INFO] approx_entropy_m02   ApEn=0.693146 (phi_m=-1.386293, phi_m1=-2.079439)
   [INFO] approx_entropy_m03   ApEn=0.693145 (phi_m=-2.079439, phi_m1=-2.772583)
   [INFO] approx_entropy_m04   ApEn=0.693138 (phi_m=-2.772583, phi_m1=-3.465722)
@@ -631,7 +647,7 @@ Xorshift32
 Xorshift64
   [PASS] knuth::permutation                                p = 0.606131  (t=5, blocks=40000, χ²=114.2420, df=119)
   [PASS] knuth::gap                                        p = 0.750205  ([0.250,0.500) gaps=50116, r=15, cells=16, χ²=11.0337, df=15)
-  [PASS] knuth::runs_median                                p = 0.134089  (median=0.499730, below=100000, above=100000, runs=99666, z=-1.4982)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.134089  (median=0.499730, below=100000, above=100000, runs=99666, z=-1.4982)
   [INFO] approx_entropy_m02   ApEn=0.693147 (phi_m=-1.386294, phi_m1=-2.079441)
   [INFO] approx_entropy_m03   ApEn=0.693143 (phi_m=-2.079441, phi_m1=-2.772583)
   [INFO] approx_entropy_m04   ApEn=0.693136 (phi_m=-2.772583, phi_m1=-3.465720)
@@ -641,7 +657,7 @@ Xorshift64
 BAD Unix System V rand()
   [PASS] knuth::permutation                                p = 0.410880  (t=5, blocks=40000, χ²=121.8320, df=119)
   [PASS] knuth::gap                                        p = 0.397280  ([0.250,0.500) gaps=50005, r=15, cells=16, χ²=15.7732, df=15)
-  [PASS] knuth::runs_median                                p = 0.576149  (median=0.499845, below=100000, above=100000, runs=99876, z=-0.5590)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.576149  (median=0.499845, below=100000, above=100000, runs=99876, z=-0.5590)
   [INFO] approx_entropy_m02   ApEn=0.693146 (phi_m=-1.386293, phi_m1=-2.079440)
   [INFO] approx_entropy_m03   ApEn=0.693145 (phi_m=-2.079440, phi_m1=-2.772584)
   [INFO] approx_entropy_m04   ApEn=0.693137 (phi_m=-2.772584, phi_m1=-3.465721)
@@ -651,7 +667,7 @@ BAD Unix System V rand()
 BAD Unix System V mrand48()
   [PASS] knuth::permutation                                p = 0.026338  (t=5, blocks=40000, χ²=150.6800, df=119)
   [PASS] knuth::gap                                        p = 0.887223  ([0.250,0.500) gaps=49804, r=15, cells=16, χ²=8.8104, df=15)
-  [PASS] knuth::runs_median                                p = 0.582269  (median=0.501971, below=100000, above=100000, runs=100124, z=0.5501)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.582269  (median=0.501971, below=100000, above=100000, runs=100124, z=0.5501)
   [INFO] approx_entropy_m02   ApEn=0.693145 (phi_m=-1.386294, phi_m1=-2.079439)
   [INFO] approx_entropy_m03   ApEn=0.693144 (phi_m=-2.079439, phi_m1=-2.772583)
   [INFO] approx_entropy_m04   ApEn=0.693135 (phi_m=-2.772583, phi_m1=-3.465718)
@@ -661,7 +677,7 @@ BAD Unix System V mrand48()
 BAD Unix BSD random()
   [PASS] knuth::permutation                                p = 0.801062  (t=5, blocks=40000, χ²=105.8060, df=119)
   [PASS] knuth::gap                                        p = 0.823636  ([0.250,0.500) gaps=50051, r=15, cells=16, χ²=9.9378, df=15)
-  [PASS] knuth::runs_median                                p = 0.255988  (median=0.499583, below=100000, above=100000, runs=100255, z=1.1359)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.255988  (median=0.499583, below=100000, above=100000, runs=100255, z=1.1359)
   [INFO] approx_entropy_m02   ApEn=0.693146 (phi_m=-1.386294, phi_m1=-2.079441)
   [INFO] approx_entropy_m03   ApEn=0.693146 (phi_m=-2.079441, phi_m1=-2.772587)
   [INFO] approx_entropy_m04   ApEn=0.693143 (phi_m=-2.772587, phi_m1=-3.465730)
@@ -671,7 +687,7 @@ BAD Unix BSD random()
 BAD Unix Linux glibc rand()/random()
   [PASS] knuth::permutation                                p = 0.801062  (t=5, blocks=40000, χ²=105.8060, df=119)
   [PASS] knuth::gap                                        p = 0.823636  ([0.250,0.500) gaps=50051, r=15, cells=16, χ²=9.9378, df=15)
-  [PASS] knuth::runs_median                                p = 0.255988  (median=0.499583, below=100000, above=100000, runs=100255, z=1.1359)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.255988  (median=0.499583, below=100000, above=100000, runs=100255, z=1.1359)
   [INFO] approx_entropy_m02   ApEn=0.693146 (phi_m=-1.386294, phi_m1=-2.079441)
   [INFO] approx_entropy_m03   ApEn=0.693146 (phi_m=-2.079441, phi_m1=-2.772587)
   [INFO] approx_entropy_m04   ApEn=0.693143 (phi_m=-2.772587, phi_m1=-3.465730)
@@ -681,7 +697,7 @@ BAD Unix Linux glibc rand()/random()
 BAD Windows CRT rand()
   [PASS] knuth::permutation                                p = 0.086299  (t=5, blocks=40000, χ²=140.5640, df=119)
   [PASS] knuth::gap                                        p = 0.170906  ([0.250,0.500) gaps=50111, r=15, cells=16, χ²=20.0268, df=15)
-  [PASS] knuth::runs_median                                p = 0.208872  (median=0.500955, below=100000, above=100000, runs=99720, z=-1.2567)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.208872  (median=0.500955, below=100000, above=100000, runs=99720, z=-1.2567)
   [INFO] approx_entropy_m02   ApEn=0.693146 (phi_m=-1.386293, phi_m1=-2.079439)
   [INFO] approx_entropy_m03   ApEn=0.693142 (phi_m=-2.079439, phi_m1=-2.772581)
   [INFO] approx_entropy_m04   ApEn=0.693132 (phi_m=-2.772581, phi_m1=-3.465713)
@@ -691,7 +707,7 @@ BAD Windows CRT rand()
 BAD Windows VB6/VBA Rnd()
   [PASS] knuth::permutation                                p = 0.668822  (t=5, blocks=40000, χ²=111.7460, df=119)
   [PASS] knuth::gap                                        p = 0.114820  ([0.250,0.500) gaps=49910, r=15, cells=16, χ²=21.7394, df=15)
-  [PASS] knuth::runs_median                                p = 0.431225  (median=0.498848, below=100000, above=100000, runs=100177, z=0.7871)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.431225  (median=0.498848, below=100000, above=100000, runs=100177, z=0.7871)
   [INFO] approx_entropy_m02   ApEn=0.693147 (phi_m=-1.386294, phi_m1=-2.079440)
   [INFO] approx_entropy_m03   ApEn=0.693146 (phi_m=-2.079440, phi_m1=-2.772586)
   [INFO] approx_entropy_m04   ApEn=0.693140 (phi_m=-2.772586, phi_m1=-3.465726)
@@ -701,7 +717,7 @@ BAD Windows VB6/VBA Rnd()
 BAD Windows .NET Random(seed)
   [PASS] knuth::permutation                                p = 0.634953  (t=5, blocks=40000, χ²=113.1080, df=119)
   [PASS] knuth::gap                                        p = 0.906751  ([0.250,0.500) gaps=50074, r=15, cells=16, χ²=8.3999, df=15)
-  [PASS] knuth::runs_median                                p = 0.310021  (median=0.498075, below=100000, above=100000, runs=100228, z=1.0152)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.310021  (median=0.498075, below=100000, above=100000, runs=100228, z=1.0152)
   [INFO] approx_entropy_m02   ApEn=0.693146 (phi_m=-1.386293, phi_m1=-2.079440)
   [INFO] approx_entropy_m03   ApEn=0.693144 (phi_m=-2.079440, phi_m1=-2.772584)
   [INFO] approx_entropy_m04   ApEn=0.693140 (phi_m=-2.772584, phi_m1=-3.465724)
@@ -711,7 +727,7 @@ BAD Windows .NET Random(seed)
 ANSI C sample LCG
   [PASS] knuth::permutation                                p = 0.861091  (t=5, blocks=40000, χ²=102.4220, df=119)
   [FAIL] knuth::gap                                        p = 0.000000  ([0.250,0.500) gaps=100484, r=15, cells=16, χ²=51401.6062, df=15)
-  [FAIL] knuth::runs_median                                p = 0.008891  (median=0.251237, below=100000, above=100000, runs=99416, z=-2.6162)
+  [FAIL] wald_wolfowitz::runs_median                       p = 0.008891  (median=0.251237, below=100000, above=100000, runs=99416, z=-2.6162)
   [INFO] approx_entropy_m02   ApEn=0.692679 (phi_m=-1.385362, phi_m1=-2.078042)
   [INFO] approx_entropy_m03   ApEn=0.692678 (phi_m=-2.078042, phi_m1=-2.770720)
   [INFO] approx_entropy_m04   ApEn=0.692676 (phi_m=-2.770720, phi_m1=-3.463396)
@@ -721,7 +737,7 @@ ANSI C sample LCG
 LCG MINSTD
   [PASS] knuth::permutation                                p = 0.261206  (t=5, blocks=40000, χ²=128.4440, df=119)
   [FAIL] knuth::gap                                        p = 0.000000  ([0.250,0.500) gaps=100358, r=15, cells=16, χ²=50762.1340, df=15)
-  [PASS] knuth::runs_median                                p = 0.889737  (median=0.250876, below=100000, above=100000, runs=99970, z=-0.1386)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.889737  (median=0.250876, below=100000, above=100000, runs=99970, z=-0.1386)
   [INFO] approx_entropy_m02   ApEn=0.692728 (phi_m=-1.385463, phi_m1=-2.078191)
   [INFO] approx_entropy_m03   ApEn=0.692727 (phi_m=-2.078191, phi_m1=-2.770918)
   [INFO] approx_entropy_m04   ApEn=0.692722 (phi_m=-2.770918, phi_m1=-3.463640)
@@ -731,7 +747,7 @@ LCG MINSTD
 AES-128-CTR
   [PASS] knuth::permutation                                p = 0.224876  (t=5, blocks=40000, χ²=130.3400, df=119)
   [PASS] knuth::gap                                        p = 0.111037  ([0.250,0.500) gaps=50076, r=15, cells=16, χ²=21.8782, df=15)
-  [PASS] knuth::runs_median                                p = 0.508050  (median=0.499150, below=100000, above=100000, runs=100149, z=0.6619)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.508050  (median=0.499150, below=100000, above=100000, runs=100149, z=0.6619)
   [INFO] approx_entropy_m02   ApEn=0.693146 (phi_m=-1.386294, phi_m1=-2.079439)
   [INFO] approx_entropy_m03   ApEn=0.693143 (phi_m=-2.079439, phi_m1=-2.772583)
   [INFO] approx_entropy_m04   ApEn=0.693139 (phi_m=-2.772583, phi_m1=-3.465722)
@@ -741,7 +757,7 @@ AES-128-CTR
 cryptography::CtrDrbgAes256
   [PASS] knuth::permutation                                p = 0.357595  (t=5, blocks=40000, χ²=124.0340, df=119)
   [PASS] knuth::gap                                        p = 0.760668  ([0.250,0.500) gaps=50101, r=15, cells=16, χ²=10.8855, df=15)
-  [PASS] knuth::runs_median                                p = 0.205650  (median=0.500309, below=100000, above=100000, runs=99718, z=-1.2656)
+  [PASS] wald_wolfowitz::runs_median                       p = 0.205650  (median=0.500309, below=100000, above=100000, runs=99718, z=-1.2656)
   [INFO] approx_entropy_m02   ApEn=0.693147 (phi_m=-1.386294, phi_m1=-2.079441)
   [INFO] approx_entropy_m03   ApEn=0.693145 (phi_m=-2.079441, phi_m1=-2.772586)
   [INFO] approx_entropy_m04   ApEn=0.693141 (phi_m=-2.772586, phi_m1=-3.465727)
@@ -1169,22 +1185,24 @@ cryptography::CtrDrbgAes256
 webster_tavares  (SAC / BIC avalanche  samples=4096  bits=32)
 ========================================================================
 
-RNG                                       samples  SACmean   SACmax  BICmean   BICmax
-----------------------------------------------------------------------------------------
-MT19937                                      4096   0.0065   0.0281   0.0124   0.0611
-Xorshift32                                   4096   0.5000   0.5000   0.0000   0.0000
-Xorshift64                                   4096   0.5000   0.5000   0.0000   0.0000
-BAD Unix System V rand()                     4096   0.3334   0.5000   0.0473   0.7659
-BAD Unix System V mrand48()                  4096   0.3782   0.5000   0.0349   0.9011
-BAD Unix BSD random()                        4096   0.0432   0.4834   0.0208   0.7244
-BAD Unix Linux glibc rand()/random()         4096   0.0432   0.4834   0.0208   0.7244
-BAD Windows CRT rand()                       4096   0.3310   0.5000   0.0486   0.8559
-BAD Windows VB6/VBA Rnd()                    4096   0.4173   0.5000   0.0257   0.8228
-BAD Windows .NET Random(seed)                4096   0.2346   0.4944   0.0697   0.7415
-ANSI C sample LCG                            4096   0.3617   0.5000   0.0280   0.7015
-LCG MINSTD                                   4096   0.2464   0.5000   0.0728   0.7244
-AES-128-CTR                                  4096   0.0061   0.0232   0.0125   0.0663
-cryptography::CtrDrbgAes256                  4096   0.0063   0.0308   0.0125   0.0610
+RNG                                       samples  SACmean   SACmax  BICmean   BICmax BICdegen
+-------------------------------------------------------------------------------------------------
+MT19937                                      4096   0.0065   0.0281   0.0124   0.0611        0
+Xorshift32                                   4096   0.5000   0.5000      NaN      NaN    15872
+Xorshift64                                   4096   0.5000   0.5000      NaN      NaN    15872
+BAD Unix System V rand()                     4096   0.3334   0.5000   0.0752   0.7659     5877
+BAD Unix System V mrand48()                  4096   0.3782   0.5000   0.1124   0.9011    10942
+BAD Unix BSD random()                        4096   0.0428   0.4878   0.0206   0.7164        0
+BAD Unix Linux glibc rand()/random()         4096   0.0428   0.4878   0.0206   0.7164        0
+BAD Windows CRT rand()                       4096   0.3310   0.5000   0.0771   0.8559     5877
+warning: BAD Windows VB6/VBA Rnd(): --input-bits 32 exceeds RNG seed width (24 bits); bits 24..32 are silently truncated — results are misleading
+BAD Windows VB6/VBA Rnd()                    4096   0.4173   0.5000   0.1049   0.8228    11986
+BAD Windows .NET Random(seed)                4096   0.2346   0.4944   0.0697   0.7415        0
+warning: ANSI C sample LCG: --input-bits 32 exceeds RNG seed width (31 bits); bits 31..32 are silently truncated — results are misleading
+ANSI C sample LCG                            4096   0.3617   0.5000   0.1012   0.7015    11489
+LCG MINSTD                                   4096   0.2464   0.5000   0.0777   0.7244      992
+AES-128-CTR                                  4096   0.0061   0.0232   0.0125   0.0663        0
+cryptography::CtrDrbgAes256                  4096   0.0063   0.0308   0.0125   0.0610        0
 
 ========================================================================
 gorilla  (Marsaglia-Tsang Gorilla  all 32 bit positions)
