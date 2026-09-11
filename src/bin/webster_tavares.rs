@@ -18,97 +18,51 @@ use entropy::rng::{
 };
 use entropy::seed::seed_material;
 
+#[path = "common/cli.rs"]
+mod cli;
+
 struct Args {
     input_bits: usize,
     output_bits: usize,
     samples: usize,
-    rng_filters: Vec<String>,
+    rng: cli::RngFilter,
 }
 
 impl Args {
-    fn parse() -> Self {
+    fn parse_from(mut argv: cli::Argv) -> Result<Self, cli::Stop> {
         let mut input_bits = 32usize;
         let mut output_bits = 32usize;
         let mut samples = 4096usize;
-        let mut rng_filters = Vec::new();
-        let argv: Vec<String> = std::env::args().skip(1).collect();
-        let mut i = 0;
-        while i < argv.len() {
-            match argv[i].as_str() {
-                "--help" | "-h" => {
-                    print_usage();
-                    std::process::exit(0);
-                }
-                "--input-bits" => {
-                    i += 1;
-                    input_bits = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--input-bits requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --input-bits value"));
-                }
-                "--output-bits" => {
-                    i += 1;
-                    output_bits = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--output-bits requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --output-bits value"));
-                }
-                "--samples" => {
-                    i += 1;
-                    samples = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--samples requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --samples value"));
-                }
-                "--rng" => {
-                    i += 1;
-                    rng_filters.push(
-                        argv.get(i)
-                            .unwrap_or_else(|| die("--rng requires an argument"))
-                            .clone(),
-                    );
-                }
-                other => die(&format!("unknown option '{other}'")),
+        let mut rng = cli::RngFilter::default();
+        while let Some(option) = argv.next_option()? {
+            match option.as_str() {
+                flag @ "--input-bits" => input_bits = argv.usize_value(flag)?,
+                flag @ "--output-bits" => output_bits = argv.usize_value(flag)?,
+                flag @ "--samples" => samples = argv.usize_value(flag)?,
+                flag @ "--rng" => rng.push(argv.value(flag)?),
+                other => return Err(cli::unknown_option(other)),
             }
-            i += 1;
         }
 
         // Range checks mirror the asserts in research::webster_tavares::evaluate_u64
         // so a bad flag dies with the flag's name instead of a library panic.
         if !(1..=64).contains(&input_bits) {
-            die("--input-bits must be in 1..=64");
+            return Err(cli::usage("--input-bits must be in 1..=64"));
         }
         if !(1..=64).contains(&output_bits) {
-            die("--output-bits must be in 1..=64");
+            return Err(cli::usage("--output-bits must be in 1..=64"));
         }
         if samples == 0 {
-            die("--samples must be positive");
+            return Err(cli::usage("--samples must be positive"));
         }
 
-        Self {
+        Ok(Self {
             input_bits,
             output_bits,
             samples,
-            rng_filters,
-        }
+            rng,
+        })
     }
-
-    fn matches_rng(&self, label: &str) -> bool {
-        let label = label.to_lowercase();
-        self.rng_filters.is_empty()
-            || self
-                .rng_filters
-                .iter()
-                .any(|pat| label.contains(&pat.to_lowercase()))
-    }
-}
-
-fn die(msg: &str) -> ! {
-    eprintln!("error: {msg}");
-    std::process::exit(1);
 }
 
 fn print_usage() {
@@ -149,7 +103,7 @@ fn next_u64_of(mut rng: impl Rng) -> u64 {
 }
 
 fn main() {
-    let args = Args::parse();
+    let args = cli::parse_or_exit(Args::parse_from, print_usage);
     // (label, seed_bits, closure)
     // seed_bits: the number of low seed bits that can influence the
     // generator state — not the width of the constructor's parameter type.
@@ -255,7 +209,7 @@ fn main() {
 
     let mut matched = 0usize;
     for (label, seed_bits, case) in cases {
-        if !args.matches_rng(label) {
+        if !args.rng.matches(label) {
             continue;
         }
         if args.input_bits > seed_bits {
@@ -280,6 +234,6 @@ fn main() {
     }
 
     if matched == 0 {
-        die("no RNG labels matched --rng filter");
+        cli::die_no_rng_matched();
     }
 }

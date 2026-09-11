@@ -10,31 +10,58 @@
 //!   with multipliers of the form a = ±2^q ± 2^r," *ACM Transactions on
 //!   Mathematical Software* 25(3), pp. 367–374, 1999.  [The Hamming
 //!   independence test; cited from the 2007 paper's reference list.]
-//! * TestU01 1.2.3, `testu01/sstring.c`, and the user's guide
-//!   `testu01/sstring.tex` (not in `pubs/`).
+//! * TestU01 1.2.3 source (`testu01-source` in BIB.md):
+//!   `testu01/sstring.c` (`sstring_HammingCorr`, `HammingCorr_L`,
+//!   `HammingCorr_S`, `sstring_HammingIndep`, `HammingIndep_L`,
+//!   `HammingIndep_S`, `CountBlocks`), `testu01/unif01.c`
+//!   (`unif01_StripB`), `probdist/gofs.c` (`gofs_Chi2`), `probdist/gofw.c`
+//!   (`gofw_ActiveTests0`), and the user's guide `testu01/sstring.tex`.
+//!   [pubs/TestU01-2009-57e98bf33880.tar.gz]
 //!
 //! # Author
 //! Pierre L'Ecuyer and Richard Simard (TestU01); Darrell Long (Rust port).
 //!
-//! This module implements the core single-replication statistics for:
+//! This module implements the core single-replication (`N = 1`) statistics
+//! for:
 //! - `sstring_HammingCorr`
 //! - `sstring_HammingIndep`
 //!
-//! Bit extraction.  Each generator call yields one 32-bit word, from which the
-//! `unif01_StripB` rule keeps bits `r + 1 ..= r + s`, counted from the most
-//! significant end, as an `s`-bit field (L'Ecuyer and Simard 2007, p. 22).
-//! An `L`-bit block is filled from ⌈L/s⌉ successive fields.  When `s` divides
-//! `L`, the block's Hamming weight is that of the next `L` bits of the
-//! concatenated field stream, which is how the paper describes TestU01's bit
-//! tests (§5, p. 16).  Otherwise the block's last field contributes only its
-//! `L mod s` least significant bits, the rest of that field is discarded, and
-//! the next block starts on a fresh word; in particular, every block with
-//! `L < s` reads a single word.  That case is not claimed to match TestU01's
-//! own packing, since `sstring.c` is not in `pubs/`.  The `upstream_tests`
-//! defaults (`s = 10`, `L = 300`) take the divisible path.
+//! Bit extraction follows `sstring.c`.  Each generator call yields one
+//! 32-bit word, and `unif01_StripB(gen, r, t)` keeps its bits
+//! `r + 1 ..= r + t`, counted from the most significant end, as a `t`-bit
+//! integer.  When `L ≥ s` (`HammingCorr_L`, `HammingIndep_L`), a block adds
+//! the weights of ⌊L/s⌋ successive `s`-bit fields and, when `s` does not
+//! divide `L`, the weight of `unif01_StripB(gen, r, L mod s)` from one more
+//! word: the most significant `L mod s` bits of that word's window, with the
+//! rest of the word unused.  When `L < s` (`HammingCorr_S`,
+//! `HammingIndep_S`), each `s`-bit field supplies ⌊s/L⌋ blocks, taken from
+//! its least significant end, and its `s mod L` most significant bits are
+//! unused; a run of blocks that ends part-way through a field has still drawn
+//! that field.  A block therefore equals the next `L` bits of the
+//! concatenated field stream that the paper describes (§5, p. 16) only when
+//! `s` divides `L`, as at the `upstream_tests` defaults (`s = 10`,
+//! `L = 300`).
 //!
-//! The main Hamming-independence chi-square lumps cells by TestU01's
-//! `gofs_MinExpected = 10.0` rule.
+//! The main Hamming-independence chi-square lumps cells as
+//! `sstring_HammingIndep` does, with `gofs_MinExpected = 10`: the cells that
+//! expect fewer than 10 pairs are pooled, and the pool forms a class of its
+//! own if it expects at least 10 or otherwise joins the last kept cell.  If
+//! that leaves a single class, the pair table is split instead into columns
+//! `j ≤ ⌊L/2⌋` and `j > ⌊L/2⌋`, a chi-square with one degree of freedom.
+//! Cell probabilities come from a log-space binomial recurrence rather than
+//! TestU01's `fmass_BinomialTerm2`, so statistics agree with TestU01's to
+//! rounding.
+//!
+//! P-values.  For `N = 1`, `gofw_ActiveTests0` reports the right tail
+//! `1 − F(x)` of the statistic's distribution and TestU01's reports flag
+//! p-values below `gofw_Suspectp = 0.001` or above `1 − gofw_Suspectp`.  For
+//! the chi-squares that right tail is what [`hamming_indep`] reports.  For
+//! HammingCorr, [`hamming_corr`] reports the two-sided
+//! `erfc(|z|/√2) = 2·min(Φ(z), 1 − Φ(z))` instead of TestU01's `1 − Φ(z)`,
+//! so that a small value flags either an excess or a deficit of
+//! correlation, both of which TestU01's `gofw_Suspectp` rule flags.  That
+//! p-value is capped at 1: [`crate::math::erfc`] is accurate only to about
+//! 10⁻⁷ and returns slightly more than 1 near 0.
 
 use super::strip_b;
 use crate::{
@@ -46,8 +73,59 @@ use std::f64::consts::{LN_2, SQRT_2};
 
 const GOFS_MIN_EXPECTED: f64 = 10.0;
 
-fn bit_chunks(rng: &mut impl Rng, r: usize, s: usize) -> impl Iterator<Item = (u32, usize)> + '_ {
-    std::iter::from_fn(move || Some((strip_b(rng.next_u32(), r, s), s)))
+/// Hamming weights of successive `L`-bit blocks, packed from
+/// `unif01_StripB` fields as `sstring.c` packs them (see the module docs).
+struct BlockWeights<'a, R: Rng> {
+    rng: &'a mut R,
+    r: usize,
+    s: usize,
+    l: usize,
+    /// The field still supplying blocks (`L < s` only), shifted so that its
+    /// next block sits in the low `L` bits.
+    field: u32,
+    /// Blocks left in `field` (`L < s` only).
+    blocks_left: usize,
+}
+
+impl<'a, R: Rng> BlockWeights<'a, R> {
+    /// Callers guarantee `1 <= s <= 32`, `r + s <= 32` and `l >= 1`.
+    fn new(rng: &'a mut R, r: usize, s: usize, l: usize) -> Self {
+        Self {
+            rng,
+            r,
+            s,
+            l,
+            field: 0,
+            blocks_left: 0,
+        }
+    }
+
+    fn next_weight(&mut self) -> usize {
+        let (r, s, l) = (self.r, self.s, self.l);
+        if l >= s {
+            // `HammingCorr_L` / `HammingIndep_L`: ⌊L/s⌋ whole fields, then the
+            // leading `L mod s` bits of one more word's window.
+            let mut weight = 0;
+            for _ in 0..l / s {
+                weight += strip_b(self.rng.next_u32(), r, s).count_ones() as usize;
+            }
+            if l % s > 0 {
+                weight += strip_b(self.rng.next_u32(), r, l % s).count_ones() as usize;
+            }
+            weight
+        } else {
+            // `HammingCorr_S` / `HammingIndep_S`: ⌊s/L⌋ blocks per field,
+            // least significant first.  `l < s <= 32`, so both shifts fit.
+            if self.blocks_left == 0 {
+                self.field = strip_b(self.rng.next_u32(), r, s);
+                self.blocks_left = s / l;
+            }
+            let weight = (self.field & ((1u32 << l) - 1)).count_ones() as usize;
+            self.field >>= l;
+            self.blocks_left -= 1;
+            weight
+        }
+    }
 }
 
 /// Largest block length accepted by [`hamming_indep`].
@@ -70,23 +148,6 @@ fn binomial_probs(l: usize) -> Vec<f64> {
         *p = log_p.exp();
     }
     probs
-}
-
-fn next_block_weight(blocks: &mut impl Iterator<Item = (u32, usize)>, l: usize) -> Option<usize> {
-    let mut remaining = l;
-    let mut weight = 0usize;
-    while remaining > 0 {
-        let (chunk, width) = blocks.next()?;
-        let take = remaining.min(width);
-        let mask = if take == 32 {
-            u32::MAX
-        } else {
-            (1u32 << take) - 1
-        };
-        weight += (chunk & mask).count_ones() as usize;
-        remaining -= take;
-    }
-    Some(weight)
 }
 
 fn chi_square(expected: &[f64], observed: &[u64]) -> f64 {
@@ -120,10 +181,9 @@ fn lumped_chi_square(expected: &[f64], observed: &[u64], min_expected: f64) -> (
     }
 
     if lumped_expected >= min_expected || kept_expected.is_empty() {
-        // Pool the weak cells into their own class.  If NO cell met the
-        // threshold this yields a single class → dof 0 → NaN p-value, i.e.
-        // an honest insufficient-data signal rather than an arbitrary
-        // low-df fallback.
+        // The pooled cells form a class of their own.  If no cell met the
+        // threshold, that is the only class (dof 0); `hamming_indep` then
+        // splits the table in two, as `sstring_HammingIndep` does.
         kept_expected.push(lumped_expected);
         kept_observed.push(lumped_observed);
     } else {
@@ -161,7 +221,8 @@ pub struct HammingCorrSummary {
 }
 
 /// TestU01 `sstring_HammingCorr`: serial correlation between the Hamming
-/// weights of `n` successive `l`-bit blocks drawn from `rng`.
+/// weights of `n` successive `l`-bit blocks drawn from `rng`, reported with a
+/// two-sided p-value (see the module docs).
 ///
 /// # Panics
 /// Panics if `n < 2`, `s` is outside `1..=32`, `r + s > 32`, or `l == 0`
@@ -178,18 +239,19 @@ pub fn hamming_corr(
     assert!(s > 0 && s <= 32, "s must be in 1..=32");
     assert!(r <= 32 && r + s <= 32, "r + s must be <= 32");
     assert!(l > 0, "L must be positive");
-    let mut chunks = bit_chunks(rng, r, s);
-    let mut prev = next_block_weight(&mut chunks, l).expect("insufficient stream");
+    let mut blocks = BlockWeights::new(rng, r, s, l);
+    let mut prev = blocks.next_weight();
     let mut sum = 0.0f64;
     let center = l as f64 / 2.0;
     for _ in 1..n {
-        let cur = next_block_weight(&mut chunks, l).expect("insufficient stream");
+        let cur = blocks.next_weight();
         sum += (prev as f64 - center) * (cur as f64 - center);
         prev = cur;
     }
     let rho_hat = 4.0 * sum / ((n - 1) as f64 * l as f64);
     let z_score = rho_hat * ((n - 1) as f64).sqrt();
-    let p_value = erfc(z_score.abs() / SQRT_2);
+    // `math::erfc` exceeds 1 by up to about 10⁻⁷ near 0.
+    let p_value = erfc(z_score.abs() / SQRT_2).min(1.0);
     HammingCorrSummary {
         n,
         r,
@@ -231,7 +293,7 @@ pub struct HammingIndepSummary {
     pub main_chi_square: f64,
     /// Degrees of freedom of the main chi-square (classes − 1).
     pub main_dof: usize,
-    /// Survival p-value of the main chi-square; NaN when `main_dof == 0`.
+    /// Survival p-value of the main chi-square.
     pub main_p_value: f64,
     /// Number of low-expectation cells pooled by the
     /// `gofs_MinExpected = 10` lumping rule.
@@ -273,10 +335,10 @@ pub fn hamming_indep(
     let probs = binomial_probs(l);
     let width = l + 1;
     let mut counts = vec![0u64; width * width];
-    let mut chunks = bit_chunks(rng, r, s);
+    let mut blocks = BlockWeights::new(rng, r, s, l);
     for _ in 0..n {
-        let x = next_block_weight(&mut chunks, l).expect("insufficient stream");
-        let y = next_block_weight(&mut chunks, l).expect("insufficient stream");
+        let x = blocks.next_weight();
+        let y = blocks.next_weight();
         counts[x * width + y] += 1;
     }
 
@@ -286,9 +348,23 @@ pub fn hamming_indep(
             expected[i * width + j] = n as f64 * probs[i] * probs[j];
         }
     }
-    let (main_chi_square, main_dof, lumped_cells) =
+    let (mut main_chi_square, mut main_dof, lumped_cells) =
         lumped_chi_square(&expected, &counts, GOFS_MIN_EXPECTED);
-    // dof 0 (a single class after lumping) yields NaN: igamc rejects a = 0.
+    if main_dof == 0 {
+        // `sstring_HammingIndep`: "Everything has been put in a single class;
+        // separate all in two classes", columns j <= L/2 against j > L/2.
+        let mut half_expected = [0.0f64; 2];
+        let mut half_observed = [0u64; 2];
+        for i in 0..=l {
+            for j in 0..=l {
+                let half = usize::from(j > l / 2);
+                half_expected[half] += expected[i * width + j];
+                half_observed[half] += counts[i * width + j];
+            }
+        }
+        main_chi_square = chi_square(&half_expected, &half_observed);
+        main_dof = 1;
+    }
     let main_p_value = chi2_pvalue(main_chi_square, main_dof);
 
     let l2 = l / 2;
@@ -394,7 +470,7 @@ pub fn hamming_indep_block_result(summary: &HammingIndepSummary, k: usize) -> Te
 
 #[cfg(test)]
 mod tests {
-    use super::{binomial_probs, bit_chunks, hamming_corr, hamming_indep, next_block_weight};
+    use super::{binomial_probs, hamming_corr, hamming_indep, BlockWeights};
     use crate::rng::{ConstantRng, Rng, Xorshift32};
 
     /// Replays a fixed list of words.
@@ -411,48 +487,239 @@ mod tests {
         }
     }
 
-    /// Top-aligns 4-bit fields so that `strip_b(word, 0, 4)` returns them.
-    fn fields_as_words(fields: &[u32]) -> SequenceRng {
+    /// Words whose leading bits are `fields`, each `width` bits wide, so that
+    /// `strip_b(word, 0, width)` returns them.
+    fn fields_as_words(fields: &[u32], width: u32) -> SequenceRng {
         SequenceRng {
-            words: fields.iter().map(|f| f << 28).collect(),
+            words: fields.iter().map(|f| f << (32 - width)).collect(),
             next: 0,
         }
     }
 
-    /// Pins the extraction the module docs describe when `s` does not divide
-    /// `L`: a block keeps only the low `L mod s` bits of its last field and
-    /// the next block starts on a fresh word.
+    /// `L > s` with `s ∤ L` (`HammingCorr_L`): a block adds ⌊L/s⌋ whole
+    /// fields, then the leading `L mod s` bits of one more word's window.
     #[test]
-    fn block_tail_keeps_low_field_bits_and_discards_the_rest() {
-        // s = 4, L = 6.  Blocks: 1111 + (00)11 = 6, then 1100 + (00)01 = 3.
-        // Consecutive 6-bit blocks of the concatenated stream
-        // 1111 0011 1100 0001 would weigh 4 and 4.
-        let mut rng = fields_as_words(&[0b1111, 0b0011, 0b1100, 0b0001]);
-        let mut chunks = bit_chunks(&mut rng, 0, 4);
-        assert_eq!(Some(6), next_block_weight(&mut chunks, 6));
-        assert_eq!(Some(3), next_block_weight(&mut chunks, 6));
+    fn ragged_block_tail_reads_the_leading_bits_of_one_more_word() {
+        // s = 4, L = 6.  Block 1: 1111, then the top two bits of 0011: 4 + 0.
+        // Block 2: 1100, then the top two bits of 1001: 2 + 1.  Reading the
+        // low two bits instead would give 6 and 3.
+        let mut rng = fields_as_words(&[0b1111, 0b0011, 0b1100, 0b1001], 4);
+        {
+            let mut blocks = BlockWeights::new(&mut rng, 0, 4, 6);
+            assert_eq!(4, blocks.next_weight());
+            assert_eq!(3, blocks.next_weight());
+        }
+        assert_eq!(4, rng.next, "two words per block");
 
-        // s = 4, L = 2: one word per block, low two bits.  Blocks: (11)00 = 0,
-        // then (00)11 = 2; the concatenated stream 1100 0011 would give 2, 0.
-        let mut rng = fields_as_words(&[0b1100, 0b0011]);
-        let mut chunks = bit_chunks(&mut rng, 0, 4);
-        assert_eq!(Some(0), next_block_weight(&mut chunks, 2));
-        assert_eq!(Some(2), next_block_weight(&mut chunks, 2));
+        // The same rule inside an r = 4 window: the whole field 1111 from
+        // bits 5..=8, then bits 5..=6 of the next word, 11 from 1100: 4 + 2.
+        let mut rng = SequenceRng {
+            words: vec![0b1111 << 24, 0b1100 << 24],
+            next: 0,
+        };
+        assert_eq!(6, BlockWeights::new(&mut rng, 4, 4, 6).next_weight());
+    }
+
+    /// `L < s` (`HammingCorr_S`): each field yields ⌊s/L⌋ blocks from its
+    /// least significant end, and its top `s mod L` bits go unused.
+    #[test]
+    fn short_blocks_share_a_field_low_bits_first() {
+        // s = 5, L = 2.  Field 10110 gives 10 (1), then 01 (1), and its top
+        // bit is unused; field 00011 gives 11 (2), then 00 (0).
+        let mut rng = fields_as_words(&[0b10110, 0b00011, 0b11111], 5);
+        {
+            let mut blocks = BlockWeights::new(&mut rng, 0, 5, 2);
+            let weights: Vec<usize> = (0..4).map(|_| blocks.next_weight()).collect();
+            assert_eq!(vec![1, 1, 2, 0], weights);
+        }
+        assert_eq!(2, rng.next, "two blocks per word");
+
+        // A fifth block draws a third field whole.
+        let mut rng = fields_as_words(&[0b10110, 0b00011, 0b11111], 5);
+        {
+            let mut blocks = BlockWeights::new(&mut rng, 0, 5, 2);
+            let weights: Vec<usize> = (0..5).map(|_| blocks.next_weight()).collect();
+            assert_eq!(vec![1, 1, 2, 0, 2], weights);
+        }
+        assert_eq!(3, rng.next);
     }
 
     /// Marsaglia's example xorshift32 seed; any non-zero seed would do.
     const XORSHIFT_SEED: u32 = 2_463_534_242;
 
-    /// With every weight-pair cell below `gofs_MinExpected` the lumping
-    /// leaves a single class, so the main chi-square has no degrees of
-    /// freedom and must report NaN (insufficient data), not a verdict.
+    /// Checks that `rng`, seeded with [`XORSHIFT_SEED`], has drawn exactly
+    /// `calls` words.
+    fn assert_words_drawn(rng: &mut Xorshift32, calls: usize) {
+        let mut fresh = Xorshift32::new(XORSHIFT_SEED);
+        for _ in 0..calls {
+            fresh.next_u32();
+        }
+        assert_eq!(fresh.next_u32(), rng.next_u32(), "expected {calls} calls");
+    }
+
+    fn close(got: f64, want: f64, tolerance: f64) -> bool {
+        (got - want).abs() <= tolerance * want.abs().max(1.0)
+    }
+
+    // The reference values in the next two tests come from TestU01 1.2.3
+    // itself: the library built from pubs/TestU01-2009-57e98bf33880.tar.gz,
+    // with this Xorshift32 stream supplied through
+    // `unif01_CreateExternGenBits`, `N = 1`, and the generator calls counted.
+
+    /// `sstring_HammingCorr` across every packing path.  TestU01 reports
+    /// `1 − Φ(z)`; this crate reports `2·min(Φ(z), 1 − Φ(z))`.  The statistic
+    /// is pinned to 10⁻¹², but the p-value only to 10⁻⁶, a tolerance that
+    /// absorbs `math::erfc`'s error of about 10⁻⁷.
     #[test]
-    fn hamming_indep_with_one_class_reports_nan() {
-        // L = 7, n = 20: the largest cell expects 20 · (35/128)² ≈ 1.5.
-        let mut rng = Xorshift32::new(XORSHIFT_SEED);
-        let summary = hamming_indep(&mut rng, 20, 0, 32, 7, 1);
-        assert_eq!(0, summary.main_dof);
-        assert!(summary.main_p_value.is_nan());
+    fn hamming_corr_matches_testu01() {
+        // (n, r, s, L, statistic z, TestU01 p-value, generator calls)
+        #[rustfmt::skip]
+        let cases = [
+            // s | L, the upstream_tests packing: 30 fields per block.
+            (2000, 20, 10, 300, 0.829_937_801_243_275, 0.203_286_975_527_249_06, 60_000),
+            // L > s, s ∤ L: two fields and five leading bits of a third word,
+            // or one field and two leading bits of a second.
+            (1500, 3, 10, 25, -0.296_511_178_967_733_4, 0.616_580_134_484_778_9, 4500),
+            (1200, 4, 5, 7, -0.144_397_745_564_476_96, 0.557_406_801_533_543_4, 2400),
+            // L = s: one field per block.
+            (700, 5, 16, 16, 1.172_527_685_431_962_4, 0.120_492_631_751_374_37, 700),
+            // L < s: four blocks per field, the last field partly used
+            // (n mod 4 = 1, 3), with two unused top bits (s = 30) and none.
+            (1001, 2, 30, 7, 0.930_613_139_992_408_8, 0.176_026_857_485_671_26, 251),
+            (999, 0, 32, 8, 0.838_842_842_628_616_9, 0.200_778_752_807_635_02, 250),
+            // Ten blocks from a single word.
+            (10, 0, 31, 3, -0.777_777_777_777_777_8, 0.781_649_984_638_621_1, 1),
+        ];
+        for (n, r, s, l, z, testu01_p, calls) in cases {
+            let testu01_p: f64 = testu01_p;
+            let label = format!("n = {n}, r = {r}, s = {s}, L = {l}");
+            let mut rng = Xorshift32::new(XORSHIFT_SEED);
+            let summary = hamming_corr(&mut rng, n, r, s, l);
+            assert!(
+                close(summary.z_score, z, 1e-12),
+                "{label}: z = {}",
+                summary.z_score
+            );
+            let two_sided = 2.0 * testu01_p.min(1.0 - testu01_p);
+            assert!(
+                (summary.p_value - two_sided).abs() < 1e-6,
+                "{label}: p = {}",
+                summary.p_value
+            );
+            assert_words_drawn(&mut rng, calls);
+        }
+    }
+
+    /// `sstring_HammingIndep` across every packing path, including the
+    /// single-class split of the main chi-square (n = 20, L = 7).
+    #[test]
+    fn hamming_indep_matches_testu01() {
+        type Case = (
+            (usize, usize, usize, usize, usize),
+            (f64, usize, f64),
+            &'static [(f64, usize, f64)],
+            usize,
+        );
+        // ((n, r, s, L, d), main (χ², dof, p), blocks (χ², dof, p), calls)
+        #[rustfmt::skip]
+        let cases: [Case; 6] = [
+            // s | L: three fields per block.
+            (
+                (1000, 20, 10, 30, 2),
+                (39.092_789_508_824_36, 37, 0.375_970_730_429_785_1),
+                &[
+                    (0.352_874_353_373_417_6, 2, 0.838_251_439_233_810_5),
+                    (0.773_536_440_273_037_6, 2, 0.679_248_512_810_353_3),
+                ],
+                6000,
+            ),
+            // L > s, s ∤ L: one field and the two leading bits of a second.
+            (
+                (1000, 2, 5, 7, 3),
+                (12.441_371_382_255_028, 24, 0.974_463_559_923_630_2),
+                &[
+                    (0.016, 1, 0.899_343_188_561_366_3),
+                    (1.779_438_469_673_474, 2, 0.410_771_066_769_133_8),
+                    (0.512, 2, 0.774_141_968_792_248_4),
+                ],
+                4000,
+            ),
+            // L = s + 1, odd L, d = 4.
+            (
+                (500, 6, 12, 13, 4),
+                (7.642_670_489_877_611, 16, 0.958_799_359_780_123_9),
+                &[
+                    (0.072, 1, 0.788_446_734_264_471),
+                    (0.759_575_820_020_642_7, 2, 0.684_006_464_753_447_7),
+                    (7.195_100_398_516_558_5, 2, 0.027_390_742_181_789_83),
+                    (3.773_189_579_359_362, 2, 0.151_587_116_987_310_53),
+                ],
+                2000,
+            ),
+            // L < s: seven blocks per 31-bit field, 1998 blocks, so the last
+            // field supplies three.
+            (
+                (999, 1, 31, 4, 2),
+                (28.758_425_091_758_426, 21, 0.119_923_101_246_930_17),
+                &[
+                    (0.796_859_423_526_090_2, 2, 0.671_373_468_590_986_6),
+                    (2.279_628_835_184_390_3, 2, 0.319_878_380_108_191_36),
+                ],
+                286,
+            ),
+            // L < s: six blocks per field, two unused top bits.
+            (
+                (300, 0, 32, 5, 3),
+                (13.700_571_428_571_429, 12, 0.320_236_529_589_327_36),
+                &[
+                    (0.333_333_333_333_333_3, 1, 0.563_702_861_650_773_5),
+                    (2.355_393_939_393_939_4, 2, 0.307_987_226_368_857_2),
+                    (0.878_640_522_875_817, 2, 0.644_474_346_294_407_9),
+                ],
+                100,
+            ),
+            // Every weight-pair cell expects under 10, so lumping leaves one
+            // class and TestU01 splits the table into columns j <= 3 and j > 3.
+            (
+                (20, 0, 32, 7, 1),
+                (3.2, 1, 0.073_638_270_120_393_15),
+                &[(0.2, 1, 0.654_720_846_018_577_2)],
+                10,
+            ),
+        ];
+        for ((n, r, s, l, d), (chi, dof, p), blocks, calls) in cases {
+            let label = format!("n = {n}, r = {r}, s = {s}, L = {l}, d = {d}");
+            let mut rng = Xorshift32::new(XORSHIFT_SEED);
+            let summary = hamming_indep(&mut rng, n, r, s, l, d);
+            assert!(
+                close(summary.main_chi_square, chi, 1e-10),
+                "{label}: main χ² = {}",
+                summary.main_chi_square
+            );
+            assert_eq!(dof, summary.main_dof, "{label}: main dof");
+            assert!(
+                (summary.main_p_value - p).abs() < 1e-9,
+                "{label}: main p = {}",
+                summary.main_p_value
+            );
+            assert_eq!(blocks.len(), summary.block_chi_square.len(), "{label}");
+            for (k, &(chi, dof, p)) in blocks.iter().enumerate() {
+                assert!(
+                    close(summary.block_chi_square[k], chi, 1e-10),
+                    "{label}: block {} χ² = {}",
+                    k + 1,
+                    summary.block_chi_square[k]
+                );
+                assert_eq!(dof, summary.block_dof[k], "{label}: block {} dof", k + 1);
+                assert!(
+                    (summary.block_p_value[k] - p).abs() < 1e-9,
+                    "{label}: block {} p = {}",
+                    k + 1,
+                    summary.block_p_value[k]
+                );
+            }
+            assert_words_drawn(&mut rng, calls);
+        }
     }
 
     /// Regression: the direct recurrence started from `2^-L`, which
@@ -492,6 +759,17 @@ mod tests {
         assert!((sum - 1.0).abs() < 1e-12);
     }
 
+    /// Regression: a zero correlation gave p = erfc(0) = 1.0000002.
+    #[test]
+    fn hamming_corr_p_value_is_at_most_one() {
+        // r = 0, s = 4, L = 4: the first block weighs 2 = L/2, so the one
+        // product in the correlation sum is 0 and z = 0.
+        let mut rng = fields_as_words(&[0b1100, 0b0111], 4);
+        let summary = hamming_corr(&mut rng, 2, 0, 4, 4);
+        assert_eq!(0.0, summary.z_score);
+        assert_eq!(1.0, summary.p_value);
+    }
+
     #[test]
     fn hamming_corr_rejects_constant_stream() {
         let mut rng = ConstantRng::new(0);
@@ -517,38 +795,5 @@ mod tests {
         let (chi, dof, lumped) = lumped_chi_square(&[4.0, 3.0], &[5, 2], 10.0);
         assert!(chi.abs() < 1e-12, "{chi}");
         assert_eq!((0, 2), (dof, lumped));
-    }
-
-    /// A small deterministic HammingIndep case with `L mod s ≠ 0`, checked
-    /// against an independent Python replica of the documented procedure
-    /// (exact binomial cell probabilities, the same lumping and corner-block
-    /// rules), with p-values from R 4.2.0 `pchisq(x, dof, lower.tail = FALSE)`.
-    #[test]
-    fn hamming_indep_matches_independent_replica() {
-        let mut rng = Xorshift32::new(XORSHIFT_SEED);
-        let summary = hamming_indep(&mut rng, 1000, 2, 5, 7, 3);
-        let close = |got: f64, want: f64| (got - want).abs() <= 1e-9 * want.abs().max(1.0);
-        assert!(
-            close(summary.main_chi_square, 18.333_335_077_917_695),
-            "{}",
-            summary.main_chi_square
-        );
-        assert_eq!(24, summary.main_dof);
-        assert_eq!(40, summary.lumped_cells);
-        assert!(
-            close(summary.main_p_value, 0.786_545_459_781_390_7),
-            "{}",
-            summary.main_p_value
-        );
-        let blocks = [
-            (0.144, 1, 0.704_336_413_488_451_9),
-            (2.393_458_040_406_143_6, 2, 0.302_181_025_137_528_76),
-            (2.642_285_714_285_714_3, 2, 0.266_830_178_867_156_5),
-        ];
-        for (k, &(chi, dof, p)) in blocks.iter().enumerate() {
-            assert!(close(summary.block_chi_square[k], chi), "d = {}", k + 1);
-            assert_eq!(dof, summary.block_dof[k], "d = {}", k + 1);
-            assert!(close(summary.block_p_value[k], p), "d = {}", k + 1);
-        }
     }
 }

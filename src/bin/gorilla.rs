@@ -1,60 +1,40 @@
 //! Marsaglia–Tsang Gorilla test (JSS 7(3), 2002) over all 32 bit positions of
-//! each seeded generator, with a per-bit table and a Kolmogorov–Smirnov
-//! aggregate p-value.  The paper aggregates with an Anderson–Darling–
-//! Kolmogorov–Smirnov test instead; see `entropy::research::marsaglia_tsang`.
+//! each seeded generator, with a per-bit summary and the paper's
+//! Anderson–Darling ("ADKS") aggregate: the statistic A₃₂ (`agg_ad_A`) and
+//! the p-value 1 − Pr(A₃₂ < A) (`agg_ad_p`), which is small when the 32
+//! per-bit p-values are far from uniform.  The paper prints Pr(A₃₂ < A)
+//! itself.  Above A ≈ 6.61, `agg_ad_p` is
+//! 1 − ADinf(A) from the limiting distribution alone, 2–5% below the
+//! simulated n = 32 tail (see `entropy::math::anderson_darling_cdf`).
+//! See `entropy::research::marsaglia_tsang`.
 
-use entropy::research::marsaglia_tsang::{gorilla_aggregate_ks, gorilla_all, GorillaBitResult};
-use entropy::rng::{
-    AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
-    SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
-};
-use entropy::seed::seed_material;
+use entropy::research::marsaglia_tsang::{gorilla_aggregate_ad, gorilla_all, GorillaBitResult};
+use entropy::rng::Rng;
+
+#[path = "common/cli.rs"]
+mod cli;
+#[path = "common/family.rs"]
+mod family;
+
+use family::Visit;
 
 const GORILLA_STREAM_WORDS: usize = (1 << 26) + 25;
 
 struct Args {
-    rng_filters: Vec<String>,
+    rng: cli::RngFilter,
 }
 
 impl Args {
-    fn parse() -> Self {
-        let mut rng_filters = Vec::new();
-        let argv: Vec<String> = std::env::args().skip(1).collect();
-        let mut i = 0;
-        while i < argv.len() {
-            match argv[i].as_str() {
-                "--help" | "-h" => {
-                    print_usage();
-                    std::process::exit(0);
-                }
-                "--rng" => {
-                    i += 1;
-                    rng_filters.push(
-                        argv.get(i)
-                            .unwrap_or_else(|| die("--rng requires an argument"))
-                            .clone(),
-                    );
-                }
-                other => die(&format!("unknown option '{other}'")),
+    fn parse_from(mut argv: cli::Argv) -> Result<Self, cli::Stop> {
+        let mut rng = cli::RngFilter::default();
+        while let Some(option) = argv.next_option()? {
+            match option.as_str() {
+                flag @ "--rng" => rng.push(argv.value(flag)?),
+                other => return Err(cli::unknown_option(other)),
             }
-            i += 1;
         }
-        Self { rng_filters }
+        Ok(Self { rng })
     }
-
-    fn matches_rng(&self, label: &str) -> bool {
-        let label = label.to_lowercase();
-        self.rng_filters.is_empty()
-            || self
-                .rng_filters
-                .iter()
-                .any(|pat| label.contains(&pat.to_lowercase()))
-    }
-}
-
-fn die(msg: &str) -> ! {
-    eprintln!("error: {msg}");
-    std::process::exit(1);
 }
 
 fn print_usage() {
@@ -95,82 +75,42 @@ fn summarize(results: &[GorillaBitResult]) -> (f64, f64, usize, f64) {
     (min_p, max_p, worst_bit, worst_abs_z)
 }
 
-fn main() {
-    let args = Args::parse();
-    // Lazy closures (matching the sibling binaries): each case generates
-    // ~268 MB of stream and a full 32-bit-position Gorilla pass, so the
-    // --rng filter must be consulted BEFORE any work is done.
-    type Case = (&'static str, Box<dyn Fn() -> Vec<GorillaBitResult>>);
-    let cases: Vec<Case> = vec![
-        ("MT19937", Box::new(|| with_rng(Mt19937::new(19650218)))),
-        ("Xorshift32", Box::new(|| with_rng(Xorshift32::new(1)))),
-        ("Xorshift64", Box::new(|| with_rng(Xorshift64::new(1)))),
-        (
-            "BAD Unix System V rand()",
-            Box::new(|| with_rng(SystemVRand::new(1))),
-        ),
-        (
-            "BAD Unix System V mrand48()",
-            Box::new(|| with_rng(Rand48::new(1))),
-        ),
-        (
-            "BAD Unix BSD random()",
-            Box::new(|| with_rng(BsdRandom::new(1))),
-        ),
-        (
-            "BAD Unix Linux glibc rand()/random()",
-            Box::new(|| with_rng(LinuxLibcRandom::new(1))),
-        ),
-        (
-            "BAD Windows CRT rand()",
-            Box::new(|| with_rng(WindowsMsvcRand::new(1))),
-        ),
-        (
-            "BAD Windows VB6/VBA Rnd()",
-            Box::new(|| with_rng(WindowsVb6Rnd::new(1))),
-        ),
-        (
-            "BAD Windows .NET Random(seed)",
-            Box::new(|| with_rng(WindowsDotNetRandom::new(1))),
-        ),
-        (
-            "ANSI C sample LCG",
-            Box::new(|| with_rng(Lcg32::new(LcgVariant::AnsiC, 1))),
-        ),
-        (
-            "LCG MINSTD",
-            Box::new(|| with_rng(Lcg32::new(LcgVariant::Minstd, 1))),
-        ),
-        (
-            "AES-128-CTR",
-            Box::new(|| with_rng(AesCtr::new(&seed_material::<16>(1), 0))),
-        ),
-        (
-            "cryptography::CtrDrbgAes256",
-            Box::new(|| with_rng(CryptoCtrDrbg::new(&seed_material::<48>(1)))),
-        ),
-    ];
+/// Counts the generators `--rng` selects without constructing them.
+struct Skip;
 
-    if !cases.iter().any(|(label, _)| args.matches_rng(label)) {
-        die("no RNG labels matched --rng filter");
+impl Visit for Skip {
+    fn case<R: Rng>(&mut self, _label: &'static str, _make: impl FnOnce() -> R) {}
+}
+
+/// Runs the Gorilla test on a generator and prints its row.
+struct Row;
+
+impl Visit for Row {
+    fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
+        let results = with_rng(make());
+        let (min_p, max_p, worst_bit, worst_abs_z) = summarize(&results);
+        let aggregate = gorilla_aggregate_ad(&results);
+        println!(
+            "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3} {:>10.4} {:>10.6}",
+            label, min_p, max_p, worst_bit, worst_abs_z, aggregate.statistic, aggregate.p_value
+        );
+    }
+}
+
+fn main() {
+    let args = cli::parse_or_exit(Args::parse_from, print_usage);
+    // Each case generates ~268 MB of stream and a full 32-bit-position
+    // Gorilla pass, so the --rng filter is checked before any work is done
+    // or the header printed.
+    if family::visit_matching(&args.rng, &mut Skip) == 0 {
+        cli::die_no_rng_matched();
     }
 
     println!(
-        "{:<40} {:>9} {:>9} {:>9} {:>10} {:>10}",
-        "RNG", "min_p", "max_p", "worst_bit", "worst_|z|", "agg_ks_p"
+        "{:<40} {:>9} {:>9} {:>9} {:>10} {:>10} {:>10}",
+        "RNG", "min_p", "max_p", "worst_bit", "worst_|z|", "agg_ad_A", "agg_ad_p"
     );
-    println!("{}", "-".repeat(95));
+    println!("{}", "-".repeat(106));
 
-    for (label, run) in cases {
-        if !args.matches_rng(label) {
-            continue;
-        }
-        let results = run();
-        let (min_p, max_p, worst_bit, worst_abs_z) = summarize(&results);
-        let agg_ks_p = gorilla_aggregate_ks(&results);
-        println!(
-            "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3} {:>10.6}",
-            label, min_p, max_p, worst_bit, worst_abs_z, agg_ks_p
-        );
-    }
+    family::visit_matching(&args.rng, &mut Row);
 }

@@ -99,7 +99,7 @@ Runs the five standalone research probes with their default parameters:
 `bib_tests` (Knuth permutation/gap, Wald–Wolfowitz runs above/below the median, NIST ApEn profile),
 `upstream_tests` (TestU01 HammingCorr/HammingIndep + PractRand FPF),
 `testu01_lz` (TestU01 Lempel-Ziv), `webster_tavares` (SAC/BIC avalanche),
-and `gorilla` (Marsaglia-Tsang Gorilla).
+and `gorilla` (Marsaglia-Tsang Gorilla, with the paper's Anderson-Darling aggregate).
 Use the individual binaries for filtered or resized runs:
 
 ```sh
@@ -187,7 +187,7 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | Knuth TAOCP Vol. 2 §3.3.2 permutation and gap tests, plus the Wald–Wolfowitz (1940) runs test above/below the median | Implemented as a research binary (`bib_tests`) over uniform `[0,1)` streams |
 | NIST SP 800-22 §2.12 ApEn statistic swept over multiple embedding dimensions `m=2..6` | Implemented as part of `bib_tests`; reveals at which pattern lengths a sequence departs from randomness beyond the single fixed NIST setting |
 | TestU01 1.2.3 (library, 2009; paper 2007): `scomp_LempelZiv` core statistic and official empirical calibration table | Implemented as a research binary (`testu01_lz`); exact per-replication `LZ78` phrase count and TestU01 `μ/σ` normalization, but not yet the full TestU01 goodness-of-fit reporting stack |
-| TestU01 1.2.3 (library, 2009; paper 2007): `sstring_HammingCorr` and `sstring_HammingIndep` core statistics | Implemented as part of `upstream_tests`; TestU01 `unif01_StripB` bit fields (an `L`-bit block equals the paper's concatenated bit stream only when `s` divides `L`, as at the defaults; otherwise each block's last field is truncated to its low `L mod s` bits and the rest discarded), asymptotic normal `HammingCorr`, and TestU01-style `gofs_MinExpected=10` lumping for the main `HammingIndep` chi-square |
+| TestU01 1.2.3 (library, 2009; paper 2007): `sstring_HammingCorr` and `sstring_HammingIndep` core statistics | Implemented as part of `upstream_tests`; `unif01_StripB` bit fields packed into `L`-bit blocks as `sstring.c` packs them (for `L ≥ s`, ⌊L/s⌋ fields plus the leading `L mod s` bits of one more word; for `L < s`, ⌊s/L⌋ blocks per field, low bits first), so a block equals the paper's concatenated bit stream only when `s` divides `L`, as at the defaults; asymptotic normal `HammingCorr` with a two-sided p-value; and TestU01's `gofs_MinExpected=10` lumping, including its two-class fallback, for the main `HammingIndep` chi-square.  Statistics and generator calls are pinned against TestU01 1.2.3 itself |
 | PractRand pre-0.95: `FPF(4,14,6)` core statistic | Implemented as part of `upstream_tests`; parses disjoint codewords (iid samples — a documented deviation from upstream's 16-bit stride-overlapped windows) with per-platter and cross-exponent G-tests, but without PractRand's empirical calibration tables/suspicion scores |
 
 ## Important Caveats

@@ -61,7 +61,7 @@ The point of keeping these files in-tree is auditability: readers should be able
   number  = {3},
   year    = {2002},
   doi     = {10.18637/jss.v007.i03},
-  note    = {[pubs/marsaglia-tsang-2002-difficult-tests.pdf]; the C attached to the article, whose ADKS aggregate defines the Gorilla second stage: [pubs/marsaglia-tsang-2002-tuftests.c]}
+  note    = {Gorilla test behind research::marsaglia_tsang. [pubs/marsaglia-tsang-2002-difficult-tests.pdf]; the C attached to the article, whose gorilla() and ad32() define the test and its ADKS aggregate: [pubs/marsaglia-tsang-2002-tuftests.c]}
 }
 ```
 
@@ -562,7 +562,7 @@ previously missing from this bibliography.
   number  = {2},
   year    = {2004},
   doi     = {10.18637/jss.v009.i02},
-  note    = {[pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]; the C attached to the article: [pubs/marsaglia-marsaglia-2004-ADinf.c], [pubs/marsaglia-marsaglia-2004-AnDarl.c]}
+  note    = {Anderson-Darling distribution behind math::anderson_darling_cdf and the Gorilla aggregate. [pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]; the C attached to the article: [pubs/marsaglia-marsaglia-2004-ADinf.c], [pubs/marsaglia-marsaglia-2004-AnDarl.c]}
 }
 
 @article{marsaglia2003kolmogorov,

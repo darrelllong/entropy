@@ -6,7 +6,7 @@
 #   upstream_tests — TestU01 HammingCorr/HammingIndep, PractRand FPF(4,14,6)
 #   testu01_lz     — TestU01 Lempel-Ziv core statistic (k=25, 10 replications)
 #   webster_tavares — SAC / BIC avalanche analysis (4096 samples, 32-bit I/O)
-#   gorilla        — Marsaglia-Tsang Gorilla (all 32 bit positions + aggregate KS)
+#   gorilla        — Marsaglia-Tsang Gorilla (all 32 bit positions + Anderson-Darling aggregate)
 #
 # All probes run with their default parameters (no --rng filter, no size flags).
 # Use the individual binaries directly for filtered or sized runs.

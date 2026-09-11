@@ -22,59 +22,27 @@ use entropy::rng::{
 };
 use entropy::seed::seed_material;
 
+#[path = "common/cli.rs"]
+mod cli;
+
 struct Args {
     words: usize,
-    rng_filters: Vec<String>,
+    rng: cli::RngFilter,
 }
 
 impl Args {
-    fn parse() -> Self {
+    fn parse_from(mut argv: cli::Argv) -> Result<Self, cli::Stop> {
         let mut words = 4096usize;
-        let mut rng_filters = Vec::new();
-        let argv: Vec<String> = std::env::args().skip(1).collect();
-        let mut i = 0;
-        while i < argv.len() {
-            match argv[i].as_str() {
-                "--help" | "-h" => {
-                    print_usage();
-                    std::process::exit(0);
-                }
-                "--words" => {
-                    i += 1;
-                    words = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--words requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --words value"));
-                }
-                "--rng" => {
-                    i += 1;
-                    rng_filters.push(
-                        argv.get(i)
-                            .unwrap_or_else(|| die("--rng requires an argument"))
-                            .clone(),
-                    );
-                }
-                other => die(&format!("unknown option '{other}'")),
+        let mut rng = cli::RngFilter::default();
+        while let Some(option) = argv.next_option()? {
+            match option.as_str() {
+                flag @ "--words" => words = argv.usize_value(flag)?,
+                flag @ "--rng" => rng.push(argv.value(flag)?),
+                other => return Err(cli::unknown_option(other)),
             }
-            i += 1;
         }
-        Self { words, rng_filters }
+        Ok(Self { words, rng })
     }
-
-    fn matches_rng(&self, label: &str) -> bool {
-        let label = label.to_lowercase();
-        self.rng_filters.is_empty()
-            || self
-                .rng_filters
-                .iter()
-                .any(|pat| label.contains(&pat.to_lowercase()))
-    }
-}
-
-fn die(msg: &str) -> ! {
-    eprintln!("error: {msg}");
-    std::process::exit(1);
 }
 
 fn print_usage() {
@@ -119,7 +87,7 @@ fn summarize(label: &str, complexities: &[usize; 64], words: usize) {
 }
 
 fn main() {
-    let args = Args::parse();
+    let args = cli::parse_or_exit(Args::parse_from, print_usage);
     let cases: Vec<Case<'_>> = vec![
         (
             "Xorshift64",
@@ -151,13 +119,13 @@ fn main() {
 
     let mut matched = 0usize;
     for (label, case) in cases {
-        if !args.matches_rng(label) {
+        if !args.rng.matches(label) {
             continue;
         }
         matched += 1;
         summarize(label, &case(), args.words);
     }
     if matched == 0 {
-        die("no RNG labels matched --rng filter");
+        cli::die_no_rng_matched();
     }
 }

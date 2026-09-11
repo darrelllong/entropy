@@ -9,7 +9,7 @@
 //! | [`dieharder`] | DIEHARDER (Brown, 2004) \[`brown2004dieharder`\] |
 //! | [`research`] | Research-grade tests: Knuth TAOCP, Marsaglia–Tsang, TestU01, PractRand |
 //! | [`rng`] | The generators under test, all implementing [`rng::Rng`] |
-//! | [`math`] | Special functions: erfc, igamc, KS, chi-square, FFT, GF(2) rank |
+//! | [`math`] | Special functions: erfc, igamc, KS, Anderson–Darling, chi-square, FFT, GF(2) rank |
 //! | [`seed`] | Deterministic seed-expansion helpers and fixed cipher test keys |
 //! | [`result`] | [`result::TestResult`] and the shared significance level [`result::ALPHA`] |
 //!
