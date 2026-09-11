@@ -6,7 +6,7 @@
 //! excellent avalanche; the generator passes BigCrush, PractRand > 8 TiB, and
 //! NIST SP 800-22 at typical sample sizes.
 //!
-//! The constants below are the ones `wyrand` uses in
+//! [`WyRand::INCREMENT`] and [`WyRand::MIX`] are the constants `wyrand` uses in
 //! `old_versions/wyhash_final2.h` and `old_versions/wyhash_final4.h` of the
 //! wyhash repository.  The repository's current `wyhash.h`, final version
 //! 4.3, switched to `0x2d358dccaa6c78a5` / `0x8bb84b93962eacc9`; that variant
@@ -25,11 +25,6 @@
 
 use super::{OsRng, Rng};
 
-// Weyl-sequence increment: `_wyp[0]` in wyhash_final2.h and wyhash_final4.h.
-const WYRAND_INC: u64 = 0xa076_1d64_78bd_642f;
-// Mix constant: `_wyp[1]` there.
-const WYRAND_MIX: u64 = 0xe703_7ed1_a0b4_28db;
-
 /// Ultra-fast 64-bit PRNG based on a Weyl sequence and 128-bit multiply mix.
 ///
 /// Period: 2⁶⁴.
@@ -38,6 +33,16 @@ pub struct WyRand {
 }
 
 impl WyRand {
+    /// `_wyp[0]` in wyhash_final2.h and wyhash_final4.h: the Weyl-sequence
+    /// increment `wyrand` adds to its state.
+    /// [`SEED_MATERIAL_MASK`](crate::seed::SEED_MATERIAL_MASK) holds the same
+    /// value as a separate constant with a different role, so changing this
+    /// one leaves seeding alone.  [pubs/wyhash-e4764a0b637d.tar.gz]
+    pub const INCREMENT: u64 = 0xa076_1d64_78bd_642f;
+    /// `_wyp[1]` there: the constant `wyrand` XORs into the second `_wymix`
+    /// operand.
+    pub const MIX: u64 = 0xe703_7ed1_a0b4_28db;
+
     /// Construct from an explicit 64-bit seed.
     #[must_use]
     pub fn new(seed: u64) -> Self {
@@ -52,8 +57,8 @@ impl WyRand {
 
     #[inline]
     fn step(&mut self) -> u64 {
-        self.state = self.state.wrapping_add(WYRAND_INC);
-        wymix(self.state, self.state ^ WYRAND_MIX)
+        self.state = self.state.wrapping_add(Self::INCREMENT);
+        wymix(self.state, self.state ^ Self::MIX)
     }
 }
 
@@ -114,7 +119,7 @@ mod tests {
 
     // Known-answer test: first three outputs cross-checked against an
     // independent Python replica of wyrand
-    // (seed += 0xa0761d6478bd642f; wymix(seed, seed ^ 0xe7037ed1a0b428db)) and
+    // (seed += INCREMENT; wymix(seed, seed ^ MIX)) and
     // against `wyrand` compiled from wyhash_final2.h and wyhash_final4.h in
     // pubs/wyhash-e4764a0b637d.tar.gz (5000 outputs at seeds 0, 42 and 12345).
     #[test]

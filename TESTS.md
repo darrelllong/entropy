@@ -117,6 +117,21 @@ asymptotic-series non-convergence misroute that reported p = 1 for
 catastrophically large $D$; the tables above were harvested with the
 corrected code.)
 
+Every DIEHARD p-value below is small when the test fails.  Seven results
+summarize several p-values with the KS test above and report its p-value:
+`birthday_spacings`, `runs_up` and `runs_down` feed it upper-tail chi-square
+p-values, `bitstream` two-sided normal p-values $\mathrm{erfc}(|z|/\sqrt{2})$,
+and `parking_lot`, `minimum_distance_2d` and `spheres_3d` CDF values that are
+only approximately uniform under the null: $\Phi(z)$ for parking lots, and
+$1-\exp(\cdot)$ for the two distance tests, where Dieharder finds the
+`minimum_distance_2d` form "not accurate enough" (see below).  The other ten
+report a single p-value: an upper-tail chi-square for the three rank tests,
+`squeeze` and `craps_throws`, and a two-sided normal p-value for `opso`,
+`oqso`, `dna`, `count_ones_stream` and `craps_wins`.  DIEHARD itself prints
+CDF values, such as $\Phi(z)$ and chi-square CDFs, and summarizes with a
+routine it calls KSTEST that computes Marsaglia's Anderson–Darling statistic
+and prints its CDF value.
+
 ### NIST SP 800-22
 
 - **`frequency` (monobit).** Convert bits to signs $Y_i = 2X_i-1$, form
@@ -176,22 +191,28 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   measures compressibility by tracking recurrence gaps of $L$-bit words. If
   $A_i$ is the distance back to the previous occurrence of the current word,
   the core statistic is
-  $f_n = \frac{1}{K}\sum_{i=1}^K \log_2 A_i$,
-  which is normalized as
-  $z = (f_n-\mu_L)/(c(L,K)\sigma_L)$ and scored with
-  $p=\mathrm{erfc}(|z|/\sqrt{2})$, with $c(L,K)$ taken from SP 800-22
-  §2.9.4. The crate reports both the NIST wrapper (which selects $L$ from
-  $n$ over NIST's domain $L\in[6,16]$) and the broader Maurer parametric
+  $f_n = \frac{1}{K}\sum_{i=1}^K \log_2 A_i$ over the $K$ blocks that follow
+  $Q = 10\cdot2^L$ initialization blocks. It is normalized as
+  $z = (f_n-\mu_L)/\sigma$ with $\sigma = c(L,K)\sqrt{v_L/K}$, where $\mu_L$
+  and $v_L$ are the tabulated mean and variance of $\log_2 A_i$ and $c(L,K)$
+  is the factor of SP 800-22 §2.9.4, and scored with
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$. The crate reports both the NIST wrapper
+  (which selects $L$ from $n$ over NIST's domain $L\in[6,16]$) and the broader
+  Maurer parametric
   family over $L=5,\dots,16$.  A parametric setting runs only when the
   sample holds $K \ge 1000\cdot 2^L$ test blocks, the $K$ behind every row of
   §2.9.7's table, so at 16 Mbit $L=5,\dots,10$ run and $L=11,\dots,16$
   report SKIP.
 
 - **`linear_complexity`.** Break the stream into blocks of length $M=500$,
-  run Berlekamp-Massey on each block, and compare the resulting linear
-  complexities to NIST's seven-bin reference distribution. The test is aimed
-  at short linear recurrences: if a block is too easy to synthesize by an
-  LFSR, its linear complexity lands too far below the null mean.
+  run Berlekamp-Massey on each block to get its linear complexity $L_i$, and
+  form $T_i=(-1)^M(L_i-\mu)+2/9$ with
+  $\mu = M/2 + (9+(-1)^{M+1})/36 - (M/3+2/9)/2^M$, as §2.10.4 prints it.
+  The $T_i$ fall into NIST's seven classes, split at $\pm0.5$, $\pm1.5$ and
+  $\pm2.5$, and a chi-square with $df=6$ compares the class counts to the
+  reference probabilities. The test is aimed at short linear recurrences: if
+  a block is too easy to synthesize by an LFSR, its linear complexity lands
+  too far below the null mean.
 
 - **`serial` (two p-values).** Count all overlapping $m$-bit patterns for
   $m=3$ and form
@@ -213,7 +234,7 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   statistic is
   $\mathrm{ApEn}(m)=\phi_m-\phi_{m+1}$ and NIST scores
   $\chi^2 = 2n(\ln 2-\mathrm{ApEn}(m))$.  The implementation enforces
-  $m < \log_2 n - 5$ per the SP 800-22 validity condition.
+  $m < \lfloor\log_2 n\rfloor - 5$ per the SP 800-22 validity condition.
 
 - **`cumulative_sums` (forward and backward).** Form the random walk
   $S_k=\sum_{i=1}^k (2X_i-1)$ and record
@@ -243,12 +264,14 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 ### DIEHARD
 
 - **`birthday_spacings`.** For each trial, choose $m=512$ birthdays in a year
-  of size $n=2^{24}$, sort them, compute adjacent spacings, and let $j$ be the
-  number of distinct spacing values that repeat. Under the null,
+  of size $n=2^{24}$, sort them, sort their spacings, and let $j$ be the
+  number of adjacent equal sorted spacings, so a value seen $r$ times adds
+  $r-1$, as DIEHARD's `cdbday` counts. Under the null,
   $j \overset{a}{\sim} \mathrm{Poisson}(\lambda)$ with
-  $\lambda = m^3/(4n)=2$; the implementation performs a chi-square fit to the
-  Poisson histogram for each bit offset and then an outer KS over the nine
-  offsetwise p-values.
+  $\lambda = m^3/(4n)=2$. Each of nine bit offsets (bits $o$ to $o+23$,
+  $o=0,\dots,8$) draws fresh words for its $500$ trials, and its histogram is
+  scored by chi-square in DIEHARD's cells $j=0,\dots,5$ and $j\ge6$
+  ($df=6$); an outer KS combines the nine p-values.
 
 - **`binary_rank_32x32`.** Fill $40{,}000$ binary $32\times 32$ matrices over
   $\mathbb{F}_2$, compute their ranks, and compare the counts of
@@ -265,79 +288,96 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   zero-extended 31-bit words leaves a column of zeros here and fails.
 
 - **`binary_rank_6x8`.** Build $100{,}000$ matrices with $6$ rows and $8$
-  columns from byte-level slices, compute the rank over $\mathbb{F}_2$, and
+  columns, each row the low byte of one word (the last of the $25$ bit
+  windows DIEHARD tests), compute the rank over $\mathbb{F}_2$, and
   compare the observed counts of ranks $6$, $5$, and $\le4$ to the exact
   $6\times8$ null probabilities. This is a small-matrix dependence probe aimed
   at byte-lane linearity.
 
-- **`bitstream`.** Interpret the output as a continuous MSB-first bitstream,
-  slide a $20$-bit window across $2^{21}$ overlapping positions, and count
-  how many of the $2^{20}$ possible words are never seen. Marsaglia models the
-  missing-word count as approximately normal with mean $141{,}909$ and
-  $\sigma=428$, so each repetition is scored by
+- **`bitstream`.** Read each word high bit first and, in each of $20$
+  disjoint chunks, slide a $20$-bit window across $2^{21}$ overlapping
+  positions and count how many of the $2^{20}$ possible words are never seen.
+  Marsaglia models the missing-word count as approximately normal with mean
+  $141{,}909$ and $\sigma=428$, so each chunk is scored by
   $p=\mathrm{erfc}(|z|/\sqrt{2})$ and the final report is an outer KS on
-  $20$ such p-values.
+  the $20$ p-values. DIEHARD reads each word low bit first as one continuous
+  stream and prints its $20$ p-values, $\Phi(z)$, with no summary.
 
-- **`opso`.** OPSO builds each $20$-bit sample from two $10$-bit letters
-  taken from two separate words, so each sample lands in a word space of
-  size $2^{20}$.  The crate deliberately deviates from the canonical
-  overlapping construction: the $2^{21}$ samples use *disjoint* bit fields,
-  so they are mutually independent and the missing-words count is scored
-  with the exact iid moments $\mu \approx 141{,}909.19$,
-  $\sigma \approx 290.33$ (the canonical overlapping OPSO $\sigma$ is 290),
-  giving $p=\mathrm{erfc}(|z|/\sqrt{2})$.
+- **`opso`.** OPSO counts the missing words among $2^{21}$ samples from a
+  $2^{20}$-word space, each sample two $10$-bit letters from two words: bits
+  0–9 of a pair of words, then bits 10–19 of the same pair.  Marsaglia's
+  words overlap, one new letter per generator word, and have $\sigma = 290$.
+  Here every letter is a disjoint bit field, so the samples are iid and the
+  count is scored with their exact moments $\mu \approx 141{,}909.19$,
+  $\sigma \approx 290.33$, giving $p=\mathrm{erfc}(|z|/\sqrt{2})$.  DIEHARD
+  also sweeps the letter's bit field over $23$ positions ($28$ for OQSO, $31$
+  for DNA) and prints a p-value for each; the crate scores one construction.
+  Dieharder 3.31.1 rates OPSO, OQSO and DNA "Suspect".
 
-- **`oqso`.** OQSO is the same sparse-occupancy idea with one $5$-bit letter
-  from each of four words per sample, again a $2^{20}$ word space.  As with
-  OPSO the samples come from disjoint bit fields, so the same exact iid
-  moments ($\mu \approx 141{,}909.19$, $\sigma \approx 290.33$) apply — a
-  documented deviation from the canonical overlapping OQSO $\sigma = 295$.
+- **`oqso`.** OQSO is the same count with four $5$-bit letters from four
+  words per sample; each group of four words yields six samples from the
+  disjoint fields at bits 0–29.  The samples are iid, so the same exact
+  moments apply (Marsaglia's overlapping OQSO has $\sigma = 295$).
 
-- **`dna`.** DNA applies the sparse-occupancy construction with one $2$-bit
-  symbol from each of ten words per sample, another $2^{20}$-word occupancy
-  problem.  Samples are again disjoint/iid and scored with
-  $\mu \approx 141{,}909.19$, $\sigma \approx 290.33$ (canonical overlapping
-  DNA uses $\sigma = 339$), reporting $p=\mathrm{erfc}(|z|/\sqrt{2})$.
+- **`dna`.** DNA uses ten $2$-bit letters from ten words per sample; each
+  group of ten words yields sixteen samples from its disjoint $2$-bit fields.
+  The samples are iid and scored with the same exact moments, reporting
+  $p=\mathrm{erfc}(|z|/\sqrt{2})$ (Marsaglia's overlapping DNA has
+  $\sigma = 339$).
 
-- **`count_ones_stream`.** Map each byte to one of five letters
-  $A,\dots,E$ according to its Hamming weight, form overlapping $5$-letter and
-  $4$-letter words, and compute the Marsaglia difference statistic
+- **`count_ones_stream`.** Map each byte, taking each word's low byte first,
+  to one of five letters $A,\dots,E$ according to its Hamming weight, form
+  $256{,}000$ overlapping $5$-letter words and their leading $4$-letter
+  words, and compute the Marsaglia difference statistic
   $Z = (Q_5-Q_4-2500)/\sqrt{5000}$, where $Q_5$ and $Q_4$ are the corresponding
   chi-squares against the exact letter-product probabilities. The p-value is
-  $p=\mathrm{erfc}(|Z|/\sqrt{2})$.
+  $p=\mathrm{erfc}(|Z|/\sqrt{2})$. DIEHARD scores $2{,}560{,}000$ five-letter
+  words, takes each word's high byte first, and runs the test twice.
 
 - **`parking_lot`.** Sequentially try to place $12{,}000$ unit square cars in
   a $100\times100$ lot, rejecting any new car whose footprint overlaps an
   existing one. The total parked count is approximately normal with
-  $\mu=3523$ and $\sigma=21.9$; each repetition is mapped through $\Phi$, and
-  the final result is a KS test over those repetitionwise uniformized values.
+  $\mu=3523$ and $\sigma=21.9$; each of $10$ repetitions is mapped through
+  $\Phi$, and the final result is a KS test over those uniformized values.
+  DIEHARD parks a first car and then makes $12{,}000$ attempts, $12{,}001$ in
+  all.
 
-- **`minimum_distance_2d`.** This historical DIEHARD result places points in a
-  $10{,}000\times10{,}000$ square, finds the nearest-pair distance
-  $d_{\min}$, and transforms it by
+- **`minimum_distance_2d`.** This historical DIEHARD result places $8{,}000$
+  points in a $10{,}000\times10{,}000$ square, finds the nearest-pair
+  distance $d_{\min}$, and transforms it by
   $U = 1-\exp(-d_{\min}^2/\lambda)$ with $\lambda \approx 0.995$ before an
-  outer KS. The crate keeps it for legacy comparison only; Dieharder itself
-  documents the original Marsaglia formula as obsolete and wrong.
+  outer KS over $100$ repeats. The crate keeps it for legacy comparison only:
+  Dieharder's `diehard_2dsphere.c` says the test "has a BUG in it -- the
+  expression it uses to evaluate p is not accurate enough to withstand the
+  demands of dieharder" and "is hence OBSOLETE".
 
 - **`spheres_3d`.** Place points in a $1000^3$ cube, find the nearest-neighbor
   radius $r_{\min}$, and use the fact that $r_{\min}^3$ is approximately
   exponential under a homogeneous Poisson cloud. The code transforms with
   $U = 1-\exp(-r_{\min}^3/30)$ and then applies an outer KS across repeats.
 
-- **`squeeze`.** Start from $k_0 = 2^{31}$ and iterate
-  $k_{t+1}=\lceil k_t U_t\rceil$ until $k_t=1$ or a cap is reached. The test
-  compares the empirical distribution of the stopping time $J$ to Marsaglia's
-  tabulated cell probabilities by a chi-square
-  $\chi^2=\sum_i (O_i-E_i)^2/E_i$.  Cells expected below $5$ are pooled into
-  tail cells exactly as Dieharder's `Vtest_eval` does, which at
-  $N=100{,}000$ leaves $39$ scored cells ($df=38$).
+- **`squeeze`.** Start from $k_0 = 2^{31}-1 = 2{,}147{,}483{,}647$ and iterate
+  $k_{t+1}=\lceil k_t U_t\rceil$ until $k_t=1$ or $48$ steps are taken. The
+  test compares the empirical distribution of the stopping time $J$, in $43$
+  cells ($J\le6$, $7,\dots,47$, $\ge48$), to Marsaglia's tabulated cell
+  probabilities by a chi-square $\chi^2=\sum_i (O_i-E_i)^2/E_i$.  The cells
+  expected below $5$ are pooled into one cell as Dieharder's `Vtest_eval`
+  does, which at $N=100{,}000$ leaves $39$ scored cells ($df=38$).  DIEHARD
+  itself scores all $43$ cells with $df=42$.
 
 - **`runs_up` and `runs_down`.** For sequences of $10{,}000$ integers, count
-  monotone run lengths $1,2,3,4,5,6+$ in the upward and downward directions.
-  Let $R$ be the run-count vector, $b$ the theoretical run proportions, and
-  $A$ the Grafton/Knuth inverse-covariance matrix; the core statistic is
-  $V = (R-nb)^\top A (R-nb)/n$, converted to
+  monotone run lengths $1,2,3,4,5,6+$ in the upward and downward directions,
+  including both runs still open when the sequence ends, as DIEHARD's
+  `udruns` does.  Let $R$ be the run-count vector, $b$ the theoretical run
+  proportions, and $A$ the Grafton/Knuth inverse-covariance matrix; the core
+  statistic is $V = (R-nb)^\top A (R-nb)/n$, converted to
   $p = Q(3,V/2)$, with a final KS across $10$ repetitions for each direction.
+  Dieharder's `diehard_runs.c` counts only one of the two final runs.  Under
+  that rule, at this crate's $10$ sequences of $10{,}000$ words, the KS
+  p-value of a good generator fell below $0.01$ in about $2.5$–$2.7\%$ of
+  null trials instead of $1\%$; Dieharder's own defaults, $100$ sequences of
+  $100{,}000$ words, were not measured.  DIEHARD runs the block of $10$
+  sequences twice.
 
 - **`craps_wins`.** Simulate $N=200{,}000$ craps games, each die drawn from a
   word's high bits as Dieharder does (GSL's `uniform_int` quotient with
@@ -345,24 +385,26 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   $W \approx \mathrm{Bin}(N,p_{\mathrm{win}})$ with
   $p_{\mathrm{win}} = 244/495$, so the code standardizes
   $z = (W-Np_{\mathrm{win}})/\sqrt{Np_{\mathrm{win}}(1-p_{\mathrm{win}})}$ and
-  reports $p=\mathrm{erfc}(|z|/\sqrt{2})$.
+  reports the two-sided $p=\mathrm{erfc}(|z|/\sqrt{2})$, where DIEHARD
+  reports $\Phi(z)$.
 
 - **`craps_throws`.** The same $200{,}000$ simulated games are also binned by
   game length: one throw, two throws, and so on, with the tail pooled at
-  $\ge 22$ throws. The expected cell probabilities come from exact craps
-  theory, and the reported p-value is the chi-square fit of the observed game
-  length histogram to that law.  A game still unresolved after 1000 throws
-  is stopped and scored as a loss in the tail cell, so a degenerate stream
-  cannot hang the battery.
+  $\ge 22$ throws ($df=21$; DIEHARD pools at $\ge 21$, $df=20$). The expected
+  cell probabilities come from exact craps theory, and the reported p-value is
+  the chi-square fit of the observed game length histogram to that law.  A
+  game still unresolved after 1000 throws is stopped and scored as a loss in
+  the tail cell, so a degenerate stream cannot hang the battery.
 
 ### DIEHARDER
 
 - **`minimum_distance_nd`.** This is the corrected Fischler-style nearest
-  neighbor test in dimensions $d=2,\dots,5$. For the observed minimum
-  distance $r$, the transformed statistic uses the $d$-ball volume
+  neighbor test.  The code accepts $d=2,\dots,5$; the battery runs $d=5$,
+  with $n=8{,}000$ points in the unit cube per repeat. For the observed
+  minimum distance $r$, the transformed statistic uses the $d$-ball volume
   $V_d(r)$ and the Brown/Fischler correction
   $p = 1-\exp\!\bigl(-n(n-1)V_d(r)/2\bigr)\!\left[1+\frac{2+Q_d}{6}n^3V_d(r)^2\right]$,
-  followed by an outer KS across repeats.
+  followed by an outer KS across $100$ repeats.
 
 - **`permutations`.** Draw non-overlapping blocks of $t=5$ independent
   uniforms, map each block to its permutation rank in $S_5$, and compare the
@@ -403,7 +445,16 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   dieharder's `evalMostExtreme()`, which maps low-side extremes to $p\approx1$
   — each per-block p-value is first folded two-sided
   ($2\min(p,1-p)$) and the extreme is then Šidák-corrected, so both failure
-  directions map to small p while null uniformity is preserved.
+  directions map to small p.  The per-level chi-square keeps a calibration
+  defect inherited from Dieharder: `chisq_binomial` scores only cells with
+  more than $10$ observed counts, so the cells scored depend on the data.  In
+  null trials the reported p-value fell below $0.01$ in $1.30\%$ of $20{,}000$
+  at $2{,}000$ words, $1.27\%$ of $20{,}000$ at $10{,}000$, $1.50\%$ of
+  $5{,}000$ at $100{,}000$ and $1.50\%$ of $1{,}000$ at $1{,}000{,}000$; the
+  rate at the battery's $16{,}000{,}000$ words, where the Šidák step spans
+  more levels, was not measured.
+  Adjacent levels also share one cell (level $j$'s all-ones block is level
+  $j+1$'s all-zeros block), as in the C; both are kept for fidelity.
 
 - **`fill_tree_count`.** Insert random floats into a fixed 32-slot implicit
   binary search tree until the insertion path collides with an already-filled
@@ -423,18 +474,23 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
   histogram of $C_u$ to that exact binomial law by chi-square with Dieharder's
   Vtest tail bundling; the crate emits every per-pattern p-value explicitly.
 
-- **`gcd_distribution`.** Draw random integer pairs $(u,v)$, compute
-  $g=\gcd(u,v)$, and compare the observed gcd histogram to the classical law
-  $\Pr(g=k)=6/(\pi^2 k^2)$, with the far tail pooled exactly as in the
-  Marsaglia-Tsang Dieharder source. The reported p-value is the corresponding
-  chi-square fit; a stream of zero words, which leaves nothing to score,
-  fails.
+- **`gcd_distribution`.** Draw $100{,}000$ random integer pairs $(u,v)$,
+  compute $g=\gcd(u,v)$, and compare the observed gcd histogram to the
+  classical law $\Pr(g=k)=6/(\pi^2 k^2)$.  As in the Marsaglia-Tsang Dieharder
+  source, the table has $\lfloor\sqrt{6N/(100\pi^2)}\rfloor$ cells, the last
+  pooling every larger gcd, and $g=1$ is not scored; at this crate's
+  $N=100{,}000$ that scores $k=2,\dots,22$ and pools $g\ge23$, where
+  Dieharder's default $N=10^7$ gives $246$ cells.
+  The reported p-value is the corresponding chi-square fit; a stream of zero
+  words, which leaves nothing to score, fails.
 
 - **`gcd_step_counts`.** The same integer pairs are also scored by the number
   of Euclidean algorithm steps needed to reduce $(u,v)$ to their gcd. Those
-  step counts are compared to the empirical Dieharder `kprob[]` table by a
-  chi-square over the $41$ pooled bins, which makes this a structural probe of
-  fine arithmetic correlations rather than simple one-dimensional uniformity.
+  step counts, with $k\ge40$ pooled, are compared to the empirical Dieharder
+  `kprob[]` table by a chi-square over the bins that expect at least $5$
+  counts ($k=6,\dots,32$ at $100{,}000$ pairs, $df=26$), which makes this a
+  structural probe of fine arithmetic correlations rather than simple
+  one-dimensional uniformity.
 
 ### Research Probes
 
@@ -462,7 +518,8 @@ underweight.
   with success probability $p = \beta - \alpha$.  The observed gap-length
   histogram is compared to this geometric law by chi-square after Cochran-rule
   tail merging: trailing cells whose expected count falls below 5 are pooled
-  into a single tail cell, and the test runs on the surviving `cells` with
+  into a single tail cell (folded into the last kept cell if the pool still
+  expects fewer than 5), and the test runs on the surviving `cells` with
   $df = \mathrm{cells} - 1$.  Tests uniformity of the real-valued projection
   and independence of successive words.
 
@@ -493,36 +550,49 @@ underweight.
   sample at `sig_bits` = 14) matches upstream's stride.  Suspicion scores
   are not reproduced.
 
-- **TestU01 Lempel–Ziv** (`scomp_LempelZiv`).  Parse the bit stream as an
-  LZ78 dictionary: each new phrase extends the longest previously seen prefix by
-  one bit.  Let $C_n$ be the number of distinct phrases after reading $n$ bits.
-  Asymptotically, $C_n / (n / \log_2 n) \to 1$ for a fair coin.  The crate uses
-  empirical tables of $(\mu, \sigma)$ for $n = 2^k$ taken from the TestU01
-  source to compute a z-score and derives the p-value from the normal
-  approximation.  An outer KS over multiple replications converts per-replication
-  z-scores to a single battery p-value.  Low complexity (few phrases) flags
-  repetitive structure; high complexity flags over-dispersion.
+- **TestU01 Lempel–Ziv** (`scomp_LempelZiv`).  Parse an $n = 2^k$-bit stream
+  as an LZ78 dictionary: each new phrase extends the longest previously seen
+  prefix by one bit.  The stream concatenates the $s$ bits that
+  `unif01_StripB` keeps from each word after dropping its $r$ leading bits
+  ($k = 25$, $r = 0$, $s = 30$ in the auxiliary run).  Let $C_n$ be the number
+  of distinct phrases after reading $n$ bits.  Asymptotically,
+  $C_n / (n / \log_2 n) \to 1$ for a fair coin.  Each replication is
+  standardized as $z = (C_n - \mu_k)/\sigma_k$ with the empirical `LZMu` and
+  `LZSigma` tables from TestU01's `scomp.c`.  Over $N = 10$ replications the
+  crate reports two p-values: the two-sided normal p-value of
+  $\sum z/\sqrt{N}$ (`lzw_sum`) and a KS test of the values $\Phi(z)$
+  (`lzw_ks`); TestU01 itself reports the right tail of the sum and its own
+  EDF tests.  Low complexity (few phrases) flags repetitive structure; high
+  complexity flags over-dispersion.
 
 - **TestU01 Hamming** (`sstring_HammingCorr` / `sstring_HammingIndep`).
-  `HammingCorr`: Extract $n$ successive $L$-bit blocks from the bit stream
-  (each word contributes a TestU01 `unif01_StripB` field of $s$ bits, so a
-  block equals the paper's concatenated bit stream only when $s$ divides $L$,
-  as at the defaults $s = 10$, $L = 300$) and compute each block's Hamming weight
-  $W_i$.  The statistic is the lag-1 correlation of successive centered
-  weights,
+  Each word contributes the $s$-bit `unif01_StripB` field left after dropping
+  its $r$ leading bits, and $L$-bit blocks are packed from those fields as
+  `sstring.c` packs them: for $L \ge s$, $\lfloor L/s \rfloor$ whole fields
+  plus the leading $L \bmod s$ bits of one more word's field; for $L < s$,
+  $\lfloor s/L \rfloor$ blocks from the low end of each field.  A block is the
+  next $L$ bits of the paper's concatenated bit stream only when $s$ divides
+  $L$, as at the defaults $r = 20$, $s = 10$, $L = 300$.
+  `HammingCorr`: compute the Hamming weights $W_i$ of $n = 500{,}000$
+  successive blocks.  The statistic is the lag-1 correlation of successive
+  centered weights,
   $\hat\rho = 4\sum_{i}(W_i - L/2)(W_{i+1} - L/2)\,/\,((n-1)L)$,
   standardized as $z = \hat\rho\sqrt{n-1}$ and scored two-sided with
   $p = \mathrm{erfc}(|z|/\sqrt{2})$.
-  `HammingIndep`: For successive pairs of $L$-bit blocks $(X, Y)$, compute the
-  joint weight histogram $(W_X, W_Y)$ and compare to the product distribution
+  `HammingIndep`: For $n = 500{,}000$ successive pairs of $L$-bit blocks
+  $(X, Y)$, compute the joint weight histogram $(W_X, W_Y)$ and compare to the
+  product distribution
   $\mathrm{Bin}(L,\tfrac12)\times\mathrm{Bin}(L,\tfrac12)$ by chi-square with
-  TestU01's `gofs_MinExpected = 10` cell lumping.  Detects linear
-  dependencies across block boundaries.
+  TestU01's `gofs_MinExpected = 10` cell lumping, beside TestU01's $d = 1$
+  corner-block chi-square.  Detects linear dependencies across block
+  boundaries.
 
 - **Webster–Tavares strict avalanche and bit independence (SAC/BIC)**.  Treat
-  a generator's seed as the input and its first output value as the output
-  (32 input and 32 output bits by default).  For each input bit $j$,
-  complement it in every sampled seed and record which output bits change.
+  a generator's seed as the input and the low bits of its first `next_u64`
+  value as the output (32 input and 32 output bits and 4 096 sampled seeds by
+  default; for a generator of 32-bit words those output bits are its second
+  word).  For each input bit $j$, complement it in every sampled seed and
+  record which output bits change.
   The dependence matrix entry $A_{ij}$ is the fraction of samples in which
   output bit $i$ flips; the SAC wants $A_{ij} = \tfrac12$, and the probe
   reports the mean and maximum of $|A_{ij} - \tfrac12|$ (`SACmean`,
@@ -537,13 +607,35 @@ underweight.
   little.
 
 - **Gorilla** (Marsaglia–Tsang).  For each of the 32 bit positions, extract that
-  bit from $2^{26}+25$ successive words to form a stream of $2^{26}+25$ bits.
-  Count the number of distinct 26-bit patterns that never appear (missing words).
-  Under the null, the number of missing words follows approximately
-  $N(24{,}687{,}971,\ 4170^2)$ (Marsaglia's analytic result).  The crate
-  collects one p-value per bit position and applies a KS test over the 32
-  p-values, detecting positional asymmetries and bit-plane correlations invisible
-  to the standard birthday-problem tests.
+  bit from $2^{26}+25$ successive words to form a stream of $2^{26}+25$ bits;
+  every position reads the same words, where `tuftests.c` draws fresh words
+  for each.  Count the number of distinct 26-bit patterns that never appear
+  (missing words).  Under the null, the number of missing words follows
+  approximately $N(24{,}687{,}971,\ 4170^2)$, the mean from theory and the
+  standard deviation from simulation, and each position's p-value is the
+  upper tail $u = 1-\Phi(z)$.  The aggregate is the Anderson–Darling
+  statistic $A$ of the 32 sorted p-values, with each product
+  $u_i(1-u_{33-i})$ floored at $10^{-30}$, as `tuftests.c`'s ADKS computes
+  it.  The crate converts $A$ to $\Pr(A_{32} < A)$ with Marsaglia and
+  Marsaglia's (2004) distribution, $x + \mathrm{errfix}(32, x)$ for
+  $x = \mathrm{ADinf}(A)$, up to $x^* = 0.9995$ ($A \approx 6.61$).  Above
+  that, by the crate's own documented departure, chosen from simulation, the
+  upper tail is $(1-x)\,(1-\mathrm{errfix}(32, x^*)/(1-x^*))$, the limiting
+  tail scaled by $1.0521$.  The probe prints $A$ and $1-\Pr(A_{32} < A)$, so
+  small values fail.  Against simulation the $n = 32$ tail errors are mostly
+  positive, so p-values are mostly conservative, and the largest reliably
+  resolved error is just past the switch, $+2.46 \pm 0.14\%$ at $A = 6.62$.
+  For $4 < A \le 12$, one $10^9$-sample run puts the printed tail between
+  $0.04\%$ below and $3.5\%$ above the simulated one, but the $3.5\%$ extreme
+  lies beyond $A \approx 10$, within single-run noise, where the sign is
+  unresolved ($+1.69 \pm 1.41\%$ at $A = 11$, $+1.32 \pm 2.37\%$ at
+  $A = 12$).  The ADKS values the paper prints match $AD(32,\cdot)$ from the
+  2004 paper to within the four-decimal rounding of its per-bit inputs.
+  LFIB4 is the case that separates it from `tuftests.c`'s own `ad32` fit: the
+  paper prints $0.724$, as $AD(32,\cdot)$ gives, where `ad32` gives $0.727$;
+  `ad32` departs from the 2004 distribution by up to $0.0056$.  The aggregate
+  detects positional asymmetries and bit-plane correlations invisible to the
+  standard birthday-problem tests.
 
 - **Multi-scale approximate entropy (ApEn)**.  A sweep of the NIST SP 800-22
   §2.12 bit-level ApEn statistic over embedding dimensions $m = 2,\dots,6$

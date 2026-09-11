@@ -24,10 +24,20 @@
 //! runs it once.  Its summary, which `tests.txt` calls a KS test, is
 //! Marsaglia's Anderson–Darling statistic (`KSTEST`, lines 1668–1709)
 //! reported as a CDF value, where this module applies a Kolmogorov–Smirnov
-//! test and reports the upper tail.  It also compares single-precision floats
-//! of the words read as signed integers (line 453), which orders them as the
-//! unsigned words with bit 31 flipped; like this module, it treats a tie as a
-//! fall.
+//! test and reports the upper tail.  It also compares the words as
+//! single-precision `REAL`s, `jtbl()*2.328306e-10` of each word read as a
+//! signed integer (line 453).  Rounding keeps the order of the unsigned words
+//! with bit 31 flipped but merges nearby words into ties, and `udruns` counts
+//! a tie as a fall, as this module does.  For 2²⁶ random words w, the `REAL`s
+//! of w and w + 1 were equal in 96.5% of cases.  Below 2²⁴ in signed magnitude
+//! only one pair on each side of zero ties, because the constant 2.328306e-10
+//! sits just below 2⁻³²; from 2²⁴ up the untied fraction halves with each
+//! doubling of magnitude, so pairs tie 50% of the time from 2²⁴ and 99.2% from
+//! 2³⁰ up.  Rounding is monotone, so
+//! no pair compares in reverse.  A counter or other slowly stepping stream is
+//! therefore mostly falls in DIEHARD, almost entirely once its signed words
+//! exceed 2²⁷ in magnitude, where this module sees only rises.  Successive
+//! words spread as widely as MT19937's almost never tie.
 //!
 //! Covariance matrix and expected proportions from:
 //! R.G.T. Grafton, "The Runs-Up and Runs-Down Tests", *Applied Statistics*

@@ -191,7 +191,10 @@ impl Rng for WindowsMsvcRand {
 /// Faithful VB6/VBA `Rnd` core state transition.
 ///
 /// Microsoft still preserves this compatibility algorithm in `VBMath.Rnd`:
-/// `seed = (seed * 0x43FD43FD + 0x00C39EC3) & 0x00FF_FFFF`.
+/// `seed = (seed * MULTIPLIER + INCREMENT) & MASK`, with
+/// [`MULTIPLIER`](WindowsVb6Rnd::MULTIPLIER),
+/// [`INCREMENT`](WindowsVb6Rnd::INCREMENT) and the 24-bit
+/// [`MASK`](WindowsVb6Rnd::MASK).
 ///
 /// The public API returns a `Single` in `[0, 1)`, so we expose both the raw
 /// 24-bit state and a faithful `next_f64()` mapping. This is a tiny-state,
@@ -203,10 +206,17 @@ pub struct WindowsVb6Rnd {
 }
 
 impl WindowsVb6Rnd {
+    /// Multiplier of the `VBMath.Rnd` state transition.
+    pub const MULTIPLIER: u32 = 0x43fd_43fd;
+    /// Increment of the `VBMath.Rnd` state transition.
+    pub const INCREMENT: u32 = 0x00c3_9ec3;
+    /// Mask keeping the 24 bits of `VBMath.Rnd` state.
+    pub const MASK: u32 = 0x00ff_ffff;
+
     /// Construct from a seed; only the low 24 bits are kept as state.
     pub fn new(seed: u32) -> Self {
         Self {
-            state: seed & 0x00ff_ffff,
+            state: seed & Self::MASK,
             bits: PackedBits::default(),
         }
     }
@@ -215,9 +225,9 @@ impl WindowsVb6Rnd {
     pub fn next_raw(&mut self) -> u32 {
         self.state = self
             .state
-            .wrapping_mul(0x43fd_43fd)
-            .wrapping_add(0x00c3_9ec3)
-            & 0x00ff_ffff;
+            .wrapping_mul(Self::MULTIPLIER)
+            .wrapping_add(Self::INCREMENT)
+            & Self::MASK;
         self.state
     }
 
@@ -259,9 +269,14 @@ impl WindowsDotNetRandom {
     /// Construct from an `i32` seed exactly as `System.Random(seed)` does,
     /// including the Knuth-style seed-array initialisation rounds.
     ///
-    /// C# evaluates `int` arithmetic unchecked, so for seeds of large
-    /// magnitude the rounds wrap; the subtractions and corrections here wrap
-    /// the same way instead of panicking in debug builds.
+    /// C# evaluates `int` arithmetic unchecked, and exactly one step here can
+    /// overflow: the correction rounds' subtraction
+    /// `seed_array[i] - seed_array[1 + n]`.  It uses `wrapping_sub` so debug
+    /// builds match C# instead of panicking.  An exhaustive check over every
+    /// seed magnitude 0..=2³¹ − 1 found that the smallest magnitude that
+    /// overflows there is 161 844 078, that 1 269 681 342 of the 2³¹
+    /// magnitudes do, and that no other step overflows: after construction
+    /// the array lies in [0, 2³¹ − 2], so `next_raw` cannot overflow.
     pub fn new(seed: i32) -> Self {
         let mut seed_array = [0i32; 56];
         let subtraction = if seed == i32::MIN {
@@ -279,9 +294,9 @@ impl WindowsDotNetRandom {
                 ii -= 55;
             }
             seed_array[ii] = mk;
-            mk = mj.wrapping_sub(mk);
+            mk = mj - mk;
             if mk < 0 {
-                mk = mk.wrapping_add(i32::MAX);
+                mk += i32::MAX;
             }
             mj = seed_array[ii];
         }
@@ -294,7 +309,7 @@ impl WindowsDotNetRandom {
                 }
                 seed_array[i] = seed_array[i].wrapping_sub(seed_array[1 + n]);
                 if seed_array[i] < 0 {
-                    seed_array[i] = seed_array[i].wrapping_add(i32::MAX);
+                    seed_array[i] += i32::MAX;
                 }
             }
         }
@@ -319,12 +334,12 @@ impl WindowsDotNetRandom {
             self.inextp = 1;
         }
 
-        let mut ret = self.seed_array[self.inext].wrapping_sub(self.seed_array[self.inextp]);
+        let mut ret = self.seed_array[self.inext] - self.seed_array[self.inextp];
         if ret == i32::MAX {
             ret -= 1;
         }
         if ret < 0 {
-            ret = ret.wrapping_add(i32::MAX);
+            ret += i32::MAX;
         }
 
         self.seed_array[self.inext] = ret;
@@ -499,19 +514,24 @@ impl Rng for BsdRandCompat {
 
 /// Pure-Rust implementation of POSIX / System V `mrand48()`.
 ///
-/// 48-bit LCG with the mandated parameters:
-/// `a = 0x5DEECE66D`, `c = 0xB`, `m = 2^48`.
+/// 48-bit LCG `x = (a·x + c) mod m` with the parameters POSIX mandates for
+/// the `drand48` family: multiplier `a` = [`MULTIPLIER`](Rand48::MULTIPLIER),
+/// increment `c` = [`INCREMENT`](Rand48::INCREMENT) and modulus
+/// `m` = [`MODULUS`](Rand48::MODULUS) = 2⁴⁸.
 /// Better than 15-bit `rand()`, but still linear and weak.
 #[derive(Debug, Clone)]
 pub struct Rand48 {
     state: u64,
 }
 
-const RAND48_A: u64 = 0x5DEECE66D;
-const RAND48_C: u64 = 0xB;
-const RAND48_M: u64 = 1 << 48;
-
 impl Rand48 {
+    /// POSIX `drand48` family multiplier `a`.
+    pub const MULTIPLIER: u64 = 0x5DEECE66D;
+    /// POSIX `drand48` family increment `c`.
+    pub const INCREMENT: u64 = 0xB;
+    /// Modulus `m` = 2⁴⁸: the state is 48 bits.
+    pub const MODULUS: u64 = 0x1_0000_0000_0000;
+
     /// Construct from a seed exactly as `srand48()` does: the seed fills the
     /// high 32 bits of the 48-bit state and the low 16 bits are set to 0x330E.
     pub fn new(seed: u64) -> Self {
@@ -523,7 +543,10 @@ impl Rand48 {
 
 impl Rng for Rand48 {
     fn next_u32(&mut self) -> u32 {
-        self.state = (RAND48_A.wrapping_mul(self.state).wrapping_add(RAND48_C)) % RAND48_M;
+        self.state = (Self::MULTIPLIER
+            .wrapping_mul(self.state)
+            .wrapping_add(Self::INCREMENT))
+            % Self::MODULUS;
         (self.state >> 16) as u32
     }
 }
@@ -687,13 +710,15 @@ mod tests {
         }
     }
 
-    /// Seeds whose magnitude is well above 161 803 398 (the reference source's
-    /// `MSEED`) drive `System.Random`'s seed-array rounds through `int`
-    /// wrap-around, which C# evaluates unchecked.  Expected values come from a
-    /// replica of the .NET Framework reference source with explicit 32-bit
-    /// wrapping; the same replica reproduces the seed-1 prefix above.  Seeds
-    /// `i32::MAX` and `i32::MIN` share one stream because the reference source
-    /// maps `Int32.MinValue` to `Int32.MaxValue`.
+    /// These seeds overflow the correction rounds' subtraction, which C#
+    /// evaluates unchecked (the smallest overflowing magnitude is
+    /// 161 844 078).  Expected values come from a replica of the .NET
+    /// Framework reference source (`random.cs`) with explicit 32-bit wrapping.
+    /// No .NET runtime was available, so these four seeds are pinned against
+    /// that replica alone; the replica reproduces the seed-1 prefix above and
+    /// the widely cited first outputs for seeds 0 and 42, none of which
+    /// overflow.  Seeds `i32::MAX` and `i32::MIN` share one stream because the
+    /// reference source maps `Int32.MinValue` to `Int32.MaxValue`.
     #[test]
     fn windows_dotnet_random_wraps_like_csharp_for_large_seeds() {
         const SEED_2E9: [u32; 5] = [

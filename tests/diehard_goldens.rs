@@ -4,8 +4,11 @@
 //! code in a debug build on aarch64-apple-darwin, reproduced within the
 //! tolerances below by debug and release builds on aarch64-apple-darwin and
 //! x86_64-apple-darwin, and pinned here so that a change to any statistic,
-//! sample layout or p-value routine fails a test.  An adversarial review also
-//! ran the first version on x86_64 Linux with glibc.  They are not reference values from
+//! sample layout or p-value routine fails a test.  They also pass on x86_64
+//! Linux with glibc (rustc 1.95): the first version of this file in debug
+//! and release builds with `--include-ignored`, and the version with the
+//! 31×31 tolerance and the two-level monobit2 golden in debug and release
+//! builds.  They are not reference values from
 //! Marsaglia's DIEHARD or Brown's Dieharder C, and passing says nothing about
 //! whether a statistic is right, only that it has not moved.  An intended
 //! change to a statistic must update this table and say so in its commit.
@@ -32,15 +35,18 @@ use std::sync::OnceLock;
 
 const SEED: u32 = 5489;
 
-/// P-value tolerance.  Counts are exact on every platform, but p-values
-/// and some expected cell counts pass through `exp`, `ln`, `cos` and `powf`,
-/// which Rust takes from the platform libm, and CI runs on both glibc
-/// (Linux x86-64) and Apple's libm (macOS arm64).  Those agree to within an
-/// ulp or so, which moves a p-value in [0, 1] by far less than 1e-14; 1e-12
-/// leaves room for that and still catches any change a real edit makes.
-/// Notes are compared exactly: they print statistics to four decimals,
-/// which a last-place difference cannot move unless a value lies within
-/// about 1e-15 of a rounding boundary.
+/// P-value tolerance.  Counts are exact on every platform, but p-values and
+/// some expected cell counts pass through `exp`, `ln`, `cos`, `sin` and
+/// `powf`, which Rust takes from the platform libm, and CI runs on both glibc
+/// (Linux x86-64) and Apple's libm (macOS arm64), which can differ by an ulp
+/// or so per call.  An adversarial review shifted every such result one ulp
+/// up, then one ulp down, then by ±1 ulp at random on 1%, 3% and 10% of calls
+/// over 60 seeds each.  Every golden but `binary_rank_31x31` stayed within
+/// 1e-12 throughout, and that one moved by up to 3.7e-10 (see
+/// `RANK_31X31_TOL`).  1e-12 therefore holds for the others under those
+/// perturbations and still catches any change a real edit makes.  Notes are
+/// compared exactly: they print statistics to four decimals, and the same
+/// perturbations left every other golden's note unchanged.
 const TOL: f64 = 1e-12;
 
 /// Tolerance for `binary_rank_31x31` only.  Its cell probabilities come from
@@ -203,7 +209,7 @@ fn bitstream() {
         &[at_gate(diehard::bitstream::bitstream, BITSTREAM_WORDS)],
         &[Golden {
             name: "diehard::bitstream",
-            p: 0.8116128233230486,
+            p: 0.8116127766486784,
             note: "window=20-bit, stream=2^21, repeats=20",
         }],
     );
@@ -215,7 +221,7 @@ fn opso() {
         &[at_gate(diehard::monkey::opso, OPSO_WORDS)],
         &[Golden {
             name: "diehard::opso",
-            p: 0.21780111124736712,
+            p: 0.21780109549439705,
             note: "missing=142267, z=1.2324",
         }],
     );
@@ -227,7 +233,7 @@ fn oqso() {
         &[at_gate(diehard::monkey::oqso, OQSO_WORDS)],
         &[Golden {
             name: "diehard::oqso",
-            p: 0.36172951533319625,
+            p: 0.3617295034929668,
             note: "missing=142174, z=0.9121",
         }],
     );
@@ -239,7 +245,7 @@ fn dna() {
         &[at_gate(diehard::monkey::dna, DNA_WORDS)],
         &[Golden {
             name: "diehard::dna",
-            p: 0.10097050784034722,
+            p: 0.10097051039306663,
             note: "missing=141433, z=-1.6402",
         }],
     );
@@ -254,7 +260,7 @@ fn count_ones_stream() {
         )],
         &[Golden {
             name: "diehard::count_ones_stream",
-            p: 0.20400117447184252,
+            p: 0.20400116068475269,
             note: "n=256000, Q5=3248.43, Q4=658.62, Q5-Q4=2589.82, Z=1.2702",
         }],
     );
@@ -278,7 +284,7 @@ fn parking_lot() {
         &[diehard::parking_lot::parking_lot(&mut fresh(), true)],
         &[Golden {
             name: "diehard::parking_lot",
-            p: 0.4076011955452439,
+            p: 0.40760122144338407,
             note: "attempts=12000, mean=3523, σ=21.9, repeats=5",
         }],
     );
@@ -346,7 +352,7 @@ fn craps_both() {
         &[
             Golden {
                 name: "diehard::craps_wins",
-                p: 0.6200183974400821,
+                p: 0.6200184157746006,
                 note: "games=200000, wins=98475, z=-0.4958",
             },
             Golden {
@@ -424,12 +430,12 @@ fn lagged_sums() {
         &[
             Golden {
                 name: "dieharder::lagged_sums",
-                p: 0.22120660714361012,
+                p: 0.22120659094843653,
                 note: "lag=1, tsamples=1000, sum=488.8326, z=-1.2233",
             },
             Golden {
                 name: "dieharder::lagged_sums",
-                p: 0.4811507839008336,
+                p: 0.48115080327704657,
                 note: "lag=100, tsamples=1000, sum=493.5693, z=-0.7045",
             },
         ],
