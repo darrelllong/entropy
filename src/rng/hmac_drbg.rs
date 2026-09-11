@@ -22,10 +22,12 @@
 //! [`HmacDrbg::generate`]; that is the path the known-answer test exercises.
 //!
 //! # Reseed interval
-//! SP 800-90A §10.1 Table 2 specifies a reseed interval of 2⁴⁸ generate
-//! calls for 256-bit security strength.  This implementation tracks the call
-//! count and panics if the limit is reached; no automatic reseed is provided.
-//! In practice the test battery never approaches 2⁴⁸ calls.
+//! SP 800-90A Rev. 1 §10.1 Table 2 sets the maximum `reseed_interval` to 2⁴⁸
+//! requests.  `reseed_counter` starts at 1 and counts generate calls, each
+//! streaming refill being one.  §10.1.2.5 step 1 asks for a reseed only when
+//! `reseed_counter > reseed_interval`, so the 2⁴⁸-th request is served; no
+//! reseed is implemented, so the next request panics.  In practice the test
+//! battery never approaches 2⁴⁸ calls.
 //!
 //! # Backtracking and prediction resistance
 //! SP 800-90A §8.8 designs every DRBG mechanism for backtracking resistance,
@@ -59,13 +61,17 @@ use super::{OsRng, Rng};
 
 const OUT: usize = 32; // HMAC-SHA-256 output length (bytes)
 
+/// Maximum `reseed_interval` (SP 800-90A Rev. 1 §10.1 Table 2).
+const RESEED_INTERVAL: u64 = 1 << 48;
+
 /// HMAC_DRBG instantiated with HMAC-SHA-256 per NIST SP 800-90A §10.1.2.
 pub struct HmacDrbg {
     k: [u8; OUT],
     v: [u8; OUT],
     buf: [u8; OUT],
     offset: usize,
-    /// Generate-call counter; panics at 2⁴⁸ per SP 800-90A §10.1 Table 2.
+    /// Generate-call counter, starting at 1; a request that finds it above
+    /// `RESEED_INTERVAL` panics (SP 800-90A Rev. 1 §10.1.2.5 step 1).
     reseed_counter: u64,
 }
 
@@ -124,10 +130,7 @@ impl HmacDrbg {
     /// `next_u32` stream is a sequence of one-block Generates, not one big
     /// Generate — see the module docs).
     pub fn generate(&mut self, nbytes: usize, additional_input: &[u8]) -> Vec<u8> {
-        assert!(
-            self.reseed_counter < (1u64 << 48),
-            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
-        );
+        self.check_reseed_interval();
         let add = (!additional_input.is_empty()).then_some(additional_input);
         if let Some(a) = add {
             drbg_update(&mut self.k, &mut self.v, Some(a));
@@ -145,11 +148,7 @@ impl HmacDrbg {
     }
 
     fn refill(&mut self) {
-        // SP 800-90A §10.1.2.5 step 1: enforce reseed interval.
-        assert!(
-            self.reseed_counter < (1u64 << 48),
-            "HMAC_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
-        );
+        self.check_reseed_interval();
         // Generate step: advance V, buffer it, then re-key per §10.1.2.5.
         let mac = hmac_sha256(&self.k, &self.v);
         self.v.copy_from_slice(&mac);
@@ -157,6 +156,17 @@ impl HmacDrbg {
         drbg_update(&mut self.k, &mut self.v, None);
         self.reseed_counter += 1;
         self.offset = 0;
+    }
+
+    /// SP 800-90A Rev. 1 §10.1.2.5 step 1: "If reseed_counter >
+    /// reseed_interval, then return an indication that a reseed is
+    /// required."  No reseed is implemented, so the indication is a panic.
+    fn check_reseed_interval(&self) {
+        assert!(
+            self.reseed_counter <= RESEED_INTERVAL,
+            "HMAC_DRBG: reseed_counter exceeds reseed_interval (2⁴⁸); \
+             SP 800-90A Rev. 1 §10.1.2.5 step 1 requires a reseed"
+        );
     }
 
     fn take_bytes<const N: usize>(&mut self) -> [u8; N] {
@@ -375,5 +385,35 @@ mod tests {
             Sha256::digest(&bytes).to_vec(),
             hex("1a6cb87172228bbfb066badc2be0ca8a1a4c1b3efb572ee1e1a70be2e34e55a7")
         );
+    }
+
+    /// §10.1.2.5 step 1 refuses a request only when `reseed_counter >
+    /// reseed_interval`.  With the counter set to 2⁴⁸, one more request is
+    /// served on each path (a discrete Generate, and a streaming refill) and
+    /// the request after it panics.
+    #[test]
+    fn reseed_counter_boundary_is_strictly_greater() {
+        let entropy: Vec<u8> = (0x00u8..0x20).collect();
+        let nonce: Vec<u8> = (0x20u8..0x30).collect();
+
+        let mut discrete = HmacDrbg::from_entropy(&entropy, &nonce, &[]);
+        discrete.reseed_counter = RESEED_INTERVAL;
+        assert_eq!(discrete.generate(OUT, &[]).len(), OUT);
+        assert_eq!(discrete.reseed_counter, RESEED_INTERVAL + 1);
+        let refused =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| discrete.generate(OUT, &[])));
+        assert!(
+            refused.is_err(),
+            "a request past reseed_interval must panic"
+        );
+
+        let mut stream = HmacDrbg::from_entropy(&entropy, &nonce, &[]);
+        stream.reseed_counter = RESEED_INTERVAL;
+        for _ in 0..OUT / 4 {
+            let _ = stream.next_u32(); // one refill, made at counter 2⁴⁸
+        }
+        assert_eq!(stream.reseed_counter, RESEED_INTERVAL + 1);
+        let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stream.next_u32()));
+        assert!(refused.is_err(), "a refill past reseed_interval must panic");
     }
 }

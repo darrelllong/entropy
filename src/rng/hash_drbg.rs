@@ -24,10 +24,12 @@
 //! up to 7 trailing bytes before refilling.
 //!
 //! # Reseed interval
-//! SP 800-90A §10.1 Table 2 specifies a reseed interval of 2⁴⁸ generate
-//! calls for 256-bit security strength.  `reseed_counter` is incremented once
-//! per generate call (in `finalise_generate`) and checked at the top of each
-//! `refill`; the implementation panics if the limit is exceeded.  The test
+//! SP 800-90A Rev. 1 §10.1 Table 2 sets the maximum `reseed_interval` to 2⁴⁸
+//! requests.  `reseed_counter` starts at 1, is incremented once per generate
+//! call (in `finalise_generate`), and is checked at the top of
+//! [`HashDrbg::generate`] and of each `refill`.  §10.1.1.4 step 1 asks for a
+//! reseed only when `reseed_counter > reseed_interval`, so the 2⁴⁸-th request
+//! is served; no reseed is implemented, so the next request panics.  The test
 //! battery never approaches this bound.
 //!
 //! # Backtracking and prediction resistance
@@ -60,6 +62,9 @@ use super::{OsRng, Rng};
 const SEEDLEN: usize = 55; // 440 bits — Table 2, SHA-256 row
 const SEEDLEN_BITS: usize = SEEDLEN * 8;
 const OUTLEN: usize = 32; // SHA-256 output = 256 bits = 32 bytes
+
+/// Maximum `reseed_interval` (SP 800-90A Rev. 1 §10.1 Table 2).
+const RESEED_INTERVAL: u64 = 1 << 48;
 
 // Number of Hashgen blocks per generate call.  SP 800-90A §10.1.1.4 says
 // all blocks are produced from a local data variable before the §10.1.1.4
@@ -147,10 +152,7 @@ impl HashDrbg {
     /// It deliberately differs from the streaming [`Rng`] path (which batches
     /// `GENERATE_BLOCKS` blocks per refill); see the module docs.
     pub fn generate(&mut self, nbytes: usize, additional_input: &[u8]) -> Vec<u8> {
-        assert!(
-            self.reseed_counter < (1u64 << 48),
-            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
-        );
+        self.check_reseed_interval();
         if !additional_input.is_empty() {
             // §10.1.1.4 step 2: w = Hash(0x02 ‖ V ‖ additional_input);
             //                   V = (V + w) mod 2^seedlen.
@@ -175,17 +177,24 @@ impl HashDrbg {
     /// update V once per §10.1.1.4.  The local data counter is snapshotted
     /// from V and incremented only within this call, not stored in the struct.
     fn refill(&mut self) {
-        // SP 800-90A §10.1.1.4 step 1: enforce reseed interval.
-        assert!(
-            self.reseed_counter < (1u64 << 48),
-            "Hash_DRBG: reseed interval (2⁴⁸) exceeded (SP 800-90A §10.1 Table 2)"
-        );
+        self.check_reseed_interval();
         let buf = &mut self.buf;
         hashgen(&self.v, GENERATE_BLOCKS, |i, block| {
             buf[i * OUTLEN..(i + 1) * OUTLEN].copy_from_slice(block);
         });
         self.offset = 0;
         self.finalise_generate();
+    }
+
+    /// SP 800-90A Rev. 1 §10.1.1.4 step 1: "If reseed_counter >
+    /// reseed_interval, then return an indication that a reseed is
+    /// required."  No reseed is implemented, so the indication is a panic.
+    fn check_reseed_interval(&self) {
+        assert!(
+            self.reseed_counter <= RESEED_INTERVAL,
+            "Hash_DRBG: reseed_counter exceeds reseed_interval (2⁴⁸); \
+             SP 800-90A Rev. 1 §10.1.1.4 step 1 requires a reseed"
+        );
     }
 
     /// §10.1.1.4: update V after a generate call.
@@ -462,5 +471,36 @@ mod tests {
             Sha256::digest(&bytes).to_vec(),
             hex("258cfe0eaacdb03eac051981f14a3bec4612925213adc1de394a4ab55129c9aa")
         );
+    }
+
+    /// §10.1.1.4 step 1 refuses a request only when `reseed_counter >
+    /// reseed_interval`.  With the counter set to 2⁴⁸, one more request is
+    /// served on each path (a discrete Generate, and a streaming refill) and
+    /// the request after it panics.
+    #[test]
+    fn reseed_counter_boundary_is_strictly_greater() {
+        let entropy: Vec<u8> = (0x00u8..0x37).collect();
+        let nonce: Vec<u8> = (0x40u8..0x50).collect();
+
+        let mut discrete = HashDrbg::from_entropy(&entropy, &nonce, &[]);
+        discrete.reseed_counter = RESEED_INTERVAL;
+        assert_eq!(discrete.generate(OUTLEN, &[]).len(), OUTLEN);
+        assert_eq!(discrete.reseed_counter, RESEED_INTERVAL + 1);
+        let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            discrete.generate(OUTLEN, &[])
+        }));
+        assert!(
+            refused.is_err(),
+            "a request past reseed_interval must panic"
+        );
+
+        let mut stream = HashDrbg::from_entropy(&entropy, &nonce, &[]);
+        stream.reseed_counter = RESEED_INTERVAL;
+        for _ in 0..GENERATE_SIZE / 4 {
+            let _ = stream.next_u32(); // one refill, made at counter 2⁴⁸
+        }
+        assert_eq!(stream.reseed_counter, RESEED_INTERVAL + 1);
+        let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stream.next_u32()));
+        assert!(refused.is_err(), "a refill past reseed_interval must panic");
     }
 }
