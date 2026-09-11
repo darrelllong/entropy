@@ -4,9 +4,12 @@
 //! *DIEHARD: A Battery of Tests of Randomness*, 1995) and Dieharder's
 //! `rgb_minimum_distance` (Robert G. Brown, Dieharder 3.31.1) each need the
 //! smallest Euclidean distance among n points in a square or cube.  All three
-//! measure the plain distance inside the box, with no wrap-around:
-//! `diehard_2dsphere.c` and `rgb_minimum_distance.c` both say they omit
-//! periodic boundaries.  `pubs/dieharder-3.31.1.tgz`
+//! measure the plain distance inside the box, with no wrap-around.  Both C
+//! files say they generate points "with periodic boundary conditions"
+//! (`diehard_2dsphere.c` lines 90–91, `rgb_minimum_distance.c` lines
+//! 118–119), yet neither wraps a distance: each scan's comment says that
+//! "for the moment we omit" periodic wraparound (lines 140–141 and
+//! 168–169).  `pubs/dieharder-3.31.1.tgz`
 
 /// Smallest squared Euclidean distance between two of `points`.
 ///

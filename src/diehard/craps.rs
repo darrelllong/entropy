@@ -15,6 +15,10 @@
 //! so the statistic is self-consistent; it is simply one cell finer than the
 //! original.
 //!
+//! The wins p-value is two-sided, erfc(|z|/√2), where `craptest` reports the
+//! one-sided `phi(t)` (line 611), a CDF value, and the throws p-value is the
+//! chi-square's upper tail where it reports `chisq(sum,20)`, the CDF.
+//!
 //! Each die is `1 + gsl_rng_uniform_int(rng, 6)`, as in Dieharder's
 //! `diehard_craps.c`, so the high bits of each word pick the face (see
 //! `uniform_bounded`).
@@ -195,9 +199,16 @@ fn roll_dice(rng: &mut impl Rng) -> u32 {
 /// DIEHARD's die is a different high-bit map.  Marsaglia's `craptest`
 /// (`fortran/diehard.f` lines 555–556) reads each word as a signed integer x
 /// and takes `int(6x/2³² + 3)`, which is `tests.txt`'s "floating to [0,1),
-/// multiplying by 6" with 1/2 + x/2³² as the float.  Words below 2³¹ roll 4,
-/// 5 or 6 and the rest 1, 2 or 3, so no word gets the same face from both
-/// maps, in single or double precision (checked over all 2³² words).
+/// multiplying by 6" with 1/2 + x/2³² as the float.  In double precision its
+/// face is GSL's face + 3 (mod 6) on every word GSL keeps except the twelve
+/// unsigned words from k · 715 827 882 up to ⌈k · 2³²/6⌉ − 1 (k = 1, …, 5),
+/// where it is GSL's + 2: words below 2³¹ roll 4, 5 or 6 and the rest 1, 2
+/// or 3.  In single precision, as gfortran evaluates `REAL`, the 191 words
+/// just below 2³¹ roll a 7, the 85 just below 2³² roll a 4 where double
+/// precision rolls a 3, and some words within 277 of DIEHARD's other face
+/// boundaries roll one face higher; 834 of the words GSL keeps then get GSL's
+/// face + 4.  Either way no word gets the same face from both maps (checked
+/// over all 2³² words).
 fn uniform_bounded(rng: &mut impl Rng, bound: u32) -> u32 {
     let scale = u32::MAX / bound;
     // Bounded redraws.  An honest generator exhausts 16 retries with

@@ -16,8 +16,9 @@ use crate::{
 
 // ── 32×32 ─────────────────────────────────────────────────────────────────────
 
-// Theoretical probabilities: P(rank=32)≈0.2888, P(rank=31)≈0.5776, P(≤30)≈0.1336
-// (same as NIST §2.5 but DIEHARD uses 40 000 matrices).
+// Four cells, as in DIEHARD's `rank3132` and Dieharder: P(rank=32)≈0.2888,
+// P(31)≈0.5776, P(30)≈0.1284, P(≤29)≈0.0053, over 40 000 matrices.  NIST
+// SP 800-22 §2.5 uses the same law with three cells, pooling rank ≤ 30.
 
 /// 32×32 binary matrix rank test (DIEHARD variant; 40 000 matrices).
 ///

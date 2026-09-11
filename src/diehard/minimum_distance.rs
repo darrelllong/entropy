@@ -8,8 +8,11 @@
 //! # ⚠ Known-Buggy Formula
 //!
 //! The original DIEHARD formula `1 − exp(−d²/λ)` is **acknowledged as buggy
-//! and obsolete** by the Dieharder maintainer (see `diehard_2dsphere.c`:
-//! "This test is OBSOLETE. ... The formula used here is WRONG.").  The
+//! and obsolete** by the Dieharder maintainer (`diehard_2dsphere.c` lines
+//! 28–34: "This test has a BUG in it -- the expression it uses to evaluate p
+//! is not accurate enough to withstand the demands of dieharder. ... This
+//! test is hence OBSOLETE and is left in so people can play with it and
+//! convince themselves that this is so.").  The
 //! corrected version is the Fischler formula implemented in
 //! [`crate::dieharder::minimum_distance_nd`] with `d = 2`.
 //!
@@ -33,8 +36,8 @@ const LAMBDA: f64 = 0.995; // expected mean of d²
 /// O(n²) cost during development.
 ///
 /// # ⚠ Buggy Formula
-/// Uses `1 − exp(−d²/λ)`, which the Dieharder maintainer explicitly marks as
-/// wrong.  Use [`crate::dieharder::minimum_distance_nd`] for a correct result.
+/// Uses `1 − exp(−d²/λ)`, which the Dieharder maintainer says is not accurate
+/// enough.  Use [`crate::dieharder::minimum_distance_nd`] for a correct result.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).

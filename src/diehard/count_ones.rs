@@ -11,15 +11,24 @@
 //! 2. Collect the same N overlapping 4-letter words (leading 4 letters of each
 //!    5-letter window) → chi-square Q4 over 625 = 5⁴ categories.
 //! 3. The test statistic  Z = (Q5 − Q4 − 2500) / √5000  is approximately
-//!    standard normal under H₀.  Mean 2500 and σ √5000 are the values given
-//!    in Marsaglia's original C source.
+//!    standard normal under H₀.  Mean 2500 and σ √5000 are Marsaglia's
+//!    (`sknt1s`, `fortran/diehard.f` line 808), which Dieharder's
+//!    `diehard_count_1s_stream.c` keeps.
 //!
-//! This crate retains only the stream variant.  The specific-byte-lane
-//! variant was retired by Dieharder's author as obsolete compared to the
-//! stream form and `rgb_bitdist`.
+//! This crate keeps only the stream variant.  Dieharder rates its byte
+//! variant, `diehard_count_1s_byte`, "Good" (`list_tests.c` lines 31–36).  Its
+//! author calls that test "LESS stringent than the stream version overall"
+//! but says it "might reveal problems with specific offsets ignored by the
+//! stream test", and that he "could fix the stream test to cycle through the
+//! possible bitlevel offsets and make this test completely obsolete"
+//! (`diehard_count_1s_byte.c` lines 60–71).  This crate's own byte variant,
+//! since removed, scored Q5 alone with df 3 124, which overlapping words do
+//! not support, and was miscalibrated.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
+//! Source: Marsaglia's `fortran/diehard.f`, subroutine `sknt1s`.
+//! [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -42,13 +51,15 @@ const LETTER_PROBS: [f64; ALPHA_SIZE] = [
     37.0 / 256.0,
 ];
 
-// Reference statistic parameters (Marsaglia, diehard_count_1s_stream.c).
+// Reference statistic parameters (Marsaglia's `sknt1s`, diehard.f line 808;
+// Dieharder's diehard_count_1s_stream.c).
 const QDIFF_MEAN: f64 = 2500.0;
 const QDIFF_STDDEV: f64 = 70.710_678; // √5000
 
 /// Count-the-1's test on a stream of all bytes.
 ///
-/// Uses the Q5 − Q4 difference statistic from Marsaglia's reference C source.
+/// Uses Marsaglia's Q5 − Q4 difference statistic (`sknt1s`), as Dieharder's
+/// `diehard_count_1s_stream.c` ports it.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
