@@ -14,6 +14,9 @@
 //!   *IEEE Transactions on Information Theory* 15(1), pp. 122–127, January 1969.
 //!   DOI: 10.1109/TIT.1969.1054260.
 //!   [Berlekamp-Massey algorithm used to compute LFSR length of each block]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/linearComplexity.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same classes; differs in
+//!   the sign in μ, which changes no class, and in π₀]
 
 use crate::{math::chi2_pvalue, result::TestResult};
 
@@ -57,7 +60,9 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
 }
 
 /// π₀, …, π₆ of SP 800-22 §2.10.4 step (6), the probabilities of the seven
-/// classes of Tᵢ derived in §3.10.
+/// classes of Tᵢ derived in §3.10.  STS 2.1.2's `linearComplexity.c` has
+/// π₀ = 0.01047, which moves its χ² slightly; SP 800-22's §2.10.8 and
+/// Appendix B figures use that value (see the tests).
 const PI: [f64; 7] = [
     0.010417, 0.031250, 0.125000, 0.500000, 0.250000, 0.062500, 0.020833,
 ];

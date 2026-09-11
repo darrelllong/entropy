@@ -7,10 +7,14 @@
 //! Uses an O(n log n) FFT on the full input sequence via [`crate::math::fft_magnitudes`].
 //!
 //! The threshold T = √(log(1/0.05)·n) and d = (N₁ − N₀)/√(n·0.95·0.05/4) are
-//! the forms SP 800-22 Rev. 1a prints in §2.6.4 and §3.6.  The publication
-//! does not say where these forms come from; §3.6 lists Kim, Umeno and
-//! Hasegawa's "Corrections of the NIST Statistical Test Suite for Randomness"
-//! and Killmann et al.'s note on the DFT test among its references.
+//! the forms SP 800-22 Rev. 1a prints in §2.6.4 and §3.6.  Both are the
+//! corrections of Kim, Umeno and Hasegawa, whom §3.6 lists among its
+//! references.  Their §3.1 (eqs. (9)–(12), p. 9) derives
+//! T = √(2.995732274·n) from the exponential tail of |Sⱼ|²/n in place of
+//! √(3n).  Their §3.2 (p. 10) replaces the variance n·0.95·0.05/2 with
+//! n·0.95·0.05/4, since the n/2 peaks are not independent trials.  STS 2.1.2's
+//! `discreteFourierTransform.c` uses both, and it counts the zero frequency
+//! and the next n/2 − 1 magnitudes, as this module does.
 //!
 //! Minimum recommended sequence length: n ≥ 1 000.
 //!
@@ -19,10 +23,13 @@
 //!   [pubs/NIST-SP-800-22r1a.pdf]
 //! * S. Kim, K. Umeno and A. Hasegawa, "Corrections of the NIST Statistical
 //!   Test Suite for Randomness," Cryptology ePrint Archive, Report 2004/018,
-//!   2004.  [Cited in §3.6]
+//!   2004.  [pubs/kim-umeno-hasegawa-2004-nist-sts-corrections.pdf]
+//!   [§3.1 threshold, §3.2 variance; cited in §3.6]
 //! * W. Killmann, J. Schüth, W. Thumser and I. Uludag, "A Note Concerning the
 //!   DFT Test in NIST Special Publication 800-22," T-Systems, Systems
 //!   Integration, July 2004.  [Cited in §3.6]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/discreteFourierTransform.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]
 
 use crate::{
     math::{erfc, fft_magnitudes},

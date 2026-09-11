@@ -14,6 +14,9 @@
 //!   Matching Test Included in NIST Randomness Test Suite," *IEICE
 //!   Transactions on Fundamentals of Electronics, Communications and Computer Sciences*
 //!   E90-A(9), pp. 1788–1792, 2007.  [Source of the π values, per §3.8]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/overlappingTemplateMatchings.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same M, N and block counts;
+//!   scores §3.8's compound-Poisson probabilities, see `PI`]
 
 use crate::{math::chi2_pvalue, result::TestResult};
 
@@ -26,6 +29,12 @@ use crate::{math::chi2_pvalue, result::TestResult};
 /// ν = (329, 164, 150, 111, 78, 136) give the printed χ² = 8.965859 and
 /// P-value = 0.110434 with the compound-Poisson values (π₀ = e^{−η} ≈
 /// 0.367879 for η = 1), and χ² ≈ 7.949747 with the values below.
+///
+/// STS 2.1.2's `overlappingTemplateMatchings.c` declares these values (with
+/// π₄ = 0.0704323) but overwrites π₀, …, π₄ with the compound-Poisson
+/// `Pr(u, η)` before scoring, and π₅ with 1 − Σ.  It therefore still reports
+/// the §2.8.8 figures: P-value = 0.110434 on 10⁶ bits of e, where this module
+/// gives 0.159027.
 const PI: [f64; 6] = [0.364091, 0.185659, 0.139381, 0.100571, 0.070432, 0.139865];
 
 /// Run the overlapping template test.

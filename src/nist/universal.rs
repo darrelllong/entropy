@@ -19,6 +19,9 @@
 //!   [pubs/maurer-1992-universal-test.pdf]
 //!   [Table I: expected value of f_TU and variance of log₂ Aₙ for L = 1..16;
 //!   eq. (13): c(L, K)]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/universal.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same L table, Q, K and
+//!   c(L, K); μ and σ² to the printed digits]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -33,6 +36,14 @@ use std::f64::consts::SQRT_2;
 /// entries come from an uncited source; neither table prints them.  They
 /// agree with the printed digits to within one unit in the last place (σ²
 /// for L = 8 is 3.23866…, which both tables print as 3.238).
+///
+/// They are the values themselves to about 10⁻¹²: with p = 2^−L, μ is
+/// Σ_{i≥1} p(1 − p)^{i−1} log₂ i and σ² is Σ_{i≥1} p(1 − p)^{i−1} (log₂ i)² − μ²,
+/// and a direct evaluation of both agrees with every L = 6..16 entry to
+/// 10⁻¹¹ (`constants_match_maurer_series`).  STS 2.1.2's `universal.c` uses
+/// the printed digits instead (6.1962507 and 3.125 for L = 7), which is why
+/// STS and SP 800-22 Appendix B report P-value = 0.282568 for 10⁶ bits of e
+/// where this module gives 0.282591.
 const EXPECTED_LOG_GAP_STATS: [(f64, f64); 17] = [
     (0.0, 0.0), // L=0 unused
     (0.7326495, 0.690),
@@ -190,6 +201,7 @@ fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {
 /// prints the later Coron–Naccache approximation
 /// c(L, K) = 0.7 − 0.8/L + (1.6 + 12.8/L)·K^(−4/L) (its reference [2], SAC '98)
 /// but says it is not embedded in the test suite code, so it is not used here.
+/// STS 2.1.2's `universal.c` computes this c(L, K).
 fn universal_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
     let l = l as f64;
     let k = k as f64;
@@ -252,6 +264,27 @@ mod tests {
             assert_eq!(choose_l(n_min), l, "n = {n_min}");
             let below = if l == 6 { 0 } else { l - 1 };
             assert_eq!(choose_l(n_min - 1), below, "n = {}", n_min - 1);
+        }
+    }
+
+    /// The L = 6..16 entries against the series for μ and σ² in the table's
+    /// doc, summed over i ≤ 45·2^L; the tail left out weighs
+    /// (1 − 2^−L)^{45·2^L} < e^−45.
+    #[test]
+    fn constants_match_maurer_series() {
+        for (l, &(mu, var)) in EXPECTED_LOG_GAP_STATS.iter().enumerate().skip(6) {
+            let p = 2f64.powi(-(l as i32));
+            let ln_q = (-p).ln_1p();
+            let (mut mean, mut second) = (0.0, 0.0);
+            for i in 1..=(45usize << l) {
+                let w = p * ((i - 1) as f64 * ln_q).exp();
+                let lg = (i as f64).log2();
+                mean += w * lg;
+                second += w * lg * lg;
+            }
+            assert!((mean - mu).abs() < 1e-11, "μ for L = {l}: {mean}");
+            let variance = second - mean * mean;
+            assert!((variance - var).abs() < 1e-11, "σ² for L = {l}: {variance}");
         }
     }
 

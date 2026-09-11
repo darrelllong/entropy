@@ -6,6 +6,14 @@
 //! (for k = 0..5) follows the theoretical distribution.
 //!
 //! Minimum recommended: the number of cycles J ≥ 500 (requires n ≈ 10^6).
+//!
+//! # References
+//! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.14 and §3.14.
+//!   [pubs/NIST-SP-800-22r1a.pdf]
+//! * NIST, *Statistical Test Suite* 2.1.2, `src/randomExcursions.c`.
+//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same cycles, J gate and
+//!   probabilities; below the gate it writes P-value 0 for every state, where
+//!   this module reports a skip]
 
 use crate::{math::chi2_pvalue, result::TestResult};
 
@@ -116,7 +124,9 @@ pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
 
 /// Theoretical probability π_k(x) for exactly k visits to state x in a cycle.
 ///
-/// From SP 800-22 §2.14.3, Table 7.
+/// The formulas of SP 800-22 §3.14, which also prints them to four decimals
+/// for x = 1..7.  STS 2.1.2's `randomExcursions.c` tabulates |x| = 1..4 to
+/// ten digits, and these formulas reproduce that table.
 fn pi_k(x: i32, k: usize) -> f64 {
     let ax = x.unsigned_abs() as f64;
     match k {

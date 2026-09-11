@@ -26,7 +26,8 @@ pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
     let n = bits.len();
     // §2.12.7: "Choose m and n such that m < ⌊log2 n⌋ − 5", i.e. n ≥ 2^{m+6}.
     // (The φ(m+1) table has 2^{m+1} cells, so this also keeps both pattern
-    // tables well populated.)
+    // tables well populated.)  STS 2.1.2's approximateEntropy.c reports a
+    // P-value for any m and only prints a warning past its own bound.
     if n == 0 || m >= 30 || n < (1usize << (m + 6)) {
         return TestResult::insufficient(
             "nist::approximate_entropy",

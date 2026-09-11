@@ -5,6 +5,12 @@
 //! NIST SP 800-22 Rev 1a (2010).  `pubs/NIST-SP-800-22r1a.pdf`
 //!
 //! Each sub-module corresponds to one section of the document.
+//!
+//! The reference implementation is NIST's Statistical Test Suite 2.1.2,
+//! [pubs/NIST-STS-2.1.2-src-and-constants.zip]; each module names the source
+//! files it was checked against.  The unit tests run the publication's worked
+//! examples on e from that archive's `data/data.e`, packed into
+//! `tests/data/e_1e6_bits.bin`.
 
 pub mod approximate_entropy; // §2.12
 pub mod block_frequency; // §2.2
