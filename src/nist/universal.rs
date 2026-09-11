@@ -162,12 +162,17 @@ fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {
     sum / k as f64
 }
 
+/// Standard deviation of fₙ: σ = c(L, K)·√(σ²/K).
+///
+/// c(L, K) = 0.7 − 0.8/L + (4 + 32/L)·K^(−3/L)/15 is the form of SP 800-22
+/// Rev. 1a §2.9.4 step (5), which is Maurer's (1992) eq. (13).  §3.9 also
+/// prints the later Coron–Naccache approximation
+/// c(L, K) = 0.7 − 0.8/L + (1.6 + 12.8/L)·K^(−4/L) (its reference [2], SAC '98)
+/// but says it is not embedded in the test suite code, so it is not used here.
 fn universal_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
-    // SP 800-22 Rev. 1a §2.9.4:
-    // c(L, K) = 0.7 - 0.8/L + (1.6 + 12.8/L) * K^(-4/L)
     let l = l as f64;
     let k = k as f64;
-    let c = 0.7 - 0.8 / l + (1.6 + 12.8 / l) * k.powf(-4.0 / l);
+    let c = 0.7 - 0.8 / l + (4.0 + 32.0 / l) * k.powf(-3.0 / l) / 15.0;
     c * (sigma2 / k).sqrt()
 }
 
@@ -179,6 +184,8 @@ fn bits_to_index(bits: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{universal, universal_parametric_all, universal_sigma, EXPECTED_LOG_GAP_STATS};
+    use crate::math::erfc;
+    use std::f64::consts::SQRT_2;
 
     #[test]
     fn published_table_covers_l16() {
@@ -187,10 +194,31 @@ mod tests {
         assert!((var - 3.421308343033).abs() < 1e-12);
     }
 
+    /// σ for L = 7, K = 1000 with §2.9.4's c(L, K), from an independent
+    /// Python evaluation of the formula.  The Coron–Naccache form in §3.9
+    /// gives 0.036445141413707395 here, which the old code returned.
     #[test]
     fn uses_nist_correction_factor() {
         let sigma = universal_sigma(7, 1_000, EXPECTED_LOG_GAP_STATS[7].1);
-        assert!((sigma - 0.036445141413707395).abs() < 1e-12);
+        assert!((sigma - 0.034399103037796475).abs() < 1e-15, "σ = {sigma}");
+    }
+
+    /// SP 800-22 §2.9.8: n = 1 048 576, L = 7, Q = 1280, so K = 148 516;
+    /// sum = 919 924.038020, and with expectedValue(7) = 6.1962507 and
+    /// variance(7) = 3.125 from the §2.9.4 table the publication prints
+    /// σ = 0.002703 and P-value = 0.427733.  The Coron–Naccache c(L, K)
+    /// gives σ = 0.002704 and P-value = 0.427991.  (The printed
+    /// c = 0.591311 matches neither form; the printed σ matches §2.9.4's.)
+    #[test]
+    fn sigma_reproduces_section_2_9_8_example() {
+        let (l, q) = (7, 1280);
+        let k = 1_048_576 / l - q;
+        assert_eq!(k, 148_516);
+        let sigma = universal_sigma(l, k, 3.125);
+        assert!((sigma - 0.002703).abs() < 5e-7, "σ = {sigma}");
+        let f_n = 919_924.038020 / k as f64;
+        let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
+        assert!((p - 0.427733).abs() < 1e-6, "p = {p}");
     }
 
     #[test]
