@@ -16,7 +16,7 @@
 //!   pp. 147–156, 1985.  [Same result, as cited in §3.5]
 
 use crate::{
-    math::{gf2_rank, igamc},
+    math::{chi2_pvalue, gf2_rank},
     result::TestResult,
 };
 
@@ -77,7 +77,7 @@ pub fn matrix_rank(bits: &[u8]) -> TestResult {
 
     let chi_sq = rank_chi_square(f_32, f_31, f_less);
 
-    let p_value = igamc(1.0, chi_sq / 2.0); // df = 2, so igamc(1, χ²/2)
+    let p_value = chi2_pvalue(chi_sq, 2);
 
     TestResult::with_note(
         "nist::matrix_rank",
@@ -139,7 +139,7 @@ mod tests {
     fn chi_square_reproduces_section_2_5_8_example() {
         let chi_sq = rank_chi_square(23, 60, 14);
         assert!((chi_sq - 1.2619656).abs() < 5e-8, "χ² = {chi_sq}");
-        let p = igamc(1.0, chi_sq / 2.0);
+        let p = chi2_pvalue(chi_sq, 2);
         assert!((p - 0.532069).abs() < 1e-6, "p = {p}");
     }
 

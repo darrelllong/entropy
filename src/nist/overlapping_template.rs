@@ -15,7 +15,7 @@
 //!   Transactions on Fundamentals of Electronics, Communications and Computer Sciences*
 //!   E90-A(9), pp. 1788–1792, 2007.  [Source of the π values, per §3.8]
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// π₀…π₅ for m = 9, M = 1032, as SP 800-22 §2.8.4 step (4) lists them.
 /// §3.8 prints the compound-Poisson formulas for P(U = u) with η = λ/2,
@@ -82,7 +82,7 @@ pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
         })
         .sum();
 
-    let p_value = igamc(k as f64 / 2.0, chi_sq / 2.0);
+    let p_value = chi2_pvalue(chi_sq, k);
 
     TestResult::with_note(
         "nist::overlapping_template",

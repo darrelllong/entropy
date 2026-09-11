@@ -11,7 +11,7 @@
 //!
 //! Minimum recommended: n ≥ 10^6 for reliable results with m = 9.
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Template lengths accepted by the single-template entry points.
 ///
@@ -117,7 +117,7 @@ pub fn non_overlapping_template_raw(bits: &[u8], template: &[u8]) -> TestResult 
         })
         .sum();
 
-    let p_value = igamc(num_blocks as f64 / 2.0, chi_sq / 2.0);
+    let p_value = chi2_pvalue(chi_sq, num_blocks);
 
     let tmpl_str: String = template.iter().map(|b| b.to_string()).collect();
     TestResult::with_note(

@@ -5,7 +5,7 @@
 //!
 //! Recommended defaults: M = 128, n ≥ 100.
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Run the block-frequency test with block size `m` bits.
 ///
@@ -35,7 +35,7 @@ pub fn block_frequency(bits: &[u8], m: usize) -> TestResult {
         * 4.0
         * m as f64;
 
-    let p_value = igamc(num_blocks as f64 / 2.0, chi_sq / 2.0);
+    let p_value = chi2_pvalue(chi_sq, num_blocks);
 
     TestResult::with_note(
         "nist::block_frequency",

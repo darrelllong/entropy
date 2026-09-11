@@ -7,7 +7,7 @@
 //!
 //! Minimum recommended: the number of cycles J ≥ 500 (requires n ≈ 10^6).
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// States tested: x ∈ {-4,-3,-2,-1,+1,+2,+3,+4}.
 const STATES: [i32; 8] = [-4, -3, -2, -1, 1, 2, 3, 4];
@@ -104,7 +104,7 @@ pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
                 nu[visits.min(5)] += 1;
             }
             let chi_sq = chi_sq_for_state(x, &nu, j);
-            let p_value = igamc(2.5, chi_sq / 2.0); // df = 5
+            let p_value = chi2_pvalue(chi_sq, 5);
             TestResult::with_note(
                 "nist::random_excursions",
                 p_value,
@@ -142,7 +142,6 @@ fn chi_sq_for_state(x: i32, nu: &[usize; 6], j: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::chi2_pvalue;
     use crate::nist::test_vectors::e_bits;
 
     /// A walk with J = 1 still yields one skipped entry per state, and the

@@ -15,7 +15,7 @@
 //!   DOI: 10.1109/TIT.1969.1054260.
 //!   [Berlekamp-Massey algorithm used to compute LFSR length of each block]
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Run the linear complexity test.
 ///
@@ -47,7 +47,7 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
         })
         .sum();
 
-    let p_value = igamc(3.0, chi_sq / 2.0); // df = 6
+    let p_value = chi2_pvalue(chi_sq, 6);
 
     TestResult::with_note(
         "nist::linear_complexity",
@@ -153,7 +153,6 @@ pub fn berlekamp_massey(s: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::chi2_pvalue;
     use crate::nist::test_vectors::{bits, e_bits};
     use crate::rng::{Mt19937, Rng};
 

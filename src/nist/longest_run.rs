@@ -13,7 +13,7 @@
 //! * P. Revesz, *Random Walk in Random and Non-Random Environments*,
 //!   World Scientific, 1990.  [Source §3.4 names for the class probabilities]
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Class probabilities for M = 8, K = 3 (longest run ≤ 1, 2, 3, ≥ 4): the
 /// number of 8-bit blocks in each class over 256.  §3.4 prints them rounded
@@ -71,7 +71,7 @@ pub fn longest_run(bits: &[u8]) -> TestResult {
         })
         .sum();
 
-    let p_value = igamc(k as f64 / 2.0, chi_sq / 2.0);
+    let p_value = chi2_pvalue(chi_sq, k);
 
     TestResult::with_note(
         "nist::longest_run",

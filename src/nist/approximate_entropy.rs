@@ -15,7 +15,7 @@
 //!   March 1991. DOI: 10.1073/pnas.88.6.2297.
 //!   [Original ApEn statistic definition]
 
-use crate::{math::igamc, result::TestResult};
+use crate::{math::chi2_pvalue, result::TestResult};
 use std::f64::consts::LN_2;
 
 /// Run the approximate entropy test.
@@ -47,10 +47,11 @@ pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
     )
 }
 
-/// §2.12.4 steps 6–7: χ² = 2n(ln 2 − ApEn(m)) and P = igamc(2^{m−1}, χ²/2).
+/// §2.12.4 steps 6–7: χ² = 2n(ln 2 − ApEn(m)) and P = igamc(2^{m−1}, χ²/2),
+/// the χ² tail with 2^m degrees of freedom.
 fn chi_square_and_p(ap_en: f64, n: usize, m: usize) -> (f64, f64) {
     let chi_sq = 2.0 * n as f64 * (LN_2 - ap_en);
-    (chi_sq, igamc(2.0_f64.powi(m as i32 - 1), chi_sq / 2.0))
+    (chi_sq, chi2_pvalue(chi_sq, 1 << m))
 }
 
 /// Compute φ(m) = (1/n) Σ_{all patterns p} C_m(p) · ln(C_m(p)/n)
