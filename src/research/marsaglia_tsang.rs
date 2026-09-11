@@ -38,7 +38,7 @@
 //! [`crate::math::normal_cdf`], so p-values agree to their stated accuracy,
 //! not bit for bit.
 
-use crate::math::{anderson_darling_cdf, normal_cdf};
+use crate::math::{anderson_darling_cdf, ks_test, normal_cdf};
 
 const GORILLA_WORD_BITS: usize = 26;
 const GORILLA_WINDOWS: usize = 1 << GORILLA_WORD_BITS;
@@ -184,6 +184,20 @@ pub fn gorilla_aggregate_ad(results: &[GorillaBitResult]) -> GorillaAggregate {
         adks,
         p_value: 1.0 - adks,
     }
+}
+
+/// Kolmogorov–Smirnov uniformity check on the per-bit p-values from
+/// [`gorilla_all`], the aggregate this crate reported before
+/// [`gorilla_aggregate_ad`].  Kept, deprecated, so code written against 0.5.0
+/// still compiles.
+///
+/// Returns the two-sided KS p-value of the `p_value` fields
+/// ([`crate::math::ks_test`]), which is not the paper's Anderson–Darling
+/// ("ADKS") aggregate (see the module docs).
+#[deprecated(note = "use gorilla_aggregate_ad, Marsaglia and Tsang's Anderson-Darling aggregate")]
+pub fn gorilla_aggregate_ks(results: &[GorillaBitResult]) -> f64 {
+    let mut pvals: Vec<f64> = results.iter().map(|r| r.p_value).collect();
+    ks_test(&mut pvals)
 }
 
 #[cfg(test)]
@@ -348,6 +362,37 @@ mod tests {
         assert!(aggregate.statistic.is_nan());
         assert!(aggregate.adks.is_nan());
         assert!(aggregate.p_value.is_nan());
+    }
+
+    /// The aggregate is an exact two-sided KS test on the `p_value` fields;
+    /// z-scores play no part.  Reference from R 4.2.0,
+    /// `ks.test(((0:31) + 0.5)^2 / 1024, "punif", exact = TRUE)`:
+    /// D = 0.265380859375, p = 0.01768314058013587.  Reflecting every p-value
+    /// to 1 − p gives the same D and p in R.
+    #[test]
+    #[allow(deprecated)]
+    fn deprecated_ks_aggregate_is_exact_ks_on_per_bit_p_values() {
+        let results = |reflect: bool| -> Vec<GorillaBitResult> {
+            (0..32)
+                .map(|bit_position| {
+                    let u = (bit_position as f64 + 0.5) / 32.0;
+                    let p = u * u;
+                    GorillaBitResult {
+                        bit_position,
+                        missing_words: 0,
+                        z_score: f64::NAN,
+                        p_value: if reflect { 1.0 - p } else { p },
+                    }
+                })
+                .collect()
+        };
+        for reflect in [false, true] {
+            let p = super::gorilla_aggregate_ks(&results(reflect));
+            assert!(
+                (p - 0.017_683_140_580_135_87).abs() < 1e-9,
+                "reflect = {reflect}: p = {p}"
+            );
+        }
     }
 
     #[test]
