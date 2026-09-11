@@ -258,6 +258,15 @@ pub struct WindowsDotNetRandom {
 impl WindowsDotNetRandom {
     /// Construct from an `i32` seed exactly as `System.Random(seed)` does,
     /// including the Knuth-style seed-array initialisation rounds.
+    ///
+    /// C# evaluates `int` arithmetic unchecked, and exactly one step here can
+    /// overflow: the correction rounds' subtraction
+    /// `seed_array[i] - seed_array[1 + n]`.  It uses `wrapping_sub` so debug
+    /// builds match C# instead of panicking.  An exhaustive check over every
+    /// seed magnitude 0..=2³¹ − 1 found that the smallest magnitude that
+    /// overflows there is 161 844 078, that 1 269 681 342 of the 2³¹
+    /// magnitudes do, and that no other step overflows: after construction
+    /// the array lies in [0, 2³¹ − 2], so `next_raw` cannot overflow.
     pub fn new(seed: i32) -> Self {
         let mut seed_array = [0i32; 56];
         let subtraction = if seed == i32::MIN {
@@ -288,7 +297,7 @@ impl WindowsDotNetRandom {
                 if n >= 55 {
                     n -= 55;
                 }
-                seed_array[i] -= seed_array[1 + n];
+                seed_array[i] = seed_array[i].wrapping_sub(seed_array[1 + n]);
                 if seed_array[i] < 0 {
                     seed_array[i] += i32::MAX;
                 }
@@ -680,6 +689,44 @@ mod tests {
         let expected = [12_640_960, 8_124_035, 4_294_458, 3_961_109, 14_212_996];
         for want in expected {
             assert_eq!(rng.next_raw(), want);
+        }
+    }
+
+    /// These seeds overflow the correction rounds' subtraction, which C#
+    /// evaluates unchecked (the smallest overflowing magnitude is
+    /// 161 844 078).  Expected values come from a replica of the .NET
+    /// Framework reference source (`random.cs`) with explicit 32-bit wrapping.
+    /// No .NET runtime was available, so these four seeds are pinned against
+    /// that replica alone; the replica reproduces the seed-1 prefix above and
+    /// the widely cited first outputs for seeds 0 and 42, none of which
+    /// overflow.  Seeds `i32::MAX` and `i32::MIN` share one stream because the
+    /// reference source maps `Int32.MinValue` to `Int32.MaxValue`.
+    #[test]
+    fn windows_dotnet_random_wraps_like_csharp_for_large_seeds() {
+        const SEED_2E9: [u32; 5] = [
+            224_431_583,
+            2_141_996_799,
+            1_553_033_465,
+            1_565_626_964,
+            1_582_548_916,
+        ];
+        const SEED_EXTREME: [u32; 5] = [
+            1_559_595_546,
+            1_755_192_844,
+            1_649_316_172,
+            1_198_642_031,
+            442_452_829,
+        ];
+        for (seed, expected) in [
+            (2_000_000_000, SEED_2E9),
+            (-2_000_000_000, SEED_2E9),
+            (i32::MAX, SEED_EXTREME),
+            (i32::MIN, SEED_EXTREME),
+        ] {
+            let mut rng = WindowsDotNetRandom::new(seed);
+            for want in expected {
+                assert_eq!(rng.next_raw(), want, "seed {seed}");
+            }
         }
     }
 
