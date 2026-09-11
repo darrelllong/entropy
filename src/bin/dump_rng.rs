@@ -12,9 +12,10 @@
 //! `count == 0` is legal and produces empty output.  Names match `pilot_rng`.
 //!
 //! Exit status: 0 on success, including when the consumer closes the pipe
-//! early; 1 on a usage error (wrong argument count, non-numeric count,
-//! unknown name) or a write error.  `pilot_rng` follows the same convention,
-//! and `run_tests` also exits 1 on a usage error.
+//! early; 1 on a usage error (a `<name> <count>` call without exactly those
+//! two arguments, a non-numeric count, or an unknown name) or a write error.
+//! `pilot_rng` and `run_tests` also exit 1 on a usage error; `pilot_rng`
+//! prints a single line and is not written for a consumer that closes early.
 
 use std::io::{self, BufWriter, ErrorKind, Write};
 
