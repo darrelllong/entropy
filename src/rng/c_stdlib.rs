@@ -22,7 +22,8 @@
 //! * S. K. Park and K. W. Miller, "Random number generators: good ones are
 //!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
 //!   DOI: 10.1145/63039.63042.
-//!   [MINSTD; basis of `park_miller31` used in `BsdRandCompat`]
+//!   [MINSTD; basis of the `park_miller31` table fill in `BsdRandom` and of
+//!   `BsdRandCompat`]
 //! * D. E. Knuth, *The Art of Computer Programming, Volume 2: Seminumerical
 //!   Algorithms*, 3rd edition, Addison-Wesley, 1997. §3.2.2.
 //!   [Subtractive generator used by Windows/.NET `System.Random`]
@@ -65,15 +66,27 @@ impl PackedBits {
     }
 }
 
-fn park_miller31(seed: u32) -> u32 {
-    let mut x = if seed == 0 { 1i64 } else { i64::from(seed) };
-    let hi = x / 127_773;
-    let lo = x % 127_773;
-    x = 16_807 * lo - 2_836 * hi;
-    if x < 0 {
-        x += 2_147_483_647;
+/// One step of the Park–Miller table fill in glibc's `__srandom_r`
+/// (`stdlib/random_r.c`).
+///
+/// glibc keeps the running value as `int32_t word = seed` and applies
+/// Schrage's decomposition to that *signed* word: `hi = word / 127773`,
+/// `lo = word % 127773`, `word = 16807·lo − 2836·hi`, plus 2³¹ − 1 if the
+/// result is negative.  A seed ≥ 2³¹ therefore enters as a negative number.
+/// Rust's `i64` division truncates toward zero exactly as C's does, and the
+/// products fit the `long` glibc computes them in.  glibc replaces only the
+/// seed 0 by 1 (see [`BsdRandom::new`]); a word that reaches 0 mid-fill
+/// (seeds 2³¹ − 1 and 2³¹ + 1) stays 0.
+fn park_miller31(word: u32) -> u32 {
+    // `as i32` reinterprets the bits, as the conversion to `int32_t` does.
+    let word = i64::from(word as i32);
+    let hi = word / 127_773;
+    let lo = word % 127_773;
+    let mut next = 16_807 * lo - 2_836 * hi;
+    if next < 0 {
+        next += 2_147_483_647;
     }
-    x as u32
+    next as u32
 }
 
 // ── System V rand() ──────────────────────────────────────────────────────────
@@ -327,6 +340,11 @@ impl Rng for WindowsDotNetRandom {
 /// This is the classic Berkeley additive generator carried into glibc's
 /// `random()` and therefore Linux glibc `rand()`. It is much better than the
 /// 15-bit System V LCG, but it is still a weak historical userspace PRNG.
+///
+/// Seeding follows glibc's `__srandom_r`.  The macOS libc `srandom` agrees at
+/// seed 1 and at the seeds ≥ 2³¹ that were checked, but it does not map seed 0
+/// to 1 and it replaces a zero word during the table fill, so seeds 0,
+/// 2³¹ − 1 and 2³¹ + 1 produce different streams there.
 #[derive(Debug, Clone)]
 pub struct BsdRandom {
     state: [u32; 31],
@@ -337,8 +355,9 @@ pub struct BsdRandom {
 
 impl BsdRandom {
     /// Construct from a 32-bit seed (`srandom()`): seed 0 is mapped to 1,
-    /// the 31-word table is filled Park-Miller style, and 310 warm-up steps
-    /// are discarded, exactly as the C initialiser does.
+    /// the 31-word table is filled Park-Miller style on signed 32-bit words
+    /// (see `park_miller31`), and 310 warm-up steps are discarded, as glibc's
+    /// `__srandom_r` does.
     pub fn new(seed: u32) -> Self {
         let seed = if seed == 0 { 1 } else { seed };
         let mut state = [0u32; 31];
@@ -506,6 +525,54 @@ mod tests {
         ];
         for want in expected {
             assert_eq!(rng.next_raw(), want);
+        }
+    }
+
+    /// Seeds ≥ 2³¹ enter glibc's `__srandom_r` table fill as negative
+    /// `int32_t` words; a word that reaches 0 (seed 2³¹ − 1) stays 0; and
+    /// seed 0 is replaced by 1 before the fill.  glibc's source is not
+    /// available offline and the macOS libc is BSD, so the reference values
+    /// come from an independent replica of the glibc seeding loop with C
+    /// `int32_t` semantics (written in C and again in Python; the two agree
+    /// and both reproduce the seed-1 prefix above), not from glibc itself.
+    #[test]
+    fn glibc_random_seeds_through_signed_int32_words() {
+        const SEED_ABOVE_2_POW_31: u32 = 3_000_000_000;
+        const SEED_2_POW_31_MINUS_1: u32 = i32::MAX as u32;
+        let cases: [(u32, [u32; 6]); 2] = [
+            (
+                SEED_ABOVE_2_POW_31,
+                [
+                    2_058_147_116,
+                    854_483_408,
+                    922_419_988,
+                    286_396_165,
+                    2_068_523_933,
+                    1_172_167_191,
+                ],
+            ),
+            (
+                SEED_2_POW_31_MINUS_1,
+                [
+                    1_065_668_062,
+                    2_142_264_300,
+                    1_066_566_375,
+                    1_064_012_770,
+                    2_141_034_222,
+                    1_065_509_725,
+                ],
+            ),
+        ];
+        for (seed, want) in cases {
+            let mut rng = LinuxLibcRandom::new(seed);
+            let got = want.map(|_| rng.next_raw());
+            assert_eq!(got, want, "seed {seed}");
+        }
+
+        let mut zero = LinuxLibcRandom::new(0);
+        let mut one = LinuxLibcRandom::new(1);
+        for _ in 0..8 {
+            assert_eq!(zero.next_raw(), one.next_raw());
         }
     }
 
