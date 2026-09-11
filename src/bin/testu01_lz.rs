@@ -11,124 +11,65 @@
 //!   variable-rate coding," *IEEE Transactions on Information Theory* 24(5),
 //!   pp. 530–536, 1978.  [Cited from the 2007 paper's reference list.]
 
-// Each case stores its label once; the runner closure receives it back at
-// call time, so the tuple label is the single source of truth.
-type Case<'a> = (&'a str, Box<dyn Fn(&str) + 'a>);
-
 use entropy::research::testu01_lz::{
     lempel_ziv_ks_result, lempel_ziv_sum_result, lempel_ziv_summary,
 };
-use entropy::rng::{
-    AesCtr, BsdRandom, CryptoCtrDrbg, Lcg32, LcgVariant, LinuxLibcRandom, Mt19937, Rand48, Rng,
-    SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xorshift32, Xorshift64,
-};
-use entropy::seed::seed_material;
+use entropy::rng::Rng;
+
+#[path = "common/cli.rs"]
+mod cli;
+#[path = "common/family.rs"]
+mod family;
 
 struct Args {
     replications: usize,
     k: usize,
     r: usize,
     s: usize,
-    rng_filters: Vec<String>,
+    rng: cli::RngFilter,
 }
 
 impl Args {
-    fn parse() -> Self {
+    fn parse_from(mut argv: cli::Argv) -> Result<Self, cli::Stop> {
         let mut replications = 10usize;
         let mut k = 25usize;
         let mut r = 0usize;
         let mut s = 30usize;
-        let mut rng_filters = Vec::new();
-        let argv: Vec<String> = std::env::args().skip(1).collect();
-        let mut i = 0;
-        while i < argv.len() {
-            match argv[i].as_str() {
-                "--help" | "-h" => {
-                    print_usage();
-                    std::process::exit(0);
-                }
-                "--replications" => {
-                    i += 1;
-                    replications = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--replications requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --replications value"));
-                }
-                "--k" => {
-                    i += 1;
-                    k = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--k requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --k value"));
-                }
-                "--r" => {
-                    i += 1;
-                    r = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--r requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --r value"));
-                }
-                "--s" => {
-                    i += 1;
-                    s = argv
-                        .get(i)
-                        .unwrap_or_else(|| die("--s requires an argument"))
-                        .parse()
-                        .unwrap_or_else(|_| die("invalid --s value"));
-                }
-                "--rng" => {
-                    i += 1;
-                    rng_filters.push(
-                        argv.get(i)
-                            .unwrap_or_else(|| die("--rng requires an argument"))
-                            .clone(),
-                    );
-                }
-                other => die(&format!("unknown option '{other}'")),
+        let mut rng = cli::RngFilter::default();
+        while let Some(option) = argv.next_option()? {
+            match option.as_str() {
+                flag @ "--replications" => replications = argv.usize_value(flag)?,
+                flag @ "--k" => k = argv.usize_value(flag)?,
+                flag @ "--r" => r = argv.usize_value(flag)?,
+                flag @ "--s" => s = argv.usize_value(flag)?,
+                flag @ "--rng" => rng.push(argv.value(flag)?),
+                other => return Err(cli::unknown_option(other)),
             }
-            i += 1;
         }
 
         // Range checks mirror the asserts in research::testu01_lz so a bad
         // flag dies with the flag's name instead of a library panic.
         if !(3..=28).contains(&k) {
-            die("--k must be in 3..=28");
+            return Err(cli::usage("--k must be in 3..=28"));
         }
         if !(1..=32).contains(&s) {
-            die("--s must be in 1..=32");
+            return Err(cli::usage("--s must be in 1..=32"));
         }
         if r > 32 || r + s > 32 {
-            die("--r plus --s must be <= 32");
+            return Err(cli::usage("--r plus --s must be <= 32"));
         }
         if replications == 0 {
-            die("--replications must be positive");
+            return Err(cli::usage("--replications must be positive"));
         }
 
-        Self {
+        Ok(Self {
             replications,
             k,
             r,
             s,
-            rng_filters,
-        }
+            rng,
+        })
     }
-
-    fn matches_rng(&self, label: &str) -> bool {
-        let label = label.to_lowercase();
-        self.rng_filters.is_empty()
-            || self
-                .rng_filters
-                .iter()
-                .any(|pat| label.contains(&pat.to_lowercase()))
-    }
-}
-
-fn die(msg: &str) -> ! {
-    eprintln!("error: {msg}");
-    std::process::exit(1);
 }
 
 fn print_usage() {
@@ -160,77 +101,18 @@ fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
     println!();
 }
 
-fn main() {
-    let args = Args::parse();
+/// Runs the Lempel-Ziv replications on each selected generator.
+struct Runner<'a>(&'a Args);
 
-    let cases: Vec<Case<'_>> = vec![
-        (
-            "MT19937",
-            Box::new(|label| run_case(label, Mt19937::new(19650218), &args)),
-        ),
-        (
-            "Xorshift32",
-            Box::new(|label| run_case(label, Xorshift32::new(1), &args)),
-        ),
-        (
-            "Xorshift64",
-            Box::new(|label| run_case(label, Xorshift64::new(1), &args)),
-        ),
-        (
-            "BAD Unix System V rand()",
-            Box::new(|label| run_case(label, SystemVRand::new(1), &args)),
-        ),
-        (
-            "BAD Unix System V mrand48()",
-            Box::new(|label| run_case(label, Rand48::new(1), &args)),
-        ),
-        (
-            "BAD Unix BSD random()",
-            Box::new(|label| run_case(label, BsdRandom::new(1), &args)),
-        ),
-        (
-            "BAD Unix Linux glibc rand()/random()",
-            Box::new(|label| run_case(label, LinuxLibcRandom::new(1), &args)),
-        ),
-        (
-            "BAD Windows CRT rand()",
-            Box::new(|label| run_case(label, WindowsMsvcRand::new(1), &args)),
-        ),
-        (
-            "BAD Windows VB6/VBA Rnd()",
-            Box::new(|label| run_case(label, WindowsVb6Rnd::new(1), &args)),
-        ),
-        (
-            "BAD Windows .NET Random(seed)",
-            Box::new(|label| run_case(label, WindowsDotNetRandom::new(1), &args)),
-        ),
-        (
-            "ANSI C sample LCG",
-            Box::new(|label| run_case(label, Lcg32::new(LcgVariant::AnsiC, 1), &args)),
-        ),
-        (
-            "LCG MINSTD",
-            Box::new(|label| run_case(label, Lcg32::new(LcgVariant::Minstd, 1), &args)),
-        ),
-        (
-            "AES-128-CTR",
-            Box::new(|label| run_case(label, AesCtr::new(&seed_material::<16>(1), 0), &args)),
-        ),
-        (
-            "cryptography::CtrDrbgAes256",
-            Box::new(|label| run_case(label, CryptoCtrDrbg::new(&seed_material::<48>(1)), &args)),
-        ),
-    ];
-
-    let mut matched = 0usize;
-    for (label, case) in cases {
-        if !args.matches_rng(label) {
-            continue;
-        }
-        matched += 1;
-        case(label);
+impl family::Visit for Runner<'_> {
+    fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
+        run_case(label, make(), self.0);
     }
-    if matched == 0 {
-        die("no RNG labels matched --rng filter");
+}
+
+fn main() {
+    let args = cli::parse_or_exit(Args::parse_from, print_usage);
+    if family::visit_matching(&args.rng, &mut Runner(&args)) == 0 {
+        cli::die_no_rng_matched();
     }
 }
