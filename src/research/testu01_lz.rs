@@ -4,10 +4,20 @@
 //! - the exact `LZ78` trie walk over a bit stream assembled via `unif01_StripB`
 //! - the official empirical `LZMu` / `LZSigma` tables for `n = 2^k`, `3 <= k <= 28`
 //!
+//! Both follow `scomp.c`: the walk matches `LZ78` step by step, including
+//! its end-of-stream rule and the ⌈2^k/s⌉ words each replication draws, and
+//! the tables match digit for digit.  The tests pin phrase counts and
+//! generator calls against TestU01 1.2.3 itself.
+//!
 //! The full TestU01 post-processing runs a goodness-of-fit battery over the
 //! normalized observations. This module exposes the exact per-replication
 //! normalized scores and a lightweight summary, but does not claim to
-//! reproduce TestU01's entire reporting layer.
+//! reproduce TestU01's entire reporting layer.  In particular, for `N > 1`
+//! TestU01 reports the right tail `1 − Φ(Σz/√N)` of the sum statistic
+//! (`sres_GetNormalSumStat` in `testu01/sres.c`) and applies its active
+//! empirical-distribution tests to the values `Φ(z)` (`gofw_ActiveTests2`
+//! in `probdist/gofw.c`).  [`lempel_ziv_summary`] reports a two-sided normal
+//! p-value for the sum and a two-sided Kolmogorov–Smirnov p-value instead.
 //!
 //! # References
 //! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
@@ -18,7 +28,10 @@
 //! * J. Ziv and A. Lempel, "Compression of individual sequences via
 //!   variable-rate coding," *IEEE Transactions on Information Theory* 24(5),
 //!   pp. 530–536, 1978.  [LZ78; cited from the 2007 paper's reference list.]
-//! * TestU01 1.2.3, `testu01/scomp.c` (`scomp_LempelZiv`; not in `pubs/`).
+//! * TestU01 1.2.3 source (`testu01-source` in BIB.md): `testu01/scomp.c`
+//!   (`scomp_LempelZiv`, `LZ78`, and the `LZMu` and `LZSigma` tables) and
+//!   `testu01/unif01.c` (`unif01_StripB`).
+//!   [pubs/TestU01-2009-57e98bf33880.tar.gz]
 //!
 //! # Author
 //! Pierre L'Ecuyer and Richard Simard (TestU01); Darrell Long (Rust port).
@@ -283,8 +296,10 @@ pub fn lempel_ziv_ks_result(summary: &LempelZivSummary) -> TestResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{lempel_ziv_replication, lz78_count_blocks, trie_reservation, LZ_MU};
-    use crate::rng::Xorshift32;
+    use super::{
+        lempel_ziv_replication, lempel_ziv_summary, lz78_count_blocks, trie_reservation, LZ_MU,
+    };
+    use crate::rng::{Rng, Xorshift32};
 
     /// Marsaglia's example xorshift32 seed; any non-zero seed would do.
     const XORSHIFT_SEED: u32 = 2_463_534_242;
@@ -347,7 +362,8 @@ mod tests {
     /// `s` that does not divide `2^k`, so a change to the trie cannot change
     /// the statistic.  Reference: an independent Python LZ78 counter over the
     /// same `unif01_StripB` bit stream, built on a set of phrase strings
-    /// rather than a trie.
+    /// rather than a trie.  TestU01 1.2.3's `scomp_LempelZiv` gives the same
+    /// counts and generator calls for all three.
     #[test]
     fn replication_phrase_counts_match_independent_replica() {
         for (k, r, s, words, phrases) in [
@@ -359,6 +375,31 @@ mod tests {
             let rep = lempel_ziv_replication(&mut rng, k, r, s);
             assert_eq!(words, rep.words, "k = {k}, r = {r}, s = {s}");
             assert_eq!(phrases, rep.phrase_count, "k = {k}, r = {r}, s = {s}");
+        }
+    }
+
+    /// Phrase counts and generator calls from TestU01 1.2.3 itself: the
+    /// library built from pubs/TestU01-2009-57e98bf33880.tar.gz, running
+    /// `scomp_LempelZiv` on this Xorshift32 stream through
+    /// `unif01_CreateExternGenBits`, with `swrite_Counters` printing each
+    /// replication's phrase count.  Replications continue one stream, each
+    /// drawing ⌈2^k/s⌉ words.
+    #[test]
+    fn summary_phrase_counts_match_testu01() {
+        for (replications, k, r, s, phrases, calls) in [
+            (3, 12, 5, 9, &[556usize, 552, 554][..], 1368),
+            (2, 13, 3, 7, &[989usize, 992][..], 2342),
+        ] {
+            let mut rng = Xorshift32::new(XORSHIFT_SEED);
+            let (reps, summary) = lempel_ziv_summary(&mut rng, replications, k, r, s);
+            let counts: Vec<usize> = reps.iter().map(|rep| rep.phrase_count).collect();
+            assert_eq!(phrases, &counts[..], "k = {k}, r = {r}, s = {s}");
+            assert_eq!(replications, summary.replications);
+            let mut fresh = Xorshift32::new(XORSHIFT_SEED);
+            for _ in 0..calls {
+                fresh.next_u32();
+            }
+            assert_eq!(fresh.next_u32(), rng.next_u32(), "k = {k}: {calls} calls");
         }
     }
 
