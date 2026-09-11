@@ -568,10 +568,19 @@ fn ad_errfix(n: usize, x: f64) -> f64 {
 /// | 64  | −0.2% to +0.6%               | −0.7% to +5.8%             |
 /// | 128 | −0.3% to +0.6%               | −5.0% to +2.1%             |
 ///
-/// For n ≤ 32 the worst errors overstate the tail, giving conservative
-/// p-values, and peak at the switch.  The widest figures for n = 64 and 128
-/// fall near z = 11.6, where the simulated tails carry standard errors of
-/// about 5%.
+/// The errors are mostly positive, overstating the tail and so giving
+/// conservative p-values, and they are largest just past the switch: at
+/// z = 6.62 the tail is +8.46 ± 0.07% for n = 8, +4.62 ± 0.14% for n = 16
+/// and +2.46 ± 0.14% for n = 32.  Understatements of up to about 1% occur at
+/// some z.  For n = 8 the tail is −0.20 ± 0.02% at z = 4 (−0.27% at z = 4.41,
+/// the region's lowest) and −1.07 ± 1.10% at z = 12; for n = 16 it is
+/// −0.58 ± 1.55% at z = 11.24.  For n = 32 beyond z ≈ 10 the sign is
+/// unresolved: +1.69 ± 1.41% at z = 11 and +1.32 ± 2.37% at z = 12, each
+/// within 1.2 standard errors of zero, so the table's extremes above z ≈ 10
+/// are single-run values within that noise.  The widest figures for n = 64
+/// and 128 fall near z = 11.6, where the simulated tails carry standard
+/// errors of about 5%.  None of this can move a verdict at α = 0.01, whose
+/// upper tail sits near z = 3.9, inside the body bound.
 ///
 /// Minimum n.  For n < 8 this function returns NaN.  The method fails there
 /// before the tail does.  A simulation of 2·10⁹ samples each, made before

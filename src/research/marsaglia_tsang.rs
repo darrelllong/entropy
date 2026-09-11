@@ -172,8 +172,10 @@ pub struct GorillaAggregate {
     /// cover.
     pub adks: f64,
     /// `1 − adks`, small when the per-bit p-values are far from uniform, in
-    /// this crate's small-p-fails convention.  For n = 32 it is
-    /// within 3.5% of simulation, and on the high side, for 4 < A ≤ 12 (see
+    /// this crate's small-p-fails convention.  For n = 32 and 4 < A ≤ 12 it
+    /// lies between 0.04% below and 3.5% above the simulated tail in a
+    /// 10⁹-sample run, the largest errors just past A = 6.61; beyond A ≈ 10
+    /// the sign is unresolved within sampling error (see
     /// [`crate::math::anderson_darling_cdf`]).
     pub p_value: f64,
 }
