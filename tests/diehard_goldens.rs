@@ -4,8 +4,11 @@
 //! code in a debug build on aarch64-apple-darwin, reproduced within the
 //! tolerances below by debug and release builds on aarch64-apple-darwin and
 //! x86_64-apple-darwin, and pinned here so that a change to any statistic,
-//! sample layout or p-value routine fails a test.  An adversarial review also
-//! ran the first version on x86_64 Linux with glibc.  They are not reference values from
+//! sample layout or p-value routine fails a test.  They also pass on x86_64
+//! Linux with glibc (rustc 1.95): the first version of this file in debug
+//! and release builds with `--include-ignored`, and the version with the
+//! 31×31 tolerance and the two-level monobit2 golden in debug and release
+//! builds.  They are not reference values from
 //! Marsaglia's DIEHARD or Brown's Dieharder C, and passing says nothing about
 //! whether a statistic is right, only that it has not moved.  An intended
 //! change to a statistic must update this table and say so in its commit.
@@ -32,15 +35,18 @@ use std::sync::OnceLock;
 
 const SEED: u32 = 5489;
 
-/// P-value tolerance.  Counts are exact on every platform, but p-values
-/// and some expected cell counts pass through `exp`, `ln`, `cos` and `powf`,
-/// which Rust takes from the platform libm, and CI runs on both glibc
-/// (Linux x86-64) and Apple's libm (macOS arm64).  Those agree to within an
-/// ulp or so, which moves a p-value in [0, 1] by far less than 1e-14; 1e-12
-/// leaves room for that and still catches any change a real edit makes.
-/// Notes are compared exactly: they print statistics to four decimals,
-/// which a last-place difference cannot move unless a value lies within
-/// about 1e-15 of a rounding boundary.
+/// P-value tolerance.  Counts are exact on every platform, but p-values and
+/// some expected cell counts pass through `exp`, `ln`, `cos`, `sin` and
+/// `powf`, which Rust takes from the platform libm, and CI runs on both glibc
+/// (Linux x86-64) and Apple's libm (macOS arm64), which can differ by an ulp
+/// or so per call.  An adversarial review shifted every such result one ulp
+/// up, then one ulp down, then by ±1 ulp at random on 1%, 3% and 10% of calls
+/// over 60 seeds each.  Every golden but `binary_rank_31x31` stayed within
+/// 1e-12 throughout, and that one moved by up to 3.7e-10 (see
+/// `RANK_31X31_TOL`).  1e-12 therefore holds for the others under those
+/// perturbations and still catches any change a real edit makes.  Notes are
+/// compared exactly: they print statistics to four decimals, and the same
+/// perturbations left every other golden's note unchanged.
 const TOL: f64 = 1e-12;
 
 /// Tolerance for `binary_rank_31x31` only.  Its cell probabilities come from
