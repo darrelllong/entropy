@@ -186,7 +186,8 @@ fn print_usage() {
          Runs one honest TestU01 bit-string slice and one honest PractRand slice:\n\
          - TestU01 sstring_HammingCorr  (--hc-n blocks, r/s bit window, L bits)\n\
          - TestU01 sstring_HammingIndep (--hi-n pairs,  r/s bit window, L bits, d)\n\
-         - PractRand FPF(4,14,6) core   (--fpf-bits total bits)\n\
+         - PractRand FPF(4,14,6) core   (--fpf-bits total bits), parsing disjoint\n\
+           codewords rather than upstream's stride-overlapped windows\n\
          \n\
          Defaults (moderate-size runs suitable for development checks):\n\
            hc-n=500000 hc-r=20 hc-s=10 hc-l=300\n\
