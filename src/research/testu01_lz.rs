@@ -160,7 +160,7 @@ pub fn lempel_ziv_replication(
 ) -> LempelZivReplication {
     assert!((3..=28).contains(&k), "k must be in 3..=28");
     assert!(s > 0 && s <= 32, "s must be in 1..=32");
-    assert!(r + s <= 32, "r + s must be <= 32");
+    assert!(r <= 32 && r + s <= 32, "r + s must be <= 32");
 
     let n_bits = 1usize << k;
     let words = n_bits.div_ceil(s);

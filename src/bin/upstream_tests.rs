@@ -8,7 +8,7 @@ use entropy::research::{
     practrand_fpf::{fpf_cross_result, fpf_platter_result, fpf_test, FpfConfig},
     testu01_hamming::{
         hamming_corr, hamming_corr_result, hamming_indep, hamming_indep_block_result,
-        hamming_indep_main_result,
+        hamming_indep_main_result, HAMMING_INDEP_MAX_L,
     },
 };
 use entropy::rng::{
@@ -106,6 +106,47 @@ impl Args {
             }
             i += 1;
         }
+
+        // Range checks mirror the asserts in research::testu01_hamming and
+        // research::practrand_fpf so a bad flag dies with the flag's name
+        // (exit 1) instead of a library panic (exit 101).
+        if out.hc_n < 2 {
+            die("--hc-n must be at least 2");
+        }
+        if !(1..=32).contains(&out.hc_s) {
+            die("--hc-s must be in 1..=32");
+        }
+        if out.hc_r > 32 || out.hc_r + out.hc_s > 32 {
+            die("--hc-r plus --hc-s must be <= 32");
+        }
+        if out.hc_l == 0 {
+            die("--hc-l must be positive");
+        }
+        if out.hi_n < 20 {
+            die("--hi-n must be at least 20");
+        }
+        if !(1..=32).contains(&out.hi_s) {
+            die("--hi-s must be in 1..=32");
+        }
+        if out.hi_r > 32 || out.hi_r + out.hi_s > 32 {
+            die("--hi-r plus --hi-s must be <= 32");
+        }
+        if !(1..=HAMMING_INDEP_MAX_L).contains(&out.hi_l) {
+            die(&format!("--hi-l must be in 1..={HAMMING_INDEP_MAX_L}"));
+        }
+        if !(1..=8).contains(&out.hi_d) {
+            die("--hi-d must be in 1..=8");
+        }
+        if out.hi_d > out.hi_l.div_ceil(2) {
+            die("--hi-d must be <= (--hi-l + 1) / 2");
+        }
+        let fpf = FpfConfig::default();
+        let worst_codeword = (1usize << fpf.exp_bits) - 1 + fpf.sig_bits;
+        if out.fpf_bits < worst_codeword {
+            die(&format!(
+                "--fpf-bits must be at least {worst_codeword} (one worst-case codeword)"
+            ));
+        }
         out
     }
 
@@ -127,14 +168,22 @@ fn die(msg: &str) -> ! {
 
 fn print_usage() {
     eprintln!(
-        "Usage: upstream_tests [--rng <label>] [--hc-n N] [--hi-n N] [--fpf-bits N]\n\
+        "Usage: upstream_tests [--rng <label>]\n\
+                      [--hc-n N] [--hc-r N] [--hc-s N] [--hc-l N]\n\
+                      [--hi-n N] [--hi-r N] [--hi-s N] [--hi-l N] [--hi-d N]\n\
+                      [--fpf-bits N]\n\
          \n\
          Runs one honest TestU01 bit-string slice and one honest PractRand slice:\n\
-         - TestU01 sstring_HammingCorr\n\
-         - TestU01 sstring_HammingIndep\n\
-         - PractRand FPF(4,14,6) core\n\
+         - TestU01 sstring_HammingCorr  (--hc-n blocks, r/s bit window, L bits)\n\
+         - TestU01 sstring_HammingIndep (--hi-n pairs,  r/s bit window, L bits, d)\n\
+         - PractRand FPF(4,14,6) core   (--fpf-bits total bits)\n\
          \n\
-         Defaults are moderate-size runs suitable for development checks.\n\
+         Defaults (moderate-size runs suitable for development checks):\n\
+           hc-n=500000 hc-r=20 hc-s=10 hc-l=300\n\
+           hi-n=500000 hi-r=20 hi-s=10 hi-l=300 hi-d=1  fpf-bits=2^27\n\
+         Constraints: hc-n >= 2, hi-n >= 20, s in 1..=32, r+s <= 32,\n\
+           hc-l >= 1, hi-l in 1..=4096, d in 1..=8, d <= (hi-l+1)/2,\n\
+           fpf-bits >= 77 (one worst-case codeword).\n\
          Example:\n\
            cargo run --release --bin upstream_tests -- --rng AES"
     );

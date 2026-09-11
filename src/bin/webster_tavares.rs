@@ -136,9 +136,14 @@ fn next_u64_of(mut rng: impl Rng) -> u64 {
 fn main() {
     let args = Args::parse();
     // (label, seed_bits, closure)
-    // seed_bits: effective seed width consumed by the RNG constructor.
-    // If args.input_bits > seed_bits the upper input bits are silently truncated
-    // by the cast inside the closure, so the avalanche analysis is misleading.
+    // seed_bits: the number of low seed bits that can influence the
+    // generator state — not the width of the constructor's parameter type.
+    // A bit is dead when the cast or the constructor's masking discards it
+    // outright; a many-to-one map that still lets every bit reach the state
+    // (MINSTD's modular reduction, .NET's `abs`) does not count as dead,
+    // because flipping such a bit still changes the state and the avalanche
+    // measurement stays meaningful.  If args.input_bits > seed_bits the dead
+    // input bits show up as non-avalanching, so a warning is printed.
     let cases: Vec<Case<'_>> = vec![
         (
             "MT19937",
@@ -161,8 +166,10 @@ fn main() {
             Box::new(|seed| next_u64_of(SystemVRand::new(seed as u32))),
         ),
         (
+            // srand48 semantics: the seed fills the high 32 bits of the
+            // 48-bit state; seed bits above 32 never reach the state.
             "BAD Unix System V mrand48()",
-            48,
+            32,
             Box::new(|seed| next_u64_of(Rand48::new(seed))),
         ),
         (
@@ -181,8 +188,9 @@ fn main() {
             Box::new(|seed| next_u64_of(WindowsMsvcRand::new(seed as u32))),
         ),
         (
+            // `WindowsVb6Rnd::new` keeps only the low 24 bits of the seed.
             "BAD Windows VB6/VBA Rnd()",
-            32,
+            24,
             Box::new(|seed| next_u64_of(WindowsVb6Rnd::new(seed as u32))),
         ),
         (
@@ -191,13 +199,16 @@ fn main() {
             Box::new(|seed| next_u64_of(WindowsDotNetRandom::new(seed as i32))),
         ),
         (
+            // `Lcg32::new` masks the ANSI C seed to 31 bits (m = 2³¹).
             "ANSI C sample LCG",
-            32,
+            31,
             Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::AnsiC, seed))),
         ),
         (
+            // MINSTD reduces the full 64-bit seed mod 2³¹ − 1: no bit is
+            // discarded (2³¹ ≡ 1, so bit 31 folds onto bit 0 and so on).
             "LCG MINSTD",
-            32,
+            64,
             Box::new(|seed| next_u64_of(Lcg32::new(LcgVariant::Minstd, seed))),
         ),
         // The two cases below stretch a u64 through seed_material to fill the

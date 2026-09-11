@@ -90,7 +90,7 @@ impl Args {
         if !(1..=32).contains(&s) {
             die("--s must be in 1..=32");
         }
-        if r + s > 32 {
+        if r > 32 || r + s > 32 {
             die("--r plus --s must be <= 32");
         }
         if replications == 0 {

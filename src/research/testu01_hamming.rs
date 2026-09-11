@@ -34,11 +34,24 @@ fn bit_chunks(rng: &mut impl Rng, r: usize, s: usize) -> impl Iterator<Item = (u
     std::iter::from_fn(move || Some((strip_b(rng.next_u32(), r, s), s)))
 }
 
+/// Largest block length accepted by [`hamming_indep`].
+///
+/// The test holds two `(L + 1)²`-entry tables at once (observed `u64`
+/// counts and `f64` expectations), about 256 MiB together at this bound.
+pub const HAMMING_INDEP_MAX_L: usize = 4096;
+
+/// `P(weight = k)` for an `l`-bit block of fair bits, k = 0..=l.
+///
+/// Accumulated in log space: `2⁻ˡ` underflows to 0 for l ≥ 1075, which
+/// would zero every probability and fabricate a rejection.  Tail terms that
+/// genuinely underflow come out as 0 and are lumped by the caller.
 fn binomial_probs(l: usize) -> Vec<f64> {
+    let mut log_p = -(l as f64) * LN_2;
     let mut probs = vec![0.0; l + 1];
-    probs[0] = (-(l as f64) * LN_2).exp();
-    for k in 1..=l {
-        probs[k] = probs[k - 1] * (l + 1 - k) as f64 / k as f64;
+    probs[0] = log_p.exp();
+    for (k, p) in probs.iter_mut().enumerate().skip(1) {
+        log_p += ((l + 1 - k) as f64 / k as f64).ln();
+        *p = log_p.exp();
     }
     probs
 }
@@ -142,7 +155,9 @@ pub struct HammingCorrSummary {
 /// weights of `n` successive `l`-bit blocks drawn from `rng`.
 ///
 /// # Panics
-/// Panics if `n < 2`, `s` is outside `1..=32`, or `r + s > 32`.
+/// Panics if `n < 2`, `s` is outside `1..=32`, `r + s > 32`, or `l == 0`
+/// (a zero-length block has no Hamming weight and the correlation would be
+/// 0/0).
 pub fn hamming_corr(
     rng: &mut impl Rng,
     n: usize,
@@ -152,7 +167,8 @@ pub fn hamming_corr(
 ) -> HammingCorrSummary {
     assert!(n >= 2, "n must be at least 2");
     assert!(s > 0 && s <= 32, "s must be in 1..=32");
-    assert!(r + s <= 32, "r + s must be <= 32");
+    assert!(r <= 32 && r + s <= 32, "r + s must be <= 32");
+    assert!(l > 0, "L must be positive");
     let mut chunks = bit_chunks(rng, r, s);
     let mut prev = next_block_weight(&mut chunks, l).expect("insufficient stream");
     let mut sum = 0.0f64;
@@ -224,8 +240,9 @@ pub struct HammingIndepSummary {
 /// table plus `d` corner-block statistics.
 ///
 /// # Panics
-/// Panics if `n < 20`, `s` is outside `1..=32`, `r + s > 32`, `d` is
-/// outside `1..=8`, or `d > (l + 1) / 2`.
+/// Panics if `n < 20`, `s` is outside `1..=32`, `r + s > 32`, `l` is
+/// outside `1..=`[`HAMMING_INDEP_MAX_L`], `d` is outside `1..=8`, or
+/// `d > (l + 1) / 2`.
 pub fn hamming_indep(
     rng: &mut impl Rng,
     n: usize,
@@ -236,7 +253,11 @@ pub fn hamming_indep(
 ) -> HammingIndepSummary {
     assert!(n as f64 >= 2.0 * GOFS_MIN_EXPECTED, "n must be >= 20");
     assert!(s > 0 && s <= 32, "s must be in 1..=32");
-    assert!(r + s <= 32, "r + s must be <= 32");
+    assert!(r <= 32 && r + s <= 32, "r + s must be <= 32");
+    assert!(
+        (1..=HAMMING_INDEP_MAX_L).contains(&l),
+        "L must be in 1..={HAMMING_INDEP_MAX_L}"
+    );
     assert!((1..=8).contains(&d), "d must be in 1..=8");
     assert!(d <= l.div_ceil(2), "d must be <= (L + 1) / 2");
 
@@ -365,6 +386,36 @@ pub fn hamming_indep_block_result(summary: &HammingIndepSummary, k: usize) -> Te
 mod tests {
     use super::{binomial_probs, hamming_corr};
     use crate::rng::ConstantRng;
+
+    /// Regression: the direct recurrence started from `2^-L`, which
+    /// underflows to 0 for L ≥ 1075 and zeroed every probability.  The
+    /// log-space accumulation must still sum to 1 and stay symmetric up to
+    /// the cap, and must agree with the direct recurrence where that is exact.
+    #[test]
+    fn binomial_probs_survive_large_l() {
+        for l in [1075usize, super::HAMMING_INDEP_MAX_L] {
+            let probs = binomial_probs(l);
+            let sum: f64 = probs.iter().sum();
+            assert!((sum - 1.0).abs() < 1e-9, "L = {l}: sum = {sum}");
+            let k = l / 2 - 10;
+            assert!(probs[k] > 0.0, "L = {l}: central mass underflowed");
+            assert!(
+                (probs[k] - probs[l - k]).abs() <= 1e-9 * probs[k],
+                "L = {l}: asymmetric"
+            );
+        }
+        let l = 300usize;
+        let mut direct = Vec::with_capacity(l + 1);
+        let mut p = 0.5f64.powi(l as i32);
+        direct.push(p);
+        for k in 1..=l {
+            p *= (l + 1 - k) as f64 / k as f64;
+            direct.push(p);
+        }
+        for (k, (&x, &y)) in binomial_probs(l).iter().zip(&direct).enumerate() {
+            assert!((x - y).abs() <= 1e-9 * y, "L = 300, k = {k}: {x} vs {y}");
+        }
+    }
 
     #[test]
     fn binomial_probs_sum_to_one() {
