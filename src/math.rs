@@ -5,34 +5,127 @@
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::f64::consts::{PI, SQRT_2};
 
-// ── erfc ──────────────────────────────────────────────────────────────────────
+// ── erfc and the normal distribution ──────────────────────────────────────────
+
+/// R(z) = cPhi(z)/φ(z), the upper normal tail over the density (Mills'
+/// ratio), at z = 0, 2, 4, …, 16.
+///
+/// The digits are those of the `R[9]` initializer in `cPhi`, G. Marsaglia,
+/// "Evaluating the Normal Distribution", *Journal of Statistical Software*
+/// 11(4), 2004, pp. 2 and 9; each rounds to the nearest f64.
+/// [pubs/marsaglia-2004-normal-distribution.pdf]
+#[allow(clippy::excessive_precision)]
+const MILLS_RATIO_AT_EVEN: [f64; 9] = [
+    1.25331413731550025,
+    0.421369229288054473,
+    0.236652382913560671,
+    0.162377660896867462,
+    0.123131963257932296,
+    0.0990285964717319214,
+    0.0827662865013691773,
+    0.0710695805388521071,
+    0.0622586659950261958,
+];
+
+/// ln √(2π), written as `.91893853320467274178L` in `Phi` and `cPhi` of
+/// Marsaglia (2004), pp. 1, 2 and 9: φ(x) = exp(−x²/2 − ln √(2π)).
+#[allow(clippy::excessive_precision)]
+const LN_SQRT_2PI: f64 = 0.91893853320467274178;
+
+/// Largest tabled z; `mills_ratio` sums an asymptotic series beyond it.
+const MILLS_TABLE_END: f64 = 16.0;
+
+/// Mills' ratio R(x) = cPhi(x)/φ(x) for x ≥ 0 (not NaN).
+///
+/// Up to x = 16 this is the Taylor series of Marsaglia (2004, p. 4) about a
+/// tabled z, x = z + h: R′ = xR − 1 gives R⁽ᵏ⁺¹⁾ = xR⁽ᵏ⁾ + kR⁽ᵏ⁻¹⁾, and the
+/// loop below is the loop of his `cPhi`, summing two terms at a time until
+/// the sum stops changing.  It departs from `cPhi` in the choice of z.
+/// `cPhi` takes the nearest tabled z (|h| ≤ 1) and computes in 80-bit
+/// `long double`.  The part of a rounding error in R(z) or R′(z) that is not
+/// a multiple of R is a multiple of e^{x²/2}, the solution of R′ = xR, so it
+/// grows by e^{zh + h²/2} on the way to z + h; in f64 with h near +1 that
+/// measured 5.8 × 10⁻¹⁰ relative error in erfc near x = 12.  Here z is the
+/// tabled point at or above x (−2 < h ≤ 0), or z = 0 for x < 1, so the
+/// factor is at most e^{1/2}.
+///
+/// Past the table, solving R′ = xR − 1 for R and substituting repeatedly
+/// gives the asymptotic series R(x) ~ x⁻¹ Σₖ (−1)ᵏ (2k − 1)!! x⁻²ᵏ.  Its terms
+/// fall until k ≈ x²/2 > 128, the sum stops changing by k ≈ 12, and the
+/// truncation error is below the first omitted term.
+fn mills_ratio(x: f64) -> f64 {
+    if x > MILLS_TABLE_END {
+        let w = 1.0 / (x * x);
+        let (mut term, mut s, mut k) = (1.0, 1.0, 1.0);
+        loop {
+            term *= -(2.0 * k - 1.0) * w;
+            let t = s;
+            s = t + term;
+            if s == t {
+                return s / x;
+            }
+            k += 1.0;
+        }
+    }
+    let j = if x < 1.0 {
+        0
+    } else {
+        (0.5 * x).ceil() as usize
+    };
+    let z = 2.0 * j as f64;
+    let h = x - z;
+    let q = h * h;
+    let mut a = MILLS_RATIO_AT_EVEN[j];
+    let mut b = a * z - 1.0;
+    let mut pwr = 1.0;
+    let mut t = a;
+    let mut s = a + h * b;
+    let mut i = 2.0;
+    while s != t {
+        a = (a + z * b) / i;
+        b = (b + z * a) / (i + 1.0);
+        pwr *= q;
+        t = s;
+        s = t + pwr * (a + h * b);
+        i += 2.0;
+    }
+    s
+}
+
+/// Upper normal tail cPhi(x) = 1 − Φ(x) = R(x)·φ(x) for x ≥ 0 (not NaN),
+/// the last step of Marsaglia's `cPhi`.  At x = 0 the product
+/// R(0)·exp(−ln √(2π)) rounds to exactly 0.5.
+fn normal_upper_tail(x: f64) -> f64 {
+    mills_ratio(x) * (-0.5 * x * x - LN_SQRT_2PI).exp()
+}
 
 /// Complementary error function, erfc(x) = 1 − erf(x).
 ///
-/// Uses the Chebyshev-fitted rational approximation (`erfcc`) from W. H. Press
-/// et al., *Numerical Recipes in C* (2nd ed., 1992), §6.2.  Fractional error
-/// below 1.2 × 10⁻⁷ per NR; measured absolute error ≤ 2 × 10⁻⁷ near x = 0.
-/// Ample for α = 0.01 verdicts, but very small p-values carry only ~7 digits.
+/// erfc(x) = 2·cPhi(x√2) for x ≥ 0 and erfc(x) = 2 − erfc(−x) below 0, with
+/// cPhi(u) = 1 − Φ(u) evaluated by the method of G. Marsaglia, "Evaluating
+/// the Normal Distribution", *Journal of Statistical Software* 11(4), 2004,
+/// pp. 2–5 and 9, with the table point and tail changes f64 needs (see
+/// `mills_ratio` in the source).  [pubs/marsaglia-2004-normal-distribution.pdf]
+///
+/// Measured against 40-digit references on 7 141 arguments in [−6, 27.5]
+/// (see the tests), with ε = `f64::EPSILON`: relative error at most
+/// 2.8·(1 + x²)·ε for 0 ≤ x ≤ 26.5, which is 9.3 × 10⁻¹⁶ below x = 1,
+/// 6.3 × 10⁻¹⁵ below 4, 9.0 × 10⁻¹⁴ below 16 and 3.2 × 10⁻¹³ at 26.5 (the
+/// x² comes from exp(−u²/2) at the rounded u = x√2), and absolute error at
+/// most 5.3 × 10⁻¹⁶ below 0.  Results are subnormal from x ≈ 26.55, where
+/// the relative error grows to order 1, and 0 from x ≈ 27.22.
+///
+/// erfc(±0) = 1 exactly, 0 ≤ erfc(x) ≤ 1 for x ≥ 0 and 1 ≤ erfc(x) ≤ 2 below,
+/// so a two-sided p-value erfc(|z|/√2) never exceeds 1.  erfc(+∞) = 0,
+/// erfc(−∞) = 2 and erfc(NaN) = NaN.
 ///
 /// Used by nearly every NIST SP 800-22 test for its p-value.
 #[must_use]
 pub fn erfc(x: f64) -> f64 {
-    let z = x.abs();
-    let t = 1.0 / (1.0 + 0.5 * z);
-    // 1 outer paren + 8 levels of t*(…) = 9 opens → 9 closes total.
-    #[rustfmt::skip]
-    let y = (-z * z
-        - 1.26551223
-        + t * (1.00002368
-        + t * (0.37409196
-        + t * (0.09678418
-        + t * (-0.18628806
-        + t * (0.27886807
-        + t * (-1.13520398
-        + t * (1.48851587
-        + t * (-0.82215223
-        + t * 0.17087294))))))))
-    ).exp() * t;
+    if x.is_nan() {
+        return x;
+    }
+    let y = 2.0 * normal_upper_tail(x.abs() * SQRT_2);
     if x >= 0.0 {
         y
     } else {
@@ -41,9 +134,30 @@ pub fn erfc(x: f64) -> f64 {
 }
 
 /// Standard normal CDF, Φ(x) = P(Z ≤ x) for Z ~ N(0,1).
+///
+/// Φ(x) = cPhi(−x) below 0 and 1 − cPhi(x) from 0 up, with cPhi as in
+/// [`erfc`] but without its x√2 rescaling, so lower-tail values keep relative
+/// accuracy.  Measured against 40-digit references on 8 155
+/// arguments in [−40, 40]: relative error at most 2.2·(1 + x²/2)·ε for
+/// −37.5 ≤ x < 0 (4.9 × 10⁻¹⁵ above −10, 9.4 × 10⁻¹⁴ at −37.5) and
+/// absolute error at most 2.3 × 10⁻¹⁶ from 0 up.  Results are subnormal
+/// below x ≈ −37.5 and 0 from x ≈ −38.49.
+///
+/// Marsaglia's table-free `Phi` (2004, p. 1) is not used: measured in f64,
+/// its absolute error reaches 1.3 × 10⁻¹⁵, it returns 1 + 9 × 10⁻¹⁶ near
+/// x = 8, and its relative error passes 10⁻⁶ below x = −5.
+///
+/// Φ(±0) = 0.5 exactly and 0 ≤ Φ(x) ≤ 1.  Φ(−∞) = 0, Φ(+∞) = 1 and
+/// Φ(NaN) = NaN.
 #[must_use]
 pub fn normal_cdf(x: f64) -> f64 {
-    0.5 * erfc(-x / SQRT_2)
+    if x.is_nan() {
+        x
+    } else if x < 0.0 {
+        normal_upper_tail(-x)
+    } else {
+        1.0 - normal_upper_tail(x)
+    }
 }
 
 // ── lgamma ────────────────────────────────────────────────────────────────────
@@ -622,11 +736,244 @@ mod tests {
         }
     }
 
+    // ── erfc and normal_cdf ───────────────────────────────────────────────────
+
+    /// erfc(x) at the f64 arguments shown, from 40-digit evaluations in
+    /// Python `decimal` at the exact binary argument, rounded once to f64:
+    /// erf's series (2/√π)·e^{−x²}·Σ 2ⁿx²ⁿ⁺¹/(1·3·…·(2n+1)) below x = 8 and
+    /// the continued fraction erfc(x) = (e^{−x²}/√π)/(x + ½/(x + 1/(x + 3⁄2/(x + …))))
+    /// from 8 up.  The two agree to 60 digits on 2 ≤ x ≤ 26.5, and libm's
+    /// erfc (Python `math.erfc`) is within 7.5 × 10⁻¹⁶ of both.  The rows run
+    /// from the negative tail through 0, the expansion-point changes at
+    /// x√2 = 1 and x√2 = 16, to the last non-subnormal values near x = 26.5.
+    const ERFC_REFERENCE: [(f64, f64); 31] = [
+        (-6.0, 2.0),
+        (-3.0, 1.9999779095030015),
+        (-1.5, 1.9661051464753108),
+        (-1.0, 1.8427007929497148),
+        (-0.5, 1.5204998778130465),
+        (-1e-3, 1.0011283787909693),
+        (1e-8, 0.9999999887162083),
+        (1e-3, 0.9988716212090307),
+        (0.1, 0.887537083981715),
+        (0.3, 0.6713732405408726),
+        (0.5, 0.4795001221869535),
+        (1.0 / SQRT_2, 0.31731050786291415),
+        (1.0, 0.15729920705028513),
+        (1.5, 0.033894853524689274),
+        (2.0, 0.004677734981047266),
+        (2.5, 0.0004069520174449589),
+        (3.0, 2.209049699858544e-5),
+        (3.5, 7.430983723414128e-7),
+        (4.0, 1.541725790028002e-8),
+        (5.0, 1.537459794428035e-12),
+        (6.0, 2.1519736712498913e-17),
+        (7.0, 4.183825607779414e-23),
+        (8.0, 1.1224297172982926e-29),
+        (10.0, 2.088487583762545e-45),
+        (16.0 / SQRT_2, 1.2777508801076465e-57),
+        (12.0, 1.3562611692059042e-64),
+        (15.0, 7.212994172451207e-100),
+        (20.0, 5.395865611607901e-176),
+        (25.0, 8.300172571196523e-274),
+        (26.0, 5.663192408856143e-296),
+        (26.5, 2.2109076642637343e-307),
+    ];
+
+    /// Φ(x) from the same 40-digit evaluation, as erfc(−x/√2)/2 with x/√2
+    /// carried to working precision, rounded once to f64.  Φ(−37) is the
+    /// last row above the subnormal range.
+    const NORMAL_CDF_REFERENCE: [(f64, f64); 22] = [
+        (-37.0, 5.725571222524577e-300),
+        (-35.0, 1.1249107064724062e-268),
+        (-30.0, 4.906713927148187e-198),
+        (-20.0, 2.7536241186062337e-89),
+        (-16.0, 6.388754400538087e-58),
+        (-12.0, 1.776482112077679e-33),
+        (-10.0, 7.619853024160525e-24),
+        (-8.0, 6.220960574271784e-16),
+        (-6.0, 9.86587645037698e-10),
+        (-5.0, 2.866515718791939e-7),
+        (-3.0, 0.0013498980316300946),
+        (-2.0, 0.02275013194817921),
+        (-1.0, 0.15865525393145705),
+        (-0.5, 0.3085375387259869),
+        (-1e-3, 0.49960105778608893),
+        (1e-3, 0.500398942213911),
+        (0.5, 0.6914624612740131),
+        (1.0, 0.8413447460685429),
+        (2.0, 0.9772498680518208),
+        (3.0, 0.9986501019683699),
+        (5.0, 0.9999997133484281),
+        (8.0, 0.9999999999999993),
+    ];
+
+    /// Allowed relative error of `erfc`.  The worst measured against the
+    /// same references over 7 141 arguments in [−6, 26.5] is
+    /// 2.8·(1 + x²)·ε from 0 up (the x² term is exp(−x²) taken at a rounded
+    /// x√2) and 2.1·ε below 0; this allows 6·(1 + x²)·ε from 0 up, 6·ε below.
+    fn erfc_tolerance(x: f64) -> f64 {
+        6.0 * (1.0 + x.max(0.0).powi(2)) * f64::EPSILON
+    }
+
+    /// Allowed relative error of `normal_cdf`.  The worst measured over
+    /// 8 155 arguments in [−37.5, 40] is 2.2·(1 + x²/2)·ε below 0 and 1.8·ε
+    /// from 0 up; this allows 5·(1 + x²/2)·ε below 0 and 5·ε from 0 up.
+    fn normal_cdf_tolerance(x: f64) -> f64 {
+        5.0 * (1.0 + 0.5 * x.min(0.0).powi(2)) * f64::EPSILON
+    }
+
     #[test]
-    fn erfc_known_values() {
-        assert!((erfc(0.0) - 1.0).abs() < 1e-6);
-        assert!((erfc(1.0) - 0.157299).abs() < 1e-5);
-        assert!((erfc(-1.0) - 1.842701).abs() < 1e-5);
+    fn erfc_matches_reference_values() {
+        for (x, want) in ERFC_REFERENCE {
+            let got = erfc(x);
+            let rel = ((got - want) / want).abs();
+            assert!(
+                rel <= erfc_tolerance(x),
+                "erfc({x}) = {got:e}, want {want:e}"
+            );
+        }
+    }
+
+    #[test]
+    fn normal_cdf_matches_reference_values() {
+        for (x, want) in NORMAL_CDF_REFERENCE {
+            let got = normal_cdf(x);
+            let rel = ((got - want) / want).abs();
+            assert!(
+                rel <= normal_cdf_tolerance(x),
+                "Φ({x}) = {got:e}, want {want:e}"
+            );
+        }
+    }
+
+    #[test]
+    fn erfc_and_normal_cdf_exact_values_and_limits() {
+        assert_eq!(erfc(0.0), 1.0);
+        assert_eq!(erfc(-0.0), 1.0);
+        assert_eq!(normal_cdf(0.0), 0.5);
+        assert_eq!(normal_cdf(-0.0), 0.5);
+        assert_eq!(erfc(f64::INFINITY), 0.0);
+        assert_eq!(erfc(f64::NEG_INFINITY), 2.0);
+        assert_eq!(normal_cdf(f64::NEG_INFINITY), 0.0);
+        assert_eq!(normal_cdf(f64::INFINITY), 1.0);
+        assert!(erfc(f64::NAN).is_nan());
+        assert!(normal_cdf(f64::NAN).is_nan());
+        // Underflow: erfc is subnormal from x ≈ 26.55 and 0 from x ≈ 27.22;
+        // Φ is subnormal below x ≈ −37.5 and 0 from x ≈ −38.49.
+        assert_eq!(erfc(28.0), 0.0);
+        assert_eq!(erfc(-28.0), 2.0);
+        assert_eq!(erfc(f64::MAX), 0.0);
+        assert_eq!(normal_cdf(-39.0), 0.0);
+        assert_eq!(normal_cdf(39.0), 1.0);
+        assert_eq!(normal_cdf(-f64::MAX), 0.0);
+    }
+
+    /// erfc(−x) = 2 − erfc(x), erfc(x) = 2Φ(−x√2) and Φ(x) + Φ(−x) = 1.
+    #[test]
+    fn erfc_and_normal_cdf_symmetry() {
+        for i in 0..=40_000 {
+            let x = f64::from(i) * 1e-3;
+            assert_eq!(erfc(-x), 2.0 - erfc(x), "x = {x}");
+            assert_eq!(erfc(x), 2.0 * normal_cdf(-x * SQRT_2), "x = {x}");
+            let sum = normal_cdf(x) + normal_cdf(-x);
+            assert!((sum - 1.0).abs() <= f64::EPSILON, "Φ(±{x}) sum to {sum}");
+        }
+    }
+
+    #[test]
+    fn erfc_and_normal_cdf_monotone_on_grid() {
+        let mut prev = erfc(-6.0);
+        for i in 1..=340_000 {
+            let x = -6.0 + f64::from(i) * 1e-4;
+            let y = erfc(x);
+            assert!(y <= prev, "erfc rises at x = {x}");
+            prev = y;
+        }
+        let mut prev = normal_cdf(-40.0);
+        for i in 1..=800_000 {
+            let x = -40.0 + f64::from(i) * 1e-4;
+            let y = normal_cdf(x);
+            assert!(y >= prev, "Φ falls at x = {x}");
+            prev = y;
+        }
+    }
+
+    /// Where the Taylor expansion point changes (x√2 = 2, 4, …, 14, and 16,
+    /// where the asymptotic series takes over; for Φ at x = −2, …, −16) the
+    /// two sides must not step backwards, even between adjacent floats.
+    /// Φ's upper half is 1 − cPhi at the same points, so it follows.  Near
+    /// x√2 = 1 and x = ±1 the functions move about an ulp per float and
+    /// rounding reverses neighbours by up to 3 ulp, as libm's erfc does near
+    /// x = 0.8; the grid test covers those.
+    #[test]
+    fn erfc_and_normal_cdf_monotone_across_expansion_points() {
+        for k in 1..=8 {
+            let x0 = f64::from(2 * k) / SQRT_2;
+            let mut x = f64::from_bits(x0.to_bits() - 1_000);
+            let mut prev = erfc(x);
+            for _ in 0..2_000 {
+                x = f64::from_bits(x.to_bits() + 1);
+                let y = erfc(x);
+                assert!(y <= prev, "erfc rises at x = {x:e}");
+                prev = y;
+            }
+            let t0 = f64::from(2 * k);
+            let mut t = f64::from_bits(t0.to_bits() - 1_000);
+            let mut prev = normal_cdf(-t);
+            for _ in 0..2_000 {
+                t = f64::from_bits(t.to_bits() + 1);
+                let y = normal_cdf(-t);
+                assert!(y <= prev, "Φ rises at x = {:e}", -t);
+                prev = y;
+            }
+        }
+    }
+
+    /// Two-sided p-values erfc(|z|/√2) rely on erfc(x) ≤ 1 for x ≥ 0.
+    #[test]
+    fn erfc_at_most_one_for_nonnegative_arguments() {
+        let mut xs = vec![0.0, f64::from_bits(1), f64::MIN_POSITIVE, f64::EPSILON];
+        // Every power of two from the smallest subnormal to 2, with neighbours.
+        let mut p = f64::from_bits(1);
+        while p <= 2.0 {
+            xs.extend([
+                p,
+                f64::from_bits(p.to_bits() - 1),
+                f64::from_bits(p.to_bits() + 1),
+            ]);
+            p *= 2.0;
+        }
+        xs.extend((1..=10_000_u64).map(f64::from_bits));
+        xs.extend((0..=100_000).map(|i| f64::from(i) * 1e-8));
+        xs.extend((0..=200_000).map(|i| f64::from(i) * 1e-5));
+        for x in xs {
+            assert!(erfc(x) <= 1.0, "erfc({x:e}) = {:e}", erfc(x));
+            assert!(erfc(-x) >= 1.0, "erfc({:e}) = {:e}", -x, erfc(-x));
+        }
+    }
+
+    #[test]
+    fn normal_cdf_within_unit_interval() {
+        let mut xs = vec![
+            0.0,
+            f64::from_bits(1),
+            f64::MIN_POSITIVE,
+            f64::EPSILON,
+            f64::MAX,
+        ];
+        xs.push(f64::INFINITY);
+        let mut p = f64::from_bits(1);
+        while p.is_finite() {
+            xs.push(p);
+            p *= 2.0;
+        }
+        xs.extend((0..=40_000).map(|i| f64::from(i) * 1e-3));
+        for x in xs {
+            for v in [normal_cdf(x), normal_cdf(-x)] {
+                assert!((0.0..=1.0).contains(&v), "Φ(±{x:e}) = {v:e}");
+            }
+        }
     }
 
     #[test]
@@ -671,13 +1018,6 @@ mod tests {
     }
 
     #[test]
-    fn normal_cdf_symmetry() {
-        // erfc approximation is accurate to ~1.2e-7, not 1e-12.
-        assert!((normal_cdf(0.0) - 0.5).abs() < 1e-6);
-        assert!((normal_cdf(1.0) + normal_cdf(-1.0) - 1.0).abs() < 1e-6);
-    }
-
-    #[test]
     fn ks_pvalue_respects_boundaries() {
         assert_eq!(ks_pvalue(0.0, 10), 1.0);
         assert_eq!(ks_pvalue(1.0, 10), 0.0);
@@ -718,11 +1058,6 @@ mod tests {
     fn lgamma_golden_values() {
         assert!((lgamma(10.0) - 12.801827480081467).abs() < 1e-8);
         assert!((lgamma(0.5) - 0.5723649429247004).abs() < 1e-10);
-    }
-
-    #[test]
-    fn erfc_golden_value_tail() {
-        assert!((erfc(2.0) - 0.004677734981047266).abs() < 5e-7);
     }
 
     #[test]
