@@ -59,7 +59,7 @@ pub fn runs_float_both(rng: &mut impl Rng) -> Vec<TestResult> {
     let mut dn_pvals: Vec<f64> = Vec::with_capacity(REPEATS);
 
     for _ in 0..REPEATS {
-        let (uv, dv) = runs_quad_form(rng, SEQ_LEN);
+        let (uv, dv) = runs_quad_form((0..SEQ_LEN).map(|_| rng.next_u32()));
         // igamc(3, v/2) = p-value for χ²(6).  df=6 for 6 bins is correct per
         // Grafton (1981) AS 157 §3: the covariance matrix has rank 6 because
         // the constraint Σcounts=n is absorbed into the pseudoinverse, not
@@ -100,7 +100,7 @@ pub fn runs_float(words: &[u32]) -> TestResult {
     let (mut up_pvals, mut dn_pvals): (Vec<f64>, Vec<f64>) = (0..REPEATS)
         .map(|rep| {
             let slice = &words[rep * SEQ_LEN..(rep + 1) * SEQ_LEN];
-            runs_quad_form_slice(slice)
+            runs_quad_form(slice.iter().copied())
         })
         .map(|(uv, dv)| (igamc(3.0, uv / 2.0), igamc(3.0, dv / 2.0)))
         .unzip();
@@ -113,20 +113,27 @@ pub fn runs_float(words: &[u32]) -> TestResult {
 }
 
 /// Compute the quadratic form statistic for up-runs and down-runs in one
-/// sequence of `n` random integers drawn from `rng`.
+/// sequence of 32-bit words.
 ///
-/// Returns (uv, dv) where p = igamc(3.0, v/2.0) for each direction.
-fn runs_quad_form(rng: &mut impl Rng, n: usize) -> (f64, f64) {
+/// Both entry points count through this function: [`runs_float_both`] passes
+/// words drawn from the generator as the loop asks for them, and
+/// [`runs_float`] passes a slice.  Returns (uv, dv) where
+/// p = igamc(3.0, v/2.0) for each direction; an empty sequence has no
+/// statistic and gives NaN for both.
+fn runs_quad_form(words: impl IntoIterator<Item = u32>) -> (f64, f64) {
+    let mut words = words.into_iter();
+    let Some(first) = words.next() else {
+        return (f64::NAN, f64::NAN);
+    };
     let mut upruns = [0usize; RUN_MAX];
     let mut downruns = [0usize; RUN_MAX];
     let mut ucount = 1usize;
     let mut dcount = 1usize;
-
-    let first = rng.next_u32();
+    let mut n = 1usize;
     let mut last = first;
-    let mut next = first;
-    for _ in 1..n {
-        next = rng.next_u32();
+
+    for next in words {
+        n += 1;
         if next > last {
             ucount += 1;
             if ucount > RUN_MAX {
@@ -146,48 +153,8 @@ fn runs_quad_form(rng: &mut impl Rng, n: usize) -> (f64, f64) {
     }
 
     // Closing convention from diehard_runs.c: the final partial run direction
-    // is determined by comparing the last output (next) with the first (first).
-    if next > first {
-        downruns[dcount - 1] += 1;
-    } else {
-        upruns[ucount - 1] += 1;
-    }
-
-    (quadratic_form(&upruns, n), quadratic_form(&downruns, n))
-}
-
-/// Same as `runs_quad_form` but operates on a pre-collected word slice.
-fn runs_quad_form_slice(words: &[u32]) -> (f64, f64) {
-    let n = words.len();
-    let mut upruns = [0usize; RUN_MAX];
-    let mut downruns = [0usize; RUN_MAX];
-    let mut ucount = 1usize;
-    let mut dcount = 1usize;
-    let first = words[0];
-    let mut next = first;
-
-    for i in 1..n {
-        next = words[i];
-        if next > words[i - 1] {
-            ucount += 1;
-            if ucount > RUN_MAX {
-                ucount = RUN_MAX;
-            }
-            downruns[dcount - 1] += 1;
-            dcount = 1;
-        } else {
-            dcount += 1;
-            if dcount > RUN_MAX {
-                dcount = RUN_MAX;
-            }
-            upruns[ucount - 1] += 1;
-            ucount = 1;
-        }
-    }
-
-    // Closing convention from diehard_runs.c: the final partial run direction
-    // is determined by comparing the last output (next) with the first (first).
-    if next > first {
+    // is determined by comparing the last output with the first.
+    if last > first {
         downruns[dcount - 1] += 1;
     } else {
         upruns[ucount - 1] += 1;
@@ -211,7 +178,18 @@ fn quadratic_form(counts: &[usize; RUN_MAX], n: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::{runs_float, runs_float_both, REPEATS, SEQ_LEN};
-    use crate::rng::ConstantRng;
+    use crate::rng::{ConstantRng, Mt19937, Rng};
+
+    /// Both entry points count the same words the same way: the slice
+    /// wrapper's Bonferroni p is twice the smaller of the two KS p-values the
+    /// generator path reports for the same stream.
+    #[test]
+    fn slice_and_generator_paths_agree() {
+        let words = Mt19937::new(5489).collect_u32s(SEQ_LEN * REPEATS);
+        let both = runs_float_both(&mut Mt19937::new(5489));
+        let want = (2.0 * both[0].p_value.min(both[1].p_value)).min(1.0);
+        assert_eq!(runs_float(&words).p_value.to_bits(), want.to_bits());
+    }
 
     #[test]
     fn short_inputs_skip() {

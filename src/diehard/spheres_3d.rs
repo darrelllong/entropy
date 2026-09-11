@@ -9,7 +9,9 @@
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
-use crate::{math::ks_test, result::TestResult, rng::Rng};
+use crate::{
+    diehard::nearest_pair::min_squared_distance, math::ks_test, result::TestResult, rng::Rng,
+};
 
 const CUBE_SIDE: f64 = 1_000.0;
 const MEAN_R3: f64 = 30.0;
@@ -29,13 +31,13 @@ pub fn spheres_3d(rng: &mut impl Rng, quick: bool) -> TestResult {
     let mut p_values = Vec::with_capacity(repeats);
 
     for _ in 0..repeats {
-        let points: Vec<(f64, f64, f64)> = (0..n_points)
+        let points: Vec<[f64; 3]> = (0..n_points)
             .map(|_| {
-                (
+                [
                     rng.next_f64() * CUBE_SIDE,
                     rng.next_f64() * CUBE_SIDE,
                     rng.next_f64() * CUBE_SIDE,
-                )
+                ]
             })
             .collect();
 
@@ -55,25 +57,13 @@ pub fn spheres_3d(rng: &mut impl Rng, quick: bool) -> TestResult {
 
 /// Cube of the smallest pairwise distance, r³ = (√min r²)³.
 ///
-/// The scan compares squared distances and takes one square root at the end.
-/// Correctly rounded `sqrt` and the rounded product `r·r·r` are both monotone
-/// non-decreasing, so the cube of the root of the smallest r² equals the
-/// smallest per-pair cube bit for bit.  Needs at least two points (callers
-/// use 500 or 4 000).
-fn min_dist_cubed(points: &[(f64, f64, f64)]) -> f64 {
-    let mut min_r2 = f64::MAX;
-    for i in 0..points.len() {
-        for j in i + 1..points.len() {
-            let dx = points[i].0 - points[j].0;
-            let dy = points[i].1 - points[j].1;
-            let dz = points[i].2 - points[j].2;
-            let r2 = dx * dx + dy * dy + dz * dz;
-            if r2 < min_r2 {
-                min_r2 = r2;
-            }
-        }
-    }
-    let r = min_r2.sqrt();
+/// `min_squared_distance` compares squared distances; one square root is
+/// taken at the end.  Correctly rounded `sqrt` and the rounded product `r·r·r`
+/// are both monotone non-decreasing, so the cube of the root of the smallest
+/// r² equals the smallest per-pair cube bit for bit.  Needs at least two
+/// points (callers use 500 or 4 000).
+fn min_dist_cubed(points: &[[f64; 3]]) -> f64 {
+    let r = min_squared_distance(points).sqrt();
     r * r * r
 }
 
@@ -83,13 +73,13 @@ mod tests {
     use crate::rng::{ConstantRng, Mt19937, Rng};
 
     /// Per-pair square root and cube, the scan as first written.
-    fn per_pair_cube_min(points: &[(f64, f64, f64)]) -> f64 {
+    fn per_pair_cube_min(points: &[[f64; 3]]) -> f64 {
         let mut min_r3 = f64::MAX;
         for i in 0..points.len() {
             for j in i + 1..points.len() {
-                let dx = points[i].0 - points[j].0;
-                let dy = points[i].1 - points[j].1;
-                let dz = points[i].2 - points[j].2;
+                let dx = points[i][0] - points[j][0];
+                let dy = points[i][1] - points[j][1];
+                let dz = points[i][2] - points[j][2];
                 let r = (dx * dx + dy * dy + dz * dz).sqrt();
                 min_r3 = min_r3.min(r * r * r);
             }
@@ -102,13 +92,13 @@ mod tests {
     #[test]
     fn min_dist_cubed_on_fixed_points() {
         let points = [
-            (0.0, 0.0, 0.0),
-            (3.0, 4.0, 0.0),
-            (10.0, 10.0, 10.0),
-            (10.0, 10.0, 12.0),
-            (100.5, 200.25, 300.125),
-            (101.0, 201.0, 301.0),
-            (999.0, 1.0, 500.0),
+            [0.0, 0.0, 0.0],
+            [3.0, 4.0, 0.0],
+            [10.0, 10.0, 10.0],
+            [10.0, 10.0, 12.0],
+            [100.5, 200.25, 300.125],
+            [101.0, 201.0, 301.0],
+            [999.0, 1.0, 500.0],
         ];
         assert_eq!(
             min_dist_cubed(&points).to_bits(),
@@ -120,13 +110,13 @@ mod tests {
     fn squared_scan_matches_per_pair_cubes_bit_for_bit() {
         let mut rng = Mt19937::new(5489);
         for n in [2, 3, 50, 1_000] {
-            let mut points: Vec<(f64, f64, f64)> = (0..n)
+            let mut points: Vec<[f64; 3]> = (0..n)
                 .map(|_| {
-                    (
+                    [
                         rng.next_f64() * 1e3,
                         rng.next_f64() * 1e3,
                         rng.next_f64() * 1e3,
-                    )
+                    ]
                 })
                 .collect();
             let want = per_pair_cube_min(&points);
