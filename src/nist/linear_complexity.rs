@@ -188,6 +188,42 @@ mod tests {
             .sum()
     }
 
+    /// The battery's M = 500 is even, so μ = 250 + 8/36 − (500/3 + 2/9)/2^500,
+    /// whose last term (about 5 × 10⁻¹⁴⁹) is far below f64 resolution.  Every
+    /// Tᵢ is then an integer, Lᵢ − 250; STS's sign would put 250 + 10/36.
+    #[test]
+    fn mean_for_even_block_length() {
+        let mu = mean(500);
+        assert!((mu - (250.0 + 8.0 / 36.0)).abs() < 1e-12, "μ = {mu}");
+        for l in 247..=253 {
+            let t = (l as f64 - mu) + 2.0 / 9.0;
+            assert!((t - (l as f64 - 250.0)).abs() < 1e-12, "L = {l}: T = {t}");
+        }
+    }
+
+    /// The first 100 000 bits of e with the battery's M = 500, at the fewest
+    /// blocks the gate accepts (N = 200), so debug builds and CI score linear
+    /// complexity end to end.  STS 2.1.2 counts ν = (4, 5, 25, 106, 44, 13, 3)
+    /// on these bits and prints χ² = 3.411513 and P-value = 0.755703 with its
+    /// π₀ = 0.01047; the printed π₀ gives χ² = 3.439789 and P-value = 0.751963.
+    #[test]
+    fn matches_sts_on_100_000_bits_of_e() {
+        const STS_NU: [usize; 7] = [4, 5, 25, 106, 44, 13, 3];
+        let e = e_bits(100_000);
+        assert_eq!(class_counts(&e, 500), STS_NU);
+        let r = linear_complexity(&e, 500);
+        assert!((r.p_value - 0.751963).abs() < 1e-6, "{r}");
+        assert!(
+            r.note.as_deref().unwrap().contains("N=200, χ²=3.4398"),
+            "{r}"
+        );
+        let mut sts_pi = PI;
+        sts_pi[0] = STS_PI0;
+        let sts = chi_square(STS_NU, sts_pi);
+        assert!((sts - 3.411513).abs() < 1e-6, "χ² = {sts}");
+        assert!((chi2_pvalue(sts, 6) - 0.755703).abs() < 1e-6);
+    }
+
     /// SP 800-22 §2.10.8 on 10⁶ bits of e with M = 1000: the printed counts
     /// ν = (11, 31, 116, 501, 258, 57, 26) and, from them, χ² = 2.700348 and
     /// P-value = 0.845406.  Those two figures use STS's π₀ = 0.01047; with
