@@ -84,11 +84,11 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
 
     for _ in 0..n_matrices {
         // Build 6-row matrix: byte 0 of each of 6 consecutive words.
-        let mut matrix = [0u8; 6];
+        let mut matrix = [0u32; 6];
         for slot in matrix.iter_mut().take(rows) {
-            *slot = (word_iter.next().unwrap_or(0) & 0xFF) as u8;
+            *slot = word_iter.next().unwrap_or(0) & 0xFF;
         }
-        let rank = gf2_rank_6x8(&matrix, rows, cols);
+        let rank = gf2_rank(&matrix, rows, cols);
         match rank {
             6 => f[2] += 1,
             5 => f[1] += 1,
@@ -201,13 +201,6 @@ fn theoretical_probs(rows: usize, cols: usize) -> (f64, f64, f64, f64) {
         // Probabilities from diehard_rank_32x32.c, in tuple order
         // (rank=32, 31, 30, ≤29) — matching the docstring above.
         (32, 32) => (0.2887880952, 0.5775761902, 0.1283502644, 0.0052854502),
-        (31, 31) => {
-            let full = gf2_rank_probability(31, 31, 31);
-            let full_minus_1 = gf2_rank_probability(31, 31, 30);
-            let full_minus_2 = gf2_rank_probability(31, 31, 29);
-            let tail = (1.0 - full - full_minus_1 - full_minus_2).max(0.0);
-            (full, full_minus_1, full_minus_2, tail)
-        }
         _ => {
             let full = rows.min(cols);
             let p_full = gf2_rank_probability(rows, cols, full);
@@ -245,19 +238,64 @@ fn gf2_rank_probability(rows: usize, cols: usize, rank: usize) -> f64 {
     log_prob.exp()
 }
 
-/// GF(2) rank of a 6×8 matrix stored as 6 bytes.
-fn gf2_rank_6x8(matrix: &[u8; 6], rows: usize, cols: usize) -> usize {
-    let as_u32: [u32; 6] = std::array::from_fn(|i| matrix[i] as u32);
-    gf2_rank(&as_u32, rows, cols)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{binary_rank_31x31, gf2_rank_probability, leftmost_bits, theoretical_probs};
+    use super::{
+        binary_rank_31x31, binary_rank_6x8, gf2_rank_probability, leftmost_bits, theoretical_probs,
+    };
     use crate::{
         math::gf2_rank,
         rng::{Mt19937, Rng},
     };
+
+    /// Exact P(rank = 31), P(30), P(29) and P(≤ 28) for a random 31×31 GF(2)
+    /// matrix, from the product formula in exact rational arithmetic (Python
+    /// `fractions`), rounded once to f64.
+    #[test]
+    fn theoretical_31x31_matches_exact_rank_probabilities() {
+        let got = theoretical_probs(31, 31);
+        let want = (
+            0.28878809522107984,
+            0.5775761901732048,
+            0.1283502643633989,
+            0.00528545024231639,
+        );
+        for (g, w) in [
+            (got.0, want.0),
+            (got.1, want.1),
+            (got.2, want.2),
+            (got.3, want.3),
+        ] {
+            assert!((g - w).abs() < 1e-12, "{g} vs {w}");
+        }
+    }
+
+    /// High bytes set on every word; only the low byte may enter a row.
+    const HIGH_NOISE: u32 = 0xDEAD_BE00;
+
+    /// A stream of 100 000 6×8 matrices with known ranks: 944 of rank 4,
+    /// 21 744 of rank 5 and 77 312 of rank 6 (ranks checked by an independent
+    /// Python elimination).  χ² and p come from a Python replica of the
+    /// three-cell statistic with the exact GF(2) probabilities.
+    #[test]
+    fn rank_6x8_statistic_matches_replica_on_constructed_ranks() {
+        const RANK6: [u32; 6] = [1, 2, 4, 8, 16, 32];
+        const RANK5: [u32; 6] = [1, 2, 4, 8, 16, 3];
+        const RANK4: [u32; 6] = [3, 5, 6, 24, 40, 48];
+        let words: Vec<u32> = [(RANK4, 944), (RANK5, 21_744), (RANK6, 77_312)]
+            .into_iter()
+            .flat_map(|(rows, n)| std::iter::repeat_n(rows, n))
+            .flatten()
+            .map(|b| b | HIGH_NOISE)
+            .collect();
+        let result = binary_rank_6x8(&words);
+        let note = result.note.as_deref().unwrap_or_default();
+        assert!(note.contains("χ²=0.0001"), "{note}");
+        assert!(
+            (result.p_value - 0.9999514430863818).abs() < 1e-9,
+            "{result}"
+        );
+    }
 
     /// Words needed by the 31×31 test: 40 000 matrices of 31 rows.
     const WORDS_31X31: usize = 31 * 40_000;
