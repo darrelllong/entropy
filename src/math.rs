@@ -171,11 +171,15 @@ fn gammcf(a: f64, x: f64) -> Option<f64> {
 /// ports G. Marsaglia, W. W. Tsang, J. Wang, "Evaluating Kolmogorov's
 /// Distribution", *Journal of Statistical Software* 8(18), 2003.
 ///
-/// # Preconditions
-/// All elements must be finite and non-NaN.  The slice is sorted in place.
+/// Returns NaN, the crate's insufficient-data value, if any sample is NaN:
+/// such a sample has no place in the empirical distribution.  The slice is
+/// sorted in place.
 #[must_use]
 pub fn ks_test(samples: &mut [f64]) -> f64 {
-    samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    if samples.iter().any(|x| x.is_nan()) {
+        return f64::NAN;
+    }
+    samples.sort_by(f64::total_cmp);
     let n = samples.len();
     let nf = n as f64;
     let d = samples
@@ -739,5 +743,15 @@ mod tests {
         assert_eq!(gf2_rank(&[0b011, 0b101, 0b110], 3, 3), 2);
         // Zero matrix → rank 0
         assert_eq!(gf2_rank(&[0, 0, 0], 3, 3), 0);
+    }
+
+    /// Regression: the sort used `partial_cmp().unwrap()`, so one NaN sample
+    /// panicked.  It now reports NaN (insufficient data).
+    #[test]
+    fn ks_test_with_nan_sample_is_insufficient() {
+        let mut with_nan = vec![0.1, f64::NAN, 0.7];
+        assert!(crate::math::ks_test(&mut with_nan).is_nan());
+        let mut clean = vec![0.1, 0.4, 0.7];
+        assert!(crate::math::ks_test(&mut clean).is_finite());
     }
 }
