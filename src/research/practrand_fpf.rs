@@ -381,4 +381,48 @@ mod tests {
                 || summary.platter_results.iter().any(|r| r.p_value < 1e-6)
         );
     }
+
+    /// Pins the port's intra-platter truncation: bin `i` folds onto
+    /// `i mod 2^new_bits`, derived by hand.  (PractRand's source is not in
+    /// `pubs/`, so this pins the port, not upstream.)
+    #[test]
+    fn truncate_table_bits_folds_high_bins_onto_low_bits() {
+        use super::truncate_table_bits;
+        let mut counts = [1u64, 2, 3, 4, 5, 6, 7, 8];
+        let mut probs = [0.125f64; 8];
+        truncate_table_bits(&mut counts, &mut probs, 3, 1);
+        assert_eq!([1 + 3 + 5 + 7, 2 + 4 + 6 + 8, 0, 0, 0, 0, 0, 0], counts);
+        assert_eq!([0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], probs);
+
+        let mut counts = [1u64, 2, 3, 4, 5, 6, 7, 8];
+        let mut probs = [0.125f64; 8];
+        truncate_table_bits(&mut counts, &mut probs, 3, 2);
+        assert_eq!([1 + 5, 2 + 6, 3 + 7, 4 + 8, 0, 0, 0, 0], counts);
+        assert_eq!([0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0], probs);
+    }
+
+    /// Exponent-cell merging derived by hand; G values from Python,
+    /// `2 Σ o ln(o / (N p))` over the merged cells.
+    #[test]
+    fn grouped_tail_g_test_merges_runs_until_min_expected() {
+        use super::grouped_tail_g_test;
+        // N = 100, threshold 10: cells expecting 50, 25 and 12.5 close alone;
+        // 6.25 + 6.25 close together → probs (½, ¼, ⅛, ⅛), counts (50, 30, 12, 8).
+        let (g, dof) = grouped_tail_g_test(
+            &[50, 30, 12, 5, 3],
+            &[0.5, 0.25, 0.125, 0.0625, 0.0625],
+            10.0,
+        );
+        assert_eq!(3, dof);
+        assert!((g - 2.818_971_897_096_44).abs() < 1e-12, "{g}");
+        // Threshold 11: 60 and 30 close; the trailing 5 + 5 = 10 never
+        // reaches 11 and folds into the previous cell → (0.6: 55), (0.4: 45).
+        let (g, dof) = grouped_tail_g_test(&[55, 33, 7, 5], &[0.6, 0.3, 0.05, 0.05], 11.0);
+        assert_eq!(1, dof);
+        assert!((g - 1.029_221_740_215_232_8).abs() < 1e-12, "{g}");
+        // No samples: NaN with no degrees of freedom.
+        let (g, dof) = grouped_tail_g_test(&[0, 0], &[0.5, 0.5], 10.0);
+        assert!(g.is_nan());
+        assert_eq!(0, dof);
+    }
 }

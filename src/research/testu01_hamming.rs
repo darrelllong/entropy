@@ -498,4 +498,57 @@ mod tests {
         let summary = hamming_corr(&mut rng, 128, 0, 8, 16);
         assert!(summary.p_value < 1e-6);
     }
+
+    /// `gofs_MinExpected` lumping, derived by hand at a threshold of 10.
+    #[test]
+    fn lumped_chi_square_pools_weak_cells() {
+        use super::lumped_chi_square;
+        // Weak cells 5 and 3 pool to 8 < 10 and join the last kept cell
+        // (12 → 20, observed 14 → 22): χ² = 2²/20 + 2²/20 = 0.4, dof 1.
+        let (chi, dof, lumped) = lumped_chi_square(&[20.0, 5.0, 3.0, 12.0], &[18, 7, 1, 14], 10.0);
+        assert!((chi - 0.4).abs() < 1e-12, "{chi}");
+        assert_eq!((1, 2), (dof, lumped));
+        // Weak cells 6 and 4 pool to 10 and form a class of their own:
+        // χ² = 5²/20 + 3²/12 + 4²/10 = 3.6 over three classes, dof 2.
+        let (chi, dof, lumped) = lumped_chi_square(&[20.0, 6.0, 4.0, 12.0], &[25, 4, 2, 9], 10.0);
+        assert!((chi - 3.6).abs() < 1e-12, "{chi}");
+        assert_eq!((2, 2), (dof, lumped));
+        // No cell reaches 10: everything pools into one class, dof 0.
+        let (chi, dof, lumped) = lumped_chi_square(&[4.0, 3.0], &[5, 2], 10.0);
+        assert!(chi.abs() < 1e-12, "{chi}");
+        assert_eq!((0, 2), (dof, lumped));
+    }
+
+    /// A small deterministic HammingIndep case with `L mod s ≠ 0`, checked
+    /// against an independent Python replica of the documented procedure
+    /// (exact binomial cell probabilities, the same lumping and corner-block
+    /// rules), with p-values from R 4.2.0 `pchisq(x, dof, lower.tail = FALSE)`.
+    #[test]
+    fn hamming_indep_matches_independent_replica() {
+        let mut rng = Xorshift32::new(XORSHIFT_SEED);
+        let summary = hamming_indep(&mut rng, 1000, 2, 5, 7, 3);
+        let close = |got: f64, want: f64| (got - want).abs() <= 1e-9 * want.abs().max(1.0);
+        assert!(
+            close(summary.main_chi_square, 18.333_335_077_917_695),
+            "{}",
+            summary.main_chi_square
+        );
+        assert_eq!(24, summary.main_dof);
+        assert_eq!(40, summary.lumped_cells);
+        assert!(
+            close(summary.main_p_value, 0.786_545_459_781_390_7),
+            "{}",
+            summary.main_p_value
+        );
+        let blocks = [
+            (0.144, 1, 0.704_336_413_488_451_9),
+            (2.393_458_040_406_143_6, 2, 0.302_181_025_137_528_76),
+            (2.642_285_714_285_714_3, 2, 0.266_830_178_867_156_5),
+        ];
+        for (k, &(chi, dof, p)) in blocks.iter().enumerate() {
+            assert!(close(summary.block_chi_square[k], chi), "d = {}", k + 1);
+            assert_eq!(dof, summary.block_dof[k], "d = {}", k + 1);
+            assert!(close(summary.block_p_value[k], p), "d = {}", k + 1);
+        }
+    }
 }
