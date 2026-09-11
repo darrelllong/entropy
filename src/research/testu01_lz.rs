@@ -51,10 +51,11 @@ const TRIE_RESERVE_FACTOR: f64 = 9.0 / 8.0;
 /// The trie holds the root plus one node per inserted phrase, and inserted
 /// phrases are distinct non-empty strings whose lengths sum to at most
 /// `n_bits`.  No stream can therefore need more nodes than one plus the
-/// number of shortest distinct strings that fit in `n_bits` bits.  That worst
-/// case is at most 1.13 · `LZ_MU[k]` phrases (at k = 3) and under
-/// 1.05 · `LZ_MU[k]` for k ≥ 4, so for every `k` in the table the
-/// reservation is never outgrown.  Lengths that are not a power of two
+/// number of shortest distinct strings that fit in `n_bits` bits.  The
+/// reservation ⌊9/8 · `LZ_MU[k]`⌋ + 2 covers that worst case plus the root
+/// for every `k` in the table, checked k by k: at k = 3 with no slack (five
+/// phrases, six nodes reserved), and with room to spare for k ≥ 4, where the
+/// worst case stays under 1.05 · `LZ_MU[k]`.  Lengths that are not a power of two
 /// (tests only) use the entry for ⌊log2 n_bits⌋ and let the vector grow.
 fn trie_reservation(n_bits: usize) -> usize {
     let k = n_bits.checked_ilog2().map_or(0, |k| k as usize);

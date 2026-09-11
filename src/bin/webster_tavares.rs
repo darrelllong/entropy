@@ -3,8 +3,11 @@
 //!
 //! `BICdegen` counts the avalanche-variable pairs whose correlation is
 //! undefined because a variable never or always flips; `BICmean` and `BICmax`
-//! cover only the other pairs and print NaN when there are none (every pair
-//! of a GF(2)-linear generator such as Xorshift).
+//! cover only the other pairs and print NaN when there are none.  In the
+//! default sampled run that is every pair of a GF(2)-linear generator such as
+//! Xorshift.  When `--samples` covers every `--input-bits` seed, the input is
+//! enumerated exactly, and the Xorshift cases' substitution of seed 1 for
+//! seed 0 is not linear, so a few pairs become defined there.
 
 type Case<'a> = (&'a str, usize, Box<dyn Fn(u64) -> u64 + 'a>);
 

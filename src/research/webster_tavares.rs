@@ -17,7 +17,7 @@
 //!
 //! # Degenerate pairs
 //! The paper measures the dependence of two avalanche variables A and B by
-//! their correlation coefficient ρ(A, B) = cov(A, B) / (σ(A) σ(B)) (p. 527).
+//! their correlation coefficient ρ(A, B) = cov(A, B) / (σ(A) σ(B)) (pp. 526–527).
 //! When either variable never or always flips over the sample its variance
 //! is 0 and ρ is 0/0.  For a GF(2)-linear map such as Xorshift every pair is
 //! degenerate, because the avalanche vector f(x) ⊕ f(x ⊕ eⱼ) = f(eⱼ) does
