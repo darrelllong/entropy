@@ -12,6 +12,7 @@ pub mod count_ones;
 pub mod craps;
 pub mod minimum_distance;
 pub mod monkey;
+pub(crate) mod nearest_pair;
 pub mod parking_lot;
 pub mod runs_float;
 pub mod spheres_3d;

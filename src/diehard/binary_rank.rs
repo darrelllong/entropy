@@ -6,6 +6,8 @@
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
+//! Source: Marsaglia's `fortran/diehard.f`, subroutines `rank3132` and
+//! `cdbinrnk`.  [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{
     math::{gf2_rank, igamc},
@@ -14,8 +16,9 @@ use crate::{
 
 // ── 32×32 ─────────────────────────────────────────────────────────────────────
 
-// Theoretical probabilities: P(rank=32)≈0.2888, P(rank=31)≈0.5776, P(≤30)≈0.1336
-// (same as NIST §2.5 but DIEHARD uses 40 000 matrices).
+// Four cells, as in DIEHARD's `rank3132` and Dieharder: P(rank=32)≈0.2888,
+// P(31)≈0.5776, P(30)≈0.1284, P(≤29)≈0.0053, over 40 000 matrices.  NIST
+// SP 800-22 §2.5 uses the same law with three cells, pooling rank ≤ 30.
 
 /// 32×32 binary matrix rank test (DIEHARD variant; 40 000 matrices).
 ///
@@ -40,6 +43,8 @@ pub fn binary_rank_32x32(words: &[u32]) -> TestResult {
 /// Each row is the leftmost 31 bits of one 32-bit word (`w >> 1`), as
 /// Marsaglia specifies: "The leftmost 31 bits of 31 random integers from the
 /// test sequence are used to form a 31x31 binary matrix" (`tests.txt`).
+/// `rank3132` builds each row as `rshift(jtbl(),32-m)` with m = 31
+/// (`fortran/diehard.f` line 1079).
 /// Ranks ≤ 28 are pooled, giving the four cells 31, 30, 29 and ≤ 28.
 ///
 /// Dieharder 3.31.1 has no 31×31 test to compare against:
@@ -71,14 +76,28 @@ const P6X8_FIVE: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0;
 /// 32-bit words; bytes 1–3 never enter a matrix.  This matches Dieharder's
 /// `diehard_rank_6x8.c`, whose `binary_rank(mtx, 6, 8)` (`rank.c`) reads the
 /// eight columns from bit 0 upward, even though its comment speaks of the
-/// leftmost byte.  It does not match DIEHARD: Marsaglia forms rows from "a
-/// specified byte" (`tests.txt`) and repeats the test for 25 overlapping
-/// 8-bit windows, bits 1–8 through 25–32, combining the 25 p-values with a
-/// KS test (`diehard.exe` in `pubs/Diehard.zip`: "TEST SUMMARY, 25 tests on
-/// 100,000 random 6x8 matrices").
+/// leftmost byte.
 ///
-/// The chi-square uses three cells, rank ≤ 4, 5 and 6 (df 2).  Dieharder's
-/// `diehard_rank_6x8.c` also scores rank 3 on its own (4 cells, df 3).
+/// DIEHARD runs the test on 25 bit windows, and the low byte read here is the
+/// last of them.  Marsaglia's `cdbinrnk` (`fortran/diehard.f` lines
+/// 920–1001) takes each row as `and(rshift(jtbl(),kr),255)` for kr = 24 down
+/// to 0, printed as "bits 1 to 8" through "bits 25 to 32" counting from the
+/// leftmost bit.  Before each window it calls `jkreset` (line 947), which
+/// resets `jtbl`'s record counter but not its place in the current 4 096-word
+/// record (lines 414–428), so each window after the first reads the rest of
+/// that record, 128 to 3 520 words, before rereading the file from word 1.
+/// Run alone, window 2 starts at word 600 001 and window 25 (kr = 0) at word
+/// 596 481 (a gfortran build of `diehard.f` instrumented to print them).  The
+/// 25 windows share nearly all their words, with matrix boundaries shifted by
+/// 0, 2 or 4 words.  DIEHARD combines the 25 p-values with Marsaglia's
+/// Anderson–Darling statistic, which `tests.txt` calls a KS test (`KSTEST`,
+/// lines 1668–1709).  Each of its p-values is 1 − exp(−χ²/2), the lower tail
+/// of χ²(2), where this test reports the upper tail exp(−χ²/2).
+///
+/// The chi-square uses three cells, rank ≤ 4, 5 and 6 (df 2), as `cdbinrnk`
+/// does (`mr=max(4,rankb(r,6,8))`), with exact cell probabilities where it
+/// uses six-digit ones.  Dieharder's `diehard_rank_6x8.c` also scores rank 3
+/// on its own (4 cells, df 3).
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -194,9 +213,9 @@ fn rank_test(
 }
 
 /// The leftmost `cols` bits of `w` (1 ≤ `cols` ≤ 32), right-aligned so that
-/// [`gf2_rank`] sees them as its low `cols` columns.  DIEHARD forms rank-test
-/// rows "from leftmost" bits "of each 32-bit integer" (`diehard.exe`); for
-/// `cols` = 32 this is the whole word.
+/// [`gf2_rank`] sees them as its low `cols` columns.  DIEHARD's `rank3132`
+/// forms each row as `rshift(jtbl(),32-m)` (`fortran/diehard.f` line 1079);
+/// for `cols` = 32 this is the whole word.
 fn leftmost_bits(w: u32, cols: usize) -> u32 {
     debug_assert!((1..=32).contains(&cols), "cols = {cols} must be 1..=32");
     w >> (32 - cols)

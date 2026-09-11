@@ -5,8 +5,19 @@
 //! of missing words should be approximately normal with
 //! mean = 141 909 and σ = 428.
 //!
+//! Two differences from DIEHARD.  Marsaglia's `cdbitst` (`fortran/diehard.f`
+//! lines 66–146) feeds each word into the stream from bit 0 upward
+//! (`j=lshift(and(j,2**19-1),1)+and(num,1)`, lines 122–123); this module
+//! reads each word from bit 31 down, as Dieharder's `diehard_bitstream.c`
+//! does.  And DIEHARD runs its 20 samples on one continuous stream and prints
+//! 20 `phi` values (lines 136–138) with no summary; this module scores 20
+//! disjoint chunks of 2²¹ windows two-sided and reports one
+//! Kolmogorov–Smirnov test over them.
+//!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
+//! Source: Marsaglia's `fortran/diehard.f`, subroutine `cdbitst`.
+//! [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
