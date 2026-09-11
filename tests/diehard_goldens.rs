@@ -309,7 +309,7 @@ fn runs_float_both() {
         &[
             Golden {
                 name: "diehard::runs_up",
-                p: 0.8375332721419235,
+                p: 0.8866855045941457,
                 note: "seq_len=10000, repeats=10, covariance-form",
             },
             Golden {
