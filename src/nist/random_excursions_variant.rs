@@ -11,6 +11,9 @@
 
 use crate::{math::erfc, result::TestResult};
 
+/// Largest |x| among the tested states.
+const MAX_STATE: i32 = 9;
+
 /// States tested: x ∈ {-9,-8,…,-1,+1,…,+9}.
 const STATES: [i32; 18] = [
     -9, -8, -7, -6, -5, -4, -3, -2, -1, 1, 2, 3, 4, 5, 6, 7, 8, 9,
@@ -72,16 +75,20 @@ pub fn random_excursions_variant_all(bits: &[u8]) -> Vec<TestResult> {
             .collect();
     }
 
-    // Count total visits per state across the entire walk (excluding endpoints).
-    let mut visit_counts = std::collections::HashMap::new();
+    // Count total visits per state across the entire walk (excluding
+    // endpoints) in a fixed array indexed by x + MAX_STATE.  States beyond
+    // ±MAX_STATE are not tested, so their visits are not counted.
+    let mut visit_counts = [0usize; 2 * MAX_STATE as usize + 1];
     for &s in &walk[1..walk.len() - 1] {
-        *visit_counts.entry(s).or_insert(0usize) += 1;
+        if (-MAX_STATE..=MAX_STATE).contains(&s) {
+            visit_counts[(s + MAX_STATE) as usize] += 1;
+        }
     }
 
     STATES
         .iter()
         .map(|&x| {
-            let count = *visit_counts.get(&x).unwrap_or(&0) as f64;
+            let count = visit_counts[(x + MAX_STATE) as usize] as f64;
             let numer = (count - j as f64).abs();
             let denom = (2.0 * j as f64 * (4.0 * x.unsigned_abs() as f64 - 2.0)).sqrt();
             // NIST STS randomexcursionsvariant.c: erfc(|ξ(x)-J|/√(2J(4|x|-2))).
@@ -117,6 +124,8 @@ fn build_walk(bits: &[u8]) -> (Vec<i32>, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rng::{Mt19937, Rng};
+    use std::collections::HashMap;
 
     /// A walk with J = 1 still yields one skipped entry per state, and the
     /// Bonferroni wrapper passes the skip through.
@@ -132,5 +141,44 @@ mod tests {
         let family = random_excursions_variant(&bits);
         assert_eq!(family.name, "nist::random_excursions_variant");
         assert!(family.skipped(), "{family}");
+    }
+
+    /// Per-state results computed as before the fixed array, with the visit
+    /// counts in a `HashMap`.
+    fn per_state_with_hashmap(bits: &[u8]) -> Vec<TestResult> {
+        let (walk, j) = build_walk(bits);
+        let mut visit_counts = HashMap::new();
+        for &s in &walk[1..walk.len() - 1] {
+            *visit_counts.entry(s).or_insert(0usize) += 1;
+        }
+        STATES
+            .iter()
+            .map(|&x| {
+                let count = *visit_counts.get(&x).unwrap_or(&0) as f64;
+                let numer = (count - j as f64).abs();
+                let denom = (2.0 * j as f64 * (4.0 * x.unsigned_abs() as f64 - 2.0)).sqrt();
+                TestResult::with_note(
+                    "nist::random_excursions_variant",
+                    erfc(numer / denom),
+                    format!("x={x}, ξ(x)={count}, J={j}"),
+                )
+            })
+            .collect()
+    }
+
+    /// The fixed-array counts give bit-identical results to the `HashMap`
+    /// counts on 10⁶ bits of Mt19937 seed 1, whose walk has J = 1302 and
+    /// reaches ±875, so every tested state and the out-of-range branch run.
+    #[test]
+    fn fixed_array_matches_hashmap_counts() {
+        let bits = Mt19937::new(1).collect_bits(1_000_000);
+        let results = random_excursions_variant_all(&bits);
+        let reference = per_state_with_hashmap(&bits);
+        assert_eq!(results.len(), reference.len());
+        for (r, want) in results.iter().zip(&reference) {
+            assert!(!r.skipped(), "{r}");
+            assert_eq!(r.p_value.to_bits(), want.p_value.to_bits(), "{r}");
+            assert_eq!(r.note, want.note);
+        }
     }
 }
