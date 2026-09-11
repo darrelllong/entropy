@@ -77,3 +77,23 @@ fn perm_rank(window: &[f64], t: usize) -> usize {
 fn factorial(n: usize) -> usize {
     (1..=n).product()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::permutations;
+    use crate::rng::ConstantRng;
+
+    #[test]
+    fn window_sizes_outside_the_range_skip() {
+        for t in [0, 1, 9] {
+            assert!(permutations(&mut ConstantRng::new(0), t).skipped());
+        }
+    }
+
+    /// Ties keep their index order, so every window has rank 0.
+    #[test]
+    fn constant_generator_fails() {
+        let r = permutations(&mut ConstantRng::new(0), 5);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+    }
+}

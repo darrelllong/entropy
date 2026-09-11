@@ -319,4 +319,15 @@ mod tests {
         let sum: f64 = TARGET_DATA.iter().sum();
         assert!((sum - 1.0).abs() <= 20.0 * 5e-9, "sum = {sum}");
     }
+
+    #[test]
+    fn short_inputs_skip() {
+        let short = vec![0; N_TRIALS * 8 - 1];
+        for r in fill_tree_both(&[])
+            .into_iter()
+            .chain(fill_tree_both(&short))
+        {
+            assert!(r.skipped(), "{r}");
+        }
+    }
 }

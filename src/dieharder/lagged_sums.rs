@@ -57,3 +57,19 @@ pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
         format!("lag={lag}, tsamples={tsamples}, sum={sum:.4}, z={z:.4}"),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::lagged_sums;
+
+    #[test]
+    fn short_inputs_skip_and_constant_input_fails() {
+        for lag in [0, 1, 100] {
+            let needed = 1_000 * (lag + 1);
+            assert!(lagged_sums(&[], lag).skipped());
+            assert!(lagged_sums(&vec![0; needed - 1], lag).skipped());
+            let r = lagged_sums(&vec![0; needed], lag);
+            assert!(!r.skipped() && !r.passed(), "lag {lag}: {r}");
+        }
+    }
+}

@@ -234,4 +234,13 @@ mod tests {
         assert!((sum - 1.0).abs() <= 41.0 * 5e-11, "sum = {sum}");
         assert_eq!(KPROB[0], 0.0);
     }
+
+    /// u = v = 1 in every pair: gcd 1 after one step, both in cells neither
+    /// chi-square scores, so every scored cell is empty.
+    #[test]
+    fn constant_nonzero_stream_fails() {
+        for r in gcd_both(&mut ConstantRng::new(1)) {
+            assert!(!r.skipped() && !r.passed(), "{r}");
+        }
+    }
 }

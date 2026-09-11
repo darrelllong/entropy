@@ -33,3 +33,16 @@ pub fn ks_uniform(words: &[u32]) -> TestResult {
         format!("tsamples={}", words.len()),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ks_uniform, MIN_SAMPLES};
+
+    #[test]
+    fn short_inputs_skip_and_constant_input_fails() {
+        assert!(ks_uniform(&[]).skipped());
+        assert!(ks_uniform(&vec![0; MIN_SAMPLES - 1]).skipped());
+        let r = ks_uniform(&vec![0; MIN_SAMPLES]);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+    }
+}

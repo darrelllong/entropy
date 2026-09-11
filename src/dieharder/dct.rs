@@ -135,3 +135,22 @@ fn dct_ii_u32(words: &[u32], rot_amount: u32, cos_table: &[f64]) -> Vec<f64> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{dct, NTUPLE, TSAMPLES};
+
+    #[test]
+    fn short_inputs_skip() {
+        assert!(dct(&[]).skipped());
+        assert!(dct(&vec![0; TSAMPLES * NTUPLE - 1]).skipped());
+    }
+
+    /// Only the adjusted DC coefficient is nonzero, so every block's maximum
+    /// sits at position 0.
+    #[test]
+    fn constant_input_fails() {
+        let r = dct(&vec![0; TSAMPLES * NTUPLE]);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+    }
+}

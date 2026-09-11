@@ -57,3 +57,19 @@ pub fn byte_distribution(words: &[u32]) -> TestResult {
         format!("tsamples={tsamples}, streams={SAMP_TOTAL}, expected/cell={expected:.1}, χ²={chi_sq:.4}"),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{byte_distribution, WORDS_PER_TRIAL};
+
+    /// 1 280 trials is the smallest sample with 5 expected counts per cell.
+    const NEEDED: usize = 5 * 256 * WORDS_PER_TRIAL;
+
+    #[test]
+    fn short_inputs_skip_and_constant_input_fails() {
+        assert!(byte_distribution(&[]).skipped());
+        assert!(byte_distribution(&vec![0; NEEDED - 1]).skipped());
+        let r = byte_distribution(&vec![0; NEEDED]);
+        assert!(!r.skipped() && !r.passed(), "{r}");
+    }
+}

@@ -126,3 +126,25 @@ fn min_dist_nd(coords: &[f64], n: usize, d: usize) -> f64 {
     }
     min_dist
 }
+
+#[cfg(test)]
+mod tests {
+    use super::minimum_distance_nd;
+    use crate::rng::ConstantRng;
+
+    #[test]
+    fn dimensions_outside_the_q_table_skip() {
+        for d in [0, 1, 6] {
+            assert!(minimum_distance_nd(&mut ConstantRng::new(0), d, true).skipped());
+        }
+    }
+
+    /// Every point coincides, so the minimum distance is zero in every repeat.
+    #[test]
+    fn constant_generator_fails() {
+        for d in 2..=5 {
+            let r = minimum_distance_nd(&mut ConstantRng::new(0), d, true);
+            assert!(!r.skipped() && !r.passed(), "d = {d}: {r}");
+        }
+    }
+}
