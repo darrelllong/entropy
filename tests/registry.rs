@@ -5,8 +5,9 @@
 //! via `CARGO_BIN_EXE_*`, stable since Rust 1.43 — same pattern as
 //! `tests/dump_rng.rs`) and assert:
 //!
-//! 1. the two `--list` outputs are identical, and
-//! 2. every listed name actually dispatches in `pilot_rng`.
+//! 1. the two `--list` outputs are identical,
+//! 2. every listed name actually dispatches in `pilot_rng`, and
+//! 3. both binaries exit 1 on a usage error.
 //!
 //! `PILOT_RNG_WORDS` is kept tiny so the whole sweep stays fast even for the
 //! slow generators (Dual_EC_DRBG needs three P-256 scalar multiplications per
@@ -71,13 +72,41 @@ fn pilot_rng_rejects_invalid_workload_env() {
         .env("PILOT_RNG_WORDS", "ten")
         .output()
         .expect("spawn pilot_rng");
-    assert!(
-        !r.status.success(),
-        "invalid PILOT_RNG_WORDS must be a hard error"
+    assert_eq!(
+        r.status.code(),
+        Some(1),
+        "invalid PILOT_RNG_WORDS must be a usage error"
     );
     let err = String::from_utf8_lossy(&r.stderr);
     assert!(
         err.contains("PILOT_RNG_WORDS"),
         "diagnostic should name the variable: {err}"
     );
+}
+
+/// Both binaries report a usage error with exit status 1, the convention
+/// their module docs state and `run_tests` shares.
+#[test]
+fn dump_rng_and_pilot_rng_exit_1_on_usage_errors() {
+    let dump = env!("CARGO_BIN_EXE_dump_rng");
+    let pilot = env!("CARGO_BIN_EXE_pilot_rng");
+    for (binary, args) in [
+        (dump, &[][..]),
+        (dump, &["totally_bogus_rng", "1"][..]),
+        (dump, &["pcg64", "not-a-number"][..]),
+        (pilot, &[][..]),
+        (pilot, &["totally_bogus_rng"][..]),
+    ] {
+        let r = Command::new(binary)
+            .args(args)
+            .env("PILOT_RNG_WORDS", "64")
+            .output()
+            .unwrap_or_else(|e| panic!("spawn {binary}: {e}"));
+        assert_eq!(
+            r.status.code(),
+            Some(1),
+            "{binary} {args:?}: {}",
+            String::from_utf8_lossy(&r.stderr)
+        );
+    }
 }

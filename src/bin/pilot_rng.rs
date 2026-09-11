@@ -21,6 +21,10 @@
 //! `PILOT_RNG_WORDS` must be a positive integer when set; an invalid value is
 //! a hard error rather than a silent fall-back, so a typo cannot quietly
 //! benchmark the wrong workload size.
+//!
+//! Exit status: 0 on success; 1 on a usage error (wrong argument count,
+//! unknown name, invalid `PILOT_RNG_WORDS`).  `dump_rng` follows the same
+//! convention.
 
 use std::hint::black_box;
 use std::io::{self, Write};

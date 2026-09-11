@@ -10,6 +10,11 @@
 //! Each output u32 is little-endian; R reads it with
 //!   `readBin(con, integer(), n=count, size=4, endian="little")`.
 //! `count == 0` is legal and produces empty output.  Names match `pilot_rng`.
+//!
+//! Exit status: 0 on success, including when the consumer closes the pipe
+//! early; 1 on a usage error (wrong argument count, non-numeric count,
+//! unknown name) or a write error.  `pilot_rng` follows the same convention,
+//! and `run_tests` also exits 1 on a usage error.
 
 use std::io::{self, BufWriter, ErrorKind, Write};
 
@@ -164,7 +169,7 @@ fn main() {
     }
     if argv.len() != 2 {
         print_usage(&mut io::stderr());
-        std::process::exit(2);
+        std::process::exit(1);
     }
     let name = argv[0].to_ascii_lowercase();
     let count: u64 = match argv[1].parse() {
@@ -174,7 +179,7 @@ fn main() {
                 "dump_rng: count must be a non-negative integer, got {:?}",
                 argv[1]
             );
-            std::process::exit(2);
+            std::process::exit(1);
         }
     };
 
@@ -190,7 +195,7 @@ fn main() {
         Err(()) => {
             eprintln!("dump_rng: unknown RNG: {name}");
             eprintln!("hint: dump_rng --list");
-            std::process::exit(2);
+            std::process::exit(1);
         }
     }
 }

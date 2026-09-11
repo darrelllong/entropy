@@ -3,8 +3,9 @@
 //! Build the binary with `cargo test --release --test dump_rng`; cargo
 //! invokes the test runner which spawns the compiled binary.  We exercise
 //! every name listed by `dump_rng --list` for a small word count, verify
-//! the byte count, and check the failure paths (unknown name, missing
-//! argument).
+//! the byte count, and check that the failure paths (unknown name, missing
+//! argument, non-numeric count) exit 1, the usage-error status `pilot_rng`
+//! and `run_tests` also use.
 //!
 //! Notes
 //! -----
@@ -79,24 +80,24 @@ fn count_zero_is_valid_and_produces_no_output() {
 }
 
 #[test]
-fn unknown_name_exits_nonzero_with_diagnostic() {
+fn unknown_name_exits_1_with_diagnostic() {
     let r = Command::new(binary())
         .args(["totally_bogus_rng", "1"])
         .stdout(Stdio::null())
         .output()
         .unwrap();
-    assert!(!r.status.success(), "unknown name should exit nonzero");
+    assert_eq!(r.status.code(), Some(1), "unknown name is a usage error");
     let err = String::from_utf8_lossy(&r.stderr);
     assert!(err.contains("unknown RNG"), "diagnostic missing: {err}");
 }
 
 #[test]
-fn missing_args_exits_nonzero_with_usage() {
+fn missing_args_exits_1_with_usage() {
     let r = Command::new(binary())
         .stdout(Stdio::null())
         .output()
         .unwrap();
-    assert!(!r.status.success());
+    assert_eq!(r.status.code(), Some(1));
     let err = String::from_utf8_lossy(&r.stderr);
     assert!(err.contains("usage"), "usage missing: {err}");
 }
@@ -143,11 +144,11 @@ fn fixed_seed_first_words_are_stable() {
 }
 
 #[test]
-fn non_numeric_count_exits_nonzero() {
+fn non_numeric_count_exits_1() {
     let r = Command::new(binary())
         .args(["pcg64", "not-a-number"])
         .stdout(Stdio::null())
         .output()
         .unwrap();
-    assert!(!r.status.success());
+    assert_eq!(r.status.code(), Some(1));
 }
