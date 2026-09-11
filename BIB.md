@@ -632,7 +632,7 @@ previously missing from this bibliography.
   author       = {{The GNU C Library contributors}},
   title        = {{GNU} C Library 2.40, stdlib/random.c and stdlib/random\_r.c},
   howpublished = {https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz},
-  note         = {The srandom/random implementation LinuxLibcRandom emulates: \_\_initstate\_r and \_\_random\_r compiled from random\_r.c match it, and its TYPE\_0 generator matches LcgVariant::AnsiC. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], license [pubs/glibc-2.40-COPYING.LIB]}
+  note         = {The srandom/random implementation LinuxLibcRandom emulates: \_\_initstate\_r and \_\_random\_r compiled from random\_r.c match it, and its TYPE\_0 generator matches LcgVariant::AnsiC for every seed whose low 32 bits are nonzero, which covers 1 to 2^{32}-1. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], license [pubs/glibc-2.40-COPYING.LIB]}
 }
 
 @misc{freebsd-libc-random,
