@@ -188,10 +188,18 @@ impl Rng for WindowsMsvcRand {
 
 // ── Windows VB6 / VBA Rnd() ──────────────────────────────────────────────────
 
+/// Multiplier of the `VBMath.Rnd` state transition.
+const VB6_RND_A: u32 = 0x43fd_43fd;
+/// Increment of the `VBMath.Rnd` state transition.
+const VB6_RND_C: u32 = 0x00c3_9ec3;
+/// `VBMath.Rnd` keeps 24 bits of state.
+const VB6_RND_MASK: u32 = 0x00ff_ffff;
+
 /// Faithful VB6/VBA `Rnd` core state transition.
 ///
 /// Microsoft still preserves this compatibility algorithm in `VBMath.Rnd`:
-/// `seed = (seed * 0x43FD43FD + 0x00C39EC3) & 0x00FF_FFFF`.
+/// `seed = (seed * a + c) & mask`, a linear congruential step with a fixed
+/// multiplier `a`, increment `c` and 24-bit `mask`.
 ///
 /// The public API returns a `Single` in `[0, 1)`, so we expose both the raw
 /// 24-bit state and a faithful `next_f64()` mapping. This is a tiny-state,
@@ -206,18 +214,14 @@ impl WindowsVb6Rnd {
     /// Construct from a seed; only the low 24 bits are kept as state.
     pub fn new(seed: u32) -> Self {
         Self {
-            state: seed & 0x00ff_ffff,
+            state: seed & VB6_RND_MASK,
             bits: PackedBits::default(),
         }
     }
 
     /// One raw `Rnd` state transition: returns the new 24-bit state.
     pub fn next_raw(&mut self) -> u32 {
-        self.state = self
-            .state
-            .wrapping_mul(0x43fd_43fd)
-            .wrapping_add(0x00c3_9ec3)
-            & 0x00ff_ffff;
+        self.state = self.state.wrapping_mul(VB6_RND_A).wrapping_add(VB6_RND_C) & VB6_RND_MASK;
         self.state
     }
 
@@ -504,15 +508,17 @@ impl Rng for BsdRandCompat {
 
 /// Pure-Rust implementation of POSIX / System V `mrand48()`.
 ///
-/// 48-bit LCG with the mandated parameters:
-/// `a = 0x5DEECE66D`, `c = 0xB`, `m = 2^48`.
+/// 48-bit LCG `x = (a·x + c) mod 2^48` with the multiplier `a` and increment
+/// `c` that POSIX mandates for the `drand48` family.
 /// Better than 15-bit `rand()`, but still linear and weak.
 #[derive(Debug, Clone)]
 pub struct Rand48 {
     state: u64,
 }
 
+/// POSIX `drand48` family multiplier `a`.
 const RAND48_A: u64 = 0x5DEECE66D;
+/// POSIX `drand48` family increment `c`.
 const RAND48_C: u64 = 0xB;
 const RAND48_M: u64 = 1 << 48;
 

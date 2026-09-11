@@ -25,10 +25,13 @@
 
 use super::{OsRng, Rng};
 
-// Weyl-sequence increment: `_wyp[0]` in wyhash_final2.h and wyhash_final4.h.
-const WYRAND_INC: u64 = 0xa076_1d64_78bd_642f;
-// Mix constant: `_wyp[1]` there.
-const WYRAND_MIX: u64 = 0xe703_7ed1_a0b4_28db;
+/// `_wyp[0]` in wyhash_final2.h and wyhash_final4.h: the Weyl-sequence
+/// increment `wyrand` adds to its state.  [`crate::seed::seed_material`] XORs
+/// the same prime into its seed.  [pubs/wyhash-e4764a0b637d.tar.gz]
+pub(crate) const WYP0: u64 = 0xa076_1d64_78bd_642f;
+/// `_wyp[1]` there: the constant `wyrand` XORs into the second `_wymix`
+/// operand.
+const WYP1: u64 = 0xe703_7ed1_a0b4_28db;
 
 /// Ultra-fast 64-bit PRNG based on a Weyl sequence and 128-bit multiply mix.
 ///
@@ -52,8 +55,8 @@ impl WyRand {
 
     #[inline]
     fn step(&mut self) -> u64 {
-        self.state = self.state.wrapping_add(WYRAND_INC);
-        wymix(self.state, self.state ^ WYRAND_MIX)
+        self.state = self.state.wrapping_add(WYP0);
+        wymix(self.state, self.state ^ WYP1)
     }
 }
 
@@ -114,7 +117,7 @@ mod tests {
 
     // Known-answer test: first three outputs cross-checked against an
     // independent Python replica of wyrand
-    // (seed += 0xa0761d6478bd642f; wymix(seed, seed ^ 0xe7037ed1a0b428db)) and
+    // (seed += WYP0; wymix(seed, seed ^ WYP1)) and
     // against `wyrand` compiled from wyhash_final2.h and wyhash_final4.h in
     // pubs/wyhash-e4764a0b637d.tar.gz (5000 outputs at seeds 0, 42 and 12345).
     #[test]

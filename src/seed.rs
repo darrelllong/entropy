@@ -5,9 +5,10 @@
 //! test.  It is **not** itself the generator being evaluated.
 //!
 //! [`seed_material`] converts a `u64` seed into an arbitrary-width byte array
-//! using [`splitmix64`].  The XOR with `0xa076_1d64_78bd_642f` (the first
-//! Weyl-sequence prime from wyhash, Wang Yi, 2019) ensures that seed = 0 does
-//! not produce the all-zeros splitmix64 state.
+//! using [`splitmix64`].  The XOR with `_wyp[0]`, the first Weyl-sequence
+//! prime from wyhash (Wang Yi, 2019) and the increment of
+//! [`WyRand`](crate::rng::WyRand), ensures that seed = 0 does not produce the
+//! all-zeros splitmix64 state.
 //!
 //! Seed derivation is part of experimental reproducibility: having one
 //! definition, one comment, and one set of tests reduces the risk that a
@@ -22,6 +23,8 @@
 //! **These constants are NOT suitable for any production use.**  Sequential
 //! byte strings are present in every published test-vector corpus and would
 //! immediately compromise any real cryptographic deployment.
+
+use crate::rng::wyrand::WYP0;
 
 /// One step of the Vigna splitmix64 mixer.
 ///
@@ -38,10 +41,10 @@ pub fn splitmix64(state: &mut u64) -> u64 {
 ///
 /// Expands `seed` via repeated [`splitmix64`] calls, writing 8 bytes per
 /// iteration until `N` bytes are filled (big-endian word order).  The XOR
-/// with `0xa076_1d64_78bd_642f` (wyhash wyp0 prime) before the first call
-/// ensures that seed = 0 yields a non-trivial initial state.
+/// with wyhash's `_wyp[0]` prime before the first call ensures that seed = 0
+/// yields a non-trivial initial state.
 pub fn seed_material<const N: usize>(seed: u64) -> [u8; N] {
-    let mut state = seed ^ 0xa076_1d64_78bd_642f;
+    let mut state = seed ^ WYP0;
     let mut out = [0u8; N];
     let mut pos = 0usize;
     while pos < N {

@@ -94,6 +94,10 @@ impl Rng for Sfc64 {
 
 // ── JSF64 ────────────────────────────────────────────────────────────────────
 
+/// The word `raninit` stores in `a` before the seed fills `b`, `c` and `d`.
+/// [pubs/jenkins-2007-smallprng.html]
+const JSF_RANINIT_A: u64 = 0xf1ea_5eed;
+
 /// Jenkins Small Fast 64-bit generator.
 ///
 /// Four-word state.  Jenkins gives no guaranteed minimum period: for the
@@ -109,12 +113,12 @@ pub struct Jsf64 {
 impl Jsf64 {
     /// Construct from a single 64-bit seed.
     ///
-    /// Seeds as the page's `raninit` does (`a = 0xf1ea5eed`,
+    /// Seeds as the page's `raninit` does (`a` = its fixed word,
     /// `b = c = d = seed`) and discards 20 outputs.
     #[must_use]
     pub fn new(seed: u64) -> Self {
         let mut rng = Self {
-            a: 0xf1ea_5eed,
+            a: JSF_RANINIT_A,
             b: seed,
             c: seed,
             d: seed,
@@ -163,6 +167,9 @@ impl Rng for Jsf64 {
 mod tests {
     use super::*;
 
+    /// Seed of the JSF64 tests, and of the known-answer vector below.
+    const JSF64_TEST_SEED: u64 = 0xdead_beef;
+
     #[test]
     fn sfc64_advances() {
         let mut rng = Sfc64::new(1, 2, 3);
@@ -180,7 +187,7 @@ mod tests {
 
     #[test]
     fn jsf64_advances() {
-        let mut rng = Jsf64::new(0xdeadbeef);
+        let mut rng = Jsf64::new(JSF64_TEST_SEED);
         let v0 = rng.next_u64();
         let v1 = rng.next_u64();
         assert_ne!(v0, v1);
@@ -216,15 +223,15 @@ mod tests {
         }
     }
 
-    // Known-answer test: first three outputs of Jsf64::new(0xdeadbeef),
+    // Known-answer test: first three outputs of Jsf64::new(JSF64_TEST_SEED),
     // cross-checked against an independent Python replica of Jenkins'
-    // smallprng (64-bit rot 7/13/37 variant, a = 0xf1ea5eed, 20 warm-ups) and
-    // against the page's 64-bit `raninit`/`ranval` compiled from
-    // pubs/jenkins-2007-smallprng.html (5000 outputs at seeds 0xdeadbeef, 0
-    // and 1).
+    // smallprng (64-bit rot 7/13/37 variant, a = JSF_RANINIT_A, 20 warm-ups)
+    // and against the page's 64-bit `raninit`/`ranval` compiled from
+    // pubs/jenkins-2007-smallprng.html (5000 outputs at seeds JSF64_TEST_SEED,
+    // 0 and 1).
     #[test]
     fn jsf64_known_answer() {
-        let mut rng = Jsf64::new(0xdead_beef);
+        let mut rng = Jsf64::new(JSF64_TEST_SEED);
         let expected: [u64; 3] = [
             0x2947_274c_9b14_f76b,
             0x10c1_0da7_6e5c_d72c,

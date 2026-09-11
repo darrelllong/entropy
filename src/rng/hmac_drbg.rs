@@ -292,6 +292,15 @@ mod tests {
         assert_ne!(a.next_u64(), b.next_u64());
     }
 
+    /// EntropyInput of the NIST DRBGVS HMAC_DRBG SHA-256 vector that
+    /// `hmac_drbg_sha256_nist_drbgvs_kat` and
+    /// `hmac_drbg_sha256_additional_input_kat` both instantiate from.
+    const DRBGVS_ENTROPY_INPUT: &str =
+        "ca851911349384bffe89de1cbdc46e6831e44d34a4fb935ee285dd14b71a7488";
+
+    /// Nonce of the same DRBGVS vector.
+    const DRBGVS_NONCE: &str = "659ba96c601dc69fc902940805ec0ca8";
+
     /// NIST DRBGVS HMAC_DRBG SHA-256 known-answer test: PredictionResistance =
     /// False, no reseed, empty personalization and additional input,
     /// ReturnedBitsLen = 1024 (two Generate calls, the second returned).  The
@@ -300,8 +309,8 @@ mod tests {
     /// the HMAC_DRBG_Update / Generate math, not just "output advances".
     #[test]
     fn hmac_drbg_sha256_nist_drbgvs_kat() {
-        let entropy = hex("ca851911349384bffe89de1cbdc46e6831e44d34a4fb935ee285dd14b71a7488");
-        let nonce = hex("659ba96c601dc69fc902940805ec0ca8");
+        let entropy = hex(DRBGVS_ENTROPY_INPUT);
+        let nonce = hex(DRBGVS_NONCE);
         let mut drbg = HmacDrbg::from_entropy(&entropy, &nonce, &[]);
         let _ = drbg.generate(128, &[]); // first Generate — discarded per DRBGVS
         let returned = drbg.generate(128, &[]);
@@ -343,8 +352,8 @@ mod tests {
     /// reproduced by the same from-spec HMAC_DRBG replica.
     #[test]
     fn hmac_drbg_sha256_additional_input_kat() {
-        let entropy = hex("ca851911349384bffe89de1cbdc46e6831e44d34a4fb935ee285dd14b71a7488");
-        let nonce = hex("659ba96c601dc69fc902940805ec0ca8");
+        let entropy = hex(DRBGVS_ENTROPY_INPUT);
+        let nonce = hex(DRBGVS_NONCE);
         let a1: Vec<u8> = (0x00u8..0x20).collect();
         let a2: Vec<u8> = (0x20u8..0x40).collect();
         let mut drbg = HmacDrbg::from_entropy(&entropy, &nonce, &[]);
