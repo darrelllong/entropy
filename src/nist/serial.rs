@@ -5,9 +5,8 @@
 //! Two p-values are returned (for ∇ψ² and ∇²ψ², in that order, matching
 //! the publication's P-value1/P-value2); the test passes if both are ≥ α.
 //!
-//! Recommended defaults: m = 3, n ≥ 1 000 000.  The publication asks for
-//! m < log₂ n − 2 (SP 800-22 §2.11.7); this module enforces the slightly
-//! stricter m < ⌊log₂ n⌋ − 2.
+//! Recommended defaults: m = 3, n ≥ 1 000 000.  SP 800-22 §2.11.7 asks for
+//! m < ⌊log₂ n⌋ − 2, which this module enforces exactly.
 
 use crate::{math::igamc, result::TestResult};
 
@@ -50,8 +49,7 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
             TestResult::insufficient("nist::serial_delta2", "n < 1000 or m < 2"),
         ];
     }
-    // §2.11.7 asks for m < log₂ n − 2; ⌊log₂ n⌋ − 2 is one stricter when n is
-    // not a power of two.
+    // §2.11.7: "Choose m and n such that m < ⌊log2 n⌋ − 2".
     if m >= (n.ilog2() as usize).saturating_sub(2) {
         let why = format!("m={m} violates m < ⌊log₂ n⌋ − 2 (n={n})");
         return vec![
