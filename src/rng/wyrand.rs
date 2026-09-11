@@ -35,8 +35,9 @@ pub struct WyRand {
 impl WyRand {
     /// `_wyp[0]` in wyhash_final2.h and wyhash_final4.h: the Weyl-sequence
     /// increment `wyrand` adds to its state.
-    /// [`seed_material`](crate::seed::seed_material) XORs the same prime into
-    /// its seed.  [pubs/wyhash-e4764a0b637d.tar.gz]
+    /// [`SEED_MATERIAL_MASK`](crate::seed::SEED_MATERIAL_MASK) holds the same
+    /// value as a separate constant with a different role, so changing this
+    /// one leaves seeding alone.  [pubs/wyhash-e4764a0b637d.tar.gz]
     pub const INCREMENT: u64 = 0xa076_1d64_78bd_642f;
     /// `_wyp[1]` there: the constant `wyrand` XORs into the second `_wymix`
     /// operand.

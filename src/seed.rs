@@ -5,7 +5,7 @@
 //! test.  It is **not** itself the generator being evaluated.
 //!
 //! [`seed_material`] converts a `u64` seed into an arbitrary-width byte array
-//! using [`splitmix64`].  The XOR with [`WyRand::INCREMENT`], wyhash's first
+//! using [`splitmix64`].  The XOR with [`SEED_MATERIAL_MASK`], wyhash's first
 //! Weyl-sequence prime `_wyp[0]` (Wang Yi, 2019), ensures that seed = 0 does
 //! not produce the all-zeros splitmix64 state.
 //!
@@ -23,8 +23,6 @@
 //! byte strings are present in every published test-vector corpus and would
 //! immediately compromise any real cryptographic deployment.
 
-use crate::rng::WyRand;
-
 /// One step of the Vigna splitmix64 mixer.
 ///
 /// Advances `state` by one splitmix64 step and returns the mixed output word.
@@ -36,14 +34,26 @@ pub fn splitmix64(state: &mut u64) -> u64 {
     z ^ (z >> 31)
 }
 
+/// The mask [`seed_material`] XORs into its seed before the first
+/// [`splitmix64`] step, so that seed = 0 does not start from the all-zeros
+/// state.
+///
+/// Its value is wyhash's `_wyp[0]` (Wang Yi, 2019), the same number as
+/// [`WyRand::INCREMENT`](crate::rng::WyRand::INCREMENT), but it is a different
+/// concept and is fixed here independently of
+/// [`WyRand`](crate::rng::WyRand): seeding must stay reproducible even if that
+/// generator's constants ever change.  `seed_material_pinned_bytes` fails if
+/// this mask or the derivation moves.
+pub const SEED_MATERIAL_MASK: u64 = 0xa076_1d64_78bd_642f;
+
 /// Derive `N` bytes of seed material from a single 64-bit seed.
 ///
 /// Expands `seed` via repeated [`splitmix64`] calls, writing 8 bytes per
 /// iteration until `N` bytes are filled (big-endian word order).  The XOR
-/// with [`WyRand::INCREMENT`], wyhash's `_wyp[0]` prime, before the first
-/// call ensures that seed = 0 yields a non-trivial initial state.
+/// with [`SEED_MATERIAL_MASK`] before the first call ensures that seed = 0
+/// yields a non-trivial initial state.
 pub fn seed_material<const N: usize>(seed: u64) -> [u8; N] {
-    let mut state = seed ^ WyRand::INCREMENT;
+    let mut state = seed ^ SEED_MATERIAL_MASK;
     let mut out = [0u8; N];
     let mut pos = 0usize;
     while pos < N {
@@ -136,6 +146,35 @@ mod tests {
     fn seed_material_nonzero_for_seed_zero() {
         let out: [u8; 32] = seed_material(0);
         assert!(out.iter().any(|&b| b != 0));
+    }
+
+    /// Regression pin on `seed_material`'s exact bytes.  The expected values
+    /// come from an independent Python replica of splitmix64 and
+    /// [`SEED_MATERIAL_MASK`], and `seed_material` at 229e104 produced the
+    /// same bytes.  Every probe key derived from a seed moves if these do, so
+    /// a change to the mask or the derivation must fail here.
+    #[test]
+    fn seed_material_pinned_bytes() {
+        fn hex_of(bytes: &[u8]) -> String {
+            bytes.iter().map(|b| format!("{b:02x}")).collect()
+        }
+        // Seed 1 at 48 bytes is the CtrDrbgAes256 seed the probe binaries
+        // use; its first 16 bytes are their AES-128 key, seed_material::<16>(1).
+        let one_48: [u8; 48] = seed_material(1);
+        assert_eq!(
+            hex_of(&one_48),
+            "63a183183ed6d2e06d86a80aec7e07f6a8055d7343e14e85d47e0ea0ea1bcdbb\
+             952f85c64519c56744fc0303d43490ea"
+        );
+        let one_16: [u8; 16] = seed_material(1);
+        assert_eq!(one_16[..], one_48[..16]);
+        // Seed 0, the case the mask exists for.
+        assert_eq!(hex_of(&seed_material::<8>(0)), "4396d60dbd8537af");
+        // A width that is not a multiple of 8 takes part of its last word.
+        assert_eq!(
+            hex_of(&seed_material::<13>(u64::MAX)),
+            "963333052da7f39fc296d2cfab"
+        );
     }
 
     #[test]
