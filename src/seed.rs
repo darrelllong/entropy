@@ -92,6 +92,26 @@ pub const IV8: [u8; 8] = sequential_bytes();
 /// 128-bit test IV: `[0x00, 0x01, …, 0x0f]`.  NOT FOR PRODUCTION USE.
 pub const IV16: [u8; 16] = sequential_bytes();
 
+// ── Harness probe values ─────────────────────────────────────────────────────
+//
+// `run_tests`, `dump_rng` and `pilot_rng` are separate crates that must build
+// the same stream for the same generator, so the fixed values they share live
+// here, once.  Hidden from the documented API: they configure this package's
+// binaries, not the library.
+
+/// The word [`ConstantRng`](crate::rng::ConstantRng) repeats in `run_tests`,
+/// `dump_rng` and `pilot_rng`.  The `Constant (…)` labels in `run_tests` and
+/// scripts/bench_rngs.sh print it, and tests/dump_rng.rs pins its bytes; all
+/// must follow any change here.
+#[doc(hidden)]
+pub const CONSTANT_RNG_WORD: u32 = 0xDEAD_DEAD;
+
+/// The seed `dump_rng` and `pilot_rng` give [`Jsf64`](crate::rng::Jsf64) for
+/// the name `jsf64`; the `JSF64 (seed=…)` label in scripts/bench_rngs.sh
+/// prints it.
+#[doc(hidden)]
+pub const JSF64_PROBE_SEED: u64 = 0xdead_beef;
+
 #[cfg(test)]
 mod tests {
     use super::*;

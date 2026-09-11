@@ -128,7 +128,7 @@ fn fixed_seed_first_words_are_stable() {
     }
     // Counter (seed=0): little-endian u32 = 0, 1, 2, 3.
     check("counter", 4, "00000000010000000200000003000000");
-    // Constant (value=0xDEAD_DEAD): four LE copies.
+    // Constant (value = entropy::seed::CONSTANT_RNG_WORD): four LE copies.
     check("constant", 4, "addeaddeaddeaddeaddeaddeaddeadde");
     // PCG64 with (state=1, seq=1): the high halves of the first 8 outputs as
     // LE u32s, from an independent replica of pcg-c's pcg64.

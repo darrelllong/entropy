@@ -49,7 +49,7 @@ use entropy::rng::{
     WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32,
     Xorshift64, Xoshiro256,
 };
-use entropy::seed::{IV16, IV8, K16, K32};
+use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, K16, K32};
 use entropy::{diehard, dieharder, nist, result::TestResult};
 use std::thread;
 
@@ -398,7 +398,10 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
         "cryptography::CtrDrbgAes256 (seed=00..2f)",
         CryptoCtrDrbg::with_test_seed()
     );
-    run!("Constant (0xDEAD_DEAD)", ConstantRng::new(0xDEAD_DEAD));
+    run!(
+        "Constant (0xDEAD_DEAD)",
+        ConstantRng::new(CONSTANT_RNG_WORD)
+    );
     run!("Counter (0,1,2,…)", CounterRng::new(0));
     // Dual_EC_DRBG: included for reference only.
     // WARNING: This generator is known to be backdoored — the NIST Q point
