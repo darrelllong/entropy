@@ -38,15 +38,19 @@ pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
     let phi_m1 = phi(bits, m + 1, n);
 
     let ap_en = phi_m - phi_m1;
-
-    let chi_sq = 2.0 * n as f64 * (LN_2 - ap_en);
-    let p_value = igamc(2.0_f64.powi(m as i32 - 1), chi_sq / 2.0);
+    let (chi_sq, p_value) = chi_square_and_p(ap_en, n, m);
 
     TestResult::with_note(
         "nist::approximate_entropy",
         p_value,
         format!("n={n}, m={m}, ApEn={ap_en:.6}, χ²={chi_sq:.4}"),
     )
+}
+
+/// §2.12.4 steps 6–7: χ² = 2n(ln 2 − ApEn(m)) and P = igamc(2^{m−1}, χ²/2).
+fn chi_square_and_p(ap_en: f64, n: usize, m: usize) -> (f64, f64) {
+    let chi_sq = 2.0 * n as f64 * (LN_2 - ap_en);
+    (chi_sq, igamc(2.0_f64.powi(m as i32 - 1), chi_sq / 2.0))
 }
 
 /// Compute φ(m) = (1/n) Σ_{all patterns p} C_m(p) · ln(C_m(p)/n)
@@ -102,15 +106,14 @@ mod tests {
     /// SP 800-22 §2.12.8: m = 2, n = 100 gives ApEn(2) = 0.665393,
     /// χ² = 5.550792 and P-value = 0.235301.  The example itself is outside
     /// the §2.12.7 gate (2 ≥ ⌊log₂ 100⌋ − 5 = 1), so the statistic is checked
-    /// through φ.
+    /// through φ and the same χ² and P code the test runs.
     #[test]
     fn phi_reproduces_section_2_12_8_example() {
         let eps = bits(EPSILON_100);
         let n = eps.len();
         assert!(approximate_entropy(&eps, 2).skipped());
         let ap_en = phi(&eps, 2, n) - phi(&eps, 3, n);
-        let chi_sq = 2.0 * n as f64 * (LN_2 - ap_en);
-        let p = igamc(2.0, chi_sq / 2.0);
+        let (chi_sq, p) = chi_square_and_p(ap_en, n, 2);
         assert!((ap_en - 0.665393).abs() < 1e-6, "ApEn = {ap_en}");
         assert!((chi_sq - 5.550792).abs() < 1e-6, "χ² = {chi_sq}");
         assert!((p - 0.235301).abs() < 1e-6, "p = {p}");

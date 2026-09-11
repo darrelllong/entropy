@@ -285,6 +285,14 @@ mod tests {
         let f_n = 919_924.038020 / k as f64;
         let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
         assert!((p - 0.427733).abs() < 1e-6, "p = {p}");
+        // The shipped 12-digit table entry for L = 7 is more precise than the
+        // printed 6.1962507 and 3.125; an independent Python replica gives
+        // σ = 0.002702824 and P = 0.427772059 for the same printed sum.
+        let (mu7, var7) = EXPECTED_LOG_GAP_STATS[l];
+        let sigma = universal_sigma(l, k, var7);
+        let p = erfc((f_n - mu7).abs() / (sigma * SQRT_2));
+        assert!((sigma - 0.002702824).abs() < 1e-9, "shipped σ = {sigma}");
+        assert!((p - 0.427772059).abs() < 1e-8, "shipped p = {p}");
     }
 
     /// The SP 800-22 §2.9.7 table, as (L, minimum n).
