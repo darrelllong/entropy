@@ -134,4 +134,12 @@ mod tests {
         // Q(19, χ²/2) in closed form: e^(−χ²/2) Σ_{i<19} (χ²/2)^i / i!.
         assert!((p / 7.817315442438951e-187 - 1.0).abs() < 1e-6, "p = {p}");
     }
+
+    /// SDATA is printed to eight decimals, so its 43 entries sum to 1 only
+    /// within 43 × 5 × 10⁻⁹.
+    #[test]
+    fn sdata_sums_to_one() {
+        let sum: f64 = SDATA.iter().sum();
+        assert!((sum - 1.0).abs() <= 43.0 * 5e-9, "sum = {sum}");
+    }
 }

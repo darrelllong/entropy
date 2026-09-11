@@ -55,6 +55,16 @@ pub fn binary_rank_31x31(words: &[u32]) -> TestResult {
 
 // ── 6×8 ───────────────────────────────────────────────────────────────────────
 
+// Theoretical probabilities for a 6×8 binary matrix over GF(2).
+// P(rank=6) = (255×254×252×248×240×224) / 2^48 = 217613271859200 / 281474976710656 ≈ 0.7731
+// P(rank=5) = 63 × (255×254×252×248×240) / 2^48 = 61203732710400 / 281474976710656 ≈ 0.2174
+// P(rank≤4) = 1 − P(rank=6) − P(rank=5) ≈ 0.0094
+
+/// P(rank = 6) for a random 6×8 GF(2) matrix (a dyadic fraction, exact in f64).
+const P6X8_FULL: f64 = 217_613_271_859_200.0 / 281_474_976_710_656.0;
+/// P(rank = 5) for a random 6×8 GF(2) matrix (a dyadic fraction, exact in f64).
+const P6X8_FIVE: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0;
+
 /// 6×8 binary matrix rank test (one byte per row, 6 rows; 100 000 matrices).
 ///
 /// Each row is the low byte (bits 0–7, `w & 0xFF`) of one of six successive
@@ -78,12 +88,8 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
         return TestResult::insufficient("diehard::binary_rank_6x8", "not enough words");
     }
 
-    // Theoretical probabilities for a 6×8 binary matrix over GF(2).
-    // P(rank=6) = (255×254×252×248×240×224) / 2^48 = 217613271859200 / 281474976710656 ≈ 0.7731
-    // P(rank=5) = 63 × (255×254×252×248×240) / 2^48 = 61203732710400 / 281474976710656 ≈ 0.2174
-    // P(rank≤4) = 1 − P(rank=6) − P(rank=5) ≈ 0.0094
-    let p_full: f64 = 217_613_271_859_200.0 / 281_474_976_710_656.0; // rank = 6
-    let p_five: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0; // rank = 5
+    let p_full = P6X8_FULL; // rank = 6
+    let p_five = P6X8_FIVE; // rank = 5
     let p_less: f64 = 1.0 - p_full - p_five; // rank ≤ 4
 
     let mut f = [0usize; 3]; // f[0]=rank≤4, f[1]=rank=5, f[2]=rank=6
@@ -249,6 +255,7 @@ fn gf2_rank_probability(rows: usize, cols: usize, rank: usize) -> f64 {
 mod tests {
     use super::{
         binary_rank_31x31, binary_rank_6x8, gf2_rank_probability, leftmost_bits, theoretical_probs,
+        P6X8_FIVE, P6X8_FULL,
     };
     use crate::{
         math::gf2_rank,
@@ -365,5 +372,23 @@ mod tests {
     fn generic_rank_probability_matches_32x32_reference_close() {
         let p = gf2_rank_probability(32, 32, 32);
         assert!((p - 0.2887880952).abs() < 1e-9);
+    }
+
+    /// The 32×32 constants carry ten decimals, so their four entries sum to 1
+    /// only within 4 × 5 × 10⁻¹¹.  The 6×8 masses P(6) and P(5) are exact and,
+    /// with the exact P(rank ≤ 4) = 0.009443013983400306 (Python rationals),
+    /// sum to 1; the generic formula reproduces both and sums to 1 over ranks
+    /// 0..=6.
+    #[test]
+    fn rank_probability_tables_sum_to_one() {
+        let (a, b, c, d) = theoretical_probs(32, 32);
+        let sum = a + b + c + d;
+        assert!((sum - 1.0).abs() <= 4.0 * 5e-11, "32×32 sum = {sum}");
+
+        assert!((P6X8_FULL + P6X8_FIVE + 0.009443013983400306 - 1.0).abs() < 1e-15);
+        assert!((gf2_rank_probability(6, 8, 6) - P6X8_FULL).abs() < 1e-13);
+        assert!((gf2_rank_probability(6, 8, 5) - P6X8_FIVE).abs() < 1e-13);
+        let total: f64 = (0..=6).map(|r| gf2_rank_probability(6, 8, r)).sum();
+        assert!((total - 1.0).abs() < 1e-13, "6×8 total = {total}");
     }
 }

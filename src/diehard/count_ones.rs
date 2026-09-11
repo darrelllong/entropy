@@ -30,6 +30,18 @@ const N_CATEGORIES5: usize = 3125; // 5^5
 const N_CATEGORIES4: usize = 625; // 5^4
 const N_SAMPLES: usize = 256_000;
 
+/// Letter probabilities P(A) … P(E).  A uniform byte's Hamming weight is
+/// Binomial(8, ½), so the weight groups {0, 1, 2}, 3, 4, 5 and {6, 7, 8} have
+/// 37, 56, 70, 56 and 37 chances in 256 (Marsaglia, `tests.txt`; `ps[]` in
+/// Dieharder's `diehard_count_1s_stream.c`).
+const LETTER_PROBS: [f64; ALPHA_SIZE] = [
+    37.0 / 256.0,
+    56.0 / 256.0,
+    70.0 / 256.0,
+    56.0 / 256.0,
+    37.0 / 256.0,
+];
+
 // Reference statistic parameters (Marsaglia, diehard_count_1s_stream.c).
 const QDIFF_MEAN: f64 = 2500.0;
 const QDIFF_STDDEV: f64 = 70.710_678; // √5000
@@ -74,15 +86,7 @@ fn hamming_letter(b: u8) -> usize {
 fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str) -> TestResult {
     let n = N_SAMPLES;
 
-    // Letter marginal probabilities (binomial weights for 8 trials, p=0.5).
-    // P(A)=P(E)=37/256, P(B)=P(D)=56/256, P(C)=70/256.
-    let lp = [
-        37.0_f64 / 256.0,
-        56.0 / 256.0,
-        70.0 / 256.0,
-        56.0 / 256.0,
-        37.0 / 256.0,
-    ];
+    let lp = LETTER_PROBS;
     let nf = n as f64;
 
     let mut counts5 = [0u32; N_CATEGORIES5];
@@ -142,4 +146,24 @@ fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str)
             q5 - q4
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{hamming_letter, ALPHA_SIZE, LETTER_PROBS};
+
+    /// Counting the 256 bytes by letter must reproduce the table, and the
+    /// dyadic entries sum to exactly 1.
+    #[test]
+    fn letter_probabilities_match_byte_weights_and_sum_to_one() {
+        let mut per_letter = [0u32; ALPHA_SIZE];
+        for byte in 0..=u8::MAX {
+            per_letter[hamming_letter(byte)] += 1;
+        }
+        assert_eq!(per_letter, [37, 56, 70, 56, 37]);
+        for (p, n) in LETTER_PROBS.iter().zip(per_letter) {
+            assert_eq!(*p, f64::from(n) / 256.0);
+        }
+        assert_eq!(LETTER_PROBS.iter().sum::<f64>(), 1.0);
+    }
 }
