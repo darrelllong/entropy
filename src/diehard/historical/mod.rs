@@ -1,8 +1,9 @@
 //! Historical DIEHARD tests, run only when asked for.
 //!
 //! Nothing here is part of [`crate::diehard::run_all`] or of `run_tests`'
-//! default battery; [`run_all`] runs the tests on request.  Each result name
-//! carries its variant:
+//! default battery: `run_tests --suite diehard-historical` runs [`run_all`],
+//! and no other selection does, including the default of running every
+//! suite.  Each result name carries its variant:
 //!
 //! | Result name | Variant |
 //! |---|---|
