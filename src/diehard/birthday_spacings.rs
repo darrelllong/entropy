@@ -6,12 +6,19 @@
 //! the Poisson(2) distribution gives one p-value.  Nine p-values (bit offsets
 //! 0..=8) are combined with a final KS test.
 //!
-//! Faithful transcription of `diehard_birthdays.c` in Dieharder 3.31.1:
+//! Follows `diehard_birthdays.c` in Dieharder 3.31.1 for the counting:
 //!   - `intervals[0] = rand_uint[0]` (gap from day 0 to first birthday)
 //!   - `intervals[m] = rand_uint[m] − rand_uint[m−1]`  (m = 1..M)
 //!   - j counts interval values appearing more than once
-//!   - chi-square on `js[]` histogram (tail bins with expected < 5 are excluded)
+//!   - the `js[]` histogram has `kmax` = 8 cells, j = 0..=7; trials with
+//!     j ≥ 8 are discarded, as in the C
 //!   - KS on the 9 chi-square p-values
+//!
+//! The chi-square differs from Dieharder's.  This code scores only the cells
+//! whose expectation 500·P(j) is at least 5, which drops j = 7 (expectation
+//! 1.72) and leaves 7 cells with df = 6.  Dieharder's `chisq_poisson`
+//! (`chisq.c`) applies no cutoff: it sums all 8 cells, j = 7 included, with
+//! df = kmax − 1 = 7.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
