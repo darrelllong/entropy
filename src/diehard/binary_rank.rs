@@ -102,47 +102,61 @@ const P6X8_FIVE: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0;
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
 pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
-    let rows = 6usize;
-    let cols = 8usize;
-    let n_matrices = 100_000;
-
-    if words.len() < rows * n_matrices {
+    if words.len() < RANK_6X8_ROWS * RANK_6X8_MATRICES {
         return TestResult::insufficient("diehard::binary_rank_6x8", "not enough words");
     }
 
-    let p_full = P6X8_FULL; // rank = 6
-    let p_five = P6X8_FIVE; // rank = 5
-    let p_less: f64 = 1.0 - p_full - p_five; // rank ≤ 4
-
-    let mut f = [0usize; 3]; // f[0]=rank≤4, f[1]=rank=5, f[2]=rank=6
-    let mut word_iter = words.iter().copied();
-
-    for _ in 0..n_matrices {
-        // Build 6-row matrix: byte 0 of each of 6 consecutive words.
-        let mut matrix = [0u32; 6];
-        for slot in matrix.iter_mut().take(rows) {
-            *slot = word_iter.next().unwrap_or(0) & 0xFF;
-        }
-        let rank = gf2_rank(&matrix, rows, cols);
-        match rank {
-            6 => f[2] += 1,
-            5 => f[1] += 1,
-            _ => f[0] += 1,
-        }
-    }
-
-    let m = n_matrices as f64;
-    let chi_sq = (f[0] as f64 - m * p_less).powi(2) / (m * p_less)
-        + (f[1] as f64 - m * p_five).powi(2) / (m * p_five)
-        + (f[2] as f64 - m * p_full).powi(2) / (m * p_full);
+    // Byte 0 of each of 6 consecutive words forms one row.
+    let f = rank_6x8_counts(words.iter().map(|&w| w & 0xFF));
+    let chi_sq = rank_6x8_chi_square(&f);
 
     let p_value = igamc(1.0, chi_sq / 2.0); // df = 2
 
     TestResult::with_note(
         "diehard::binary_rank_6x8",
         p_value,
-        format!("N={n_matrices}, χ²={chi_sq:.4}"),
+        format!("N={RANK_6X8_MATRICES}, χ²={chi_sq:.4}"),
     )
+}
+
+/// Rows in each 6×8 matrix.
+pub(crate) const RANK_6X8_ROWS: usize = 6;
+/// 6×8 matrices in one rank test.
+pub(crate) const RANK_6X8_MATRICES: usize = 100_000;
+
+/// Rank counts `[rank ≤ 4, rank 5, rank 6]` over [`RANK_6X8_MATRICES`] 6×8
+/// matrices whose rows are the successive values of `rows`, each already
+/// reduced to its eight columns (bits 0–7).  A missing row reads as 0, so
+/// callers check the length first.
+pub(crate) fn rank_6x8_counts(mut rows: impl Iterator<Item = u32>) -> [usize; 3] {
+    let mut f = [0usize; 3]; // f[0]=rank≤4, f[1]=rank=5, f[2]=rank=6
+
+    for _ in 0..RANK_6X8_MATRICES {
+        let mut matrix = [0u32; RANK_6X8_ROWS];
+        for slot in matrix.iter_mut() {
+            *slot = rows.next().unwrap_or(0);
+        }
+        let rank = gf2_rank(&matrix, RANK_6X8_ROWS, 8);
+        match rank {
+            6 => f[2] += 1,
+            5 => f[1] += 1,
+            _ => f[0] += 1,
+        }
+    }
+    f
+}
+
+/// Pearson χ² (df 2) of [`rank_6x8_counts`] against the exact GF(2) cell
+/// probabilities, pooling ranks ≤ 4 as `cdbinrnk` does.
+pub(crate) fn rank_6x8_chi_square(f: &[usize; 3]) -> f64 {
+    let p_full = P6X8_FULL; // rank = 6
+    let p_five = P6X8_FIVE; // rank = 5
+    let p_less: f64 = 1.0 - p_full - p_five; // rank ≤ 4
+
+    let m = RANK_6X8_MATRICES as f64;
+    (f[0] as f64 - m * p_less).powi(2) / (m * p_less)
+        + (f[1] as f64 - m * p_five).powi(2) / (m * p_five)
+        + (f[2] as f64 - m * p_full).powi(2) / (m * p_full)
 }
 
 // ── shared helpers ─────────────────────────────────────────────────────────────

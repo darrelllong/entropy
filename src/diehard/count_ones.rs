@@ -49,6 +49,10 @@ const N_CATEGORIES5: usize = 3125; // 5^5
 const N_CATEGORIES4: usize = 625; // 5^4
 const N_SAMPLES: usize = 256_000;
 
+/// Letters one Q5 − Q4 statistic reads: a four-letter prefix, then one letter
+/// for each of the `N_SAMPLES` overlapping five-letter words it counts.
+pub(crate) const LETTERS_PER_TEST: usize = N_SAMPLES + WORD_LEN - 1;
+
 /// Letter probabilities P(A) … P(E).  A uniform byte's Hamming weight is
 /// Binomial(8, ½), so the weight groups {0, 1, 2}, 3, 4, 5 and {6, 7, 8} have
 /// 37, 56, 70, 56 and 37 chances in 256 (Marsaglia, `tests.txt`; `ps[]` in
@@ -74,7 +78,7 @@ const QDIFF_STDDEV: f64 = 70.710_678; // √5000
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
 pub fn count_ones_stream(words: &[u32]) -> TestResult {
-    let bytes_needed = N_SAMPLES + WORD_LEN - 1;
+    let bytes_needed = LETTERS_PER_TEST;
     let words_needed = bytes_needed.div_ceil(4);
     if words.len() < words_needed {
         return TestResult::insufficient("diehard::count_ones_stream", "not enough words");
@@ -90,7 +94,9 @@ pub fn count_ones_stream(words: &[u32]) -> TestResult {
     count_ones_test(letter_iter, "diehard::count_ones_stream")
 }
 
-fn hamming_letter(b: u8) -> usize {
+/// The letter, 0 (A) to 4 (E), that DIEHARD assigns a byte by its Hamming
+/// weight.
+pub(crate) fn hamming_letter(b: u8) -> usize {
     match b.count_ones() {
         0..=2 => 0, // A
         3 => 1,     // B
@@ -100,11 +106,31 @@ fn hamming_letter(b: u8) -> usize {
     }
 }
 
-/// Core Q5−Q4 statistic, driven by an iterator of letter indices (0..ALPHA_SIZE).
+/// Core Q5−Q4 test, driven by an iterator of letter indices (0..ALPHA_SIZE).
 ///
 /// Accepts any `Iterator<Item = usize>` so the caller can stream bytes→letters
 /// directly without materialising intermediate Vecs.
-fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str) -> TestResult {
+fn count_ones_test(letters: impl Iterator<Item = usize>, name: &'static str) -> TestResult {
+    let (q5, q4) = q5_q4(letters);
+
+    // Reference statistic: Z = (Q5 − Q4 − 2500) / √5000.
+    let z = q_difference_z(q5, q4);
+    let p_value = erfc(z.abs() / SQRT_2);
+
+    TestResult::with_note(
+        name,
+        p_value,
+        format!(
+            "n={N_SAMPLES}, Q5={q5:.2}, Q4={q4:.2}, Q5-Q4={:.2}, Z={z:.4}",
+            q5 - q4
+        ),
+    )
+}
+
+/// Marsaglia's naive Pearson sums (Q5, Q4) over `N_SAMPLES` overlapping
+/// five-letter words and their leading four letters, read from the first
+/// [`LETTERS_PER_TEST`] letters of `letters` (0..ALPHA_SIZE each).
+pub(crate) fn q5_q4(mut letters: impl Iterator<Item = usize>) -> (f64, f64) {
     let n = N_SAMPLES;
 
     let lp = LETTER_PROBS;
@@ -155,18 +181,13 @@ fn count_ones_test(mut letters: impl Iterator<Item = usize>, name: &'static str)
         })
         .sum();
 
-    // Reference statistic: Z = (Q5 − Q4 − 2500) / √5000.
-    let z = (q5 - q4 - QDIFF_MEAN) / QDIFF_STDDEV;
-    let p_value = erfc(z.abs() / SQRT_2);
+    (q5, q4)
+}
 
-    TestResult::with_note(
-        name,
-        p_value,
-        format!(
-            "n={n}, Q5={q5:.2}, Q4={q4:.2}, Q5-Q4={:.2}, Z={z:.4}",
-            q5 - q4
-        ),
-    )
+/// Z = (Q5 − Q4 − 2500) / √5000, Marsaglia's standardisation (`sknt1s` and
+/// `wknt1s`, `fortran/diehard.f` lines 808 and 902).
+pub(crate) fn q_difference_z(q5: f64, q4: f64) -> f64 {
+    (q5 - q4 - QDIFF_MEAN) / QDIFF_STDDEV
 }
 
 #[cfg(test)]
