@@ -49,9 +49,15 @@ use entropy::rng::{
     WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32,
     Xorshift64, Xoshiro256,
 };
-use entropy::seed::{IV16, IV8, K16, K32};
+use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, K16, K32};
 use entropy::{diehard, dieharder, nist, result::TestResult};
 use std::thread;
+
+/// The label `run_tests` prints for the [`ConstantRng`] run.  `--rng` matches
+/// it and TESTS.md and BENCHMARKS.md quote it, so its text stays as it is;
+/// `constant_label_names_constant_rng_word` checks the value it shows against
+/// `CONSTANT_RNG_WORD`.
+const CONSTANT_LABEL: &str = "Constant (0xDEAD_DEAD)";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -398,7 +404,7 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
         "cryptography::CtrDrbgAes256 (seed=00..2f)",
         CryptoCtrDrbg::with_test_seed()
     );
-    run!("Constant (0xDEAD_DEAD)", ConstantRng::new(0xDEAD_DEAD));
+    run!(CONSTANT_LABEL, ConstantRng::new(CONSTANT_RNG_WORD));
     run!("Counter (0,1,2,…)", CounterRng::new(0));
     // Dual_EC_DRBG: included for reference only.
     // WARNING: This generator is known to be backdoored — the NIST Q point
@@ -676,6 +682,18 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The `Constant (…)` label is fixed text; this ties the value it prints
+    /// to the word the generator repeats.
+    #[test]
+    fn constant_label_names_constant_rng_word() {
+        let digits = CONSTANT_LABEL
+            .split_once("0x")
+            .and_then(|(_, rest)| rest.strip_suffix(')'))
+            .expect("label ends with a 0x… value in parentheses");
+        let value = u32::from_str_radix(&digits.replace('_', ""), 16).expect("label value is hex");
+        assert_eq!(value, CONSTANT_RNG_WORD);
+    }
 
     fn parse(argv: &[&str]) -> Result<Command, String> {
         Args::parse_from(argv.iter().map(|a| a.to_string()))

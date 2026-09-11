@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn msb_first_ordering() {
-        // Bits read MSB-first from [0xF000_0000, 0] start 1111 then zeros, so
+        // Bits read MSB-first from `words` below start 1111 then zeros, so
         // the five 20-bit windows ending at bits 20..=24 are 0xF0000, 0xE0000,
         // 0xC0000, 0x80000 and 0: five words seen.  An LSB-first reader would
         // see 24 zero bits and one word.  (Counts replicated in Python.)
