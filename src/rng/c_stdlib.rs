@@ -612,6 +612,26 @@ mod tests {
         assert_ne!(a, b);
     }
 
+    /// `srand48(1)` then `mrand48()`.  The reference is the macOS libc: the
+    /// values come from a scratch C program that calls its `srand48` and
+    /// `mrand48` and prints the signed results.
+    #[test]
+    fn rand48_matches_macos_libc_mrand48_seed_1() {
+        let expected: [i32; 8] = [
+            178_800_969,
+            1_952_030_186,
+            -709_454_646,
+            1_443_049_011,
+            -1_866_208_802,
+            7_588_830,
+            805_690_840,
+            -41_085_314,
+        ];
+        let mut rng = Rand48::new(1);
+        let got = expected.map(|_| rng.next_u32() as i32);
+        assert_eq!(got, expected);
+    }
+
     #[test]
     fn windows_msvc_rand_matches_known_seed_1_prefix() {
         let mut rng = WindowsMsvcRand::new(1);

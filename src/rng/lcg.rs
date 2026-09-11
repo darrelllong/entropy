@@ -217,6 +217,48 @@ mod tests {
             "Lcg32::Borland next_u32 left the high 16 bits zero — packing regression"
         );
     }
+
+    /// AnsiC with seed 1: `x = 1103515245·x + 12345 mod 2³¹`, returned whole
+    /// by both `next_raw` and `next_u32`.  Values from an independent replica
+    /// of the recurrence.
+    #[test]
+    fn ansi_c_seed_1_kat() {
+        let expected: [u32; 8] = [
+            1_103_527_590,
+            377_401_575,
+            662_824_084,
+            1_147_902_781,
+            2_035_015_474,
+            368_800_899,
+            1_508_029_952,
+            486_256_185,
+        ];
+        let mut raw = Lcg32::new(LcgVariant::AnsiC, 1);
+        assert_eq!(expected.map(|_| raw.next_raw()), expected);
+        let mut words = Lcg32::ansi_c();
+        assert_eq!(expected.map(|_| words.next_u32()), expected);
+    }
+
+    /// Borland with seed 1: `x = 22695477·x + 1 mod 2³²` with raw output bits
+    /// 30..16, and `next_u32` packing successive 15-bit raws least-significant
+    /// first.  Values from an independent replica of the recurrence and of
+    /// the packing rule.
+    #[test]
+    fn borland_seed_1_kat() {
+        let raws: [u32; 8] = [346, 130, 10_982, 1_090, 11_656, 7_117, 17_595, 6_415];
+        let words: [u32; 6] = [
+            0x8041_015a,
+            0x8088_4ab9,
+            0xecde_6ad8,
+            0xa432_1f12,
+            0xcb3c_cb59,
+            0xdf37_1bc8,
+        ];
+        let mut raw = Lcg32::new(LcgVariant::Borland, 1);
+        assert_eq!(raws.map(|_| raw.next_raw()), raws);
+        let mut packed = Lcg32::new(LcgVariant::Borland, 1);
+        assert_eq!(words.map(|_| packed.next_u32()), words);
+    }
 }
 
 #[cfg(test)]

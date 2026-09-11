@@ -75,3 +75,51 @@ impl Rng for Xorshift64 {
         x
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Seed 1 through Marsaglia's 32-bit xorshift with the (13, 17, 5) triple
+    /// used here.  Values from an independent replica of the generator; the
+    /// first four also match the fixed-seed `dump_rng xorshift32` output.
+    #[test]
+    fn xorshift32_seed_1_kat() {
+        let expected: [u32; 8] = [
+            0x0004_2021,
+            0x0408_0601,
+            0x9dcc_a8c5,
+            0x1255_994f,
+            0x8ef9_17d1,
+            0x2c6f_5bd0,
+            0x25b2_331a,
+            0x19f9_1cb2,
+        ];
+        let mut rng = Xorshift32::new(1);
+        assert_eq!(expected.map(|_| rng.next_u32()), expected);
+    }
+
+    /// Seed 1 through Marsaglia's 64-bit xorshift with the (13, 7, 17) triple
+    /// used here: `next_u64` returns the state and `next_u32` its high half.
+    /// Values from an independent replica of the generator.
+    #[test]
+    fn xorshift64_seed_1_kat() {
+        let expected: [u64; 8] = [
+            0x0000_0000_4082_2041,
+            0x1000_4106_0c01_1441,
+            0x9b1e_842f_6e86_2629,
+            0xf554_f503_555d_8025,
+            0x860c_1fb0_9059_9265,
+            0xf6b0_5302_e553_1801,
+            0xa246_0108_ebbd_9e71,
+            0xc62c_9fc1_14d9_590d,
+        ];
+        let mut wide = Xorshift64::new(1);
+        assert_eq!(expected.map(|_| wide.next_u64()), expected);
+        let mut narrow = Xorshift64::new(1);
+        assert_eq!(
+            expected.map(|_| narrow.next_u32()),
+            expected.map(|w| (w >> 32) as u32)
+        );
+    }
+}
