@@ -5,18 +5,20 @@
 //! Two p-values are returned (for ∇ψ² and ∇²ψ², in that order, matching
 //! the publication's P-value1/P-value2); the test passes if both are ≥ α.
 //!
-//! Recommended defaults: m = 3, n ≥ 1 000 000; the publication requires
-//! m < ⌊log₂ n⌋ − 2 (SP 800-22 §2.11.7).
+//! Recommended defaults: m = 3, n ≥ 1 000 000.  The publication asks for
+//! m < log₂ n − 2 (SP 800-22 §2.11.7); this module enforces the slightly
+//! stricter m < ⌊log₂ n⌋ − 2.
 
 use crate::{math::igamc, result::TestResult};
 
-/// Run the serial test; returns two p-values as a pair.
+/// Run the serial test and return one result: whichever of the two
+/// [`serial_both`] entries has the smaller p-value, unchanged.
 ///
-/// The two p-values correspond to ∇ψ²_m and ∇²ψ²_m respectively.
-/// The test is considered to pass if both p-values ≥ α.
-///
-/// The result's `p_value` field is `min(p1, p2)` so that the standard
-/// pass/fail logic applies to the worst of the two.
+/// The entry keeps its own name and note: `nist::serial_delta1` for ∇ψ²_m or
+/// `nist::serial_delta2` for ∇²ψ²_m, with a tie going to ∇ψ²_m.  The
+/// publication's test passes only if both p-values are ≥ α, which is the
+/// verdict this entry's pass/fail check gives.  When the preconditions fail,
+/// both entries are skipped and the `nist::serial_delta2` one is returned.
 ///
 /// # Reference
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.11.
@@ -39,13 +41,17 @@ pub fn serial(bits: &[u8], m: usize) -> TestResult {
 /// Taking min(p1, p2) — as done by `serial` — inflates false-failure rates.
 pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
     let n = bits.len();
+    // The n ≥ 1000 floor is a project choice, not an SP 800-22 rule (§2.11.7
+    // bounds only m); the battery runs at millions of bits, so it never
+    // applies there.  m ≥ 2 keeps the unsigned m − 2 below valid.
     if n < 1_000 || m < 2 {
         return vec![
             TestResult::insufficient("nist::serial_delta1", "n < 1000 or m < 2"),
             TestResult::insufficient("nist::serial_delta2", "n < 1000 or m < 2"),
         ];
     }
-    // §2.11.7: m < ⌊log₂ n⌋ − 2, else the χ² approximation is invalid.
+    // §2.11.7 asks for m < log₂ n − 2; ⌊log₂ n⌋ − 2 is one stricter when n is
+    // not a power of two.
     if m >= (n.ilog2() as usize).saturating_sub(2) {
         let why = format!("m={m} violates m < ⌊log₂ n⌋ − 2 (n={n})");
         return vec![
@@ -104,6 +110,7 @@ fn psi_sq(bits: &[u8], l: usize, n: usize) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rng::{Mt19937, Rng};
 
     /// SP 800-22 §2.11.6 worked example: ε = 0011011101, m = 3.
     const EXAMPLE: [u8; 10] = [0, 0, 1, 1, 0, 1, 1, 1, 0, 1];
@@ -140,5 +147,27 @@ mod tests {
         for r in serial_both(&bits, 11) {
             assert!(r.skipped(), "{r}");
         }
+    }
+
+    /// `serial` hands back one `serial_both` entry, name and note included:
+    /// the one with the smaller p-value, or the ∇²ψ² entry when both skip.
+    #[test]
+    fn serial_returns_one_serial_both_entry_unchanged() {
+        let bits = Mt19937::new(5489).collect_bits(4096);
+        let both = serial_both(&bits, 3);
+        assert!(!both[0].skipped() && !both[1].skipped());
+        let smaller = if both[0].p_value <= both[1].p_value {
+            &both[0]
+        } else {
+            &both[1]
+        };
+        let one = serial(&bits, 3);
+        assert_eq!(one.name, smaller.name);
+        assert_eq!(one.p_value.to_bits(), smaller.p_value.to_bits());
+        assert_eq!(one.note, smaller.note);
+
+        let skipped = serial(&bits[..999], 3);
+        assert_eq!(skipped.name, "nist::serial_delta2");
+        assert!(skipped.skipped(), "{skipped}");
     }
 }
