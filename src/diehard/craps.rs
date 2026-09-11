@@ -26,6 +26,19 @@ use std::f64::consts::SQRT_2;
 const N_GAMES: usize = 200_000;
 const P_WIN: f64 = 244.0 / 495.0;
 
+/// Throw cap per game.  Once a point is set, each throw resolves it with
+/// probability at least 9/36 (point 4 or 10); the cap allows 999 point-phase
+/// throws after the come-out roll, so an honest generator reaches it with
+/// probability below (27/36)^999 ≈ 1.5 × 10⁻¹²⁵ per game.  A degenerate
+/// generator that sets a point and then never rolls it or 7 (e.g. constant
+/// sum 5 after an opening 4) would otherwise spin forever — the original
+/// DIEHARD and Dieharder share that hang.  A capped game is recorded as a
+/// loss in the ≥22-throw cell.  The cap exists to guarantee termination:
+/// each capped game moves the win and throw statistics by one count, so a
+/// stream that hits it rarely is judged by its other games, while one that
+/// hits it in every game is rejected by those counts alone.
+const MAX_THROWS: usize = 1000;
+
 // Theoretical probabilities for number of throws in a craps game.
 // P(throws = k) for k = 1..=21, P(throws ≥ 22) pooled into index 21.
 // Derived from standard craps probability theory.
@@ -135,16 +148,19 @@ fn play_craps(rng: &mut impl Rng) -> (bool, usize) {
     match first {
         7 | 11 => (true, throws),
         2 | 3 | 12 => (false, throws),
-        point => loop {
-            let r = roll_dice(rng);
-            throws += 1;
-            if r == point {
-                return (true, throws);
+        point => {
+            while throws < MAX_THROWS {
+                let r = roll_dice(rng);
+                throws += 1;
+                if r == point {
+                    return (true, throws);
+                }
+                if r == 7 {
+                    return (false, throws);
+                }
             }
-            if r == 7 {
-                return (false, throws);
-            }
-        },
+            (false, throws)
+        }
     }
 }
 
@@ -238,6 +254,49 @@ mod tests {
             assert!(!r.skipped(), "{r}");
             assert!(r.p_value < 1e-10, "{r}");
         }
+    }
+
+    /// Opens every game with dice (1,3) = point 4, then rolls (1,4) = 5
+    /// forever: the point is never made and 7 never appears.
+    struct StuckPoint {
+        throws: usize,
+    }
+
+    impl Rng for StuckPoint {
+        fn next_u32(&mut self) -> u32 {
+            // Two draws per throw; values are below the rejection zone, so
+            // `uniform_bounded` returns them modulo 6 directly.
+            let die = self.throws % 2;
+            let value = if self.throws < 2 {
+                [0u32, 2][die] // first throw: 1 + 3 = 4
+            } else {
+                [0u32, 3][die] // every later throw: 1 + 4 = 5
+            };
+            self.throws += 1;
+            value
+        }
+    }
+
+    /// Regression: `play_craps` looped forever on a stream that sets a point
+    /// and never resolves it.  The game must be cut off at `MAX_THROWS` and
+    /// scored as a loss.
+    #[test]
+    fn play_craps_is_capped_on_unresolvable_point() {
+        let mut rng = StuckPoint { throws: 0 };
+        let (won, throws) = play_craps(&mut rng);
+        assert!(!won);
+        assert_eq!(throws, MAX_THROWS);
+    }
+
+    #[test]
+    fn craps_terminates_and_fails_on_stuck_point_generator() {
+        // Game 1 hits the cap; every later game opens with 5, sets point 5,
+        // and makes it on the next throw (a two-throw win).  The whole run
+        // must terminate, and both statistics must reject the stream.
+        let mut rng = StuckPoint { throws: 0 };
+        let results = craps_both(&mut rng);
+        assert!(results.iter().all(|r| !r.skipped()));
+        assert!(results.iter().all(|r| r.p_value < 1e-10), "{results:?}");
     }
 
     #[test]
