@@ -175,7 +175,7 @@ Status here means "how comfortable this repository should be claiming fidelity,"
 | Area | Status |
 |------|--------|
 | NIST SP 800-22: frequency, block_frequency, runs, longest_run, matrix_rank, spectral, serial, approximate_entropy, cumulative_sums, universal, linear_complexity | Faithful or close faithful implementations |
-| Maurer (1992): parametric universal family `L=5..16` | Added alongside the NIST single setting (which selects `L` from the sample size over `L=6..16`); emits every parameter set that fits the available sample |
+| Maurer (1992): parametric universal family `L=5..16` | Added alongside the NIST single setting (which selects `L` from the sample size over `L=6..16`); emits a result for every `L` but runs a setting only when the sample holds the `K ≥ 1000·2^L` test blocks behind SP 800-22's §2.9.7 table, so at the battery's 16 Mbit `L=5..10` run and `L=11..16` skip |
 | NIST SP 800-22: non_overlapping_template | Faithful for all 148 aperiodic 9-bit templates with the standard `N = 8` block setup |
 | NIST SP 800-22: random_excursions, random_excursions_variant | Faithful family outputs; runner emits all per-state results |
 | DIEHARD: runs_float, binary_rank, birthday_spacings, bitstream, monkey tests, count_ones_stream, craps | Faithful or close to the Dieharder reference implementation; documented deviations where the crate samples differently (the monkey tests draw disjoint letter fields and use exact iid missing-word moments) |
