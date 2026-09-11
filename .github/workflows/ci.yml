@@ -44,10 +44,12 @@ jobs:
           repository: darrelllong/rump
           path: rump
       - name: Install Rust ${{ matrix.rust }}
-        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy && rustup default ${{ matrix.rust }}
+        run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt && rustup default ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: entropy
+      - name: Format (cargo fmt --check)
+        run: cargo fmt --check
       - name: Build (all targets)
         run: cargo build --all-targets
       - name: Clippy (deny warnings)
