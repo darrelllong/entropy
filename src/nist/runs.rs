@@ -43,3 +43,17 @@ pub fn runs(bits: &[u8]) -> TestResult {
         format!("n={n}, V_n={v_n}, π={pi:.4}"),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::runs;
+    use crate::nist::test_vectors::{bits, EPSILON_100};
+
+    /// SP 800-22 §2.3.8: n = 100, π = 0.42, V_n(obs) = 52, P-value = 0.500798.
+    #[test]
+    fn matches_section_2_3_8_example() {
+        let r = runs(&bits(EPSILON_100));
+        assert!((r.p_value - 0.500798).abs() < 1e-6, "{r}");
+        assert!(r.note.as_deref().unwrap().contains("V_n=52"), "{r}");
+    }
+}

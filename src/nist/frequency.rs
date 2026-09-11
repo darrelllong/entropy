@@ -33,3 +33,17 @@ pub fn frequency(bits: &[u8]) -> TestResult {
         format!("n={n}, S_n={s_n}, s_obs={s_obs:.4}"),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::frequency;
+    use crate::nist::test_vectors::{bits, EPSILON_100};
+
+    /// SP 800-22 §2.1.8: n = 100, S₁₀₀ = −16, s_obs = 1.6, P-value = 0.109599.
+    #[test]
+    fn matches_section_2_1_8_example() {
+        let r = frequency(&bits(EPSILON_100));
+        assert!((r.p_value - 0.109599).abs() < 1e-6, "{r}");
+        assert!(r.note.as_deref().unwrap().contains("S_n=-16"), "{r}");
+    }
+}

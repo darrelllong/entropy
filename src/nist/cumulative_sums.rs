@@ -84,3 +84,23 @@ fn cusum_pvalue(z: f64, n: usize) -> f64 {
 
     1.0 - sum1 + sum2
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{cumulative_sums_backward, cumulative_sums_forward};
+    use crate::nist::test_vectors::{bits, EPSILON_100};
+
+    /// SP 800-22 §2.13.8: n = 100, forward P-value = 0.219194 and reverse
+    /// P-value = 0.114866.  The maxima are z = 16 and z = 19; the publication
+    /// prints them as z/√n = 1.6 and 1.9.
+    #[test]
+    fn matches_section_2_13_8_example() {
+        let eps = bits(EPSILON_100);
+        let fwd = cumulative_sums_forward(&eps);
+        let rev = cumulative_sums_backward(&eps);
+        assert!((fwd.p_value - 0.219194).abs() < 1e-6, "{fwd}");
+        assert!((rev.p_value - 0.114866).abs() < 1e-6, "{rev}");
+        assert!(fwd.note.as_deref().unwrap().contains("z=16"), "{fwd}");
+        assert!(rev.note.as_deref().unwrap().contains("z=19"), "{rev}");
+    }
+}

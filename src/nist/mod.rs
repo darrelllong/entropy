@@ -22,6 +22,9 @@ pub mod serial; // §2.11
 pub mod spectral; // §2.6
 pub mod universal; // §2.9
 
+#[cfg(test)]
+mod test_vectors;
+
 use crate::{result::TestResult, rng::Rng};
 
 /// Run all 15 NIST SP 800-22 tests and return the results.
