@@ -59,7 +59,9 @@
 //! HammingCorr, [`hamming_corr`] reports the two-sided
 //! `erfc(|z|/√2) = 2·min(Φ(z), 1 − Φ(z))` instead of TestU01's `1 − Φ(z)`,
 //! so that a small value flags either an excess or a deficit of
-//! correlation, as this crate's convention requires.
+//! correlation, both of which TestU01's `gofw_Suspectp` rule flags.  That
+//! p-value is capped at 1: [`crate::math::erfc`] is accurate only to about
+//! 10⁻⁷ and returns slightly more than 1 near 0.
 
 use super::strip_b;
 use crate::{
@@ -248,7 +250,8 @@ pub fn hamming_corr(
     }
     let rho_hat = 4.0 * sum / ((n - 1) as f64 * l as f64);
     let z_score = rho_hat * ((n - 1) as f64).sqrt();
-    let p_value = erfc(z_score.abs() / SQRT_2);
+    // `math::erfc` exceeds 1 by up to about 10⁻⁷ near 0.
+    let p_value = erfc(z_score.abs() / SQRT_2).min(1.0);
     HammingCorrSummary {
         n,
         r,
@@ -564,7 +567,9 @@ mod tests {
     // `unif01_CreateExternGenBits`, `N = 1`, and the generator calls counted.
 
     /// `sstring_HammingCorr` across every packing path.  TestU01 reports
-    /// `1 − Φ(z)`; this crate reports `2·min(Φ(z), 1 − Φ(z))`.
+    /// `1 − Φ(z)`; this crate reports `2·min(Φ(z), 1 − Φ(z))`.  The statistic
+    /// is pinned to 10⁻¹², but the p-value only to 10⁻⁶, a tolerance that
+    /// absorbs `math::erfc`'s error of about 10⁻⁷.
     #[test]
     fn hamming_corr_matches_testu01() {
         // (n, r, s, L, statistic z, TestU01 p-value, generator calls)
@@ -752,6 +757,17 @@ mod tests {
         let probs = binomial_probs(12);
         let sum: f64 = probs.iter().sum();
         assert!((sum - 1.0).abs() < 1e-12);
+    }
+
+    /// Regression: a zero correlation gave p = erfc(0) = 1.0000002.
+    #[test]
+    fn hamming_corr_p_value_is_at_most_one() {
+        // r = 0, s = 4, L = 4: the first block weighs 2 = L/2, so the one
+        // product in the correlation sum is 0 and z = 0.
+        let mut rng = fields_as_words(&[0b1100, 0b0111], 4);
+        let summary = hamming_corr(&mut rng, 2, 0, 4, 4);
+        assert_eq!(0.0, summary.z_score);
+        assert_eq!(1.0, summary.p_value);
     }
 
     #[test]

@@ -244,7 +244,8 @@ pub fn lempel_ziv_summary(
     let z_sum: f64 = reps.iter().map(|rep| rep.z_score).sum();
     let z_mean = z_sum / replications as f64;
     let z_sum_stat = z_sum / (replications as f64).sqrt();
-    let z_sum_p_value = erfc(z_sum_stat.abs() / SQRT_2);
+    // `math::erfc` exceeds 1 by up to about 10⁻⁷ near 0.
+    let z_sum_p_value = erfc(z_sum_stat.abs() / SQRT_2).min(1.0);
     let mut uniforms: Vec<f64> = reps.iter().map(|rep| normal_cdf(rep.z_score)).collect();
     let z_ks_p_value = ks_test(&mut uniforms);
 
