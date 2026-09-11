@@ -1,5 +1,15 @@
 //! TestU01 `scomp_LempelZiv` compressibility test run across the seeded RNG
 //! family, with configurable `k`, bit-extraction window, and replications.
+//!
+//! # References
+//! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
+//!   of Random Number Generators," *ACM Transactions on Mathematical
+//!   Software* 33(4), Article 22, 2007, §5.1,
+//!   p. 17 (`lecuyer2007testu01` in BIB.md).
+//!   [pubs/lecuyer-simard-2007-testu01.pdf]
+//! * J. Ziv and A. Lempel, "Compression of individual sequences via
+//!   variable-rate coding," *IEEE Transactions on Information Theory* 24(5),
+//!   pp. 530–536, 1978.  [Cited from the 2007 paper's reference list.]
 
 // Each case stores its label once; the runner closure receives it back at
 // call time, so the tuple label is the single source of truth.

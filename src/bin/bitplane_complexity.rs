@@ -1,6 +1,18 @@
 //! Berlekamp–Massey linear-complexity profile of each of the 64 bit planes of
 //! a generator's output stream — a research probe for detecting linearly
 //! recurrent bit planes (e.g. LFSR-based or low-mixing generators).
+//!
+//! # References
+//! * J. L. Massey, "Shift-Register Synthesis and BCH Decoding," *IEEE
+//!   Transactions on Information Theory* 15(1), pp. 122–127, 1969
+//!   (`massey1969lfsr` in BIB.md).
+//! * E. R. Berlekamp, *Algebraic Coding Theory*, Aegean Park Press, 1984,
+//!   cited with Massey (1969) for the algorithm by L'Ecuyer and Simard,
+//!   "TestU01," *ACM Transactions on Mathematical Software* 33(4), 2007,
+//!   p. 17.  [pubs/lecuyer-simard-2007-testu01.pdf]
+//!
+//! The complexities come from `entropy::nist::linear_complexity::berlekamp_massey`
+//! (NIST SP 800-22 Rev. 1a, §2.10).
 
 type Case<'a> = (&'a str, Box<dyn Fn() -> [usize; 64] + 'a>);
 

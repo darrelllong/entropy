@@ -1,8 +1,20 @@
 //! TestU01 bit-string Hamming tests from `sstring.c` / `sstring.tex`.
 //!
-//! References:
-//! - TestU01 1.2.3, `testu01/sstring.c`
-//! - TestU01 user's guide, `testu01/sstring.tex`
+//! # References
+//! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
+//!   of Random Number Generators," *ACM Transactions on Mathematical
+//!   Software* 33(4), Article 22, 2007, §5.2.1,
+//!   "Hamming weights", pp. 19–20 (`lecuyer2007testu01` in BIB.md).
+//!   [pubs/lecuyer-simard-2007-testu01.pdf]
+//! * P. L'Ecuyer and R. Simard, "Beware of linear congruential generators
+//!   with multipliers of the form a = ±2^q ± 2^r," *ACM Transactions on
+//!   Mathematical Software* 25(3), pp. 367–374, 1999.  [The Hamming
+//!   independence test; cited from the 2007 paper's reference list.]
+//! * TestU01 1.2.3, `testu01/sstring.c`, and the user's guide
+//!   `testu01/sstring.tex` (not in `pubs/`).
+//!
+//! # Author
+//! Pierre L'Ecuyer and Richard Simard (TestU01); Darrell Long (Rust port).
 //!
 //! This module implements the core single-replication statistics for:
 //! - `sstring_HammingCorr`

@@ -1,6 +1,16 @@
 //! Upstream-suite research probes: PractRand FPF (platter + cross) and
 //! TestU01 `sstring_HammingCorr` / `sstring_HammingIndep`, run across the
 //! seeded RNG family.
+//!
+//! # References
+//! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
+//!   of Random Number Generators," *ACM Transactions on Mathematical
+//!   Software* 33(4), Article 22, 2007, §5.2.1,
+//!   pp. 19–20 (`lecuyer2007testu01` in BIB.md).
+//!   [pubs/lecuyer-simard-2007-testu01.pdf]
+//! * C. Doty-Humphrey, "PractRand: Practically Random — A C++ Library of
+//!   Statistical Tests for RNGs," 2018 (`practrand` in BIB.md; not in
+//!   `pubs/`).
 
 type Case<'a> = (&'a str, Box<dyn Fn() + 'a>);
 

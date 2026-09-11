@@ -1,8 +1,14 @@
 //! PractRand FPF core test from `src/tests.cpp`.
 //!
-//! Reference:
-//! - PractRand pre-0.95, `include/PractRand/Tests/FPF.h`
-//! - PractRand pre-0.95, `src/tests.cpp` (`PractRand::Tests::FPF`)
+//! # References
+//! * C. Doty-Humphrey, "PractRand: Practically Random — A C++ Library of
+//!   Statistical Tests for RNGs," 2018 (`practrand` in BIB.md; not in
+//!   `pubs/`).  This port follows the pre-0.95 source:
+//!   `include/PractRand/Tests/FPF.h` and `src/tests.cpp`
+//!   (`PractRand::Tests::FPF`).
+//!
+//! # Author
+//! Chris Doty-Humphrey (PractRand and its FPF test); Darrell Long (Rust port).
 //!
 //! This ports the core bucketing/test logic:
 //! - parse the LSB-first bitstream into FPF codewords: a run of zeros

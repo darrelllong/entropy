@@ -8,6 +8,20 @@
 //! normalized observations. This module exposes the exact per-replication
 //! normalized scores and a lightweight summary, but does not claim to
 //! reproduce TestU01's entire reporting layer.
+//!
+//! # References
+//! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
+//!   of Random Number Generators," *ACM Transactions on Mathematical
+//!   Software* 33(4), Article 22, 2007, §5.1,
+//!   "Lempel-Ziv complexity", p. 17 (`lecuyer2007testu01` in BIB.md).
+//!   [pubs/lecuyer-simard-2007-testu01.pdf]
+//! * J. Ziv and A. Lempel, "Compression of individual sequences via
+//!   variable-rate coding," *IEEE Transactions on Information Theory* 24(5),
+//!   pp. 530–536, 1978.  [LZ78; cited from the 2007 paper's reference list.]
+//! * TestU01 1.2.3, `testu01/scomp.c` (`scomp_LempelZiv`; not in `pubs/`).
+//!
+//! # Author
+//! Pierre L'Ecuyer and Richard Simard (TestU01); Darrell Long (Rust port).
 
 use super::strip_b;
 use crate::{
