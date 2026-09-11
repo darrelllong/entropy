@@ -14,44 +14,53 @@
 //!
 //! For large input spaces the authors recommend random sampling rather than
 //! exhaustive enumeration. This implementation follows that rule.
+//!
+//! # Degenerate pairs
+//! The paper measures the dependence of two avalanche variables A and B by
+//! their correlation coefficient ρ(A, B) = cov(A, B) / (σ(A) σ(B)) (p. 527).
+//! When either variable never or always flips over the sample its variance
+//! is 0 and ρ is 0/0.  For a GF(2)-linear map such as Xorshift every pair is
+//! degenerate, because the avalanche vector f(x) ⊕ f(x ⊕ eⱼ) = f(eⱼ) does
+//! not depend on x.  Scoring those pairs as ρ = 0, the ideal value, would
+//! report perfect independence for exactly the most structured maps, so they
+//! are counted in [`AvalancheReport::bic_degenerate_pairs`] and left out of
+//! the BIC maximum and mean, which are NaN when no pair has a defined
+//! correlation.
 
 use crate::seed::splitmix64;
 use core::fmt;
 
+/// Joint flip counts for one pair of avalanche variables.
 #[derive(Debug, Clone, Copy, Default)]
 struct CorrAccum {
     n: usize,
-    sum_x: f64,
-    sum_y: f64,
-    sum_xy: f64,
+    ones_x: usize,
+    ones_y: usize,
+    ones_xy: usize,
 }
 
 impl CorrAccum {
     fn observe(&mut self, x: bool, y: bool) {
-        let xf = if x { 1.0 } else { 0.0 };
-        let yf = if y { 1.0 } else { 0.0 };
         self.n += 1;
-        self.sum_x += xf;
-        self.sum_y += yf;
-        self.sum_xy += xf * yf;
+        self.ones_x += usize::from(x);
+        self.ones_y += usize::from(y);
+        self.ones_xy += usize::from(x && y);
     }
 
-    fn correlation(self) -> f64 {
-        if self.n == 0 {
-            return 0.0;
+    /// Pearson correlation of the two indicators, or `None` when either one
+    /// is constant over the sample (zero variance makes ρ = 0/0).
+    fn correlation(self) -> Option<f64> {
+        let constant = |ones: usize| ones == 0 || ones == self.n;
+        if constant(self.ones_x) || constant(self.ones_y) {
+            return None;
         }
         let n = self.n as f64;
-        let ex = self.sum_x / n;
-        let ey = self.sum_y / n;
-        let cov = (self.sum_xy / n) - ex * ey;
+        let ex = self.ones_x as f64 / n;
+        let ey = self.ones_y as f64 / n;
+        let cov = (self.ones_xy as f64 / n) - ex * ey;
         let var_x = ex * (1.0 - ex);
         let var_y = ey * (1.0 - ey);
-        let denom = (var_x * var_y).sqrt();
-        if denom <= f64::EPSILON {
-            0.0
-        } else {
-            cov / denom
-        }
+        Some(cov / (var_x * var_y).sqrt())
     }
 }
 
@@ -74,18 +83,27 @@ pub struct AvalancheReport {
     pub mean_sac_bias: f64,
     /// Root-mean-square SAC bias over the dependence matrix.
     pub rms_sac_bias: f64,
-    /// Maximum absolute avalanche-variable correlation over all input-bit and
-    /// output-bit-pair combinations.
+    /// Maximum absolute avalanche-variable correlation over the input-bit and
+    /// output-bit-pair combinations whose correlation is defined; NaN when
+    /// none is (see [`bic_degenerate_pairs`](Self::bic_degenerate_pairs)).
     pub max_bic_abs_corr: f64,
-    /// Mean absolute avalanche-variable correlation.
+    /// Mean absolute avalanche-variable correlation over the same defined
+    /// combinations; NaN when none is.
     pub mean_bic_abs_corr: f64,
+    /// Number of input-bit and output-bit-pair combinations examined,
+    /// `input_bits · output_bits · (output_bits − 1) / 2`.
+    pub bic_pairs: usize,
+    /// Combinations whose correlation is undefined because at least one of
+    /// the two avalanche variables never or always flipped over the sample.
+    /// They are excluded from the BIC maximum and mean (see the module docs).
+    pub bic_degenerate_pairs: usize,
 }
 
 impl fmt::Display for AvalancheReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "samples={}{} input_bits={} output_bits={} sac[max={:.4}, mean={:.4}, rms={:.4}] bic[max|rho|={:.4}, mean|rho|={:.4}]",
+            "samples={}{} input_bits={} output_bits={} sac[max={:.4}, mean={:.4}, rms={:.4}] bic[max|rho|={:.4}, mean|rho|={:.4}, degenerate={}/{}]",
             self.samples,
             if self.exact { " exact" } else { "" },
             self.input_bits,
@@ -95,6 +113,8 @@ impl fmt::Display for AvalancheReport {
             self.rms_sac_bias,
             self.max_bic_abs_corr,
             self.mean_bic_abs_corr,
+            self.bic_degenerate_pairs,
+            self.bic_pairs,
         )
     }
 }
@@ -203,14 +223,21 @@ where
     let mut max_bic_abs_corr = 0.0f64;
     let mut sum_abs_corr = 0.0;
     let mut corr_terms = 0usize;
+    let mut bic_degenerate_pairs = 0usize;
     for accs in &bic {
         for &acc in accs {
-            let rho = acc.correlation().abs();
-            max_bic_abs_corr = max_bic_abs_corr.max(rho);
-            sum_abs_corr += rho;
-            corr_terms += 1;
+            match acc.correlation() {
+                Some(rho) => {
+                    let rho = rho.abs();
+                    max_bic_abs_corr = max_bic_abs_corr.max(rho);
+                    sum_abs_corr += rho;
+                    corr_terms += 1;
+                }
+                None => bic_degenerate_pairs += 1,
+            }
         }
     }
+    let defined = corr_terms > 0;
 
     AvalancheReport {
         input_bits,
@@ -221,18 +248,21 @@ where
         max_sac_bias,
         mean_sac_bias: sum_abs_bias / total_cells,
         rms_sac_bias: (sum_sq_bias / total_cells).sqrt(),
-        max_bic_abs_corr,
-        mean_bic_abs_corr: if corr_terms == 0 {
-            0.0
-        } else {
+        max_bic_abs_corr: if defined { max_bic_abs_corr } else { f64::NAN },
+        mean_bic_abs_corr: if defined {
             sum_abs_corr / corr_terms as f64
+        } else {
+            f64::NAN
         },
+        bic_pairs: corr_terms + bic_degenerate_pairs,
+        bic_degenerate_pairs,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::evaluate_u64;
+    use crate::rng::{Rng, Xorshift32};
 
     #[test]
     fn identity_mapping_is_perfectly_non_avalanche() {
@@ -246,6 +276,28 @@ mod tests {
             }
         }
         assert!((report.max_sac_bias - 0.5).abs() < 1e-12);
+        // Each avalanche vector is the constant e_j: all 4 · C(4,2) pairs are 0/0.
+        assert_eq!(24, report.bic_pairs);
+        assert_eq!(24, report.bic_degenerate_pairs);
+        assert!(report.max_bic_abs_corr.is_nan());
+        assert!(report.mean_bic_abs_corr.is_nan());
+    }
+
+    /// Regression: a zero-variance avalanche variable used to score ρ = 0,
+    /// so GF(2)-linear Xorshift32 printed BICmax = 0.0000, the ideal value.
+    #[test]
+    fn linear_map_reports_degenerate_pairs_not_ideal_bic() {
+        // f(x) ⊕ f(x ⊕ e_j) = f(e_j) for every sampled x: every pair is 0/0.
+        let report = evaluate_u64(32, 32, 256, |seed| {
+            Xorshift32::new((seed as u32).max(1)).next_u64()
+        });
+        assert_eq!(32 * (32 * 31 / 2), report.bic_pairs);
+        assert_eq!(report.bic_pairs, report.bic_degenerate_pairs);
+        assert!(
+            report.max_bic_abs_corr.is_nan(),
+            "BIC must not read as ideal"
+        );
+        assert!(report.mean_bic_abs_corr.is_nan());
     }
 
     #[test]
@@ -261,5 +313,11 @@ mod tests {
             }
         }
         assert!((report.max_bic_abs_corr - 1.0).abs() < 1e-12);
+        // Flipping x0 (or x1) flips output bits 0 and 1 together whenever the
+        // other input is 1, so ρ(0,1) = 1; the other 5 pairs for those inputs
+        // involve a never-flipping bit, and inputs 2 and 3 flip nothing.
+        assert_eq!(24, report.bic_pairs);
+        assert_eq!(5 + 5 + 6 + 6, report.bic_degenerate_pairs);
+        assert!((report.mean_bic_abs_corr - 1.0).abs() < 1e-12);
     }
 }

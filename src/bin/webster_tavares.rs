@@ -1,5 +1,10 @@
 //! Webster–Tavares avalanche metrics (SAC dependence matrix and BIC) for the
 //! seeded generators, treating each as a u64 → output mapping.
+//!
+//! `BICdegen` counts the avalanche-variable pairs whose correlation is
+//! undefined because a variable never or always flips; `BICmean` and `BICmax`
+//! cover only the other pairs and print NaN when there are none (every pair
+//! of a GF(2)-linear generator such as Xorshift).
 
 type Case<'a> = (&'a str, usize, Box<dyn Fn(u64) -> u64 + 'a>);
 
@@ -103,7 +108,9 @@ fn print_usage() {
         "Usage: webster_tavares [--samples N] [--input-bits N] [--output-bits N] [--rng <label>]\n\
          \n\
          Runs Webster–Tavares strict-avalanche / avalanche-correlation sampling\n\
-         on seeded deterministic RNG families.\n\
+         on seeded deterministic RNG families.  BICdegen counts avalanche-variable\n\
+         pairs with an undefined correlation (a variable that never or always\n\
+         flips); BICmean/BICmax exclude them and print NaN if no pair is defined.\n\
          \n\
          Examples:\n\
            cargo run --release --bin webster_tavares\n\
@@ -233,10 +240,10 @@ fn main() {
     ];
 
     println!(
-        "{:<40} {:>8} {:>8} {:>8} {:>8} {:>8}",
-        "RNG", "samples", "SACmean", "SACmax", "BICmean", "BICmax"
+        "{:<40} {:>8} {:>8} {:>8} {:>8} {:>8} {:>8}",
+        "RNG", "samples", "SACmean", "SACmax", "BICmean", "BICmax", "BICdegen"
     );
-    println!("{}", "-".repeat(88));
+    println!("{}", "-".repeat(97));
 
     let mut matched = 0usize;
     for (label, seed_bits, case) in cases {
@@ -253,13 +260,14 @@ fn main() {
         matched += 1;
         let report = evaluate_u64(args.input_bits, args.output_bits, args.samples, case);
         println!(
-            "{:<40} {:>8} {:>8.4} {:>8.4} {:>8.4} {:>8.4}",
+            "{:<40} {:>8} {:>8.4} {:>8.4} {:>8.4} {:>8.4} {:>8}",
             label,
             report.samples,
             report.mean_sac_bias,
             report.max_sac_bias,
             report.mean_bic_abs_corr,
             report.max_bic_abs_corr,
+            report.bic_degenerate_pairs,
         );
     }
 
