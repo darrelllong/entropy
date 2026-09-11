@@ -42,6 +42,24 @@
 //! beyond |z| ≈ 8.3.  With SHR3's bits 2 and 31 at z = +6 and −6, for example,
 //! `tuftests.c` gives A = 2.302 and ADKS 0.937, and this module gives
 //! A = 1.439 and ADKS 0.808.
+//!
+//! Word use also departs from `tuftests.c`.  [`gorilla_all`] reads all 32 bit
+//! positions from the same 2²⁶ + 25 words, whereas `gorilla()` in
+//! `tuftests.c` calls the generator inside its loop over bit positions, so
+//! each position gets 2²⁶ + 25 fresh numbers, 32 · (2²⁶ + 25) ≈ 2.15·10⁹ in
+//! all.  Sharing words divides the generator output a test needs, and the
+//! time to produce it, by 32; the `gorilla` binary holds its words at once,
+//! which would otherwise take 8 GiB.  Under the null hypothesis the choice
+//! changes nothing.  The words are iid uniform, so the bits at different
+//! positions of one word are independent, and the 32 per-position bit
+//! streams are independent whether or not they share words.  The 32
+//! missing-word counts, and so the per-bit p-values the Anderson–Darling
+//! aggregate treats as independent, have the same joint null distribution
+//! as with fresh words.  The aggregate's null distribution is unchanged.
+//! Under an alternative the schemes do differ: dependence between the bits
+//! of one word correlates this module's per-position results, and the
+//! generator is judged on one stretch of output rather than 32.  Results are
+//! therefore not comparable with `tuftests.c`'s run for run.
 
 use crate::math::{anderson_darling_cdf, ks_test, normal_cdf};
 
@@ -149,12 +167,14 @@ pub struct GorillaAggregate {
     /// product floored at 10⁻³⁰ as in `tuftests.c`.
     pub statistic: f64,
     /// Pr(Aₙ < `statistic`), the value the paper prints as ADKS: near 1 when
-    /// the per-bit p-values are far from uniform.
+    /// the per-bit p-values are far from uniform.  NaN for fewer than eight
+    /// per-bit results, which [`crate::math::anderson_darling_cdf`] does not
+    /// cover.
     pub adks: f64,
     /// `1 − adks`, small when the per-bit p-values are far from uniform, in
-    /// this crate's small-p-fails convention.  Above A ≈ 6.61 it
-    /// comes from the limiting distribution alone, 2–5% below the simulated
-    /// n = 32 tail (see [`crate::math::anderson_darling_cdf`]).
+    /// this crate's small-p-fails convention.  For n = 32 it is
+    /// within 3.5% of simulation, and on the high side, for 4 < A ≤ 12 (see
+    /// [`crate::math::anderson_darling_cdf`]).
     pub p_value: f64,
 }
 
@@ -165,7 +185,8 @@ pub struct GorillaAggregate {
 /// A small `p_value` means the per-bit p-values are not uniformly
 /// distributed, which indicates systematic non-randomness spread across bit
 /// positions rather than an isolated bad bit.  Returns NaN in every field if
-/// `results` is empty or holds a NaN p-value.
+/// `results` is empty or holds a NaN p-value; with fewer than eight results
+/// only `statistic` is defined.
 pub fn gorilla_aggregate_ad(results: &[GorillaBitResult]) -> GorillaAggregate {
     let mut u: Vec<f64> = results.iter().map(|r| r.p_value).collect();
     if u.is_empty() || u.iter().any(|p| p.is_nan()) {
@@ -383,6 +404,11 @@ mod tests {
     #[test]
     fn aggregate_without_p_values_is_nan() {
         assert!(gorilla_aggregate_ad(&[]).p_value.is_nan());
+        // Seven results: A is defined, its distribution is not.
+        let few = gorilla_aggregate_ad(&bit_results(&KISS[..7]));
+        assert!(few.statistic.is_finite());
+        assert!(few.adks.is_nan());
+        assert!(few.p_value.is_nan());
         let mut results = bit_results(&KISS);
         results[3].p_value = f64::NAN;
         let aggregate = gorilla_aggregate_ad(&results);

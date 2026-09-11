@@ -19,14 +19,20 @@
 //! worst relative errors of that p-value over z in 0.01 steps, and the rows
 //! pinned in `src/math.rs`.
 //!
-//! The pinned table was generated with the default seed, 20260911:
+//! The table pinned in `src/math.rs`, and the accuracy figures its
+//! `anderson_darling_cdf` docs quote, come from these runs with the default
+//! seed, 20260911 (about four minutes on twelve cores):
 //!
 //! ```text
 //! cargo run --release --example anderson_darling_tail -- --n 8 --samples 4000000000
 //! cargo run --release --example anderson_darling_tail -- --n 16 --samples 1000000000
 //! cargo run --release --example anderson_darling_tail -- --n 32 --samples 1000000000
+//! cargo run --release --example anderson_darling_tail -- --n 64 --samples 200000000
 //! cargo run --release --example anderson_darling_tail -- --n 128 --samples 200000000
 //! ```
+//!
+//! For n below the crate's minimum of 8 the program still prints the
+//! simulated tails; `anderson_darling_cdf` returns NaN there.
 
 #![forbid(unsafe_code)]
 
@@ -197,38 +203,68 @@ fn main() {
         );
     }
 
-    // Worst relative errors of the crate's p-value over z in 0.01 steps.
-    let regions = [
-        ("4 < z <= 6.61", 4.01, LAST_Z_BELOW_SWITCH),
-        ("6.61 < z <= 12", LAST_Z_BELOW_SWITCH + 0.01, 12.0),
-    ];
-    for (name, from, to) in regions {
-        let first = (from * BINS_PER_UNIT).round() as usize;
-        let last = (to * BINS_PER_UNIT).round() as usize;
-        let errors: Vec<(f64, f64)> = (first..=last)
-            .filter_map(|bin| {
-                let (count, t, _) = estimate(bin);
-                let z = bin as f64 / BINS_PER_UNIT;
-                (count >= MIN_COUNT).then(|| (crate_p(z) / t - 1.0, z))
-            })
-            .collect();
-        let low = errors
-            .iter()
-            .copied()
-            .fold((f64::INFINITY, 0.0), |a, b| if b.0 < a.0 { b } else { a });
-        let high =
-            errors.iter().copied().fold(
-                (f64::NEG_INFINITY, 0.0),
-                |a, b| if b.0 > a.0 { b } else { a },
-            );
+    // Worst errors of the crate's p-value over z in 0.01 steps: absolute in
+    // the body of the distribution, relative in the tail.
+    if crate_p(1.0).is_nan() {
         println!(
-            "# {name}: crate p relative error {:+.2}% (z = {:.2}) .. {:+.2}% (z = {:.2}) over {} points with at least {MIN_COUNT} counts",
-            100.0 * low.0,
-            low.1,
-            100.0 * high.0,
-            high.1,
-            errors.len()
+            "# anderson_darling_cdf returns NaN for n = {}; only the simulated tails above are defined",
+            options.n
         );
+    } else {
+        let worst_body = (1..=4 * BINS_PER_UNIT as usize)
+            .map(|bin| {
+                let (_, t, se) = estimate(bin);
+                let z = bin as f64 / BINS_PER_UNIT;
+                (crate_p(z) - t, z, se)
+            })
+            .fold((0.0f64, 0.0f64, 0.0f64), |a, b| {
+                if b.0.abs() > a.0.abs() {
+                    b
+                } else {
+                    a
+                }
+            });
+        println!(
+            "# 0 < z <= 4: crate p absolute error at most {:.2e} (z = {:.2}, {:+.1} standard errors)",
+            worst_body.0.abs(),
+            worst_body.1,
+            worst_body.0 / worst_body.2
+        );
+        let regions = [
+            ("4 < z <= 6.61", 4.01, LAST_Z_BELOW_SWITCH),
+            ("6.61 < z <= 12", LAST_Z_BELOW_SWITCH + 0.01, 12.0),
+        ];
+        for (name, from, to) in regions {
+            let first = (from * BINS_PER_UNIT).round() as usize;
+            let last = (to * BINS_PER_UNIT).round() as usize;
+            let errors: Vec<(f64, f64)> = (first..=last)
+                .filter_map(|bin| {
+                    let (count, t, _) = estimate(bin);
+                    let z = bin as f64 / BINS_PER_UNIT;
+                    (count >= MIN_COUNT).then(|| (crate_p(z) / t - 1.0, z))
+                })
+                .collect();
+            let Some(&first_error) = errors.first() else {
+                println!("# {name}: no point with at least {MIN_COUNT} counts");
+                continue;
+            };
+            let low = errors
+                .iter()
+                .copied()
+                .fold(first_error, |a, b| if b.0 < a.0 { b } else { a });
+            let high = errors
+                .iter()
+                .copied()
+                .fold(first_error, |a, b| if b.0 > a.0 { b } else { a });
+            println!(
+                "# {name}: crate p relative error {:+.2}% (z = {:.2}) .. {:+.2}% (z = {:.2}) over {} points with at least {MIN_COUNT} counts",
+                100.0 * low.0,
+                low.1,
+                100.0 * high.0,
+                high.1,
+                errors.len()
+            );
+        }
     }
 
     println!("# rows for src/math.rs: (n, z, simulated tail, standard error)");
