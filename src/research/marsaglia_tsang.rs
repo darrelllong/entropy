@@ -35,8 +35,13 @@
 //!
 //! `tuftests.c` works in single precision and evaluates Φ with a three-term
 //! rational approximation; this module uses double precision and
-//! [`crate::math::normal_cdf`], so p-values agree to their stated accuracy,
-//! not bit for bit.
+//! [`crate::math::normal_cdf`].  The reproduction above holds for the per-bit
+//! values the paper prints, not for every z.  In single precision Φ(z) rounds
+//! to 1 once z exceeds about 5.4, and the product it enters meets the 10⁻³⁰
+//! floor, whereas this module's double-precision p-values saturate only
+//! beyond |z| ≈ 8.3.  With SHR3's bits 2 and 31 at z = +6 and −6, for example,
+//! `tuftests.c` gives A = 2.302 and ADKS 0.937, and this module gives
+//! A = 1.439 and ADKS 0.808.
 
 use crate::math::{anderson_darling_cdf, ks_test, normal_cdf};
 
@@ -333,6 +338,33 @@ mod tests {
             let got = 1.0 - ks_test(&mut values);
             assert!((got - ks_cdf).abs() < 1e-3, "Pr(D < d) = {got}");
         }
+    }
+
+    /// `tuftests.c` stores Φ(z) in a float, which is 1 above z ≈ 5.4; this
+    /// module's p-values are doubles.  SHR3's printed values with bits 2 and
+    /// 31 at z = +6 and −6: `tuftests.c`'s float path, redone in C, gives
+    /// A = 2.302 and ADKS 0.937 (like the printed 1.0000 and 0.0000), and a
+    /// double-precision replica gives the values pinned here.
+    #[test]
+    fn aggregate_departs_from_single_precision_beyond_z_5_4() {
+        assert!((normal_cdf(5.3) as f32) < 1.0);
+        assert_eq!(1.0, normal_cdf(5.5) as f32);
+        let mut results = bit_results(&SHR3.map(|phi| 1.0 - phi));
+        for (bit, z) in [(2, 6.0), (31, -6.0)] {
+            results[bit].z_score = z;
+            results[bit].p_value = 1.0 - normal_cdf(z);
+        }
+        let aggregate = gorilla_aggregate_ad(&results);
+        assert!(
+            (aggregate.statistic - 1.439_24).abs() < 1e-4,
+            "A = {}",
+            aggregate.statistic
+        );
+        assert!(
+            (aggregate.adks - 0.808_295).abs() < 1e-4,
+            "Pr(A < z) = {}",
+            aggregate.adks
+        );
     }
 
     /// This crate's per-bit p-values are 1 − Φ(z), the paper's Φ(z).  Aₙ is
