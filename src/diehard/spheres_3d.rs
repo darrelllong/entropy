@@ -6,8 +6,15 @@
 //! Thus 1 − exp(−r³/30) ~ U(0,1).  Repeats 20 times; p-values are combined
 //! with a Kolmogorov-Smirnov test.
 //!
+//! DIEHARD's `d3sphere` (`fortran/diehard.f` lines 147–200) combines the 20
+//! values with Marsaglia's Anderson–Darling statistic, which `tests.txt`
+//! calls a KS test (`KSTEST`, lines 1668–1709), and reports a CDF value; this
+//! module applies a Kolmogorov–Smirnov test and reports its upper tail.
+//!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
+//! Source: Marsaglia's `fortran/diehard.f`, subroutine `d3sphere`.
+//! [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{
     diehard::nearest_pair::min_squared_distance, math::ks_test, result::TestResult, rng::Rng,

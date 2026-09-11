@@ -5,6 +5,11 @@
 //! distributed with mean 0.995.  Repeats 100 times; 100 p-values are
 //! tested with a Kolmogorov-Smirnov test.
 //!
+//! DIEHARD's `mindist` (`fortran/diehard.f` lines 342–412) combines the 100
+//! values with Marsaglia's Anderson–Darling statistic, which `tests.txt`
+//! calls a KS test (`KSTEST`, lines 1668–1709), and reports a CDF value; this
+//! module applies a Kolmogorov–Smirnov test and reports its upper tail.
+//!
 //! # ⚠ Known-Buggy Formula
 //!
 //! The original DIEHARD formula `1 − exp(−d²/λ)` is **acknowledged as buggy

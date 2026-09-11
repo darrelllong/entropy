@@ -15,11 +15,18 @@
 //! The null moments differ from both references in all three tests.  Every
 //! sample here comes from disjoint bit fields, so the 2²¹ samples are
 //! independent, and the missing-words count is scored with their exact iid
-//! moments (μ ≈ 141 909.19, σ ≈ 290.33).  Marsaglia's σs of 290, 295 and 339
-//! describe overlapping letter words in a continuous stream; Dieharder applies
+//! moments (μ ≈ 141 909.19, σ ≈ 290.33), which the fidelity review's
+//! simulation confirms for such samples.  Marsaglia's σs of 290, 295 and 339
+//! describe his overlapping words, one letter per 32-bit word; Dieharder applies
 //! them even to its disjoint OPSO and OQSO fields (μ/σ = 141 909.33/290.46 and
 //! 141 909.60/294.66).  Dieharder's `bitstream.c` draws the same distinction:
 //! "If you use non-overlapping samples, sigma is 290, not 428".
+//!
+//! DIEHARD's `cdomso` (`fortran/diehard.f` lines 649–739) also sweeps the
+//! letter's bit field over 23, 28 and 31 positions for OPSO, OQSO and DNA
+//! (line 689) and prints a `phi` value for each; each test here scores one
+//! construction.  Dieharder 3.31.1 rates all three tests "Suspect"
+//! (`list_tests.c` lines 31–32).
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995), which

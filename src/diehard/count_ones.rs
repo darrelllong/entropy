@@ -15,6 +15,16 @@
 //!    (`sknt1s`, `fortran/diehard.f` line 808), which Dieharder's
 //!    `diehard_count_1s_stream.c` keeps.
 //!
+//! Three differences from DIEHARD, all shared with Dieharder.  Marsaglia's
+//! `sknt1s` (`fortran/diehard.f` lines 740–826) scores 2 560 000 overlapping
+//! five-letter words (`n=100` at line 767, 25 600 × n at lines 779–780) and
+//! runs the test twice on successive bytes (`do 888 jk=1,2`, line 772); this
+//! module scores 256 000 words once, the size `tests.txt` gives.  `jtbl8`
+//! hands out each word's bytes high byte first (lines 214–215); this module
+//! takes them low byte first, as Dieharder does.  And DIEHARD reports
+//! `phi(z)` (line 817), a CDF value, where this module reports the two-sided
+//! erfc(|z|/√2).
+//!
 //! This crate keeps only the stream variant.  Dieharder rates its byte
 //! variant, `diehard_count_1s_byte`, "Good" (`list_tests.c` lines 31–36).  Its
 //! author calls that test "LESS stringent than the stream version overall"

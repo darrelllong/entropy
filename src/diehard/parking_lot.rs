@@ -8,8 +8,19 @@
 //! The test repeats 10 times; the 10 resulting z-scores are converted to
 //! p-values and tested with a Kolmogorov-Smirnov test.
 //!
+//! Marsaglia's `cdpark` (`fortran/diehard.f` lines 282–341) parks a first car
+//! and then makes 12 000 attempts (lines 304–315), 12 001 in all; this module
+//! and Dieharder's `diehard_parking_lot.c` make 12 000.  In the fidelity
+//! review's simulation of 3 000 lots that moved the mean by 0.08 cars against
+//! σ = 21.9.  DIEHARD reports `phi(z)` for each lot and combines the ten with
+//! Marsaglia's Anderson–Darling statistic, which `tests.txt`
+//! calls a KS test (`KSTEST`, lines 1668–1709), and reports a CDF value; this
+//! module applies a Kolmogorov–Smirnov test and reports its upper tail.
+//!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
+//! Source: Marsaglia's `fortran/diehard.f`, subroutine `cdpark`.
+//! [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{math::ks_test, result::TestResult, rng::Rng};
 
