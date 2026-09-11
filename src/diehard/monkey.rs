@@ -25,7 +25,8 @@
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995), which
 //! describes OPSO, OQSO and DNA in its `tests.txt`; G. Marsaglia and A. Zaman,
 //! "Monkey tests for random number generators," *Computers & Mathematics with
-//! Applications* 26(9), 1993 (not in `pubs/`).
+//! Applications* 26(9), 1993, here in Marsaglia's own extract from his
+//! CD-ROM.  [pubs/marsaglia-zaman-1993-monkey-tests.pdf]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
