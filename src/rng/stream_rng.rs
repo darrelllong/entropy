@@ -51,15 +51,17 @@
 //! * ETSI/SAGE, "Specification of the 3GPP Confidentiality and Integrity
 //!   Algorithms UEA2 & UIA2, Document 2: SNOW 3G Specification," version 1.1.
 //!   [pubs/etsi-sage-snow3g-spec-v1.1.pdf]  [the SNOW 3G cipher; its test data
-//!   are in Document 3, which is not in `pubs/`]
+//!   are in Document 3, Implementors' Test Data, version 1.1,
+//!   [pubs/etsi-sage-snow3g-testdata-v1.1.doc]]
 //! * ETSI/SAGE, "Specification of the 3GPP Confidentiality and Integrity
 //!   Algorithms 128-EEA3 & 128-EIA3, Document 2: ZUC Specification,"
 //!   version 1.6.  [pubs/etsi-sage-zuc-spec-v1.6.pdf]  [the ZUC-128 cipher;
-//!   its test data are in Document 3, which is not in `pubs/`]
+//!   its test data are in Document 3, Implementor's Test Data, version 1.1,
+//!   [pubs/etsi-sage-zuc-testdata-v1.1.pdf]]
 //!
 //! # Author
 //! M. Boesgaard, M. Vesterager, T. Pedersen, J. Christiansen and O. Scavenius
-//! (Rabbit, FSE 2003, as reference [6] of the eSTREAM description lists them;
+//! (Rabbit, FSE 2003, as reference \[6\] of the eSTREAM description lists them;
 //! that description is by Boesgaard, Vesterager, T. Christensen and E. Zenner,
 //! and RFC 4503 by Boesgaard, Vesterager and Zenner); Daniel J. Bernstein
 //! (Salsa20); ETSI SAGE (SNOW 3G and ZUC-128 specifications); Darrell Long
