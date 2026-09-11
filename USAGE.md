@@ -12,6 +12,39 @@ but nowhere near sufficient for cryptographic suitability.
 
 ---
 
+## Opt-in historical DIEHARD suite
+
+`run_tests` runs NIST SP 800-22, DIEHARD and DIEHARDER by default. A fourth
+suite, `diehard-historical`, holds DIEHARD tests that the default battery
+does not run, and runs only when it is named:
+
+```sh
+cargo run --release -- --suite diehard-historical --rng MT19937
+cargo run --release -- --test diehard_historical::operm5_dieharder --rng PCG64
+cargo run --release -- --suite diehard --suite diehard-historical --rng AES
+```
+
+Running every suite, the default, never includes it, and `--test` selects it
+only through the `diehard_historical::` prefix. Its tests read one capture of
+16 000 000 words, and `--quick` does not change them. Each result name states
+its variant:
+
+| Result name | Variant | Words |
+|---|---|---|
+| `diehard_historical::operm5_dieharder` | OPERM5 as corrected in Dieharder 3.31.1: `kperm` index, Moenkehues' pseudoinverse, df 96, one pass | 1 000 005 |
+| `diehard_historical::overlapping_sums_fortran` | Overlapping sums as Marsaglia's `diehard.f` computes them: y(1) coefficients, his table f, three Anderson–Darling layers | 199 000 |
+| `diehard_historical::count_ones_bytes_25_fresh` | Count-the-1s on DIEHARD's 25 byte windows, each on its own words; 25 results | 6 400 100 |
+| `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on DIEHARD's 25 bit windows, each on its own words; one Anderson–Darling summary | 15 000 000 |
+
+From the library, `entropy::diehard::historical::run_all(&mut rng, n_words)`
+runs the same tests, and each module under `entropy::diehard::historical`
+exposes its test on a word slice. The module documentation gives each test's
+departures from `diehard.f`, its calibration evidence and its limitations;
+README.md's "Historical DIEHARD Tests" section records why each was removed
+and at which revision.
+
+---
+
 ## The `Rng` Trait
 
 Every generator implements the minimal interface in `entropy::rng`:

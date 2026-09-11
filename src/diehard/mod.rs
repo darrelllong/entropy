@@ -4,12 +4,16 @@
 //! Florida State University, 1995.  `pubs/Diehard.zip`
 //!
 //! Every function in this module cites Marsaglia as the original author.
+//!
+//! [`historical`] holds DIEHARD tests that [`run_all`] does not run; they run
+//! only on request.
 
 pub mod binary_rank;
 pub mod birthday_spacings;
 pub mod bitstream;
 pub mod count_ones;
 pub mod craps;
+pub mod historical;
 pub mod minimum_distance;
 pub mod monkey;
 pub(crate) mod nearest_pair;

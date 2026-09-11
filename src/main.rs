@@ -7,13 +7,18 @@
 //! cargo run --release [-- [OPTIONS]]
 //!
 //! Options:
-//!   --suite nist|diehard|dieharder   Run only this battery (repeatable).
+//!   --suite nist|diehard|dieharder|diehard-historical
+//!                                    Run only this battery (repeatable).
+//!                                    diehard-historical, the opt-in
+//!                                    historical DIEHARD tests, runs only
+//!                                    when named here or by its --test prefix.
 //!   --test  <name>                   Show only tests whose name contains <name>
 //!                                    (the selected batteries still run in full).
 //!                                    If <name> starts with a known suite prefix
-//!                                    (nist::, diehard::, dieharder::, or maurer::,
-//!                                    which the NIST battery emits) only that
-//!                                    battery is generated, saving time.
+//!                                    (nist::, diehard::, dieharder::,
+//!                                    diehard_historical::, or maurer::, which
+//!                                    the NIST battery emits) only that battery
+//!                                    is generated, saving time.
 //!   --rng   <label>                  Run only RNGs whose label contains <label>,
 //!                                    ignoring case (repeatable).
 //!   --quick                          Use reduced sample counts in DIEHARD/DIEHARDER.
@@ -32,6 +37,8 @@
 //! cargo run --release -- --test nist::frequency    # one test (NIST only generated)
 //! cargo run --release -- --test frequency          # any test containing "frequency"
 //! cargo run --release -- --suite diehard --quick   # DIEHARD with reduced counts
+//! cargo run --release -- --suite diehard-historical --rng MT19937
+//!                                                  # opt-in historical DIEHARD
 //! ```
 
 use std::collections::HashSet;
@@ -63,6 +70,10 @@ use std::thread;
 // run and L=11..16 report SKIP.
 const NIST_N: usize = 16_000_000;
 const DIEHARD_N: usize = 16_000_000;
+// The historical DIEHARD suite reads one capture of this many words; its
+// hungriest test, the 6x8 rank over 25 windows, needs 15 000 000.
+const DIEHARD_HISTORICAL_N: usize = 16_000_000;
+const _: () = assert!(DIEHARD_HISTORICAL_N >= diehard::historical::WORDS_NEEDED);
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -71,12 +82,14 @@ enum Suite {
     Nist,
     Diehard,
     Dieharder,
+    /// `diehard::historical`: never part of the default selection.
+    DiehardHistorical,
 }
 
 #[derive(Clone, Debug)]
 struct Args {
     quick: bool,
-    suites: HashSet<Suite>,      // empty = all three
+    suites: HashSet<Suite>,      // empty = the three default suites
     test_filter: Option<String>, // substring match on TestResult::name
     rng_filters: Vec<String>,    // substring match on RNG label
     fail_on_fail: bool,          // exit nonzero if any shown test FAILed
@@ -127,9 +140,11 @@ impl Args {
                         "nist" => Suite::Nist,
                         "diehard" => Suite::Diehard,
                         "dieharder" => Suite::Dieharder,
+                        "diehard-historical" => Suite::DiehardHistorical,
                         other => {
                             return Err(format!(
-                                "unknown suite '{other}' — use: nist, diehard, dieharder"
+                                "unknown suite '{other}' — use: nist, diehard, dieharder, \
+                                 diehard-historical"
                             ));
                         }
                     };
@@ -157,7 +172,9 @@ impl Args {
             let mut inferred = HashSet::new();
             // maurer:: slots are emitted by nist::run_all, so they belong to
             // the NIST battery for inference purposes.
-            if pat.starts_with("nist::") || pat.starts_with("maurer::") {
+            if pat.starts_with("diehard_historical::") {
+                inferred.insert(Suite::DiehardHistorical);
+            } else if pat.starts_with("nist::") || pat.starts_with("maurer::") {
                 inferred.insert(Suite::Nist);
             } else if pat.starts_with("dieharder::") {
                 inferred.insert(Suite::Dieharder);
@@ -167,7 +184,7 @@ impl Args {
             // No prefix → run all suites so we catch the test wherever it lives.
             inferred
         } else {
-            HashSet::new() // empty = all three
+            HashSet::new() // empty = the three default suites
         };
 
         Ok(Command::Run(Args {
@@ -179,8 +196,13 @@ impl Args {
         }))
     }
 
+    /// Whether suite `s` runs.  An empty selection runs NIST, DIEHARD and
+    /// DIEHARDER; the historical DIEHARD suite runs only when selected.
     fn run_suite(&self, s: &Suite) -> bool {
-        self.suites.is_empty() || self.suites.contains(s)
+        match s {
+            Suite::DiehardHistorical => self.suites.contains(s),
+            _ => self.suites.is_empty() || self.suites.contains(s),
+        }
     }
 
     fn matches(&self, name: &str) -> bool {
@@ -205,13 +227,19 @@ fn print_usage() {
     // that indents the flag descriptions' continuation lines.
     println!(
         "\
-Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--rng <label>] [--fail-on-fail] [--help]
+Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--fail-on-fail] [--help]
 
  --suite         Run only this battery.  Repeatable: --suite nist --suite diehard.
+                 diehard-historical runs the historical DIEHARD tests, which
+                 no default run includes: OPERM5 as Dieharder 3.31.1 corrects
+                 it, overlapping sums as diehard.f computes them, and
+                 count-the-1s and the 6x8 rank on DIEHARD's 25 bit windows.
+                 README.md inventories them and their limitations.
  --test          Show only tests whose name contains <name>.
                  The selected batteries still run in full; this filters output.
-                 Prefix nist::/diehard::/dieharder:: (or maurer::, emitted by
-                 the NIST battery) also limits which battery runs.
+                 Prefix nist::/diehard::/dieharder::/diehard_historical:: (or
+                 maurer::, emitted by the NIST battery) also limits which
+                 battery runs.
  --rng           Run only RNGs whose label contains <label>, ignoring case.
                  Repeatable.  A selection that runs no RNG is a usage error.
  --quick         Reduced sample counts in DIEHARD/DIEHARDER (faster, less sensitive).
@@ -231,7 +259,8 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder] [--test <name>] [--r
   run_tests --test nist::frequency       # single test (NIST only generated)
   run_tests --rng Windows                # only the Windows generators
   run_tests --test frequency             # all tests containing \"frequency\"
-  run_tests --suite diehard --quick"
+  run_tests --suite diehard --quick
+  run_tests --suite diehard-historical --rng MT19937"
     );
 }
 
@@ -247,6 +276,8 @@ struct RngResults {
     nist: Vec<TestResult>,
     diehard: Vec<TestResult>,
     dieharder: Vec<TestResult>,
+    /// Opt-in historical DIEHARD tests; empty unless that suite is selected.
+    diehard_historical: Vec<TestResult>,
     /// True when this generator is *intrinsically* restricted to the NIST
     /// suite (e.g. Dual_EC, too slow for DIEHARD/DIEHARDER), as opposed to a
     /// user `--suite`/`--test` filter that happened to select NIST only.
@@ -444,11 +475,17 @@ fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
     } else {
         vec![]
     };
+    let diehard_historical = if args.run_suite(&Suite::DiehardHistorical) {
+        diehard::historical::run_all(&mut rng, DIEHARD_HISTORICAL_N)
+    } else {
+        vec![]
+    };
     RngResults {
         name,
         nist,
         diehard,
         dieharder,
+        diehard_historical,
         nist_only: false,
     }
 }
@@ -465,6 +502,7 @@ fn run_nist_only<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResu
         nist,
         diehard: vec![],
         dieharder: vec![],
+        diehard_historical: vec![],
         nist_only: true,
     }
 }
@@ -580,6 +618,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
         .iter()
         .chain(&r.diehard)
         .chain(&r.dieharder)
+        .chain(&r.diehard_historical)
         .filter(|t| args.matches(t.name))
         .collect();
     if matching.is_empty() {
@@ -624,6 +663,23 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
             println!(
                 "\n  ── DIEHARDER unique tests ({} words) ──",
                 group_thousands(DIEHARD_N)
+            );
+            for t in shown {
+                println!("  {t}");
+            }
+        }
+    }
+
+    if !r.diehard_historical.is_empty() {
+        let shown: Vec<&TestResult> = r
+            .diehard_historical
+            .iter()
+            .filter(|t| args.matches(t.name))
+            .collect();
+        if !shown.is_empty() {
+            println!(
+                "\n  ── DIEHARD historical tests, opt-in ({} words) ──",
+                group_thousands(DIEHARD_HISTORICAL_N)
             );
             for t in shown {
                 println!("  {t}");
@@ -696,6 +752,7 @@ mod tests {
         for suite in [Suite::Nist, Suite::Diehard, Suite::Dieharder] {
             assert!(a.run_suite(&suite));
         }
+        assert!(!a.run_suite(&Suite::DiehardHistorical));
         assert!(a.matches("nist::frequency") && a.matches_rng("PCG64 (OsRng seed)"));
     }
 
@@ -737,6 +794,37 @@ mod tests {
         assert!(run_args(&["--test", "frequency"]).suites.is_empty());
         let a = run_args(&["--suite", "diehard", "--test", "nist::runs"]);
         assert_eq!(a.suites, HashSet::from([Suite::Diehard]));
+    }
+
+    /// The historical DIEHARD suite runs only when named, by `--suite` or by
+    /// its `--test` prefix, never as part of the default selection.
+    #[test]
+    fn historical_diehard_suite_is_opt_in() {
+        for argv in [
+            &[][..],
+            &["--quick"][..],
+            &["--suite", "diehard"][..],
+            &["--test", "diehard::craps"][..],
+            &["--test", "operm5"][..],
+        ] {
+            assert!(
+                !run_args(argv).run_suite(&Suite::DiehardHistorical),
+                "{argv:?}"
+            );
+        }
+        let a = run_args(&["--suite", "diehard-historical"]);
+        assert_eq!(a.suites, HashSet::from([Suite::DiehardHistorical]));
+        assert!(!a.run_suite(&Suite::Nist) && !a.run_suite(&Suite::Diehard));
+        let a = run_args(&["--test", "diehard_historical::operm5_dieharder"]);
+        assert_eq!(a.suites, HashSet::from([Suite::DiehardHistorical]));
+        let a = run_args(&["--suite", "diehard", "--suite", "diehard-historical"]);
+        assert!(a.run_suite(&Suite::Diehard) && a.run_suite(&Suite::DiehardHistorical));
+        assert!(!a.run_suite(&Suite::Dieharder));
+        let err = scheduled(&["--suite", "diehard-historical", "--rng", "Dual_EC"]).unwrap_err();
+        assert!(
+            err.contains("Dual_EC_DRBG") && err.contains("NIST"),
+            "{err}"
+        );
     }
 
     #[test]
