@@ -71,7 +71,12 @@ impl Args {
     }
 
     fn matches_rng(&self, label: &str) -> bool {
-        self.rng_filters.is_empty() || self.rng_filters.iter().any(|pat| label.contains(pat))
+        let label = label.to_lowercase();
+        self.rng_filters.is_empty()
+            || self
+                .rng_filters
+                .iter()
+                .any(|pat| label.contains(&pat.to_lowercase()))
     }
 }
 
