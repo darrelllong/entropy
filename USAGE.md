@@ -39,7 +39,9 @@ its variant:
 From the library, `entropy::diehard::historical::run_all(&mut rng, n_words)`
 runs the same tests, and each module under `entropy::diehard::historical`
 exposes its test on a word slice. The module documentation gives each test's
-departures from `diehard.f`, its calibration evidence and its limitations.
+departures from `diehard.f`, its calibration evidence and its limitations;
+README.md's "Historical DIEHARD Tests" section records why each was removed
+and at which revision.
 
 ---
 

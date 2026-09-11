@@ -15,6 +15,8 @@
 //! Each module says what the test is, which reference it follows, where and
 //! why it departs from Marsaglia's `fortran/diehard.f`, the calibration
 //! evidence behind it and why it stays outside the default battery.
+//! README.md's "Historical DIEHARD Tests" section inventories them with the
+//! revision each was removed in.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).

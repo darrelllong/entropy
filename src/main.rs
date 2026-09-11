@@ -234,6 +234,7 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
                  no default run includes: OPERM5 as Dieharder 3.31.1 corrects
                  it, overlapping sums as diehard.f computes them, and
                  count-the-1s and the 6x8 rank on DIEHARD's 25 bit windows.
+                 README.md inventories them and their limitations.
  --test          Show only tests whose name contains <name>.
                  The selected batteries still run in full; this filters output.
                  Prefix nist::/diehard::/dieharder::/diehard_historical:: (or
