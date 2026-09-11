@@ -58,7 +58,7 @@ are those of the audited revision.
    `src/rng/dual_ec.rs:83-88, 200-210`.  `new` admits any positive multiple
    of 8 while `next_u32` assumes a block holds at least 4 bytes.
    CONFIRMED (`outlen = 8` panics).
-   **Fixed:** `new` requires a multiple of 8 in `32..=max_outlen`, with `max_outlen` 240 / 368 / 504 for P-256 / P-384 / P-521 (the values SP 800-90 gives and the constructors already used), computed as `8·⌊(seedlen − 13 − log₂h)/8⌋`, a rule that reproduces them.  No edition of SP 800-90 containing Dual_EC is in `pubs/`, so the values were not re-checked against the source.  Tests pin the three table values, reject 0, 8, 12, 16, 24, 248, 256 and 264 on P-256 with Q ≠ P, and check that `next_u32` splices words correctly across 5-byte blocks.
+   **Fixed:** `new` requires a multiple of 8 in `32..=max_outlen`, with `max_outlen` 240 / 368 / 504 for P-256 / P-384 / P-521 (the values SP 800-90 gives and the constructors already used), computed as `8·⌊(seedlen − 13 − log₂h)/8⌋`, a rule that reproduces them.  Both SP 800-90 editions are now in `pubs/`, and the values match Table 4 of the March 2007 revision.  Tests pin the three table values, reject 0, 8, 12, 16, 24, 248, 256 and 264 on P-256 with Q ≠ P, and check that `next_u32` splices words correctly across 5-byte blocks.
 
 4. **`upstream_tests` CLI has no range validation** —
    `src/bin/upstream_tests.rs:35-110`.  `--hi-d 9` or `--hi-n 10` abort
@@ -126,17 +126,14 @@ D. **DRBG module docs denied backtracking resistance** —
    still in the output buffer.  What they lack is prediction resistance,
    because nothing reseeds.  CONFIRMED against the PDF.  **Fixed:** both
    module docs now say so.  The Hash_DRBG doc also no longer describes
-   Hashgen as hashing a counter concatenated with V, and the Dual_EC module
-   header no longer cites SP 800-90 Table 4.  The six citations of
-   Appendix A.1 Tables A-1 to A-3 for the Q points remain; that edition is
-   not in `pubs/` (item 21).
+   Hashgen as hashing a counter concatenated with V, and the Dual_EC citations name Table 4 and Appendices A.1.1–A.1.3 of the March 2007 edition, now in `pubs/` (item 21).
 
 E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
    permuted the state before the LCG step, while pcg-c's 128-bit generator
    permutes the advanced state, so the stream carried one extra leading
    value.  **Fixed:** pinned to pcg-c's published `check-pcg64.out` for
    seed (42, 54).  Pcg64's output changes; the battery seeds it from the OS,
-   so battery results are unaffected.
+   so battery results are unaffected.  R-REPORT.md's PCG64 section was measured from the old stream and now says so.
 
 ## Correctness risks (statistic differs from the cited reference)
 
@@ -150,8 +147,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
    `uses_nist_correction_factor` (line 191) pins the non-NIST value.
    CONFIRMED.
    **Fixed:** `universal_sigma` uses §2.9.4's c(L,K), which is also Maurer's
-   eq. (13). Tests reproduce §2.9.8's σ = 0.002703 and P = 0.427733; the
-   Coron–Naccache form gave 0.427991.
+   eq. (13). A test reproduces §2.9.8's σ = 0.002703 and P = 0.427733 from the example's printed sum and table values (the Coron–Naccache form gives 0.427991), and checks that the shipped 12-digit constants give P = 0.427772 for the same sum.
 
 8. **Squeeze drops sub-cutoff cells instead of pooling** —
    `src/diehard/squeeze.rs:59-71`.  Dieharder's `Vtest_eval` pools
@@ -179,8 +175,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     DIEHARD sweeps 25 byte positions and KS-combines; Dieharder uses the
     low byte.  Bytes 1–3 are never rank-tested and the doc says "a
     specified byte position".  CONFIRMED vs Dieharder.
-    **Documented, not changed:** the doc says the test reads the low byte,
-    as Dieharder's `rank.c` does, where DIEHARD sweeps 25 byte positions.
+    **Documented, not changed:** the doc says the test reads the low byte, as Dieharder's `rank.c` does, where DIEHARD repeats it over 25 overlapping 8-bit windows (bits 1–8 through 25–32, not 25 byte positions as this finding says), and that Dieharder also scores rank 3 as its own cell.
 
 11. **Webster–Tavares BIC masks degenerate linear maps** —
     `src/research/webster_tavares.rs:50-54`.  A never/always-flipping
@@ -198,8 +193,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     `s/L` blocks per word for `L < s` and strips top bits for the tail.
     Valid statistic, but README line 190's "faithful TestU01 bit
     extraction" overstates it.  CONFIRMED against `sstring.c`.
-    **Documented, not changed:** TestU01's `sstring.c` is not available
-    offline, so the extraction stands. The README and module docs now
+    **Documented, not changed:** the audit read TestU01's `sstring.c` online, but the fixing pass had no copy to implement from, so the extraction stands. The README and module docs now
     describe it exactly: a block equals the paper's concatenated bit stream
     only when `s` divides `L`.
 
@@ -241,8 +235,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     §2.12.7 requires `m < log2(n) - 5`, i.e. `2^m < n/32`.
     `src/nist/approximate_entropy.rs:29` allows equality where the spec
     is strict.  CONFIRMED.
-    **Fixed:** both gates skip at n = 2^(m+5), following §2.12.7's "m < log2
-    n − 5".
+    **Fixed:** both gates require n ≥ 2^(m+6), following §2.12.7's "m < ⌊log2 n⌋ − 5".  A first pass worked from a text extraction that drops the floor and admitted n up to 2^(m+6) − 1; review caught it.
 
 17. **Gorilla aggregate is KS, paper uses Anderson–Darling** —
     `src/research/marsaglia_tsang.rs:14, 113-123`.  Doc says "the
@@ -286,7 +279,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     **Fixed:** citations follow the March 2007 revision section by section
     (§10.3.1, §10.3.1.4, Table 4, Appendices A.1.1–A.1.3 and E.2), both
     editions are now in `pubs/`, NIST is credited, and the doc explains the
-    per-block state update (step 14, absent from the June 2006 edition).
+    per-block state update (the backtracking update that the 2007 revision inserted as step 14).
 22. `src/rng/spongebob.rs:18-20` claims SHA3-512 dispatches to aarch64
     intrinsics; the sibling crate gates that behind the opt-in
     `arm-sha3` feature, which this crate never enables.  CONFIRMED.
@@ -295,8 +288,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
 23. `scripts/parse_battery.py:301` says Dual_EC costs two scalar
     multiplications per block; the code and `src/main.rs:384-386` say
     three.  Regenerated TESTS.md carries the wrong number.  CONFIRMED.
-    **Fixed:** "three" in the script, TESTS.md, USAGE.md and
-    `tests/registry.rs`.
+    **Fixed:** "three" in the script, TESTS.md, USAGE.md, `tests/registry.rs`, `scripts/run_r_report.sh` and R-REPORT.md.
 24. `src/rng/mt19937.rs:74-76` attributes the seed-19650218 vector to the
     `mt19937ar.c` output table, which is actually `init_by_array`
     output; the values are correct but the provenance is wrong, and the
@@ -313,17 +305,20 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     eqs. (16)–(17) to 6 × 10⁻¹⁰.
 26. `src/nist/serial.rs:13-19` doc says `serial()` returns a pair with
     `p_value = min(p1,p2)`; it returns one `TestResult`.  CONFIRMED.
-    **Fixed.**
+    **Fixed:** the doc matches what `serial()` returns.  Review then found that
+    rounding could leave ∇²ψ² just below zero, where `igamc` returns NaN, so
+    `serial_delta2` skipped on valid input and `serial()` returned that skip
+    even when `serial_delta1` failed (324 of 20 000 MT19937 seeds at n = 1040,
+    m = 2).  Both statistics are now clamped at zero, and a skipped entry
+    never masks a scored one.
 27. `src/diehard/birthday_spacings.rs:9-13` claims Dieharder excludes
     tail bins under 5; `chisq_poisson` keeps all bins with df 7.
     CONFIRMED.
-    **Fixed:** the doc says the code scores j = 0..6 with df 6, while
-    `chisq_poisson` also scores j = 7, with df 7.
+    **Fixed:** the doc says the code scores j = 0..6 with df 6 where `chisq_poisson` scores every cell (df 7 at 500 trials, df 5 at Dieharder's default of 100), that the repeat count follows Marsaglia's definition rather than the C's loop, which skips an interval after each run, and that the nine bit windows and the final KS are DIEHARD's.
 28. `src/diehard/monkey.rs:7-14` says letter extraction deviates from
     Dieharder for all three; OPSO and OQSO extraction are identical, only
     DNA differs.  CONFIRMED.
-    **Fixed:** only DNA extraction is described as differing from Dieharder,
-    and an Author section credits Marsaglia.
+    **Fixed:** only DNA extraction is described as differing from Dieharder, the null moments are described separately (OPSO and OQSO differ from Dieharder only in μ and σ), and the Author section credits Marsaglia and the 1993 Marsaglia–Zaman monkey-test paper.
 29. Missing author citations (project rule): `src/diehard/monkey.rs`
     (no Author anywhere), `src/rng/stream_rng.rs` (no References or
     Author), `src/rng/block_ctr.rs:21-23` (no Author),
@@ -340,8 +335,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     credited; the stream-cipher, CTR and ChaCha20 adapters have Author and
     References sections; the overlapping-template π values and spectral
     corrections cite what SP 800-22 names; and the median runs test is
-    credited to Wald and Wolfowitz everywhere. `monkey.rs` now credits
-    Marsaglia.
+    credited to Wald and Wolfowitz in its code, result label, README, BIB.md, TESTS.md and scripts.  `monkey.rs` credits Marsaglia and Zaman.  Review found two new Author lines misattributing CTR mode and Rabbit; they now credit the SP 800-38A recommendation and Rabbit's FSE 2003 designers.
 30. `src/bin/upstream_tests.rs:128-141` help lists 3 of 10 accepted
     flags and advertises "FPF(4,14,6)" though the stride-4 overlap is
     dropped (`practrand_fpf.rs:14-21`).  `src/main.rs:22-24` places the
@@ -373,9 +367,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     `dual_ec.rs:249` (replaced by rump's `from_str_radix` on 2026-09-10); the `take_bytes` refill idiom
     in five generators.
     **Fixed in the research probes:** one shared `strip_b`, and
-    `math::chi2_pvalue` replaces both local p-value helpers. **Left:** the
-    NIST tests still inline `igamc`, and the `hex()` test helpers and the
-    `take_bytes` idiom remain (the production `decode_hex` is gone). **Fixed
+    `math::chi2_pvalue` replaces both local p-value helpers. **Left:** the NIST tests still inline `igamc`; the `hex()` test helpers, the `take_bytes` idiom, the three nearest-pair scans and the two `runs_float` run counters remain (the production `decode_hex` is gone). **Fixed
     in DIEHARD/DIEHARDER:** the binomial and Poisson pmfs live in `math.rs`,
     and 3-D spheres compares squared distances; results are identical.
 33. **Boilerplate copied across seven binaries**: `Args::parse`, `die`,
@@ -395,7 +387,7 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     (`c_stdlib.rs:120`), `RngResults.nist_n` (`main.rs:232, 419, 436`,
     always `NIST_N`), and the `(31,31)` match arm in
     `binary_rank.rs:190-196` (identical to the generic arm).
-    **Fixed:** `CRand` and `RngResults.nist_n` are gone. **Left:** the
+    **Fixed:** `RngResults.nist_n` is gone.  `CRand` was removed, then restored as a deprecated alias after review, because it was public in 0.5.0. **Left:** the
     unused public test functions stay, because removing them breaks the
     public API. The redundant `(31,31)` match arm and `gf2_rank_6x8` wrapper
     are gone.
@@ -448,15 +440,16 @@ E. **Pcg64 did not match O'Neill's reference** — `src/rng/pcg.rs`.  It
     `knuth.rs:278` `partial_cmp().unwrap()` panics on NaN input;
     `knuth.rs:169-186` skips the leading gap that TAOCP Algorithm G
     counts (PLAUSIBLE).
-    **Fixed:** the DRBGs refuse only above the reseed interval, the median
-    sort uses `total_cmp`, and the gap test documents its leading gap.
-    **Left:** the serial n ≥ 1000 floor is documented as a project choice;
-    it is also one stricter than §2.11.7 when n is not a power of two. The
-    craps tail comment is fixed, and this item's own figure was wrong: the
-    mass beyond 200 throws is 2.3 × 10⁻²⁶, and 4.4 × 10⁻³² is only the tail
-    for points 6 and 8. `msb_first_ordering` now asserts a real count, and
-    `math::ks_test` returns NaN for a NaN sample instead of panicking.
-    **Left:** `monobit2`'s inherited level aliasing.
+    **Fixed:** the DRBGs refuse only above the reseed interval; the median
+    sort uses `total_cmp`, and `math::ks_test` returns NaN for a NaN sample
+    instead of panicking; the gap test documents its leading gap;
+    `msb_first_ordering` asserts a real count; and the craps tail comment is
+    corrected.  This item's own figure was wrong too: the mass beyond 200
+    throws is 2.3 × 10⁻²⁶, and 4.4 × 10⁻³² is (25/36)¹⁹⁸, the chance a set 6
+    or 8 stays unresolved for 198 more throws.  The serial m gate already
+    matched §2.11.7 exactly (m < ⌊log₂ n⌋ − 2); only its docs misquoted the
+    rule.  **Left:** the serial n ≥ 1000 floor, documented as a project
+    choice, and `monobit2`'s inherited level aliasing.
 
 ## Test coverage
 
@@ -466,18 +459,21 @@ Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
   cumulative sums even though the §2.x.8 examples pass through the
   public API today; no Berlekamp–Massey KAT; no 10^6-bit e fixture, so
   the matrix-rank, serial and random-excursion examples are unpinned.
-  **Addressed in part:** §2.1.8, §2.3.8, §2.4.8, §2.5.8, §2.9.8, §2.10.4
-  (Berlekamp–Massey), §2.12.8 and §2.13.8 are now pinned. The 10⁶-bit e
-  fixture is still missing, so the serial and random-excursion examples
-  remain unpinned.
+  **Addressed in part:** §2.1.8, §2.3.8, §2.4.8, §2.10.4 (Berlekamp–Massey) and
+  §2.13.8 are pinned end to end, §2.12.8 through the production χ² and P
+  code, §2.5.8's χ² from its printed counts, and §2.9.8's σ and P from its
+  printed sum.  The 10⁶-bit e fixture is still missing, so the matrix-rank
+  computation and the serial and random-excursion examples remain unpinned.
 - Fourteen DIEHARD/DIEHARDER modules have no unit tests at all
   (birthday spacings, count-ones, parking lot, runs, 3-D spheres,
   squeeze, minimum distance, byte distribution, DCT, GCD, KS uniform,
   lagged sums, minimum distance n-D, permutations); no golden p-values
   for a fixed seed; no check that the reference tables sum to 1.
   **Addressed in part:** every reference probability table has a sum-to-one
-  test, and 17 modules have empty- and short-input SKIP tests and constant-
-  input FAIL tests. Golden p-values for a fixed seed are still missing.
+  test.  Seventeen modules gained edge-input tests: constant input fails in
+  each, and empty or short input skips in those with a length gate; the
+  three binary-rank tests also pin their one-word-short boundary.  Golden
+  p-values for a fixed seed are still missing.
 - No KAT for `Rand48`, `Xorshift32/64`, `Pcg64`, or `Lcg32`
   AnsiC/Borland.  (`DualEcDrbg` and the streaming paths of both DRBGs were
   pinned on 2026-09-10; see item C.)  `ChaCha20Rng` has no deterministic constructor, so it cannot be
@@ -498,11 +494,12 @@ Unit tests: 136 in the library, 3 in `dump_rng`, 10 integration.  Gaps:
 ## Verified correct
 
 Every generator known-answer vector in the tree is genuine, and several
-generators without one were checked as well: MT19937, PCG32/64,
+generators without one were checked as well: MT19937, PCG32,
 SFC64, JSF64, wyrand, xorshift, rand48, Hash_DRBG, HMAC_DRBG and Dual_EC
 P-256 output were reproduced from independent replicas of the
-reference algorithms, and `mrand48`/`random`/`rand` were cross-checked
-against the macOS libc.  NIST frequency, block frequency, runs, longest
+reference algorithms, and `mrand48`/`random`/`rand` were cross-checked against the macOS libc.  (The
+audit's PCG64 replica shared the crate's pre-advance output, so that check
+missed the mismatch item E fixed.)  NIST frequency, block frequency, runs, longest
 run, spectral, approximate entropy, cumulative sums, serial, both random
 excursion tests and the non-overlapping template match STS on 10^6 bits
 of e to 5–6 digits.  DIEHARD/DIEHARDER tables (`SDATA`, `KPROB`,
@@ -532,7 +529,8 @@ open, by choice or for lack of a source:
 - **Documented, not changed:** the 6x8 binary rank reads only the low byte
   (10), and the serial test keeps its n ≥ 1000 floor (41).
 - **Not started:** the NIST tests' inline `igamc` calls, the `hex()` test
-  helpers and the `take_bytes` idiom (32); shared CLI code for the research
+  helpers, the `take_bytes` idiom, the nearest-pair scans and the
+  `runs_float` run counters (32); shared CLI code for the research
   binaries (33); pinned sibling checkouts and a macOS MSRV job in CI (40);
   `monobit2`'s inherited level aliasing (41).
 - **Coverage still missing:** a 10⁶-bit e fixture for the serial and
@@ -540,7 +538,11 @@ open, by choice or for lack of a source:
   golden p-values for a fixed seed in DIEHARD/DIEHARDER, and a source for
   PractRand's FPF truncation rule.
 
-TESTS.md predates these changes.  Several statistics changed (Maurer
-L = 11..16 now skip at 16 Mbit, excursion skips keep their slots, and the
-squeeze, 31x31 rank, craps and matrix-rank p-values moved), so it needs a
-fresh battery run.
+TESTS.md was regenerated from a full battery run of 41330b0 on dyson.  None
+of the later review fixes changes a result at the battery's sample size.
+
+Four adversarial reviewers then checked this wave against its sources.  They
+found two code defects, both fixed: the ApEn gates had dropped the floor in
+§2.12.7, and `serial()` could report a FAIL as SKIP after rounding.  The rest
+of what they found was wording in docs, notes and test claims, corrected
+above.
