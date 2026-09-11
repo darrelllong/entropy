@@ -210,7 +210,7 @@ fn euclid_gcd_with_steps(mut a: u32, mut b: u32) -> (u32, usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::gcd_both;
+    use super::{gcd_both, KPROB};
     use crate::rng::ConstantRng;
 
     /// Every pair of an all-zero stream contains a zero word and is discarded,
@@ -224,5 +224,14 @@ mod tests {
             let note = r.note.as_deref().unwrap_or_default();
             assert!(note.contains("zero words"), "{note}");
         }
+    }
+
+    /// KPROB entries carry at most ten decimals, so the 41 of them sum to 1
+    /// only within 41 × 5 × 10⁻¹¹; k = 0 steps is impossible.
+    #[test]
+    fn kprob_sums_to_one() {
+        let sum: f64 = KPROB.iter().sum();
+        assert!((sum - 1.0).abs() <= 41.0 * 5e-11, "sum = {sum}");
+        assert_eq!(KPROB[0], 0.0);
     }
 }

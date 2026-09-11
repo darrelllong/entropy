@@ -247,7 +247,7 @@ fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{fill_tree_both, tree_insert, N_TRIALS, SIZE, START_VAL};
+    use super::{fill_tree_both, tree_insert, N_TRIALS, SIZE, START_VAL, TARGET_DATA};
     use crate::rng::{Mt19937, Rng};
 
     /// Inserting 1/16 … 15/16 in level order fills slots 1, 3, …, 29, the
@@ -310,5 +310,13 @@ mod tests {
         // so the stored 0.0 is not overwritten.
         assert_eq!(tree_insert(0.5, &mut array), None);
         assert_eq!(array[START_VAL], 0.0, "0.0 slot must remain occupied");
+    }
+
+    /// TARGET_DATA is printed to eight decimals, so its 20 entries sum to 1 only
+    /// within 20 × 5 × 10⁻⁹ (the table's actual total is 1.00000001).
+    #[test]
+    fn target_data_sums_to_one() {
+        let sum: f64 = TARGET_DATA.iter().sum();
+        assert!((sum - 1.0).abs() <= 20.0 * 5e-9, "sum = {sum}");
     }
 }
