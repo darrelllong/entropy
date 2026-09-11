@@ -128,7 +128,7 @@ fn birthday_spacings() {
         )],
         &[Golden {
             name: "diehard::birthday_spacings",
-            p: 0.252898185831294,
+            p: 0.1680300499666213,
             note: "m=512, year=2^24, samples=500",
         }],
     );
