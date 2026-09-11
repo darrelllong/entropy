@@ -251,9 +251,14 @@ mod tests {
         }
     }
 
-    /// SNOW 3G and ZUC-128 write each 32-bit keystream word big-endian, so
-    /// `next_u32` returns the cipher's `next_word()` with its bytes reversed,
-    /// here for the battery's key and IV across sixteen refills.
+    /// `StreamRng`'s word assembly, checked against each cipher's own word
+    /// API: `cryptography` writes each 32-bit SNOW 3G and ZUC-128 keystream
+    /// word big-endian, so `next_u32` must be `next_word()` with its bytes
+    /// reversed, here for the battery's key and IV across sixteen refills.
+    /// Both sides come from `cryptography`, so this says nothing about the
+    /// keystream itself; `snow3g_etsi_sage_document_3_keystream_test_sets` and
+    /// `zuc128_etsi_sage_document_3_keystream_test_sets` pin that to the
+    /// ETSI/SAGE Document 3 test sets.
     #[test]
     fn snow3g_and_zuc_words_are_byte_reversed_keystream_words() {
         let mut snow = StreamRng::new(Snow3g::new(&K16, &IV16));
