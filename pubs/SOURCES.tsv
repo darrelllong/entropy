@@ -35,8 +35,8 @@ v7-unix-programmers-manual-vol1.pdf	https://plan9.io/7thEdMan/v7vol1.pdf	2026-09
 rabbit-estream-description.pdf	https://cr.yp.to/streamciphers/rabbit/desc.pdf	2026-09-11
 NIST-STS-2.1.2-src-and-constants.zip	https://csrc.nist.gov/CSRC/media/Projects/Random-Bit-Generation/documents/sts-2_1_2.zip (sha256 0238d2f1d26e120e3cc748ed2d4c674cdc636de37fc4027c76cc2a394fff9157; repacked without data/ generator outputs and experiments/, keeping data.e, data.pi, data.sqrt2, data.sqrt3)	2026-09-11
 gsl-2.8-rng-subset.tar.gz	https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz (sha256 6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190; rng/, COPYING, AUTHORS and README only)	2026-09-11
-diehard-fortran-1996.tar.gz	https://web.archive.org/web/20160119105923id_/http://stat.fsu.edu/pub/diehard/fortran.tar.gz	2026-09-11
-diehard-f2c-source-1996.tar.gz	https://web.archive.org/web/20160119023143id_/http://stat.fsu.edu/pub/diehard/source.tar.gz	2026-09-11
-diehard-c-wang-1998.tar.gz	https://web.archive.org/web/20160119042640id_/http://stat.fsu.edu/pub/diehard/die-c.tar.gz	2026-09-11
-marsaglia-zaman-1993-monkey-tests.pdf	ps2pdf of source/monkey.ps in pubs/diehard-f2c-source-1996.tar.gz	2026-09-11
-marsaglia-1985-current-view-keynote.pdf	ps2pdf of source/keynote.ps in pubs/diehard-f2c-source-1996.tar.gz	2026-09-11
+diehard-fortran-1996.tar.gz	https://web.archive.org/web/20160119105923id_/http://stat.fsu.edu/pub/diehard/fortran.tar.gz (sha256 99666a65c58b39802d8fabf545341c835a2746f41bf0d130e292805053eb3fe1; Marsaglia's stat.fsu.edu/pub/diehard as archived by the Internet Archive)	2026-09-11
+diehard-f2c-source-1996.tar.gz	https://web.archive.org/web/20160119023143id_/http://stat.fsu.edu/pub/diehard/source.tar.gz (sha256 e68b14abec617f459ee3f3232d0eca957444093f9ac038abef880f15329b9750; same archived site)	2026-09-11
+diehard-c-wang-1998.tar.gz	https://web.archive.org/web/20160119042640id_/http://stat.fsu.edu/pub/diehard/die-c.tar.gz (sha256 e028a755c1441e5af90f060cd5d8fceaa5967a6a66fbc1f4c66410be712208ae; same archived site)	2026-09-11
+marsaglia-zaman-1993-monkey-tests.pdf	ps2pdf of source/monkey.ps in pubs/diehard-f2c-source-1996.tar.gz (monkey.ps sha256 6f01fc5349c700305a402e15048a93c8e474b9c04c6b71c31f2270c5a962e471; Ghostscript 10.06.0)	2026-09-11
+marsaglia-1985-current-view-keynote.pdf	ps2pdf of source/keynote.ps in pubs/diehard-f2c-source-1996.tar.gz (keynote.ps sha256 fb16a2aa2a82607ae98363d9003bc30dfeb07847ad18693348bcd6c3809a7afc; Ghostscript 10.06.0)	2026-09-11
