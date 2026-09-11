@@ -126,13 +126,21 @@ fn normal_upper_tail(x: f64) -> f64 {
 /// pp. 2–5 and 9, with the table point and tail changes f64 needs (see
 /// `mills_ratio` in the source).  [pubs/marsaglia-2004-normal-distribution.pdf]
 ///
-/// Measured against 40-digit references on 7 141 arguments in [−6, 27.5]
-/// (see the tests), with ε = `f64::EPSILON`: relative error at most
-/// 2.8·(1 + x²)·ε for 0 ≤ x ≤ 26.5, which is 9.3 × 10⁻¹⁶ below x = 1,
-/// 6.3 × 10⁻¹⁵ below 4, 9.0 × 10⁻¹⁴ below 16 and 3.2 × 10⁻¹³ at 26.5 (the
-/// x² comes from exp(−u²/2) at the rounded u = x√2), and absolute error at
-/// most 5.3 × 10⁻¹⁶ below 0.  Results are subnormal from x ≈ 26.55, where
-/// the relative error grows to order 1, and 0 from x ≈ 27.22.
+/// Accuracy, as the largest error observed against 70-digit references
+/// from two independent Python `decimal` oracles (they agree to 10⁻⁶¹; see
+/// the tests) on 121 489 arguments in [−11.3, 26.5], packed near the
+/// expansion points and near the arguments where stopping the series at
+/// the first negligible pair erred; ε is `f64::EPSILON`:
+///
+/// - from 0 to 26.5, relative error 2.8·(1 + x²)·ε: at most 9.4 × 10⁻¹⁶
+///   below x = 1, 6.5 × 10⁻¹⁵ below 4, 9.3 × 10⁻¹⁴ below 16 and
+///   3.2 × 10⁻¹³ up to 26.5, the x² coming from exp(−u²/2) at the rounded
+///   u = x√2;
+/// - below 0, relative error 2.3·ε and absolute error 5.5 × 10⁻¹⁶.
+///
+/// The tests allow about twice these.  Results are subnormal from
+/// x ≈ 26.55, where the relative error grows to order 1, and 0 from
+/// x ≈ 27.22.
 ///
 /// erfc(±0) = 1 exactly, 0 ≤ erfc(x) ≤ 1 for x ≥ 0 and 1 ≤ erfc(x) ≤ 2 below,
 /// so a two-sided p-value erfc(|z|/√2) never exceeds 1.  erfc(+∞) = 0,
@@ -156,15 +164,17 @@ pub fn erfc(x: f64) -> f64 {
 ///
 /// Φ(x) = cPhi(−x) below 0 and 1 − cPhi(x) from 0 up, with cPhi as in
 /// [`erfc`] but without its x√2 rescaling, so lower-tail values keep relative
-/// accuracy.  Measured against 40-digit references on 8 155
-/// arguments in [−40, 40]: relative error at most 2.2·(1 + x²/2)·ε for
-/// −37.5 ≤ x < 0 (4.9 × 10⁻¹⁵ above −10, 9.4 × 10⁻¹⁴ at −37.5) and
-/// absolute error at most 2.3 × 10⁻¹⁶ from 0 up.  Results are subnormal
-/// below x ≈ −37.5 and 0 from x ≈ −38.49.
+/// accuracy.  Against the same references on 123 323 arguments in
+/// [−37.5, 40], the largest relative error observed below 0 is
+/// 2.5·(1 + x²/2)·ε (3.4 × 10⁻¹⁵ on [−6, 0), 1.6 × 10⁻¹⁴ on [−16, −6) and
+/// 9.4 × 10⁻¹⁴ on [−37.5, −16)), and the largest absolute error from 0 up is
+/// 3.0 × 10⁻¹⁶ (relative 2.3·ε).  The tests allow about twice these.
+/// Results are subnormal below x ≈ −37.5 and 0 from x ≈ −38.49.
 ///
-/// Marsaglia's table-free `Phi` (2004, p. 1) is not used: measured in f64,
-/// its absolute error reaches 1.3 × 10⁻¹⁵, it returns 1 + 9 × 10⁻¹⁶ near
-/// x = 8, and its relative error passes 10⁻⁶ below x = −5.
+/// Marsaglia's table-free `Phi` (2004, p. 1) is not used.  Evaluated as
+/// printed with f64 throughout, it exceeds 1 by up to 1.11 × 10⁻¹⁵ at 284
+/// points of a 10⁻⁴ grid on [7, 9], and its relative error is 1.39 × 10⁻⁹
+/// at x = −5 and 9.0 × 10⁻⁷ at x = −6.
 ///
 /// Φ(±0) = 0.5 exactly and 0 ≤ Φ(x) ≤ 1.  Φ(−∞) = 0, Φ(+∞) = 1 and
 /// Φ(NaN) = NaN.
@@ -853,17 +863,18 @@ mod tests {
         (8.0, 0.9999999999999993),
     ];
 
-    /// Allowed relative error of `erfc`.  The worst measured against the
-    /// same references over 7 141 arguments in [−6, 26.5] is
-    /// 2.8·(1 + x²)·ε from 0 up (the x² term is exp(−x²) taken at a rounded
-    /// x√2) and 2.1·ε below 0; this allows 6·(1 + x²)·ε from 0 up, 6·ε below.
+    /// Allowed relative error of `erfc`.  The largest observed against these
+    /// references on the 121 489 arguments `erfc`'s documentation describes
+    /// is 2.8·(1 + x²)·ε from 0 up and 2.3·ε below 0; this allows
+    /// 6·(1 + x²)·ε from 0 up and 6·ε below, about twice as much.
     fn erfc_tolerance(x: f64) -> f64 {
         6.0 * (1.0 + x.max(0.0).powi(2)) * f64::EPSILON
     }
 
-    /// Allowed relative error of `normal_cdf`.  The worst measured over
-    /// 8 155 arguments in [−37.5, 40] is 2.2·(1 + x²/2)·ε below 0 and 1.8·ε
-    /// from 0 up; this allows 5·(1 + x²/2)·ε below 0 and 5·ε from 0 up.
+    /// Allowed relative error of `normal_cdf`.  The largest observed on the
+    /// 123 323 arguments `normal_cdf`'s documentation describes is
+    /// 2.5·(1 + x²/2)·ε below 0 and 2.3·ε from 0 up; this allows
+    /// 5·(1 + x²/2)·ε below 0 and 5·ε from 0 up, about twice as much.
     fn normal_cdf_tolerance(x: f64) -> f64 {
         5.0 * (1.0 + 0.5 * x.min(0.0).powi(2)) * f64::EPSILON
     }
