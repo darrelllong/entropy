@@ -1,17 +1,29 @@
 //! DIEHARD Test 7 — Monkey Tests: OPSO, OQSO, DNA.
 //!
-//! Letter extraction mirrors the Dieharder C (`diehard_opso.c`,
-//! `diehard_oqso.c`, `diehard_dna.c`): letter fields come from fixed bit
-//! positions inside separate 32-bit words, not a unified continuous bitstream.
+//! OPSO and OQSO take their letters exactly as the Dieharder C does
+//! (`diehard_opso.c`, `diehard_oqso.c`): fixed bit fields of separate 32-bit
+//! words, not a continuous bitstream.  OPSO pairs bits 0–9 of two words, then
+//! bits 10–19 of the same two; OQSO takes six 5-bit fields (bits 0–29) from
+//! each group of four words.
 //!
-//! Deliberate deviation from both DIEHARD and Dieharder: every sample here is
-//! built from *disjoint* bit fields, so the 2²¹ samples are mutually
-//! independent, and the missing-words statistic is calibrated with the exact
-//! iid moments (μ ≈ 141 909.19, σ ≈ 290.33) for all three tests.  Canonical
+//! DNA letter extraction differs from Dieharder.  `diehard_dna.c` refreshes
+//! its ten words every 32 samples and slides a 2-bit window one bit per sample
+//! with cyclic wraparound (`get_bit_ntuple_from_uint`), so successive letters
+//! overlap.  Here each group of ten words yields 16 samples at bit offsets
+//! 0, 2, …, 30, so every letter is a disjoint 2-bit field.
+//!
+//! Deliberate deviation from both DIEHARD and Dieharder in all three tests:
+//! every sample here is built from *disjoint* bit fields, so the 2²¹ samples
+//! are mutually independent, and the missing-words statistic is calibrated
+//! with the exact iid moments (μ ≈ 141 909.19, σ ≈ 290.33).  Canonical
 //! OPSO/OQSO/DNA use overlapping letter words, whose σs are 290/295/339 —
 //! applying those to independent samples would misstate the null distribution
 //! (cf. the comment in Dieharder's `bitstream.c`: "If you use non-overlapping
 //! samples, sigma is 290, not 428").
+//!
+//! # Author
+//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995), which
+//! describes OPSO, OQSO and DNA in its `tests.txt`.
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
