@@ -629,13 +629,13 @@ underweight.
   $0.04\%$ below and $3.5\%$ above the simulated one, but the $3.5\%$ extreme
   lies beyond $A \approx 10$, within single-run noise, where the sign is
   unresolved ($+1.69 \pm 1.41\%$ at $A = 11$, $+1.32 \pm 2.37\%$ at
-  $A = 12$).  At other $n$, understatements of up to about $1\%$ occur at
-  some $A$.  The ADKS values the paper prints match $AD(32,\cdot)$ from the
-  2004 paper.  LFIB4 is the case that separates it from `tuftests.c`'s own
-  `ad32` fit: the paper prints $0.724$, as $AD(32,\cdot)$ gives, where `ad32`
-  gives $0.727$; `ad32` departs from the 2004 distribution by up to
-  $0.0056$.  The aggregate detects positional asymmetries and bit-plane
-  correlations invisible to the standard birthday-problem tests.
+  $A = 12$).  The ADKS values the paper prints match $AD(32,\cdot)$ from the
+  2004 paper to within the four-decimal rounding of its per-bit inputs.
+  LFIB4 is the case that separates it from `tuftests.c`'s own `ad32` fit: the
+  paper prints $0.724$, as $AD(32,\cdot)$ gives, where `ad32` gives $0.727$;
+  `ad32` departs from the 2004 distribution by up to $0.0056$.  The aggregate
+  detects positional asymmetries and bit-plane correlations invisible to the
+  standard birthday-problem tests.
 
 - **Multi-scale approximate entropy (ApEn)**.  A sweep of the NIST SP 800-22
   §2.12 bit-level ApEn statistic over embedding dimensions $m = 2,\dots,6$
