@@ -315,7 +315,7 @@ L. **DIEHARD departures were undocumented or misstated** — `src/diehard/`.
    are corrected (f31f192, c413022, d1684fb, ea40a1e, 3f3f2a3, 39060f6).  No
    output changes.
 
-M. **The March removal of three DIEHARD tests rested on wrong reasons** —
+M. **The March removal of three DIEHARD tests rested on inaccurate reasons** —
    `README.md:200-209`; the removed modules at `3b41af8^:src/diehard/`
    (`operm5.rs`, `overlapping_sums.rs`, `count_ones.rs`).  Commit 3b41af8
    (2026-03-14) removed OPERM5, overlapping sums and count-the-1s on specific
@@ -336,15 +336,22 @@ M. **The March removal of three DIEHARD tests rested on wrong reasons** —
      Dieharder's transcription uses `y[t-2]` for `y[0]` and drops the f
      table; with its default 100 psamples it rejects 54% of perfect
      generators at 0.01.  The removed module copied that transcription and
-     rejected 4.5% at 0.01.  The test was broken only by the transcription.
+     rejected 4.5% at 0.01 (5.0% over 200 000 streams in README's
+     inventory).  The test was broken only by the transcription.
    - **Count-the-1s on specific bytes:** the removed module scored Q5 alone
      with df 3 124, which overlapping words do not support (in 1 000 null
      streams its mean was 3 115 and its variance 9 071 against 6 248, and
-     P(p < 0.01) = 2.6%), so it was miscalibrated as this crate wrote it.
-     DIEHARD's `wknt1s` scores Q5 − Q4, which the same simulation calibrates
-     (two-sided P(p < 0.01) = 0.8%).  Dieharder rates its own byte test
-     "Good", and its author's remark that he could make it obsolete is
-     conditional.
+     P(p < 0.01) = 2.6%; 2.95% over 20 000 streams in README's
+     inventory), so it was miscalibrated as this crate wrote it.  DIEHARD's
+     `wknt1s` scores Q5 − Q4, which the same simulation calibrates
+     (two-sided P(p < 0.01) = 0.8%; 1.008% of 250 000 window p-values over
+     10 000 streams, and 1.042% over another 10 000 on the landing tree).
+     Dieharder rates its own byte test "Good", and its author's remark that
+     he could make it obsolete is conditional; but he also calls it,
+     unconditionally, "LESS stringent than the stream version overall" and
+     "vastly less sensitive than rgb_bitdist" (`diehard_count_1s_byte.c`
+     lines 60–71).  The removal overstated the test's obsolescence, not
+     its loss of power.
 
    CONFIRMED by computation and by `diehard.f` itself run on a good
    generator (`jtbl` replaced by gfortran's RNG).
@@ -358,14 +365,16 @@ M. **The March removal of three DIEHARD tests rested on wrong reasons** —
    scoring Q5 − Q4 on each of DIEHARD's 25 byte windows with fresh words.
    No default run includes the suite: `--quick` on MT19937 and AES, and
    `--suite nist` on Xorshift32, print the same bytes at 67c3509 and at
-   7691ac9.  On null streams overlapping sums rejects 0.977% at 0.01 and
-   0.095% at 0.001 over 100 000 streams, and the count-the-1s window
-   p-values reject 1.042% at 0.01 (sd 0.020%).  Review found that
-   `--test diehard-historical::…` ran the whole default battery and exited
-   0; a `--test` pattern that matches no result name, or none the selection
-   runs, now exits 1 (524e2bc, 7691ac9).  Review also had the goldens split
-   into tight regression pins and fidelity checks at the Fortran's printed
-   precision (adc24ae).  Merged at 7691ac9.
+   7691ac9.  On null streams on the landing tree, overlapping sums rejects
+   0.977% at 0.01 and 0.095% at 0.001 over 100 000 streams, and the
+   count-the-1s window p-values reject 1.042% at 0.01 over 10 000 streams
+   (250 000 p-values).  Review found that `--test diehard-historical::…` ran
+   the whole default battery and exited 0.  `diehard-historical::` is now an
+   alias for `diehard_historical::`, and a `--test` pattern that matches no
+   result name, or none the selection runs, exits 1 (524e2bc; USAGE.md in
+   7691ac9).  Review also had the goldens split into tight regression pins
+   and fidelity checks at the printed precision of the gfortran build or
+   Dieharder's C (adc24ae).  Merged at 7691ac9.
 
 N. **`math::erfc` was good only to about 10⁻⁷** — `src/math.rs:12-41`.
    `erfc`, and `normal_cdf` through it, was Numerical Recipes' `erfcc`,
@@ -464,12 +473,14 @@ N. **`math::erfc` was good only to about 10⁻⁷** — `src/math.rs:12-41`.
     `jkreset` leaves it (item L).  Sweeping all 25 windows, each on fresh
     words, belongs to the historical suite, which now does it (d672935) and
     reports all 25 window results with their Anderson–Darling summary
-    (65231c6).  Review showed that the summary alone hides a broken window:
-    with window 8 broken, that window's p fell below 10⁻¹⁰ in all 1 000
-    streams while the summary fell below 0.01 in 8.2%.  Over 10 000 null
-    streams the window p-values reject 1.012% at 0.01 and 0.096% at 0.001,
-    and the summary 1.05% and 0.11%.  The default battery keeps its single
-    window.
+    (65231c6).  Review showed that the summary alone has little power
+    against one broken window: with window 8's byte zeroed in 600 streams,
+    the summary fell below 0.01 in 10.0%.  In 1 000 such streams simulated
+    for the module, window 8's own result fell below 10⁻¹⁰ every time and
+    the summary fell below 0.01 in 8.2%; the second review saw 400 of 400
+    and 8.25% over 400 streams.  Over 10 000 null streams on the landing tree
+    the window p-values reject 1.012% at 0.01 and 0.096% at 0.001, and the
+    summary 1.05% and 0.11%.  The default battery keeps its single window.
 
 11. **Webster–Tavares BIC masks degenerate linear maps** —
     `src/research/webster_tavares.rs:50-54`.  A never/always-flipping
@@ -1009,13 +1020,16 @@ neighbouring repositories' audits say about this crate.
   whose command the Linux runs below execute.  The historical DIEHARD suite
   (`diehard-historical`) was merged after its reviewer conceded every
   finding, over three rounds.
-- *Staging.*  Each merge was made on `merge-staging` and verified there
+- *Staging.*  Merges up to 229e104 were made on `merge-staging`, later
+  ones on integration and topic branches, and each was verified there
   against `git archive` copies of the committed sibling crates, cryptography
   342989a and rump 3ff885c, which is what CI builds: `cargo fmt --check`,
   clippy with `-D warnings`, `cargo test`, `cargo test --release --
   --include-ignored`, rustdoc with `-D missing_docs`, and a 1.87 check.  At
   229e104 all pass, with 346 tests in the debug run (3 ignored) and 349 in
-  the release run, and at main 93e6621 with 797 across the two runs.
+  the release run, at main 93e6621 with 797 across the two runs, and at
+  b724f16 with 852.  7691ac9 changes only USAGE.md, and dbdb345 only BIB.md
+  and `pubs/`; neither was rebuilt.
 - *Linux.*  On moore (x86-64, glibc, rustc 1.95), every run passed in debug
   and in release with `--include-ignored`: 229e104 with 346 and 349 tests,
   83a841c (erfc and research) with 395 and 398, which shows `erfc`'s
@@ -1063,7 +1077,9 @@ archives and for the files repacked or extracted from larger downloads:
 
 dl.acm.org and pnas.org answer scripts with a browser challenge, so the
 three ACM papers are the Internet Archive's captures of the ACM Digital
-Library's PDFs, and Pincus is Europe PMC's copy (86749f1).  BIB.md now
+Library's PDFs, and Pincus is Europe PMC's copy (86749f1); README's
+Reference Corpus now lists all four (0eda3e1).  BIB.md gains the two
+Numerical Recipes editions `src/math.rs` cites (0eda3e1).  BIB.md now
 also dates the wyhash snapshot, a 2026-03-23 commit, and says its 2022 is
 the year of final version 4 (f7b53fe).
 
@@ -1106,9 +1122,8 @@ Recipes.
   uncommitted tree with rump 3ff885c.  The committed 342989a has no such
   feature, so the manifest cannot resolve against it; the branch waits until
   cryptography publishes the feature, and the CI pins (item 40) move with it.
-- rump's F3 change from the cryptography audit, which makes
-  `to_be_bytes_padded` encode once instead of copying an unpadded encoding,
-  is committed as rump d30a7bc.  CI still pins rump 3ff885c, where the
+- rump d30a7bc makes `to_be_bytes_padded` encode once instead of copying
+  an unpadded encoding.  CI still pins rump 3ff885c, where the
   `store_mod_seedlen` doc in `hash_drbg.rs` is right; that doc changes when
   the pin moves.
 
