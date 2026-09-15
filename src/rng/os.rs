@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::Read;
 
 use super::Rng;
+#[cfg(feature = "cryptography")]
 use cryptography::zeroize_slice;
 
 /// Size of the internal read buffer.  Refilled in one `read_exact` call when
@@ -83,7 +84,16 @@ impl Drop for OsRng {
     /// generator (the same hygiene `AesCtr`/`BlockCtrRng` apply to key
     /// material and keystream).
     fn drop(&mut self) {
+        #[cfg(feature = "cryptography")]
         zeroize_slice(&mut self.buf);
+        // Without the cryptography crate's volatile write, a plain clear
+        // held in place by the optimiser barrier: the bytes are still
+        // cleared, without the guarantee the volatile write gives.
+        #[cfg(not(feature = "cryptography"))]
+        {
+            self.buf.fill(0);
+            std::hint::black_box(&self.buf);
+        }
     }
 }
 

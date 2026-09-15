@@ -1,28 +1,45 @@
 //! [`Rng`] trait and all generator implementations used by the test suite.
+//!
+//! The generators built on the sibling cryptography crate's ciphers,
+//! hashes and DRBGs are behind the `cryptography` feature, on by default;
+//! without it the statistical generators, [`OsRng`] and the suites remain,
+//! and the build links no cryptographic multiprecision.
 
+#[cfg(feature = "cryptography")]
 pub mod aes_ctr;
 pub mod bad;
+#[cfg(feature = "cryptography")]
 pub mod block_ctr;
 pub mod c_stdlib;
+#[cfg(feature = "cryptography")]
 pub mod chacha20_rng;
+#[cfg(feature = "cryptography")]
 pub mod crypto_cprng;
+#[cfg(feature = "cryptography")]
 pub mod dual_ec;
+#[cfg(feature = "cryptography")]
 pub mod hash_drbg;
+#[cfg(feature = "cryptography")]
 pub mod hmac_drbg;
 pub mod lcg;
 pub mod mt19937;
 pub mod os;
 pub mod pcg;
 pub mod sfc;
+#[cfg(feature = "cryptography")]
 pub mod spongebob;
+#[cfg(feature = "cryptography")]
 pub mod squidward;
+#[cfg(feature = "cryptography")]
 pub mod stream_rng;
 pub mod wyrand;
 pub mod xorshift;
 pub mod xoshiro;
 
+#[cfg(feature = "cryptography")]
 pub use aes_ctr::AesCtr;
 pub use bad::{ConstantRng, CounterRng};
+#[cfg(feature = "cryptography")]
 pub use block_ctr::BlockCtrRng;
 #[allow(deprecated)]
 pub use c_stdlib::CRand;
@@ -30,18 +47,26 @@ pub use c_stdlib::{
     BsdRandCompat, BsdRandom, LinuxLibcRandom, Rand48, SystemVRand, WindowsDotNetRandom,
     WindowsMsvcRand, WindowsVb6Rnd,
 };
+#[cfg(feature = "cryptography")]
 pub use chacha20_rng::ChaCha20Rng;
+#[cfg(feature = "cryptography")]
 pub use crypto_cprng::CryptoCtrDrbg;
+#[cfg(feature = "cryptography")]
 pub use dual_ec::DualEcDrbg;
+#[cfg(feature = "cryptography")]
 pub use hash_drbg::HashDrbg;
+#[cfg(feature = "cryptography")]
 pub use hmac_drbg::HmacDrbg;
 pub use lcg::{Lcg32, LcgVariant};
 pub use mt19937::Mt19937;
 pub use os::OsRng;
 pub use pcg::{Pcg32, Pcg64};
 pub use sfc::{Jsf64, Sfc64};
+#[cfg(feature = "cryptography")]
 pub use spongebob::SpongeBob;
+#[cfg(feature = "cryptography")]
 pub use squidward::Squidward;
+#[cfg(feature = "cryptography")]
 pub use stream_rng::StreamRng;
 pub use wyrand::WyRand;
 pub use xorshift::{Xorshift32, Xorshift64};
@@ -144,6 +169,7 @@ pub trait Rng {
 
 // ── Byte-buffered generators ─────────────────────────────────────────────────
 
+#[cfg(feature = "cryptography")]
 /// Read path shared by the generators that serve words from a buffer of
 /// output bytes: `ChaCha20Rng`, `HashDrbg`, `HmacDrbg`, `SpongeBob`,
 /// `Squidward` and `StreamRng`.
@@ -182,7 +208,7 @@ trait ByteBuffered<const LEN: usize> {
 
 /// Decode a hex string, two digits per byte, as the known-answer tests
 /// print their vectors.
-#[cfg(test)]
+#[cfg(all(test, feature = "cryptography"))]
 fn hex(s: &str) -> Vec<u8> {
     (0..s.len())
         .step_by(2)
@@ -199,6 +225,7 @@ mod tests {
     /// of those wipes, so pin the behaviour here.  Nothing guards the other
     /// half, rump's drop-time limb scrubbing: it cannot be observed from safe
     /// code, and no test inspects the resolved dependency features.
+    #[cfg(feature = "cryptography")]
     #[test]
     fn zeroize_slice_clears_memory() {
         let mut buf = [0xa5u8; 64];

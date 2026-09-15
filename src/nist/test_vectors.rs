@@ -47,7 +47,7 @@ pub(crate) fn e_bits(n: usize) -> Vec<u8> {
         .collect()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "cryptography"))]
 mod tests {
     use super::{e_bits, E_BITS, E_FIXTURE};
     use cryptography::vt::BigUint;

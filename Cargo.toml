@@ -28,18 +28,76 @@ exclude = [
     "AGENTS.md",
 ]
 
+# Every binary reaches the cipher-backed generators (through the shared
+# `src/bin/common` family), so all need the `cryptography` feature; a
+# `default-features = false` build is the library alone.
 [[bin]]
 name = "run_tests"
 path = "src/main.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "pilot_rng"
+path = "src/bin/pilot_rng.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "dump_rng"
+path = "src/bin/dump_rng.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "webster_tavares"
+path = "src/bin/webster_tavares.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "bitplane_complexity"
+path = "src/bin/bitplane_complexity.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "bib_tests"
+path = "src/bin/bib_tests.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "gorilla"
+path = "src/bin/gorilla.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "testu01_lz"
+path = "src/bin/testu01_lz.rs"
+required-features = ["cryptography"]
+
+[[bin]]
+name = "upstream_tests"
+path = "src/bin/upstream_tests.rs"
+required-features = ["cryptography"]
 
 [lib]
 name = "entropy"
 path = "src/lib.rs"
 
+[features]
+# The cipher-, hash- and DRBG-backed generators and the volatile scrub of
+# the OsRng buffer come from the sibling cryptography crate, which turns
+# on rump's limb wiping for every crate that links rump beside it (Cargo
+# builds one rust-mp with the union of its dependants' features). On by
+# default, so the suite and its binaries are what they were. A consumer
+# that wants only the statistical generators — factoring chooses its
+# pseudorandom maps with `Jsf64` and nothing about that choice is secret —
+# takes the crate with `default-features = false` and links a rump that
+# does not wipe (factoring's AUDIT.md, A12: about a tenth of a c90 run).
+default = ["cryptography"]
+cryptography = ["dep:cryptography-rs"]
+
 [dependencies]
 # Side-by-side sibling checkout, matching how cryptography-rs itself takes
 # rust-mp: the path serves local development, the version takes over when
 # published. 0.7 pulls rump's `wipe` feature transitively, so `BigUint`
-# scrubs its limbs on drop.
-cryptography-rs = { version = "0.7", path = "../cryptography" }
+# scrubs its limbs on drop — which is why the dependency is optional; see
+# the feature above.
+cryptography-rs = { version = "0.7", path = "../cryptography", optional = true }
 rustfft         = "6.2"
