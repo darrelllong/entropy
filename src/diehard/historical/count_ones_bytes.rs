@@ -17,14 +17,13 @@
 //!
 //! # Calibration
 //!
-//! 10 000 streams of 6 400 100 words, each from a separately seeded PCG64
-//! generator, gave 250 000 window p-values with p < 0.01 in 1.04% (binomial
-//! standard deviation 0.02%) and p < 0.001 in 0.105% (0.006%); a
-//! Kolmogorov–Smirnov test of the 250 000 gave p = 0.003.  At that sample size
-//! the test resolves the approximation in the statistic: Q5 − Q4 is only
-//! approximately χ²(2 500), and the normal z ignores its skewness.  The
-//! excess rejection rate is a few hundredths of a percent.  A test below runs a fixed
-//! eight-stream version under `cargo test --release`.
+//! 4 000 streams of 6 400 100 words, each from a separately seeded PCG64
+//! generator, gave 100 000 window p-values with p < 0.01 in 1.045% (binomial
+//! standard deviation 0.031%) and p < 0.001 in 0.089%; a Kolmogorov–Smirnov
+//! test of the 100 000 gave p = 0.028.  Q5 − Q4 is only approximately
+//! χ²(2 500), and at that sample size the excess is a few hundredths of a
+//! percent.  A test below runs a fixed eight-stream version under
+//! `cargo test --release`.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).

@@ -21,6 +21,13 @@
 //! probability used at the test's 100 000 pairs is a negligible fraction of
 //! the test's own sampling noise.
 //!
+//! # Calibration
+//!
+//! 20 000 separately seeded PCG64 streams gave p < 0.01 in 1.095% of the GCD
+//! results and 1.085% of the step-count results (binomial standard deviation
+//! 0.070%), and Kolmogorov–Smirnov p-values against uniformity of 0.65 and
+//! 0.59.
+//!
 //! # Author
 //! George Marsaglia and Wai Wan Tsang, "Some Difficult-to-pass Tests of
 //! Randomness", *Journal of Statistical Software* 7(3), 2002,

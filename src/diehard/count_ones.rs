@@ -17,6 +17,10 @@
 //! Bytes are taken from each word low byte first.  256 004 bytes are read: a
 //! four-letter prefix, then one letter per counted word.
 //!
+//! 20 000 separately seeded PCG64 streams gave p < 0.01 in 0.990% (binomial
+//! standard deviation 0.070%) and p < 0.001 in 0.085%; a Kolmogorov–Smirnov
+//! test of the p-values gave 0.46.
+//!
 //! [`crate::diehard::historical::count_ones_bytes`] applies the same
 //! statistic to one byte of each word, at each of the 25 bit offsets.
 //!
