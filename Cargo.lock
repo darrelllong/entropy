@@ -56,6 +56,7 @@ name = "rng-entropy"
 version = "0.5.0"
 dependencies = [
  "cryptography-rs",
+ "rust-mp",
  "rustfft",
 ]
 

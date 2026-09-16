@@ -1,19 +1,16 @@
-//! Special mathematical functions used across all test suites.
+//! Special functions and distributions shared by the test suites.
 //!
-//! All functions are pure Rust, no external crates.  Algorithms are cited inline.
+//! Each function names the mathematics it evaluates and where that comes
+//! from.  ln Γ comes from rump; the fast Fourier transform from `rustfft`.
 
 use rustfft::{num_complex::Complex, FftPlanner};
-use std::f64::consts::{PI, SQRT_2};
+use std::f64::consts::{FRAC_PI_2, PI, SQRT_2};
 
 // ── erfc and the normal distribution ──────────────────────────────────────────
 
-/// R(z) = cPhi(z)/φ(z), the upper normal tail over the density (Mills'
-/// ratio), at z = 0, 2, 4, …, 16.
-///
-/// The digits are those of the `R[9]` initializer in `cPhi`, G. Marsaglia,
-/// "Evaluating the Normal Distribution", *Journal of Statistical Software*
-/// 11(4), 2004, pp. 2 and 9; each rounds to the nearest f64.
-/// [pubs/marsaglia-2004-normal-distribution.pdf]
+/// Mills' ratio R(z) = (1 − Φ(z))/φ(z) at z = 0, 2, 4, …, 16, each the f64
+/// nearest its value.  R(0) = √(π/2); a test recomputes the others from
+/// Laplace's continued fraction.
 #[allow(clippy::excessive_precision)]
 const MILLS_RATIO_AT_EVEN: [f64; 9] = [
     1.25331413731550025,
@@ -27,8 +24,7 @@ const MILLS_RATIO_AT_EVEN: [f64; 9] = [
     0.0622586659950261958,
 ];
 
-/// ln √(2π), written as `.91893853320467274178L` in `Phi` and `cPhi` of
-/// Marsaglia (2004), pp. 1, 2 and 9: φ(x) = exp(−x²/2 − ln √(2π)).
+/// ln √(2π): φ(x) = exp(−x²/2 − ln √(2π)).
 #[allow(clippy::excessive_precision)]
 const LN_SQRT_2PI: f64 = 0.91893853320467274178;
 
@@ -39,27 +35,25 @@ const MILLS_TABLE_END: f64 = 16.0;
 /// order where the terms must shrink, is at most this fraction of the sum.
 const MILLS_TAIL: f64 = f64::EPSILON / 8.0;
 
-/// Mills' ratio R(x) = cPhi(x)/φ(x) for x ≥ 0 (not NaN).
+/// Mills' ratio R(x) = (1 − Φ(x))/φ(x) for x ≥ 0 (not NaN).
 ///
-/// Up to x = 16 this is the Taylor series of Marsaglia (2004, p. 4) about a
-/// tabled z, x = z + h: R′ = xR − 1 gives R⁽ᵏ⁺¹⁾ = xR⁽ᵏ⁾ + kR⁽ᵏ⁻¹⁾, and the
-/// loop builds the coefficients cₖ = R⁽ᵏ⁾(z)/k! two at a time as his `cPhi`
-/// does.  It departs from `cPhi`, which computes in 80-bit `long double`, in
-/// two places.
+/// Up to x = 16 this is a Taylor series about a tabled point z, x = z + h,
+/// the approach of G. Marsaglia, "Evaluating the Normal Distribution",
+/// *Journal of Statistical Software* 11(4), 2004, p. 4: R′ = xR − 1 gives
+/// R⁽ᵏ⁺¹⁾ = xR⁽ᵏ⁾ + kR⁽ᵏ⁻¹⁾, and the loop builds the coefficients
+/// cₖ = R⁽ᵏ⁾(z)/k! two at a time.
 ///
-/// The expansion point.  `cPhi` takes the nearest tabled z (|h| ≤ 1).  The
-/// part of a rounding error in R(z) or R′(z) that is not a multiple of R is
-/// a multiple of e^{x²/2}, the solution of R′ = xR, and grows by
-/// e^{zh + h²/2} on the way to z + h; in f64 with h near +1 that measured
-/// 1.2 × 10⁻¹⁰ relative error near x = 15.  Here z is the tabled point at
-/// or above x (−2 < h ≤ 0), or z = 0 for x < 1.
+/// The expansion point.  The part of a rounding error in R(z) or R′(z) that
+/// is not a multiple of R is a multiple of e^{x²/2}, the solution of R′ = xR,
+/// and grows by e^{zh + h²/2} on the way to z + h.  So z is the tabled point
+/// at or above x (−2 < h ≤ 0), or z = 0 for x < 1, where that factor is at
+/// most 1.
 ///
 /// The stopping rule.  The recurrence cₖ₊₁ = (z·cₖ + cₖ₋₁)/(k + 1) runs
 /// forward, so rounding in the early coefficients grows like the terms of
-/// e^{z|h|} and cancels only over the whole alternating tail.  `cPhi` stops
-/// at the first pair of terms that rounds away, which can be a pair where
-/// that error and the true term cancel; in f64 that left 1.5 × 10⁻¹⁰
-/// relative error at x = 14.886.  The recurrence gives
+/// e^{z|h|} and cancels only over the whole alternating tail; stopping at the
+/// first pair of terms that rounds away can stop where that error and the
+/// true term cancel.  The recurrence gives
 /// |cₖ₊₁hᵏ⁺¹| ≤ ((z|h| + h²)/(k + 1))·max(|cₖhᵏ|, |cₖ₋₁hᵏ⁻¹|) for whatever
 /// values rounding left in cₖ and cₖ₋₁, so once k + 1 ≥ 2(z|h| + h²) each
 /// term is at most half the larger of the two before it, and everything
@@ -111,27 +105,21 @@ fn mills_ratio(x: f64) -> f64 {
     }
 }
 
-/// Upper normal tail cPhi(x) = 1 − Φ(x) = R(x)·φ(x) for x ≥ 0 (not NaN),
-/// the last step of Marsaglia's `cPhi`.  At x = 0 the product
-/// R(0)·exp(−ln √(2π)) rounds to exactly 0.5.
+/// Upper normal tail 1 − Φ(x) = R(x)·φ(x) for x ≥ 0 (not NaN).  At x = 0
+/// the product R(0)·exp(−ln √(2π)) rounds to exactly 0.5.
 fn normal_upper_tail(x: f64) -> f64 {
     mills_ratio(x) * (-0.5 * x * x - LN_SQRT_2PI).exp()
 }
 
 /// Complementary error function, erfc(x) = 1 − erf(x).
 ///
-/// erfc(x) = 2·cPhi(x√2) for x ≥ 0 and erfc(x) = 2 − erfc(−x) below 0, with
-/// cPhi(u) = 1 − Φ(u) evaluated by the method of G. Marsaglia, "Evaluating
-/// the Normal Distribution", *Journal of Statistical Software* 11(4), 2004,
-/// pp. 2–5 and 9, with the table point and tail changes f64 needs (see
-/// `mills_ratio` in the source).  [pubs/marsaglia-2004-normal-distribution.pdf]
+/// erfc(x) = 2·(1 − Φ(x√2)) for x ≥ 0 and erfc(x) = 2 − erfc(−x) below 0,
+/// with the normal tail from `mills_ratio`.
 ///
-/// Accuracy, as the largest error observed against 70-digit references in
-/// Python `decimal` (a second, independent oracle agrees to 10⁻⁶¹ wherever
-/// both were run; see the tests) on 1 121 489 arguments in [−11.3, 26.5]:
-/// 1 000 000 uniformly random, and 121 489 packed near the expansion points
-/// and near the arguments where stopping the series at the first
-/// negligible pair erred.  ε is `f64::EPSILON`.
+/// Accuracy, as the largest error observed against 70-digit references on
+/// 1 121 489 arguments in [−11.3, 26.5] (1 000 000 uniformly random, and
+/// 121 489 packed near the expansion points and near arguments where a
+/// naive stopping rule errs).  ε is `f64::EPSILON`.
 ///
 /// - From 0 to 26.5, relative error 3.6·(1 + x²)·ε (3.54 at
 ///   x = 0.1958876234856557): at most 1.2 × 10⁻¹⁵ below x = 1,
@@ -148,8 +136,6 @@ fn normal_upper_tail(x: f64) -> f64 {
 /// erfc(±0) = 1 exactly, 0 ≤ erfc(x) ≤ 1 for x ≥ 0 and 1 ≤ erfc(x) ≤ 2 below,
 /// so a two-sided p-value erfc(|z|/√2) never exceeds 1.  erfc(+∞) = 0,
 /// erfc(−∞) = 2 and erfc(NaN) = NaN.
-///
-/// Used by nearly every NIST SP 800-22 test for its p-value.
 #[must_use]
 pub fn erfc(x: f64) -> f64 {
     if x.is_nan() {
@@ -165,21 +151,15 @@ pub fn erfc(x: f64) -> f64 {
 
 /// Standard normal CDF, Φ(x) = P(Z ≤ x) for Z ~ N(0,1).
 ///
-/// Φ(x) = cPhi(−x) below 0 and 1 − cPhi(x) from 0 up, with cPhi as in
-/// [`erfc`] but without its x√2 rescaling, so lower-tail values keep relative
-/// accuracy.  Against the same references on 1 523 325 arguments in
-/// [−37.5, 40] (1 400 000 uniformly random, the rest packed as for
-/// [`erfc`]), the largest relative error observed below 0 is
+/// Φ(x) = 1 − Φ(−x) evaluated as the upper tail below 0, and 1 minus the
+/// upper tail from 0 up, without [`erfc`]'s x√2 rescaling, so lower-tail
+/// values keep relative accuracy.  Against the same references on 1 523 325
+/// arguments in [−37.5, 40], the largest relative error observed below 0 is
 /// 3.4·(1 + x²/2)·ε, at x = −0.2940544440351558 (3.4 × 10⁻¹⁵ on [−6, 0),
 /// 1.6 × 10⁻¹⁴ on [−16, −6) and 9.4 × 10⁻¹⁴ on [−37.5, −16)).  The largest
 /// absolute error from 0 up is 3.4 × 10⁻¹⁶ (relative 2.7·ε).  As for
-/// [`erfc`], the tests allow about twice these.  Results are subnormal
-/// below x ≈ −37.5 and 0 from x ≈ −38.49.
-///
-/// Marsaglia's table-free `Phi` (2004, p. 1) is not used.  Evaluated as
-/// printed with f64 throughout, it exceeds 1 by up to 1.11 × 10⁻¹⁵ at 284
-/// points of a 10⁻⁴ grid on [7, 9], and its relative error is 1.39 × 10⁻⁹
-/// at x = −5 and 9.0 × 10⁻⁷ at x = −6.
+/// [`erfc`], the tests allow about twice these.  Results are subnormal below
+/// x ≈ −37.5 and 0 from x ≈ −38.49.
 ///
 /// Φ(±0) = 0.5 exactly and 0 ≤ Φ(x) ≤ 1.  Φ(−∞) = 0, Φ(+∞) = 1 and
 /// Φ(NaN) = NaN.
@@ -194,49 +174,40 @@ pub fn normal_cdf(x: f64) -> f64 {
     }
 }
 
-// ── lgamma ────────────────────────────────────────────────────────────────────
+// ── ln Γ ──────────────────────────────────────────────────────────────────────
 
-/// Natural logarithm of the gamma function, ln Γ(x), for x > 0.
-///
-/// Six-coefficient Lanczos approximation (`gammln`) from W. H. Press et al.,
-/// *Numerical Recipes in C* (2nd ed., 1992), §6.1.  Relative error in ln Γ
-/// is below 2 × 10⁻¹⁰ per NR (~10 significant figures in Γ).
+/// Natural logarithm of the gamma function, ln Γ(x), for x > 0: rump's
+/// Lanczos evaluation (g = 7, nine terms), good to about fifteen digits.
 #[must_use]
 pub fn lgamma(x: f64) -> f64 {
-    const C: [f64; 6] = [
-        76.18009172947146,
-        -86.50532032941677,
-        24.01409824083091,
-        -1.231739572450155,
-        1.208650973866179e-3,
-        -5.395239384953e-6,
-    ];
-    let mut y = x;
-    let tmp = x + 5.5 - (x + 0.5) * (x + 5.5).ln();
-    let mut ser = 1.000_000_000_190_015_f64;
-    for &c in &C {
-        y += 1.0;
-        ser += c / y;
-    }
-    -tmp + (2.506_628_274_631_000_5 * ser / x).ln()
+    rump::number_theory::ln_gamma(x)
 }
 
-// ── igamc ─────────────────────────────────────────────────────────────────────
+// ── Regularised incomplete gamma ──────────────────────────────────────────────
 
-/// Regularized **upper** incomplete gamma function Q(a, x) = Γ(a, x) / Γ(a).
+/// Relative size at which the incomplete-gamma series and continued fraction
+/// stop.
+const GAMMA_TOLERANCE: f64 = 1e-15;
+
+/// Regularised upper incomplete gamma function Q(a, x) = Γ(a, x)/Γ(a), the
+/// survival function of χ² with 2a degrees of freedom at 2x.
 ///
-/// This is the survival function of the chi-square distribution:
-/// `p_value = igamc(df/2, χ²/2)`.
+/// With the prefactor xᵃe⁻ˣ/Γ(a) taken in logarithms:
 ///
-/// Algorithm from W. H. Press et al., *Numerical Recipes* (3rd ed.), §6.2:
-/// series expansion for x < a + 1, Lentz continued-fraction otherwise.
+/// - for x < a + 1, Q = 1 − P, with P(a, x) = xᵃe⁻ˣ/Γ(a) · Σₖ xᵏ/(a(a + 1)…(a + k))
+///   (DLMF 8.7.1), whose terms decrease once k > x − a;
+/// - otherwise the continued fraction Γ(a, x) = xᵃe⁻ˣ ·
+///   1/(x + 1 − a − 1·(1 − a)/(x + 3 − a − 2·(2 − a)/(x + 5 − a − …)))
+///   (DLMF 8.9.2), evaluated by the modified Lentz algorithm (W. J. Lentz,
+///   *Applied Optics* 15 (1976); I. J. Thompson and A. R. Barnett, *J.
+///   Computational Physics* 64 (1986)).
 ///
-/// Returns `f64::NAN` if `a ≤ 0`, `x < 0`, or the expansion fails to converge
-/// (astronomically large `a`); callers treat `NAN` as an insufficient-data
-/// result rather than a statistical verdict.
+/// Both need O(√a) terms near x ≈ a, the bulk of a χ² distribution, so the
+/// iteration budget grows with √a.  Returns NaN if a is not a positive finite
+/// number, x < 0, either is NaN, or the expansion does not converge.
 #[must_use]
 pub fn igamc(a: f64, x: f64) -> f64 {
-    if !(a > 0.0 && x >= 0.0) {
+    if !(a > 0.0 && a.is_finite() && x >= 0.0) {
         return f64::NAN;
     }
     if x == 0.0 {
@@ -245,83 +216,75 @@ pub fn igamc(a: f64, x: f64) -> f64 {
     if x.is_infinite() {
         return 0.0;
     }
+    let ln_prefactor = a * x.ln() - x - lgamma(a);
     if x < a + 1.0 {
-        gamser(a, x).map_or(f64::NAN, |p| 1.0 - p)
+        lower_gamma_series(a, x, ln_prefactor).map_or(f64::NAN, |p| 1.0 - p)
     } else {
-        gammcf(a, x).unwrap_or(f64::NAN)
+        upper_gamma_fraction(a, x, ln_prefactor).unwrap_or(f64::NAN)
     }
 }
 
-/// Iteration budget for the igamc expansions.  Both the series and the
-/// continued fraction need O(√a) terms when x ≈ a (the chi-square bulk),
-/// so a fixed cap silently loses accuracy for large df: at a = 10⁵ a
-/// 500-iteration cap yields ~11% relative error.  `None` on non-convergence.
-fn igamc_max_iter(a: f64) -> u64 {
+/// Terms or convergents the incomplete-gamma expansions may take.
+fn gamma_iterations(a: f64) -> u64 {
     500 + (10.0 * a.sqrt()) as u64
 }
 
-/// Series expansion for the regularized lower incomplete gamma P(a, x).
-fn gamser(a: f64, x: f64) -> Option<f64> {
-    let gln = lgamma(a);
-    let mut ap = a;
-    let mut del = 1.0 / a;
-    let mut sum = del;
-    for _ in 0..igamc_max_iter(a) {
-        ap += 1.0;
-        del *= x / ap;
-        sum += del;
-        if del.abs() < sum.abs() * 1e-13 {
-            return Some(sum * (-x + a * x.ln() - gln).exp());
+/// P(a, x) by the series of DLMF 8.7.1, or `None` without convergence.
+fn lower_gamma_series(a: f64, x: f64, ln_prefactor: f64) -> Option<f64> {
+    let mut term = 1.0 / a;
+    let mut sum = term;
+    let mut denominator = a;
+    for _ in 0..gamma_iterations(a) {
+        denominator += 1.0;
+        term *= x / denominator;
+        sum += term;
+        if term.abs() <= sum.abs() * GAMMA_TOLERANCE {
+            return Some(sum * ln_prefactor.exp());
         }
     }
     None
 }
 
-/// Lentz continued-fraction expansion for Q(a, x).
+/// Q(a, x) by the continued fraction of DLMF 8.9.2, or `None` without
+/// convergence.
 ///
-/// Follows the modified Lentz algorithm from W. H. Press et al.,
-/// *Numerical Recipes* (3rd ed.), §6.2.  The key invariant is that d and c
-/// are updated in sequence with the SAME value of `an` — d must not be
-/// touched twice in one iteration, which would corrupt the fraction.
-fn gammcf(a: f64, x: f64) -> Option<f64> {
-    let gln = lgamma(a);
-    let fpmin = f64::MIN_POSITIVE / f64::EPSILON;
-    let mut b = x + 1.0 - a;
-    let mut c = 1.0 / fpmin;
-    // Lentz convention: clamp the DENOMINATOR to fpmin, then invert.
-    // (Unreachable here — the x ≥ a + 1 branch guarantees b ≥ 2.)
-    let mut d = 1.0 / if b.abs() < fpmin { fpmin } else { b };
-    let mut h = d;
-    for i in 1_u64..=igamc_max_iter(a) {
-        let an = -(i as f64) * (i as f64 - a);
-        b += 2.0;
-        // Update d: clamp before inverting so we never divide by zero.
-        let new_d = an * d + b;
-        d = 1.0 / if new_d.abs() < fpmin { fpmin } else { new_d };
-        // Update c: clamp before using.
-        let new_c = b + an / c;
-        c = if new_c.abs() < fpmin { fpmin } else { new_c };
-        let del = d * c;
-        h *= del;
-        if (del - 1.0).abs() < 1e-13 {
-            return Some((-x + a * x.ln() - gln).exp() * h);
+/// The fraction is b₀ + a₁/(b₁ + a₂/(b₂ + …)) with b₀ = 0, a₁ = 1,
+/// bⱼ = x + 2j − 1 − a and aⱼ₊₁ = −j(j − a).  The modified Lentz algorithm
+/// keeps the ratios Cⱼ = fⱼ/fⱼ₋₁ and Dⱼ = qⱼ₋₁/qⱼ of successive numerators
+/// and denominators, replacing a zero by a tiny number, and multiplies the
+/// convergent by CⱼDⱼ until that factor is 1 to within the tolerance.
+fn upper_gamma_fraction(a: f64, x: f64, ln_prefactor: f64) -> Option<f64> {
+    const TINY: f64 = 1e-300;
+    let nonzero = |v: f64| if v.abs() < TINY { TINY } else { v };
+    let mut value = TINY;
+    let mut c = value;
+    let mut d = 0.0;
+    for j in 1..=gamma_iterations(a) {
+        let jf = j as f64;
+        let numerator = if j == 1 {
+            1.0
+        } else {
+            -(jf - 1.0) * (jf - 1.0 - a)
+        };
+        let denominator = x + 2.0 * jf - 1.0 - a;
+        d = 1.0 / nonzero(denominator + numerator * d);
+        c = nonzero(denominator + numerator / c);
+        let factor = c * d;
+        value *= factor;
+        if (factor - 1.0).abs() <= GAMMA_TOLERANCE {
+            return Some(value * ln_prefactor.exp());
         }
     }
     None
 }
 
-// ── Kolmogorov-Smirnov ────────────────────────────────────────────────────────
+// ── Kolmogorov–Smirnov ────────────────────────────────────────────────────────
 
-/// Two-sided Kolmogorov-Smirnov test: returns the p-value for the hypothesis
-/// that `samples` are drawn from U(0, 1).
+/// Two-sided Kolmogorov–Smirnov test that `samples` are drawn from U(0, 1):
+/// the p-value of D = supₓ |Fₙ(x) − x| by [`ks_pvalue`].
 ///
-/// Uses the exact/speedup hybrid from Dieharder's `kstest.c`, which in turn
-/// ports G. Marsaglia, W. W. Tsang, J. Wang, "Evaluating Kolmogorov's
-/// Distribution", *Journal of Statistical Software* 8(18), 2003.
-///
-/// Returns NaN, the crate's insufficient-data value, if any sample is NaN:
-/// such a sample has no place in the empirical distribution.  Otherwise the
-/// slice is sorted in place.
+/// Returns NaN, the crate's insufficient-data value, if any sample is NaN.
+/// Otherwise the slice is sorted in place.
 #[must_use]
 pub fn ks_test(samples: &mut [f64]) -> f64 {
     if samples.iter().any(|x| x.is_nan()) {
@@ -342,27 +305,23 @@ pub fn ks_test(samples: &mut [f64]) -> f64 {
     ks_pvalue(d, n)
 }
 
+/// Largest n for which [`ks_pvalue`] evaluates the exact distribution.
 const KS_EXACT_MAX_N: usize = 4_999;
 
-/// P-value for the Kolmogorov-Smirnov statistic D with sample size n.
+/// P(Dₙ ≥ d), the upper tail of the two-sided Kolmogorov–Smirnov statistic
+/// for a sample of n.
 ///
-/// For moderate sample sizes, this uses the exact/speedup hybrid matrix method
-/// from Dieharder's `p_ks_new()` (Marsaglia-Tsang-Wang 2003).  For large `n`
-/// it falls back to the Stephens-corrected asymptotic Kolmogorov series.
+/// For n ≤ 4 999 this is the exact distribution by Durbin's matrix formula,
+/// as G. Marsaglia, W. W. Tsang and J. Wang present it in "Evaluating
+/// Kolmogorov's Distribution", *Journal of Statistical Software* 8(18), 2003,
+/// with their approximation for the far right tail.  For larger n it is
+/// Kolmogorov's limiting series at Stephens' modified argument
+/// d(√n + 0.12 + 0.11/√n) (M. A. Stephens, *JASA* 69 (1974)).
 ///
-/// Reference:
-/// - Brown, R.G., `libdieharder/kstest.c`, Dieharder 3.31.1.
-/// - Marsaglia, G., Tsang, W.W., Wang, J. (2003). Evaluating Kolmogorov's
-///   Distribution. *Journal of Statistical Software* 8(18).
-/// - Stephens, M.A. (1974). EDF Statistics for Goodness of Fit and Some
-///   Comparisons. *JASA* 69(347), 730-737.
-/// - Kolmogorov, A.N. (1933). Sulla determinazione empirica di una legge di
-///   distribuzione. *Giornale dell'Istituto Italiano degli Attuari* 4, 83-91.
+/// Returns NaN for n = 0.
 #[must_use]
 pub fn ks_pvalue(d: f64, n: usize) -> f64 {
     if n == 0 {
-        // No sample → no verdict.  NaN follows the crate's insufficient-data
-        // convention (a 0.0 here would report a hard FAIL on empty input).
         return f64::NAN;
     }
     if d <= 0.0 {
@@ -377,134 +336,118 @@ pub fn ks_pvalue(d: f64, n: usize) -> f64 {
     ks_pvalue_asymptotic(d, n)
 }
 
+/// Kolmogorov's series 2 Σₖ (−1)^(k−1) e^(−2k²s²) at Stephens' argument s.
 fn ks_pvalue_asymptotic(d: f64, n: usize) -> f64 {
-    let nf = n as f64;
-    // Stephens (1974) corrected argument: reduces error from O(1/√n) to O(1/n).
-    let s = d * (nf.sqrt() + 0.12 + 0.11 / nf.sqrt());
-    // Asymptotic series (Kolmogorov 1933)
-    let s2 = -2.0 * s * s;
+    let root_n = (n as f64).sqrt();
+    let s = d * (root_n + 0.12 + 0.11 / root_n);
     let mut sum = 0.0_f64;
-    let mut converged = false;
-    for k in 1_i64..=100 {
-        let term = (-1.0_f64).powi(k as i32 - 1) * (k as f64 * k as f64 * s2).exp();
-        sum += term;
-        // `<=` so that a term underflowing to exactly 0 (huge s: every term
-        // vanishes, sum stays 0, true p ≈ 0) counts as converged; the strict
-        // `<` never fired there (0 < 0) and misrouted huge-s inputs into the
-        // small-s fallback below, reporting p = 1 for catastrophic D.
-        if term.abs() <= 1e-15 * sum.abs() {
-            converged = true;
-            break;
+    for k in 1..=100u32 {
+        let kf = f64::from(k);
+        let term = (-2.0 * kf * kf * s * s).exp();
+        sum += if k % 2 == 1 { term } else { -term };
+        // A term that underflows to 0 has converged: for huge s every term
+        // vanishes and the p-value is 0.
+        if term <= 1e-15 * sum.abs() {
+            return (2.0 * sum).clamp(0.0, 1.0);
         }
     }
-    if !converged {
-        // Terms decay like exp(−2k²s²); for very small s (near-superuniform
-        // samples) the terms stay O(1) and 100 terms are not enough — but
-        // there the true p ≈ 1.
-        return 1.0;
-    }
-    (2.0 * sum).clamp(0.0, 1.0)
+    // For very small s the terms do not fall within 100 steps; there the
+    // p-value is 1 to within rounding.
+    1.0
 }
 
+/// Binary exponent by which [`ks_pvalue_exact`] rescales its matrix powers.
+const KS_SCALE_BITS: i32 = 400;
+
+/// P(Dₙ ≥ d) by Durbin's formula.  With k = ⌊nd⌋ + 1, m = 2k − 1 and
+/// h = k − nd, let H be the m × m matrix with entries
+/// [i − j + 1 ≥ 0]/(i − j + 1)!, except that the first column subtracts
+/// hⁱ⁺¹/(i + 1)!, the last row subtracts h^(m−j)/(m − j)!, and the corner
+/// adds (2h − 1)^m/m! when 2h > 1.  Then P(Dₙ < d) = n!/nⁿ · (Hⁿ)ₖₖ.
+///
+/// For nd² > 7.24, or > 3.76 with n > 99, the tail is instead
+/// 2 exp(−(2.000071 + 0.331/√n + 1.409/n)·nd²) (Marsaglia, Tsang and Wang
+/// 2003, §3).
 fn ks_pvalue_exact(d: f64, n: usize) -> f64 {
     let nf = n as f64;
     let s = d * d * nf;
-    // Dieharder's fast right-tail fallback inside the "exact" path.
     if s > 7.24 || (s > 3.76 && n > 99) {
         return 2.0 * (-(2.000_071 + 0.331 / nf.sqrt() + 1.409 / nf) * s).exp();
     }
-
     let k = (nf * d).floor() as usize + 1;
     let m = 2 * k - 1;
     let h = k as f64 - nf * d;
-
-    // H[i][j] = 1 wherever i − j + 1 ≥ 0: lower triangle PLUS the first
-    // superdiagonal (j = i + 1, where the later (i − j + 1)! divisor is 0! = 1).
-    // Omitting the superdiagonal makes H triangular and collapses the exact
-    // p-value to 1 − n!/nⁿ for every D.
-    let mut hmat = vec![0.0; m * m];
+    let factorial = |r: usize| (1..=r).map(|g| g as f64).product::<f64>();
+    let mut matrix = vec![0.0; m * m];
     for i in 0..m {
-        for j in 0..m {
-            if i + 1 >= j {
-                hmat[i * m + j] = 1.0;
+        for j in 0..=(i + 1).min(m - 1) {
+            let mut entry = 1.0;
+            if j == 0 {
+                entry -= h.powi(i as i32 + 1);
             }
-        }
-    }
-
-    for i in 0..m {
-        hmat[i * m] -= h.powi((i + 1) as i32);
-        hmat[(m - 1) * m + i] -= h.powi((m - i) as i32);
-    }
-    if 2.0 * h - 1.0 > 0.0 {
-        hmat[(m - 1) * m] += (2.0 * h - 1.0).powi(m as i32);
-    }
-
-    for i in 0..m {
-        for j in 0..m {
-            let span = i as isize - j as isize + 1;
-            if span > 0 {
-                let mut denom = 1.0;
-                for g in 1..=span as usize {
-                    denom *= g as f64;
+            if i == m - 1 {
+                entry -= h.powi((m - j) as i32);
+                if j == 0 && 2.0 * h > 1.0 {
+                    entry += (2.0 * h - 1.0).powi(m as i32);
                 }
-                hmat[i * m + j] /= denom;
             }
+            matrix[i * m + j] = entry / factorial(i + 1 - j);
         }
     }
+    let (power, exponent) = scaled_matrix_power(&matrix, m, n);
+    // n!/nⁿ in logarithms, and the binary exponent of the power.
+    let ln_scale = lgamma(nf + 1.0) - nf * nf.ln() + f64::from(exponent) * std::f64::consts::LN_2;
+    let below = power[(k - 1) * m + (k - 1)] * ln_scale.exp();
+    (1.0 - below).clamp(0.0, 1.0)
+}
 
-    let (q, mut exponent) = matrix_power_scaled(&hmat, m, n);
-    let idx = (k - 1) * m + (k - 1);
-    let mut prob = q[idx];
-    for i in 1..=n {
-        prob *= i as f64 / nf;
-        if prob < 1e-140 {
-            prob *= 1e140;
-            exponent -= 140;
+/// A^power for the m × m matrix `a`, as (matrix, e) with A^power = matrix·2ᵉ;
+/// the matrix is rescaled whenever an entry exceeds 2^[`KS_SCALE_BITS`].
+fn scaled_matrix_power(a: &[f64], m: usize, power: usize) -> (Vec<f64>, i32) {
+    let mut result: Option<(Vec<f64>, i32)> = None;
+    let mut base = (a.to_vec(), 0i32);
+    let mut remaining = power;
+    while remaining > 0 {
+        if remaining & 1 == 1 {
+            result = Some(match result {
+                None => base.clone(),
+                Some((r, e)) => rescale(matrix_product(&r, &base.0, m), e + base.1),
+            });
+        }
+        remaining >>= 1;
+        if remaining > 0 {
+            base = rescale(matrix_product(&base.0, &base.0, m), 2 * base.1);
         }
     }
-    prob *= 10f64.powi(exponent);
-    (1.0 - prob).clamp(0.0, 1.0)
+    result.expect("power is at least 1")
 }
 
-fn matrix_power_scaled(a: &[f64], m: usize, power: usize) -> (Vec<f64>, i32) {
-    if power == 1 {
-        return (a.to_vec(), 0);
-    }
-
-    let (half_power, half_exp) = matrix_power_scaled(a, m, power / 2);
-    let mut squared = matrix_multiply(&half_power, &half_power, m);
-    let mut exponent = 2 * half_exp;
-
-    if power % 2 == 1 {
-        squared = matrix_multiply(a, &squared, m);
-    }
-
-    renormalize_matrix(&mut squared, &mut exponent);
-    (squared, exponent)
-}
-
-fn matrix_multiply(a: &[f64], b: &[f64], m: usize) -> Vec<f64> {
+/// The m × m product a·b.
+fn matrix_product(a: &[f64], b: &[f64], m: usize) -> Vec<f64> {
     let mut c = vec![0.0; m * m];
     for i in 0..m {
-        for j in 0..m {
-            let mut sum = 0.0;
-            for k in 0..m {
-                sum += a[i * m + k] * b[k * m + j];
+        for l in 0..m {
+            let ail = a[i * m + l];
+            if ail != 0.0 {
+                for j in 0..m {
+                    c[i * m + j] += ail * b[l * m + j];
+                }
             }
-            c[i * m + j] = sum;
         }
     }
     c
 }
 
-fn renormalize_matrix(v: &mut [f64], exponent: &mut i32) {
-    if !v.iter().any(|x| x.abs() > 1.0e140) {
-        return;
+/// Divides `matrix` by 2^[`KS_SCALE_BITS`] if any entry exceeds it, adding
+/// that to the exponent.
+fn rescale(mut matrix: Vec<f64>, exponent: i32) -> (Vec<f64>, i32) {
+    let limit = 2f64.powi(KS_SCALE_BITS);
+    if matrix.iter().any(|x| x.abs() > limit) {
+        let factor = 2f64.powi(-KS_SCALE_BITS);
+        matrix.iter_mut().for_each(|x| *x *= factor);
+        return (matrix, exponent + KS_SCALE_BITS);
     }
-    for x in v.iter_mut() {
-        *x *= 1.0e-140;
-    }
-    *exponent += 140;
+    (matrix, exponent)
 }
 
 // ── Anderson–Darling ──────────────────────────────────────────────────────────
@@ -521,75 +464,21 @@ const AD_TAIL_SWITCH: f64 = 0.9995;
 /// Smallest `n` for which [`anderson_darling_cdf`] returns a probability.
 const AD_MIN_N: usize = 8;
 
-/// Upper normal tail `cPhi(x) = ∫ₓ^∞ φ(t) dt`, to 13–15 digits for |x| < 16
-/// by its author's account.
-///
-/// Port of `cPhi` from `ADinf.c`, the code attached to G. Marsaglia and
-/// J. C. W. Marsaglia, "Evaluating the Anderson-Darling Distribution,"
-/// *Journal of Statistical Software* 9(2), 2004 (`marsaglia2004anderson` in
-/// BIB.md).  [pubs/marsaglia-marsaglia-2004-ADinf.c]  It stores the Mills ratio
-/// R(x) = cPhi(x)/φ(x) at x = 0, 2, …, 16 and reaches |x| by a Taylor series
-/// in h = |x| − 2j.  Two gaps in the C are closed here.  The C reads past its
-/// nine-entry table once |x| ≥ 17, which `ADf` reaches for 144.5 < t ≤ 150;
-/// this port clamps to R(16) instead, still within 2·10⁻⁸ relative at
-/// x = 17.2, and any term it feeds there is below 10⁻⁶⁰.  The C also has no
-/// return if the
-/// series has not converged after 49 terms; this port keeps the last partial
-/// sum.
-fn c_phi(x: f64) -> f64 {
-    const MILLS_RATIO_AT_EVEN_X: [f64; 9] = [
-        1.253_314_137_315_500_3,
-        0.421_369_229_288_054_5,
-        0.236_652_382_913_560_67,
-        0.162_377_660_896_867_45,
-        0.123_131_963_257_932_3,
-        0.099_028_596_471_731_93,
-        0.082_766_286_501_369_18,
-        0.071_069_580_538_852_11,
-        0.062_258_665_995_026_2,
-    ];
-    let j = (((x.abs() + 1.0) / 2.0) as usize).min(MILLS_RATIO_AT_EVEN_X.len() - 1);
-    let mut a = MILLS_RATIO_AT_EVEN_X[j];
-    let z = (2 * j) as f64;
-    let h = x.abs() - z;
-    let mut b = z * a - 1.0;
-    let mut pwr = 1.0;
-    let mut s = a + h * b;
-    for i in (2..100).step_by(2) {
-        a = (a + z * b) / i as f64;
-        b = (b + z * a) / (i + 1) as f64;
-        pwr *= h * h;
-        let t = s;
-        s += pwr * (a + h * b);
-        if s == t {
-            break;
-        }
-    }
-    // ln √(2π), as in the C.
-    s *= (-0.5 * x * x - 0.918_938_533_204_672_8).exp();
-    if x > 0.0 {
-        s
-    } else {
-        1.0 - s
-    }
-}
-
 /// f(z, j), the j-th term of the series for ADinf (Marsaglia and Marsaglia
-/// 2004, §2, p. 2): `ADf` in `ADinf.c`.  [pubs/marsaglia-marsaglia-2004-ADinf.c]
+/// 2004, §2, p. 2).
 ///
 /// With t = (4j + 1)²π²/(8z) it sums c₀ + c₁(z/8) + c₂(z/8)²/2! + …, where
 /// c₀ = π e⁻ᵗ (2t)^(−1/2), c₁ = π (π/2)^(1/2) erfc(√t) and
-/// cₙ₊₁ = ((n − ½ − t)cₙ + t cₙ₋₁)/n.
+/// cₙ₊₁ = ((n − ½ − t)cₙ + t cₙ₋₁)/n.  Terms with t > 150 are below 10⁻⁶⁵
+/// and are taken as 0.
 fn ad_inf_term(z: f64, j: usize) -> f64 {
     let k = (4 * j + 1) as f64;
-    // π²/8, truncated as in the C.
-    let t = k * k * 1.233_700_550_136_17 / z;
+    let t = k * k * (PI * PI / 8.0) / z;
     if t > 150.0 {
         return 0.0;
     }
-    // π/√2 and π√(π/2), truncated as in the C; 2·cPhi(√(2t)) = erfc(√t).
-    let mut a = 2.221_441_469_079_18 * (-t).exp() / t.sqrt();
-    let mut b = 3.937_402_486_430_6 * 2.0 * c_phi((2.0 * t).sqrt());
+    let mut a = PI / SQRT_2 * (-t).exp() / t.sqrt();
+    let mut b = PI * FRAC_PI_2.sqrt() * erfc(t.sqrt());
     let mut r = z * 0.125;
     let mut f = a + b * r;
     for i in 1..200 {
@@ -610,14 +499,12 @@ fn ad_inf_term(z: f64, j: usize) -> f64 {
 }
 
 /// Limiting Anderson–Darling distribution ADinf(z) = lim Pr(Aₙ < z), to
-/// about 15 digits: `ADinf` in `ADinf.c` (Marsaglia and Marsaglia 2004, §2,
-/// pp. 2–3).  [pubs/marsaglia-marsaglia-2004-ADinf.c]
+/// about 15 digits (Marsaglia and Marsaglia 2004, §2, pp. 2–3).
 ///
-/// ADinf(z) = (1/z) Σⱼ C(−½, j) (4j + 1) f(z, j).  Below z = 0.01 it returns 0,
-/// as the C does (ADinf(0.01) ≈ 5.3·10⁻⁵³).  Above `AD_INF_Z_MAX` = 30 this
-/// port returns 1, departing from the C, whose series cancels ever larger
-/// terms as z grows: `ADinf.c` returns 1 + 3·10⁻¹² at z = 100, −1.8·10³⁶ at
-/// z = 1000 and NaN at z = 10⁶, while ADinf(30) = 1 − 1.8·10⁻¹⁴.
+/// ADinf(z) = (1/z) Σⱼ C(−½, j) (4j + 1) f(z, j).  Below z = 0.01 it returns
+/// 0 (ADinf(0.01) ≈ 5.3·10⁻⁵³).  Above `AD_INF_Z_MAX` = 30 it returns 1: the
+/// alternating series cancels ever larger terms as z grows, while
+/// ADinf(30) = 1 − 1.8·10⁻¹⁴.
 fn ad_inf(z: f64) -> f64 {
     if z.is_nan() {
         return f64::NAN;
@@ -642,11 +529,8 @@ fn ad_inf(z: f64) -> f64 {
 }
 
 /// errfix(n, x), the fitted correction that turns x = ADinf(z) into
-/// Pr(Aₙ < z) (Marsaglia and Marsaglia 2004, §3, p. 4): `errfix` in
-/// `AnDarl.c`.  [pubs/marsaglia-marsaglia-2004-AnDarl.c]
-///
-/// The C squares an `int` n, which overflows for n ≥ 46341; this port squares
-/// a float.
+/// Pr(Aₙ < z): the three polynomials g₁, g₂ and g₃ of Marsaglia and
+/// Marsaglia (2004), §3, p. 4.
 fn ad_errfix(n: usize, x: f64) -> f64 {
     let n = n as f64;
     if x > 0.8 {
@@ -679,11 +563,7 @@ fn ad_errfix(n: usize, x: f64) -> f64 {
 /// (p. 5), Pr(Aₙ < z) = ADinf(z) + errfix(n, ADinf(z)): ADinf is the limiting
 /// distribution, evaluated by the series of §2, and errfix a correction
 /// fitted to simulation, stated good to about ±5·10⁻⁵ for n = 8, 16, 32, 64
-/// and 128 and ±5·10⁻⁴ for other n (p. 4).  The code ports the article's
-/// attached `ADinf.c` (`ADinf`, `ADf`, `cPhi`) and `AnDarl.c` (`errfix`).
-/// [pubs/marsaglia-marsaglia-2004-ADinf.c]
-/// [pubs/marsaglia-marsaglia-2004-AnDarl.c]  `AnDarl.c` warns that the test
-/// is not well suited to n < 7, where accuracy may drop to three digits.
+/// and 128 and ±5·10⁻⁴ for other n (p. 4).
 ///
 /// # Accuracy
 ///
@@ -739,22 +619,17 @@ fn ad_errfix(n: usize, x: f64) -> f64 {
 /// at α = 0.01, whose upper tail sits near z = 3.9, inside the body bound.
 ///
 /// Minimum n.  For n < 8 this function returns NaN.  The method fails there
-/// before the tail does.  A simulation of 2·10⁹ samples each, made before
-/// this minimum was imposed, put ADinf + errfix up to 1.3·10⁻³ from
+/// before the tail does.  A simulation of 2·10⁹ samples each put ADinf +
+/// errfix up to 1.3·10⁻³ from
 /// Pr(Aₙ < z) for n = 4, 1.3·10⁻² for n = 2 and 5.4·10⁻² for n = 1 (against
 /// the exact distribution, p. 1), and its tail 15% high for n = 4 just below
 /// the switch.
 ///
-/// # Departures from the attachments
+/// # Beyond the paper
 ///
-/// - `AnDarl.c`'s `AD(n, z)` feeds errfix the authors' short approximation
-///   `adinf(z)`.  This port feeds it the full series, as the paper's formula
-///   reads.  `adinf` differs from ADinf by up to 2·10⁻⁵ (near z = 0.97),
-///   more than the 2·10⁻⁶ the paper states, so the two results differ by
-///   up to that much.
 /// - Above the switch the upper tail is the scaled limiting tail described
 ///   above, and n < 8 returns NaN.
-/// - ADinf is taken as 1 for z > 30, where the attachment's series loses
+/// - ADinf is taken as 1 for z > 30, where its alternating series loses
 ///   accuracy; ADinf(30) = 1 − 1.8·10⁻¹⁴.
 /// - The result is clamped to [0, 1].  errfix is negative for small x, so the
 ///   unclamped sum dips below 0 for small z (at z = 0.1 when n = 10).
@@ -787,79 +662,101 @@ pub fn chi2_pvalue(chi_sq: f64, df: usize) -> f64 {
     igamc(df as f64 / 2.0, chi_sq / 2.0)
 }
 
-// ── Pearson chi-square with Dieharder's tail pooling ────────────────────────
+// ── Pearson chi-square with pooled weak cells ───────────────────────────────
 
-/// Pearson chi-square on binned counts, pooling weak cells exactly as Robert
-/// G. Brown's `Vtest_eval` (`Vtest.c`, Dieharder 3.31.1) does.
+/// Pearson χ² on binned counts, pooling the cells that expect too few.
 ///
 /// - A cell whose expected count is at least `cutoff` is scored on its own.
-/// - Every other cell, adjacent or not, is merged into one pooled cell (the C
-///   accumulates them at the index of the first weak cell), so weak cells at
-///   both ends of a histogram share a single pooled cell.
-/// - The pooled cell is scored once, after the scan, and only if its summed
-///   expectation also reaches `cutoff`; otherwise its counts are dropped.
+/// - Every other cell, wherever it lies, joins one pooled cell.
+/// - If the pool expects at least `cutoff` it is scored as a cell of its own;
+///   otherwise it is merged into the scored cell with the smallest
+///   expectation.  Either way every observation is scored exactly once.
 /// - df = (number of scored cells) − 1.
 ///
 /// Returns `Some((p_value, df, chi_sq))`, or `None` if the slices differ in
-/// length, are empty, or fewer than two cells are scored.  `Vtest.c` has no
-/// such guard: with one scored cell it evaluates Q(0, χ²/2), and with none its
-/// unsigned `ndof − 1` wraps around; neither is a test.
+/// length, are empty, or fewer than two cells are scored.
 #[must_use]
-pub fn vtest_pvalue(observed: &[u32], expected: &[f64], cutoff: f64) -> Option<(f64, usize, f64)> {
+pub fn chi_square_pooled(
+    observed: &[u32],
+    expected: &[f64],
+    cutoff: f64,
+) -> Option<(f64, usize, f64)> {
     if observed.len() != expected.len() || observed.is_empty() {
         return None;
     }
-
-    let mut chisq = 0.0;
-    let mut ndof_terms = 0usize;
-    let mut tail_index: Option<usize> = None;
-    let mut tail_obs = 0.0;
-    let mut tail_exp = 0.0;
-
-    for i in 0..observed.len() {
-        let obs = observed[i] as f64;
-        let exp = expected[i];
-        if exp >= cutoff {
-            let diff = obs - exp;
-            chisq += diff * diff / exp;
-            ndof_terms += 1;
-        } else if tail_index.is_none() {
-            tail_index = Some(i);
-            tail_obs += obs;
-            tail_exp += exp;
+    let mut cells: Vec<(f64, f64)> = Vec::new();
+    let (mut pool_expected, mut pool_observed) = (0.0, 0.0);
+    for (&o, &e) in observed.iter().zip(expected) {
+        if e >= cutoff {
+            cells.push((e, f64::from(o)));
         } else {
-            tail_obs += obs;
-            tail_exp += exp;
+            pool_expected += e;
+            pool_observed += f64::from(o);
         }
     }
-
-    if tail_index.is_some() && tail_exp >= cutoff {
-        let diff = tail_obs - tail_exp;
-        chisq += diff * diff / tail_exp;
-        ndof_terms += 1;
+    if pool_expected >= cutoff {
+        cells.push((pool_expected, pool_observed));
+    } else if pool_expected > 0.0 || pool_observed > 0.0 {
+        let smallest = cells.iter_mut().min_by(|a, b| a.0.total_cmp(&b.0))?;
+        smallest.0 += pool_expected;
+        smallest.1 += pool_observed;
     }
-
-    if ndof_terms <= 1 {
+    if cells.len() < 2 {
         return None;
     }
-    let df = ndof_terms - 1;
-    Some((chi2_pvalue(chisq, df), df, chisq))
+    let chi_sq: f64 = cells.iter().map(|&(e, o)| (o - e).powi(2) / e).sum();
+    let df = cells.len() - 1;
+    Some((chi2_pvalue(chi_sq, df), df, chi_sq))
+}
+
+// ── Pearson chi-square with pooled tails ────────────────────────────────────
+
+/// Pearson χ² of `observed` against `expected` for a distribution over
+/// ordered cells, pooling each tail inward until the cell at that end
+/// expects at least `min_expected`.
+///
+/// Every observation stays in exactly one cell, and the degrees of freedom
+/// are one less than the number of cells left.  Returns `Some((χ², df))`, or
+/// `None` if the slices differ in length or fewer than two cells remain.
+#[must_use]
+pub fn chi_square_pooled_tails(
+    observed: &[f64],
+    expected: &[f64],
+    min_expected: f64,
+) -> Option<(f64, usize)> {
+    if observed.len() != expected.len() {
+        return None;
+    }
+    let mut cells: Vec<(f64, f64)> = expected
+        .iter()
+        .copied()
+        .zip(observed.iter().copied())
+        .collect();
+    while cells.len() > 1 && cells[0].0 < min_expected {
+        let (e, o) = cells.remove(0);
+        cells[0].0 += e;
+        cells[0].1 += o;
+    }
+    while cells.len() > 1 && cells[cells.len() - 1].0 < min_expected {
+        let (e, o) = cells.pop().expect("more than one cell");
+        let last = cells.len() - 1;
+        cells[last].0 += e;
+        cells[last].1 += o;
+    }
+    if cells.len() < 2 {
+        return None;
+    }
+    let chi = cells.iter().map(|&(e, o)| (o - e).powi(2) / e).sum();
+    Some((chi, cells.len() - 1))
 }
 
 // ── Discrete probability mass functions ─────────────────────────────────────
 
 /// Binomial PMF: P(X = k) for X ~ Binomial(n, p), with `k ≤ n`.
 ///
-/// Evaluated in log space through [`lgamma`], so it stays finite for the
-/// large `n` of Dieharder's bit-count tests (C(n, k) itself overflows `f64`
-/// past n ≈ 1 030).  Relative error is a few × 10⁻¹⁰, inherited from the three
-/// `lgamma` terms.  The degenerate `p ≤ 0` and `p ≥ 1` cases return the exact
-/// point masses instead of taking `ln 0`.
-///
-/// Stands in for GSL's `gsl_ran_binomial_pdf`, which Robert G. Brown's
-/// Dieharder 3.31.1 calls in `rgb_bitdist.c`, `dab_monobit2.c` and
-/// `chisq_binomial` (`chisq.c`); used here by
-/// [`crate::dieharder::bit_distribution`] and [`crate::dieharder::monobit2`].
+/// Evaluated in log space through [`lgamma`], so it stays finite for large n
+/// (C(n, k) itself overflows `f64` past n ≈ 1 030).  The degenerate `p ≤ 0`
+/// and `p ≥ 1` cases return the exact point masses instead of taking `ln 0`.
 #[must_use]
 pub fn binomial_pmf(n: usize, k: usize, p: f64) -> f64 {
     debug_assert!(k <= n, "binomial_pmf: k = {k} exceeds n = {n}");
@@ -879,10 +776,6 @@ pub fn binomial_pmf(n: usize, k: usize, p: f64) -> f64 {
 /// Computed as the running product e^(−λ) · ∏ᵢ₌₁ᵏ (λ / i), which never forms
 /// λᵏ or k! separately, so it cannot overflow for the small k the chi-square
 /// histograms use.
-///
-/// Stands in for GSL's `gsl_ran_poisson_pdf`, which Robert G. Brown's
-/// Dieharder 3.31.1 calls in `diehard_birthdays.c` and `chisq_poisson`
-/// (`chisq.c`); used here by [`crate::diehard::birthday_spacings`].
 #[must_use]
 pub fn poisson_pmf(k: usize, lambda: f64) -> f64 {
     let mut term = (-lambda).exp();
@@ -973,29 +866,53 @@ pub fn gf2_rank(matrix: &[u32], rows: usize, cols: usize) -> usize {
 mod tests {
     use super::*;
 
-    // Reference: a line-by-line Python replica of `Vtest_eval` (Vtest.c).
     #[test]
-    fn vtest_pools_weak_cells_from_both_ends() {
-        // Cells 0 and 3 are weak; their pool (x = 5, y = 2 + 3 = 5) reaches the
-        // cutoff, so it is scored as a third cell.
-        let (p, df, chi) = vtest_pvalue(&[1, 12, 9, 4], &[2.0, 10.0, 10.0, 3.0], 5.0).unwrap();
+    fn pooled_chi_square_scores_every_observation_once() {
+        // Cells 0 and 3 are weak; their pool (observed 5, expected 2 + 3 = 5)
+        // reaches the cutoff, so it is scored as a third cell.
+        let (p, df, chi) = chi_square_pooled(&[1, 12, 9, 4], &[2.0, 10.0, 10.0, 3.0], 5.0).unwrap();
         assert_eq!(df, 2);
         assert!((chi - 0.5).abs() < 1e-15, "χ² = {chi}");
-        assert!((p - 0.7788007830714049).abs() < 1e-12, "p = {p}");
+        assert!((p - (-0.25f64).exp()).abs() < 1e-12, "p = {p}");
 
-        // Pooled expectation 2 + 2 = 4 misses the cutoff: the pool is dropped.
-        let (p, df, chi) = vtest_pvalue(&[3, 12, 9, 0], &[2.0, 10.0, 10.0, 2.0], 5.0).unwrap();
+        // The pool expects 2 + 2 = 4, below the cutoff, so it joins the
+        // smallest scored cell: (12 + 3 − 14)²/14 + (9 − 10)²/10.
+        let (_, df, chi) = chi_square_pooled(&[3, 12, 9, 0], &[2.0, 10.0, 10.0, 2.0], 5.0).unwrap();
         assert_eq!(df, 1);
-        assert!((chi - 0.5).abs() < 1e-15, "χ² = {chi}");
-        assert!((p - 0.4795001221869535).abs() < 1e-9, "p = {p}");
+        let want = 1.0 / 14.0 + 0.1;
+        assert!((chi - want).abs() < 1e-15, "χ² = {chi}");
 
-        // One strong cell and an unscored pool leave no degrees of freedom.
-        assert!(vtest_pvalue(&[7, 30, 1], &[3.0, 30.0, 1.0], 5.0).is_none());
-        assert!(vtest_pvalue(&[], &[], 5.0).is_none());
+        // One strong cell and a pool below the cutoff leave one cell.
+        assert!(chi_square_pooled(&[7, 30, 1], &[3.0, 30.0, 1.0], 5.0).is_none());
+        assert!(chi_square_pooled(&[], &[], 5.0).is_none());
+    }
+
+    /// Every observation counts once, so the tail pooling rejects a stream
+    /// whose excess sits in weak cells whose pool is itself weak.
+    #[test]
+    fn pooled_chi_square_sees_excess_in_a_weak_pool() {
+        let expected = [100.0, 100.0, 1.0, 1.0];
+        let (p, _, _) = chi_square_pooled(&[70, 70, 30, 30], &expected, 5.0).unwrap();
+        assert!(p < 1e-3, "p = {p}");
+    }
+
+    #[test]
+    fn pooled_tails_keep_every_observation() {
+        let (chi, df) = chi_square_pooled_tails(
+            &[1.0, 2.0, 50.0, 49.0, 3.0],
+            &[2.0, 3.0, 45.0, 45.0, 5.0],
+            5.0,
+        )
+        .unwrap();
+        // Cells: (5, 3), (45, 50), (45, 49), (5, 3) — the left tail pooled.
+        assert_eq!(df, 3);
+        let want = 4.0 / 5.0 + 25.0 / 45.0 + 16.0 / 45.0 + 4.0 / 5.0;
+        assert!((chi - want).abs() < 1e-12, "χ² = {chi}");
+        assert!(chi_square_pooled_tails(&[1.0], &[1.0], 5.0).is_none());
     }
 
     // Reference values are exact rationals C(n,k)·pᵏ·(1−p)ⁿ⁻ᵏ rounded once to
-    // f64 (Python `fractions`), independent of the lgamma evaluation.
+    // f64, independent of the lgamma evaluation.
     #[test]
     fn binomial_pmf_known_values() {
         let cases = [
@@ -1045,7 +962,7 @@ mod tests {
     // ── erfc and normal_cdf ───────────────────────────────────────────────────
 
     /// erfc(x) at the f64 arguments shown, rounded once to f64 from two
-    /// independent Python `decimal` evaluations at the exact binary argument.
+    /// independent 70-digit decimal evaluations at the exact binary argument.
     /// One sums erf's series (2/√π)·e^{−x²}·Σ 2ⁿx²ⁿ⁺¹/(1·3·…·(2n+1)) below
     /// x = 8, with digits added for the cancellation in 1 − erf, and the
     /// continued fraction erfc(x) = (e^{−x²}/√π)/(x + ½/(x + 1/(x + 3⁄2/(x + …))))
@@ -1241,7 +1158,7 @@ mod tests {
     /// Where the Taylor expansion point changes (x√2 = 2, 4, …, 14, and 16,
     /// where the asymptotic series takes over; for Φ at x = −2, …, −16) the
     /// two sides must not step backwards, even between adjacent floats.
-    /// Φ's upper half is 1 − cPhi at the same points, so it follows.  Near
+    /// Φ's upper half is 1 minus the same tail, so it follows.  Near
     /// x√2 = 1 and x = ±1 the functions move about an ulp per float and
     /// rounding reverses neighbours by up to 3 ulp, as libm's erfc does near
     /// x = 0.8; the grid test covers those.
@@ -1373,7 +1290,7 @@ mod tests {
         assert!(igamc(f64::NAN, 1.0).is_nan());
     }
 
-    // Golden values from scipy.special.gammaincc / scipy.stats.chi2.sf.
+    // Values of Q(a, x) to 16 digits.
     #[test]
     fn igamc_golden_values() {
         // Series branch (x < a + 1)
@@ -1384,8 +1301,7 @@ mod tests {
         assert!((chi2_pvalue(11.0705, 5) - 0.04999995542804364).abs() < 1e-9);
     }
 
-    // Large shape parameters need O(√a) iterations; a fixed 500-iteration cap
-    // silently returned ~11% relative error at a = 10⁵.
+    // Large shape parameters need O(√a) iterations.
     #[test]
     fn igamc_large_shape_parameter() {
         assert!((igamc(20_000.0, 20_000.0) - 0.49905968376625065).abs() < 1e-6);
@@ -1400,9 +1316,8 @@ mod tests {
         assert!(ks_pvalue(0.5, 0).is_nan());
     }
 
-    // Golden values from scipy.stats.kstwo.sf (the exact two-sided KS law).
-    // These exercise the Marsaglia-Tsang-Wang matrix path, which a triangular
-    // H-matrix bug once collapsed to p ≈ 1 for every input.
+    // Values of the exact two-sided KS distribution.  A triangular H (without
+    // its superdiagonal) would give p ≈ 1 for every input.
     #[test]
     fn ks_pvalue_exact_golden_values() {
         assert!((ks_pvalue(0.1, 100) - 0.2526927570063875).abs() < 1e-5);
@@ -1419,10 +1334,8 @@ mod tests {
         assert!((p - 6.616848639387309e-4).abs() < 2e-4, "p = {p}");
     }
 
-    // The two asymptotic-series non-convergence modes must route oppositely:
-    // huge s (all terms underflow, catastrophic D) → 0; tiny s (terms stay
-    // O(1), near-superuniform sample) → 1.  A constant stream once PASSed
-    // ks_uniform because huge-s fell into the tiny-s fallback.
+    // The asymptotic series' two extremes: huge s (every term underflows,
+    // catastrophic D) gives 0; tiny s (terms stay O(1)) gives 1.
     #[test]
     fn ks_pvalue_asymptotic_extremes() {
         assert_eq!(ks_pvalue(0.99, 16_000_000), 0.0);
@@ -1456,8 +1369,7 @@ mod tests {
         assert_eq!(gf2_rank(&[0, 0, 0], 3, 3), 0);
     }
 
-    /// Regression: the sort used `partial_cmp().unwrap()`, so one NaN sample
-    /// panicked.  It now reports NaN (insufficient data).
+    /// A NaN sample makes the test insufficient rather than panicking.
     #[test]
     fn ks_test_with_nan_sample_is_insufficient() {
         let mut with_nan = vec![0.1, f64::NAN, 0.7];
@@ -1487,12 +1399,10 @@ mod tests {
         }
     }
 
-    /// `ADinf` and `cPhi` against the attachment `ADinf.c`
-    /// [pubs/marsaglia-marsaglia-2004-ADinf.c], compiled unchanged
-    /// except for renaming its interactive `main`.  The relative tolerance
-    /// leaves room for libm's `exp` and `sqrt` to differ by an ulp.
+    /// ADinf pinned across its range, from 10⁻⁵³ to 1 − 10⁻¹⁴.  The relative
+    /// tolerance leaves room for libm's `exp` and `sqrt` to differ by an ulp.
     #[test]
-    fn ad_inf_and_c_phi_match_the_attached_c() {
+    fn ad_inf_is_pinned_across_its_range() {
         let ad_inf_cases = [
             (0.01, 5.280028041431955e-53),
             (0.05, 1.731492268016011e-10),
@@ -1514,46 +1424,36 @@ mod tests {
             let got = ad_inf(z);
             assert!(
                 (got - want).abs() <= 1e-13 * want,
-                "ADinf({z}) = {got}, C {want}"
+                "ADinf({z}) = {got}, pinned {want}"
             );
         }
-        let c_phi_cases = [
-            (0.0, 0.5),
-            (0.5, 0.308_537_538_725_987),
-            (1.0, 0.158_655_253_931_457_05),
-            (1.5, 0.066_807_201_268_858_09),
-            (2.75, 0.002_979_763_235_054_556),
-            (3.3, 0.000_483_424_142_383_777_33),
-            (5.0, 2.8665157187919407e-7),
-            (8.0, 6.220960574271776e-16),
-            (15.9, 3.168237665379637e-57),
-        ];
-        for (x, want) in c_phi_cases {
-            let got = c_phi(x);
-            assert!(
-                (got - want).abs() <= 1e-13 * want,
-                "cPhi({x}) = {got}, C {want}"
-            );
-            assert_eq!(1.0 - got, c_phi(-x), "cPhi(-{x})");
-        }
-        // Past the C's table (|x| >= 17) this port clamps to R(16), which
-        // still agrees with libm's erfc(x/√2)/2 to 2·10⁻⁸ relative at 17.2.
-        let want = 1.3276575042717985e-66;
-        let got = c_phi(17.2);
-        assert!(
-            (got - want).abs() <= 1e-7 * want,
-            "cPhi(17.2) = {got}, erfc {want}"
-        );
     }
 
-    /// `errfix` against the attachment `AnDarl.c`
-    /// [pubs/marsaglia-marsaglia-2004-AnDarl.c], compiled unchanged except
-    /// for renaming its interactive `main`, and with `-ffp-contract=off`.
-    /// Clang otherwise fuses multiply-adds, and above x = 0.8, where the terms
-    /// of g₃ cancel from about 10³ to 10⁻³, that moves the result by up to
-    /// 5·10⁻¹⁴.
+    /// Mills' ratio at the tabled points from Laplace's continued fraction
+    /// R(z) = 1/(z + 1/(z + 2/(z + 3/(z + …)))), evaluated from the tail up,
+    /// and R(0) = √(π/2).
     #[test]
-    fn ad_errfix_matches_the_attached_c() {
+    fn mills_ratio_table_matches_the_continued_fraction() {
+        assert!((MILLS_RATIO_AT_EVEN[0] - (PI / 2.0).sqrt()).abs() <= f64::EPSILON);
+        for (j, &r) in MILLS_RATIO_AT_EVEN.iter().enumerate().skip(1) {
+            let z = 2.0 * j as f64;
+            let mut fraction = z;
+            for k in (1..20_000).rev() {
+                fraction = z + k as f64 / fraction;
+            }
+            let want = 1.0 / fraction;
+            assert!(
+                (r - want).abs() <= 4.0 * f64::EPSILON * want,
+                "R({z}) = {r} vs {want}"
+            );
+        }
+    }
+
+    /// errfix pinned on each of its three polynomial pieces for several n.
+    /// Above x = 0.8 the terms of g₃ cancel from about 10³ to 10⁻³, so a
+    /// fused multiply-add can move the result by up to 5·10⁻¹⁴.
+    #[test]
+    fn ad_errfix_is_pinned() {
         let cases = [
             (1, 1.0e-6, -0.001_067_013_216_633_883),
             (1, 0.01, -0.098_460_080_594_883_3),
@@ -1596,73 +1496,7 @@ mod tests {
             let got = ad_errfix(n, x);
             assert!(
                 (got - want).abs() <= 1e-15 * want.abs(),
-                "errfix({n}, {x}) = {got}, C {want}"
-            );
-        }
-    }
-
-    /// [`anderson_darling_cdf`] against `AnDarl.c`'s `AD(n, z)`
-    /// [pubs/marsaglia-marsaglia-2004-AnDarl.c], which feeds
-    /// errfix the short approximation `adinf` in place of ADinf; on a 0.0005
-    /// grid over [0.01, 12] the two differ by at most 1.95·10⁻⁵, at z = 0.97.
-    /// The cases stay below the tail switch, where this port drops errfix.
-    /// `AnDarl.c`'s own `ADtest` examples, two samples of 10, are pinned both
-    /// to that function and to ADinf + errfix evaluated by the attachments.
-    #[test]
-    fn anderson_darling_cdf_tracks_the_attached_c() {
-        let cases = [
-            (10, 0.362_1, 0.117_111_610_941_818_05),
-            (10, 0.5, 0.257_365_994_233_906_2),
-            (10, 1.0, 0.644_937_032_601_438_6),
-            (10, 1.5, 0.823_210_291_017_505_2),
-            (10, 2.0, 0.906_935_349_212_242_4),
-            (10, 3.0, 0.971_694_963_675_239_7),
-            (10, 5.0, 0.996_944_065_399_267_3),
-            (32, 0.362_1, 0.115_490_941_908_271_44),
-            (32, 0.5, 0.254_474_502_581_219_9),
-            (32, 1.0, 0.643_384_778_120_492_8),
-            (32, 1.5, 0.823_427_577_900_760_5),
-            (32, 2.0, 0.907_780_216_932_811_9),
-            (32, 3.0, 0.972_342_045_084_779_1),
-            (32, 5.0, 0.997_074_639_071_479_5),
-        ];
-        for (n, z, want) in cases {
-            let got = anderson_darling_cdf(n, z);
-            assert!((got - want).abs() < 2e-5, "AD({n}, {z}) = {got}, C {want}");
-        }
-        let u: [f64; 10] = [
-            0.0392, 0.0884, 0.260, 0.310, 0.454, 0.644, 0.797, 0.813, 0.921, 0.960,
-        ];
-        let w: [f64; 10] = [
-            0.0015, 0.0078, 0.0676, 0.0961, 0.106, 0.107, 0.835, 0.861, 0.948, 0.992,
-        ];
-        for (x, statistic, ad_test, full) in [
-            (
-                u,
-                0.363_203_962_367_370_2,
-                0.118_164_224_906_405_5,
-                0.118_167_210_503_083_64,
-            ),
-            (
-                w,
-                4.231_606_537_078_047,
-                0.992_927_546_852_983_1,
-                0.992_924_491_393_447_5,
-            ),
-        ] {
-            let log_sum: f64 = (0..10)
-                .map(|i| (2 * i + 1) as f64 * (x[i] * (1.0 - x[9 - i])).ln())
-                .sum();
-            let a = -10.0 - log_sum / 10.0;
-            assert!((a - statistic).abs() < 1e-12, "A = {a}");
-            let p = anderson_darling_cdf(10, a);
-            assert!(
-                (p - full).abs() < 1e-12,
-                "Pr(A < {a}) = {p}, ADinf+errfix {full}"
-            );
-            assert!(
-                (p - ad_test).abs() < 2e-5,
-                "Pr(A < {a}) = {p}, ADtest {ad_test}"
+                "errfix({n}, {x}) = {got}, pinned {want}"
             );
         }
     }

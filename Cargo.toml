@@ -21,11 +21,7 @@ exclude = [
     "stats/**",
     "target/**",
     "pubs/**",
-    ".claude/**",
-    ".codex/**",
     "pilot_result_*/**",
-    "CLAUDE.md",
-    "AGENTS.md",
 ]
 
 # Every binary reaches the cipher-backed generators (through the shared
@@ -81,15 +77,12 @@ name = "entropy"
 path = "src/lib.rs"
 
 [features]
-# The cipher-, hash- and DRBG-backed generators and the volatile scrub of
-# the OsRng buffer come from the sibling cryptography crate, which turns
-# on rump's limb wiping for every crate that links rump beside it (Cargo
-# builds one rust-mp with the union of its dependants' features). On by
-# default, so the suite and its binaries are what they were. A consumer
-# that wants only the statistical generators — factoring chooses its
-# pseudorandom maps with `Jsf64` and nothing about that choice is secret —
-# takes the crate with `default-features = false` and links a rump that
-# does not wipe (factoring's AUDIT.md, A12: about a tenth of a c90 run).
+# The cipher-, hash- and DRBG-backed generators and the volatile scrub of the
+# OsRng buffer come from the sibling cryptography crate.  It turns on rump's
+# `wipe` feature, and Cargo builds one rust-mp with the union of its
+# dependants' features, so every crate that links rump beside it gets limb
+# wiping.  On by default; a consumer that needs only the statistical tests and
+# generators takes the crate with `default-features = false`.
 default = ["cryptography"]
 cryptography = ["dep:cryptography-rs"]
 
@@ -100,4 +93,7 @@ cryptography = ["dep:cryptography-rs"]
 # scrubs its limbs on drop — which is why the dependency is optional; see
 # the feature above.
 cryptography-rs = { version = "0.7", path = "../cryptography", optional = true }
+# ln Γ for the χ², binomial and Kolmogorov–Smirnov distributions.  rump wipes
+# nothing unless a crate that links it asks for its `wipe` feature.
+rust-mp         = { version = "0.3", path = "../rump" }
 rustfft         = "6.2"
