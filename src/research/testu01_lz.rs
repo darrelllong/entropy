@@ -40,10 +40,11 @@
 //! # Validation
 //!
 //! xoshiro256** streams, seeded apart from the PCG64 streams behind the
-//! tables, at N = 10 and at the largest supported N for k = 3 … 22 rejected
-//! at 0.01 near the nominal rate in both statistics (for example 1.01% and
-//! 0.98% of 20 000 runs at k = 12, N = 10).  The exception is k = 20 at
-//! N = 1 000, with 2.3% and 2.5% of 400 runs.
+//! tables, at N = 10 for k ≤ 16 and at the largest supported N for every k,
+//! rejected at 0.01 near the nominal rate in both statistics (for example
+//! 1.01% and 0.98% of 20 000 runs at k = 12, N = 10; 0.76% and 1.04% of
+//! 1 440 runs pooled over k = 23 … 28 at N = 100).  The exception is k = 20
+//! at N = 1 000, with 2.3% and 2.5% of 400 runs.
 
 use super::{lz78_counts::PHRASE_COUNTS, strip_b};
 use crate::{
