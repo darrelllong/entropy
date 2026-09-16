@@ -45,7 +45,9 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
     let value_max = 1usize << n;
     let total_nbit_values = (words.len() * 32) / n;
     let tsamples = total_nbit_values / BSAMPLES;
-    if tsamples == 0 {
+    // Counts are u32; a block count above u32::MAX (2³⁶ n-bit values, tens of
+    // GiB of input) could overflow a cell.
+    if tsamples == 0 || tsamples > u32::MAX as usize {
         return None;
     }
 
@@ -53,22 +55,47 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
     let expected_hist: Vec<f64> = (0..=BSAMPLES)
         .map(|b| tsamples as f64 * binomial_pmf(BSAMPLES, b, ntuple_prob))
         .collect();
+    // Pooling needs two cells that expect MIN_EXPECTED blocks, or one and a
+    // pool of the rest that does; otherwise no pattern can be scored, and the
+    // width is dropped before its tables are allocated.
+    let strong: Vec<f64> = expected_hist
+        .iter()
+        .copied()
+        .filter(|&e| e >= MIN_EXPECTED)
+        .collect();
+    let scoreable = match strong.as_slice() {
+        [] => false,
+        [only] => tsamples as f64 - only >= MIN_EXPECTED,
+        _ => true,
+    };
+    if !scoreable {
+        return None;
+    }
 
-    // Histograms store exact integer counts; conversion to f64 happens only
-    // inside chi_square_pooled at the chi-square computation stage.
-    let mut histograms = vec![vec![0u32; BSAMPLES + 1]; value_max];
-    let mut count = vec![0usize; value_max];
+    // histograms[v][c]: blocks in which pattern v occurs c ≥ 1 times.  Only
+    // the at most 64 patterns a block contains are updated; the zero cell is
+    // filled in afterwards as the remainder.
+    let mut histograms = vec![[0u32; BSAMPLES + 1]; value_max];
+    let mut count = vec![0u8; value_max];
+    let mut touched = Vec::with_capacity(BSAMPLES);
     let mut cursor = 0usize;
 
     for _ in 0..tsamples {
-        count.fill(0);
         for _ in 0..BSAMPLES {
             let value = next_n_bits_msb(words, &mut cursor, n)? as usize;
+            if count[value] == 0 {
+                touched.push(value);
+            }
             count[value] += 1;
         }
-        for pattern in 0..value_max {
-            histograms[pattern][count[pattern]] += 1;
+        for value in touched.drain(..) {
+            histograms[value][usize::from(count[value])] += 1;
+            count[value] = 0;
         }
+    }
+    for histogram in &mut histograms {
+        let present: u32 = histogram[1..].iter().sum();
+        histogram[0] = tsamples as u32 - present;
     }
 
     let mut results = Vec::with_capacity(value_max);
@@ -137,6 +164,42 @@ mod tests {
         assert_eq!(Some(0b1110), next_n_bits_msb(&words, &mut cursor, 4));
         cursor = 28;
         assert_eq!(Some(0b1111_0000), next_n_bits_msb(&words, &mut cursor, 8));
+    }
+
+    /// The sparse update gives the histograms of a direct count.
+    #[test]
+    fn sparse_histograms_match_direct_counts() {
+        use crate::rng::{Mt19937, Rng};
+        let words = Mt19937::new(7).collect_u32s(20_000);
+        for n in 1..=6 {
+            let results = super::pattern_results(&words, n).expect("scoreable");
+            assert_eq!(results.len(), 1 << n, "width {n}");
+        }
+        // Direct count for width 3, pattern 5.
+        let tsamples = words.len() * 32 / 3 / 64;
+        let mut hist = [0u32; 65];
+        let mut cursor = 0;
+        for _ in 0..tsamples {
+            let c = (0..64)
+                .filter(|_| next_n_bits_msb(&words, &mut cursor, 3) == Some(5))
+                .count();
+            hist[c] += 1;
+        }
+        let note = super::pattern_results(&words, 3).unwrap()[5]
+            .note
+            .clone()
+            .unwrap();
+        let expected: Vec<f64> = (0..=64)
+            .map(|b| tsamples as f64 * crate::math::binomial_pmf(64, b, 1.0 / 8.0))
+            .collect();
+        let (_, df, chi) = crate::math::chi_square_pooled(&hist, &expected, 20.0).unwrap();
+        assert!(note.ends_with(&format!("df={df}, χ²={chi:.4}")), "{note}");
+    }
+
+    /// A width with too few blocks to score is dropped without allocating.
+    #[test]
+    fn unscoreable_widths_are_dropped() {
+        assert!(super::pattern_results(&[0u32; 64], 20).is_none());
     }
 
     #[test]

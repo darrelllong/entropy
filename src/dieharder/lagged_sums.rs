@@ -18,7 +18,9 @@ use std::f64::consts::SQRT_2;
 /// Robert G. Brown, Dieharder (2006).
 pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
     // lag = 0 sums every word.
-    let stride = lag + 1;
+    let Some(stride) = lag.checked_add(1) else {
+        return TestResult::insufficient("dieharder::lagged_sums", "lag too large");
+    };
     let tsamples = words.len() / stride;
 
     if tsamples < 1_000 {
@@ -48,6 +50,15 @@ pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
 #[cfg(test)]
 mod tests {
     use super::lagged_sums;
+
+    /// Lags at the edges of the parameter range skip rather than panic.
+    #[test]
+    fn extreme_lags_skip() {
+        for lag in [usize::MAX, usize::MAX - 1] {
+            assert!(lagged_sums(&[], lag).skipped());
+            assert!(lagged_sums(&[1, 2, 3], lag).skipped());
+        }
+    }
 
     #[test]
     fn short_inputs_skip_and_constant_input_fails() {

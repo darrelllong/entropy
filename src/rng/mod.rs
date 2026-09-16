@@ -32,6 +32,7 @@ pub mod spongebob;
 pub mod squidward;
 #[cfg(feature = "cryptography")]
 pub mod stream_rng;
+pub mod views;
 pub mod wyrand;
 pub mod xorshift;
 pub mod xoshiro;
@@ -66,6 +67,7 @@ pub use spongebob::SpongeBob;
 pub use squidward::Squidward;
 #[cfg(feature = "cryptography")]
 pub use stream_rng::StreamRng;
+pub use views::{BitReversed, FullWord, HighHalf, LowHalf};
 pub use wyrand::WyRand;
 pub use xorshift::{Xorshift32, Xorshift64};
 pub use xoshiro::{Xoroshiro128, Xoshiro256};
@@ -92,6 +94,10 @@ pub use xoshiro::{Xoroshiro128, Xoshiro256};
 /// generators are rejected at compile time.
 ///
 /// ## Byte and word ordering contract
+///
+/// * **64-bit generators** — `next_u32` returns the high half of one 64-bit
+///   output and discards the low half, so the batteries test that projection
+///   only.  [`views`] provides the low-half, full-word and bit-reversed views.
 ///
 /// * **`next_u64` default** — assembles two `next_u32` calls with the *first*
 ///   call becoming the **high** 32 bits: `(hi << 32) | lo`.  Generators that
@@ -128,13 +134,10 @@ pub trait Rng {
 
     /// Uniform float in \[0, 1) built from **32 bits** of the generator's output.
     ///
-    /// This default always calls `next_u32`, even for generators that natively
-    /// produce 64-bit output (PCG64, Xoshiro256, ChaCha20Rng, etc.).  Those
-    /// generators' upper 32 bits are discarded, so `next_f64` never delivers
-    /// more than 2³² distinct values regardless of the underlying generator.
-    /// For the statistical tests in this crate (which use floats only for
-    /// p-value lookup) this is fine.  Do not use `next_f64` to sample
-    /// high-precision distributions from a 64-bit generator.
+    /// This default always calls `next_u32`, so it delivers at most 2³²
+    /// distinct values, and for a 64-bit generator it reads the same high-half
+    /// projection as `next_u32`.  The geometric tests (parking lot, minimum
+    /// distance, spheres, permutations) draw their coordinates this way.
     fn next_f64(&mut self) -> f64 {
         self.next_u32() as f64 * (1.0 / 4_294_967_296.0)
     }
