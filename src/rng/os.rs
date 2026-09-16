@@ -79,21 +79,13 @@ impl Default for OsRng {
 }
 
 impl Drop for OsRng {
-    /// Wipe the buffered entropy: `from_os_rng`-style constructors draw seed
-    /// material through this buffer, and those bytes must not outlive the
-    /// generator (the same hygiene `AesCtr`/`BlockCtrRng` apply to key
-    /// material and keystream).
+    /// With the `cryptography` feature, wipe the buffered entropy with that
+    /// crate's volatile write: `from_os_rng`-style constructors draw seed
+    /// material through this buffer.  Without the feature nothing is wiped,
+    /// here or in rump.
     fn drop(&mut self) {
         #[cfg(feature = "cryptography")]
         zeroize_slice(&mut self.buf);
-        // Without the cryptography crate's volatile write, a plain clear
-        // held in place by the optimiser barrier: the bytes are still
-        // cleared, without the guarantee the volatile write gives.
-        #[cfg(not(feature = "cryptography"))]
-        {
-            self.buf.fill(0);
-            std::hint::black_box(&self.buf);
-        }
     }
 }
 
