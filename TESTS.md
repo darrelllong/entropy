@@ -1,6 +1,6 @@
 # Full Battery Results
 
-Full `run_tests` battery harvested from `dyson` (Apple M4 Pro, 8P+4E cores) on 2026-09-11.
+Full `run_tests` battery harvested from `darby.local` (Apple M4 Pro, 8P+4E cores) on 2026-09-16.
 
 Sample size: **16 Mbit** per generator for NIST; DIEHARD/DIEHARDER
 consume **16 M 32-bit words** (plus what the live-drawing tests take
@@ -60,45 +60,45 @@ are noise, not structure.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 739 | 725 | 8 | 6 |
-| MT19937 (seed=19650218) | 739 | 726 | 7 | 6 |
+| OsRng (/dev/urandom) | 739 | 727 | 6 | 6 |
+| MT19937 (seed=19650218) | 739 | 728 | 5 | 6 |
 | Xorshift64 (seed=1) | 739 | 726 | 7 | 6 |
 | Xorshift32 (seed=1) | 739 | 720 | 13 | 6 |
-| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 726 | 7 | 6 |
+| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 727 | 6 | 6 |
 | BAD Unix System V mrand48() (seed=1) | 739 | 726 | 7 | 6 |
-| BAD Unix BSD random() TYPE_3 (seed=1) | 739 | 722 | 11 | 6 |
-| BAD Unix Linux glibc rand()/random() (seed=1) | 739 | 722 | 11 | 6 |
+| BAD Unix BSD random() TYPE_3 (seed=1) | 739 | 721 | 12 | 6 |
+| BAD Unix Linux glibc rand()/random() (seed=1) | 739 | 721 | 12 | 6 |
 | BAD Unix FreeBSD12 rand_r() compat (seed=1) | 739 | 720 | 13 | 6 |
-| BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1) | 739 | 726 | 7 | 6 |
-| BAD Windows VB6/VBA Rnd() (project seed=1) | 739 | 205 | 528 | 6 |
-| BAD Windows .NET Random(seed=1) compat | 739 | 724 | 9 | 6 |
+| BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1) | 739 | 727 | 6 | 6 |
+| BAD Windows VB6/VBA Rnd() (project seed=1) | 739 | 202 | 531 | 6 |
+| BAD Windows .NET Random(seed=1) compat | 739 | 726 | 7 | 6 |
 | ANSI C sample LCG (1103515245,12345; seed=1) | 739 | 10 | 697 | 32 |
 | LCG MINSTD (seed=1) | 739 | 17 | 690 | 32 |
-| BAD Borland C++ rand() LCG (seed=1) | 739 | 723 | 10 | 6 |
+| BAD Borland C++ rand() LCG (seed=1) | 739 | 722 | 11 | 6 |
 | AES-128-CTR (NIST key) | 739 | 728 | 5 | 6 |
-| Camellia-128-CTR (key=00..0f) | 739 | 722 | 11 | 6 |
+| Camellia-128-CTR (key=00..0f) | 739 | 724 | 9 | 6 |
 | Twofish-128-CTR (key=00..0f) | 739 | 722 | 11 | 6 |
-| Serpent-128-CTR (key=00..0f) | 739 | 724 | 9 | 6 |
-| SM4-CTR (key=00..0f) | 739 | 727 | 6 | 6 |
-| Grasshopper-CTR (key=00..1f) | 739 | 728 | 5 | 6 |
-| CAST-128-CTR (key=00..0f) | 739 | 727 | 6 | 6 |
+| Serpent-128-CTR (key=00..0f) | 739 | 701 | 6 | 32 |
+| SM4-CTR (key=00..0f) | 739 | 725 | 8 | 6 |
+| Grasshopper-CTR (key=00..1f) | 739 | 727 | 6 | 6 |
+| CAST-128-CTR (key=00..0f) | 739 | 725 | 8 | 6 |
 | SEED-CTR (key=00..0f) | 739 | 721 | 12 | 6 |
 | Rabbit (key=00..0f, iv=00..07) | 739 | 724 | 9 | 6 |
 | Salsa20 (key=00..1f, nonce=00..07) | 739 | 725 | 8 | 6 |
-| Snow3G (key=00..0f, iv=00..0f) | 739 | 725 | 8 | 6 |
+| Snow3G (key=00..0f, iv=00..0f) | 739 | 726 | 7 | 6 |
 | ZUC-128 (key=00..0f, iv=00..0f) | 739 | 729 | 4 | 6 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 730 | 3 | 6 |
-| Squidward (SHA-256 chain, OsRng seed) | 739 | 703 | 4 | 32 |
-| PCG32 (OsRng seed) | 739 | 726 | 7 | 6 |
-| PCG64 (OsRng seed) | 739 | 723 | 10 | 6 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 729 | 4 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 739 | 729 | 4 | 6 |
+| PCG32 (OsRng seed) | 739 | 724 | 9 | 6 |
+| PCG64 (OsRng seed) | 739 | 727 | 6 | 6 |
 | Xoshiro256 (OsRng seed) | 739 | 727 | 6 | 6 |
-| Xoroshiro128 (OsRng seed) | 739 | 700 | 7 | 32 |
-| WyRand (OsRng seed) | 739 | 729 | 4 | 6 |
-| SFC64 (OsRng seed) | 739 | 723 | 10 | 6 |
-| JSF64 (OsRng seed) | 739 | 722 | 11 | 6 |
-| ChaCha20 CSPRNG (OsRng key) | 739 | 727 | 6 | 6 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 732 | 1 | 6 |
-| Hash_DRBG SHA-256 (OsRng seed) | 739 | 729 | 4 | 6 |
+| Xoroshiro128 (OsRng seed) | 739 | 730 | 3 | 6 |
+| WyRand (OsRng seed) | 739 | 722 | 11 | 6 |
+| SFC64 (OsRng seed) | 739 | 726 | 7 | 6 |
+| JSF64 (OsRng seed) | 739 | 724 | 9 | 6 |
+| ChaCha20 CSPRNG (OsRng key) | 739 | 726 | 7 | 6 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 701 | 6 | 32 |
+| Hash_DRBG SHA-256 (OsRng seed) | 739 | 727 | 6 | 6 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 699 | 8 | 32 |
 | Constant (0xDEAD_DEAD) | 739 | 0 | 707 | 32 |
 | Counter (0,1,2,…) | 739 | 1 | 706 | 32 |
@@ -577,45 +577,45 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 8/739 — `diehard::spheres_3d`, `dieharder::bit_distribution` (×7)
-- **MT19937 (seed=19650218)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
+- **OsRng (/dev/urandom)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::block_frequency`, `nist::non_overlapping_template` (×2)
+- **MT19937 (seed=19650218)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2)
 - **Xorshift64 (seed=1)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 13/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `dieharder::monobit2`, `nist::matrix_rank`
-- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 7/739 — `diehard::opso`, `dieharder::bit_distribution` (×2), `dieharder::minimum_distance_nd`, `nist::non_overlapping_template` (×2), `nist::spectral`
+- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 6/739 — `diehard::opso`, `dieharder::bit_distribution`, `dieharder::minimum_distance_nd`, `nist::non_overlapping_template` (×2), `nist::spectral`
 - **BAD Unix System V mrand48() (seed=1)**: 7/739 — `diehard::dna`, `diehard::opso`, `diehard::oqso`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
-- **BAD Unix BSD random() TYPE_3 (seed=1)**: 11/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
-- **BAD Unix Linux glibc rand()/random() (seed=1)**: 11/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
+- **BAD Unix BSD random() TYPE_3 (seed=1)**: 12/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
+- **BAD Unix Linux glibc rand()/random() (seed=1)**: 12/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
 - **BAD Unix FreeBSD12 rand_r() compat (seed=1)**: 13/739 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template` (×2), `nist::spectral`
-- **BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions`, `nist::spectral`
-- **BAD Windows VB6/VBA Rnd() (project seed=1)**: 528/739 — `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×496), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l05`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
-- **BAD Windows .NET Random(seed=1) compat**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
+- **BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::random_excursions`, `nist::spectral`
+- **BAD Windows VB6/VBA Rnd() (project seed=1)**: 531/739 — `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×499), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l05`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
+- **BAD Windows .NET Random(seed=1) compat**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
 - **ANSI C sample LCG (1103515245,12345; seed=1)**: 697/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
 - **LCG MINSTD (seed=1)**: 690/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
-- **BAD Borland C++ rand() LCG (seed=1)**: 10/739 — `diehard::opso`, `dieharder::bit_distribution` (×7), `nist::non_overlapping_template`, `nist::spectral`
+- **BAD Borland C++ rand() LCG (seed=1)**: 11/739 — `diehard::opso`, `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`, `nist::spectral`
 - **AES-128-CTR (NIST key)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
-- **Camellia-128-CTR (key=00..0f)**: 11/739 — `dieharder::bit_distribution` (×11)
+- **Camellia-128-CTR (key=00..0f)**: 9/739 — `dieharder::bit_distribution` (×9)
 - **Twofish-128-CTR (key=00..0f)**: 11/739 — `diehard::runs_down`, `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×4)
-- **Serpent-128-CTR (key=00..0f)**: 9/739 — `dieharder::bit_distribution` (×4), `nist::block_frequency`, `nist::non_overlapping_template` (×4)
-- **SM4-CTR (key=00..0f)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::serial_delta2`
-- **Grasshopper-CTR (key=00..1f)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
-- **CAST-128-CTR (key=00..0f)**: 6/739 — `diehard::runs_down`, `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **Serpent-128-CTR (key=00..0f)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
+- **SM4-CTR (key=00..0f)**: 8/739 — `dieharder::bit_distribution` (×7), `nist::serial_delta2`
+- **Grasshopper-CTR (key=00..1f)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
+- **CAST-128-CTR (key=00..0f)**: 8/739 — `diehard::runs_down`, `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
 - **SEED-CTR (key=00..0f)**: 12/739 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template` (×2)
 - **Rabbit (key=00..0f, iv=00..07)**: 9/739 — `dieharder::bit_distribution` (×6), `maurer::universal_l09`, `nist::non_overlapping_template` (×2)
 - **Salsa20 (key=00..1f, nonce=00..07)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
-- **Snow3G (key=00..0f, iv=00..0f)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3)
+- **Snow3G (key=00..0f, iv=00..0f)**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
 - **ZUC-128 (key=00..0f, iv=00..0f)**: 4/739 — `dieharder::bit_distribution` (×4)
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 3/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template`
-- **Squidward (SHA-256 chain, OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×4)
-- **PCG32 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::random_excursions`
-- **PCG64 (OsRng seed)**: 10/739 — `diehard::dna`, `dieharder::bit_distribution` (×5), `dieharder::fill_tree_position`, `nist::longest_run`, `nist::non_overlapping_template` (×2)
-- **Xoshiro256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
-- **Xoroshiro128 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
-- **WyRand (OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
-- **SFC64 (OsRng seed)**: 10/739 — `dieharder::bit_distribution` (×8), `nist::block_frequency`, `nist::non_overlapping_template`
-- **JSF64 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×10), `nist::cumulative_sums_backward`
-- **ChaCha20 CSPRNG (OsRng key)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2), `nist::serial_delta2`
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 1/739 — `dieharder::bit_distribution`
-- **Hash_DRBG SHA-256 (OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×2), `maurer::universal_l07`, `maurer::universal_l08`
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
+- **Squidward (SHA-256 chain, OsRng seed)**: 4/739 — `diehard::parking_lot`, `dieharder::bit_distribution` (×3)
+- **PCG32 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
+- **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::longest_run`, `nist::non_overlapping_template`
+- **Xoshiro256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `maurer::universal_l09`
+- **Xoroshiro128 (OsRng seed)**: 3/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template`
+- **WyRand (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×5), `nist::matrix_rank`, `nist::non_overlapping_template` (×5)
+- **SFC64 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×7)
+- **JSF64 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3), `nist::random_excursions`
+- **ChaCha20 CSPRNG (OsRng key)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 6/739 — `diehard::birthday_spacings`, `dieharder::bit_distribution` (×5)
+- **Hash_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×6)
 - **cryptography::CtrDrbgAes256 (seed=00..2f)**: 8/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5)
 - **Constant (0xDEAD_DEAD)**: 707/739 — expected for degenerate generator.
 - **Counter (0,1,2,…)**: 706/739 — expected for degenerate generator.
@@ -624,13 +624,13 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **1** (`HMAC_DRBG SHA-256 (OsRng seed)`) and the highest is **13** (`Xorshift32 (seed=1)`).
+- Among non-trivial generators, the lowest FAIL count is **2** (`Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)`) and the highest is **13** (`Xorshift32 (seed=1)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 
 ## Auxiliary Probes
 
 These probes are not part of `run_tests`; they are recorded separately here
-from `tests/run_all.sh` on `dyson` (2026-09-11).
+from `tests/run_all.sh` on `darby.local` (2026-09-16).
 
 These probes exercise statistical properties not covered by the NIST/DIEHARD/DIEHARDER
 battery.  They run with their default parameters; use the individual binaries for
@@ -783,7 +783,7 @@ cryptography::CtrDrbgAes256
 
 
 ========================================================================
-upstream_tests  (TestU01 HammingCorr/HammingIndep · PractRand FPF)
+upstream_tests  (Hamming correlation/independence · FPF)
 ========================================================================
 
 MT19937
@@ -791,29 +791,29 @@ MT19937
   [PASS] testu01::hamming_indep_main                       p = 0.331202  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2237.4752)
   [PASS] testu01::hamming_indep_block                      p = 0.933386  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=0.1379)
   [PASS] practrand::fpf_cross                              p = 0.425415  (samples=8388834, sig_bits=14, max_exp=63, dof=19, chi2=19.4967)
-  [PASS] practrand::fpf_platter                            p = 0.686096  (samples=8388834, e=0, sig_bins=2^13, dof=8191, chi2=8128.4406)
-  [PASS] practrand::fpf_platter                            p = 0.541074  (samples=8388834, e=1, sig_bins=2^12, dof=4095, chi2=4085.0074)
-  [PASS] practrand::fpf_platter                            p = 0.023851  (samples=8388834, e=2, sig_bins=2^12, dof=4095, chi2=4276.1283)
-  [PASS] practrand::fpf_platter                            p = 0.771494  (samples=8388834, e=3, sig_bins=2^11, dof=2047, chi2=1999.1204)
-  [PASS] practrand::fpf_platter                            p = 0.789475  (samples=8388834, e=4, sig_bins=2^10, dof=1023, chi2=986.3833)
-  [PASS] practrand::fpf_platter                            p = 0.018369  (samples=8388834, e=5, sig_bins=2^9, dof=511, chi2=579.9940)
-  [PASS] practrand::fpf_platter                            p = 0.805642  (samples=8388834, e=6, sig_bins=2^9, dof=511, chi2=483.2921)
-  [PASS] practrand::fpf_platter                            p = 0.908556  (samples=8388834, e=7, sig_bins=2^8, dof=255, chi2=225.4713)
-  [INFO] practrand::fpf_more                   9 additional platter results omitted
+  [PASS] practrand::fpf_platter                            p = 0.899734  (samples=8388834, e=0, sig_bins=2^14, dof=16383, chi2=16151.7250)
+  [PASS] practrand::fpf_platter                            p = 0.162113  (samples=8388834, e=1, sig_bins=2^14, dof=16383, chi2=16561.4228)
+  [PASS] practrand::fpf_platter                            p = 0.498961  (samples=8388834, e=2, sig_bins=2^14, dof=16383, chi2=16382.8046)
+  [PASS] practrand::fpf_platter                            p = 0.327181  (samples=8388834, e=3, sig_bins=2^14, dof=16383, chi2=16463.5070)
+  [PASS] practrand::fpf_platter                            p = 0.497863  (samples=8388834, e=4, sig_bins=2^14, dof=16383, chi2=16383.3032)
+  [PASS] practrand::fpf_platter                            p = 0.114337  (samples=8388834, e=5, sig_bins=2^13, dof=8191, chi2=8345.3682)
+  [PASS] practrand::fpf_platter                            p = 0.695702  (samples=8388834, e=6, sig_bins=2^12, dof=4095, chi2=4048.1699)
+  [PASS] practrand::fpf_platter                            p = 0.972453  (samples=8388834, e=7, sig_bins=2^11, dof=2047, chi2=1926.0662)
+  [INFO] practrand::fpf_more                   10 additional platter results omitted
 
 Xorshift32
   [PASS] testu01::hamming_corr                             p = 0.191457  (n=500000, r=20, s=10, L=300, rho_hat=-0.001847, z=-1.3063)
   [PASS] testu01::hamming_indep_main                       p = 0.527734  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2203.7128)
   [PASS] testu01::hamming_indep_block                      p = 0.348958  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=2.1056)
   [PASS] practrand::fpf_cross                              p = 0.832827  (samples=8388382, sig_bits=14, max_exp=63, dof=19, chi2=13.1113)
-  [PASS] practrand::fpf_platter                            p = 0.461980  (samples=8388382, e=0, sig_bins=2^13, dof=8191, chi2=8202.5554)
-  [PASS] practrand::fpf_platter                            p = 0.834145  (samples=8388382, e=1, sig_bins=2^12, dof=4095, chi2=4007.1238)
-  [PASS] practrand::fpf_platter                            p = 0.741304  (samples=8388382, e=2, sig_bins=2^12, dof=4095, chi2=4036.0318)
-  [PASS] practrand::fpf_platter                            p = 0.355040  (samples=8388382, e=3, sig_bins=2^11, dof=2047, chi2=2070.2072)
-  [PASS] practrand::fpf_platter                            p = 0.364261  (samples=8388382, e=4, sig_bins=2^10, dof=1023, chi2=1038.1078)
-  [PASS] practrand::fpf_platter                            p = 0.402118  (samples=8388382, e=5, sig_bins=2^9, dof=511, chi2=518.2925)
-  [PASS] practrand::fpf_platter                            p = 0.815797  (samples=8388382, e=6, sig_bins=2^9, dof=511, chi2=482.1375)
-  [PASS] practrand::fpf_platter                            p = 0.673029  (samples=8388382, e=7, sig_bins=2^8, dof=255, chi2=244.3587)
+  [PASS] practrand::fpf_platter                            p = 0.558563  (samples=8388382, e=0, sig_bins=2^14, dof=16383, chi2=16355.6803)
+  [PASS] practrand::fpf_platter                            p = 0.279727  (samples=8388382, e=1, sig_bins=2^14, dof=16383, chi2=16488.2073)
+  [PASS] practrand::fpf_platter                            p = 0.210572  (samples=8388382, e=2, sig_bins=2^14, dof=16383, chi2=16528.3759)
+  [FAIL] practrand::fpf_platter                            p = 0.002997  (samples=8388382, e=3, sig_bins=2^14, dof=16383, chi2=16884.8128)
+  [PASS] practrand::fpf_platter                            p = 0.437089  (samples=8388382, e=4, sig_bins=2^13, dof=8191, chi2=8210.6171)
+  [PASS] practrand::fpf_platter                            p = 0.402201  (samples=8388382, e=5, sig_bins=2^12, dof=4095, chi2=4116.7846)
+  [PASS] practrand::fpf_platter                            p = 0.916158  (samples=8388382, e=6, sig_bins=2^11, dof=2047, chi2=1959.3363)
+  [PASS] practrand::fpf_platter                            p = 0.663282  (samples=8388382, e=7, sig_bins=2^10, dof=1023, chi2=1003.3961)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 Xorshift64
@@ -821,59 +821,59 @@ Xorshift64
   [PASS] testu01::hamming_indep_main                       p = 0.515812  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2205.6998)
   [PASS] testu01::hamming_indep_block                      p = 0.935703  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=0.1329)
   [PASS] practrand::fpf_cross                              p = 0.835378  (samples=8388671, sig_bits=14, max_exp=63, dof=19, chi2=13.0621)
-  [PASS] practrand::fpf_platter                            p = 0.927751  (samples=8388671, e=0, sig_bins=2^13, dof=8191, chi2=8004.9869)
-  [PASS] practrand::fpf_platter                            p = 0.593282  (samples=8388671, e=1, sig_bins=2^12, dof=4095, chi2=4073.0152)
-  [PASS] practrand::fpf_platter                            p = 0.779622  (samples=8388671, e=2, sig_bins=2^12, dof=4095, chi2=4024.9687)
-  [PASS] practrand::fpf_platter                            p = 0.416396  (samples=8388671, e=3, sig_bins=2^11, dof=2047, chi2=2059.8691)
-  [PASS] practrand::fpf_platter                            p = 0.211317  (samples=8388671, e=4, sig_bins=2^10, dof=1023, chi2=1059.0199)
-  [PASS] practrand::fpf_platter                            p = 0.155324  (samples=8388671, e=5, sig_bins=2^9, dof=511, chi2=543.4096)
-  [PASS] practrand::fpf_platter                            p = 0.178503  (samples=8388671, e=6, sig_bins=2^9, dof=511, chi2=540.3252)
-  [PASS] practrand::fpf_platter                            p = 0.622237  (samples=8388671, e=7, sig_bins=2^8, dof=255, chi2=247.3773)
-  [INFO] practrand::fpf_more                   9 additional platter results omitted
+  [PASS] practrand::fpf_platter                            p = 0.843963  (samples=8388671, e=0, sig_bins=2^14, dof=16383, chi2=16200.0349)
+  [PASS] practrand::fpf_platter                            p = 0.825083  (samples=8388671, e=1, sig_bins=2^14, dof=16383, chi2=16213.6875)
+  [PASS] practrand::fpf_platter                            p = 0.899475  (samples=8388671, e=2, sig_bins=2^14, dof=16383, chi2=16151.9891)
+  [PASS] practrand::fpf_platter                            p = 0.084495  (samples=8388671, e=3, sig_bins=2^14, dof=16383, chi2=16632.5669)
+  [PASS] practrand::fpf_platter                            p = 0.174825  (samples=8388671, e=4, sig_bins=2^14, dof=16383, chi2=16552.2092)
+  [PASS] practrand::fpf_platter                            p = 0.013549  (samples=8388671, e=5, sig_bins=2^13, dof=8191, chi2=8476.4598)
+  [PASS] practrand::fpf_platter                            p = 0.367985  (samples=8388671, e=6, sig_bins=2^12, dof=4095, chi2=4124.9219)
+  [PASS] practrand::fpf_platter                            p = 0.371440  (samples=8388671, e=7, sig_bins=2^11, dof=2047, chi2=2067.3907)
+  [INFO] practrand::fpf_more                   10 additional platter results omitted
 
 BAD Unix System V rand()
   [PASS] testu01::hamming_corr                             p = 0.423715  (n=500000, r=20, s=10, L=300, rho_hat=0.001131, z=0.8000)
   [PASS] testu01::hamming_indep_main                       p = 0.273523  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2248.5950)
   [PASS] testu01::hamming_indep_block                      p = 0.336313  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=2.1794)
   [PASS] practrand::fpf_cross                              p = 0.253946  (samples=8388697, sig_bits=14, max_exp=63, dof=19, chi2=22.6319)
-  [PASS] practrand::fpf_platter                            p = 0.294054  (samples=8388697, e=0, sig_bins=2^13, dof=8191, chi2=8259.8438)
-  [PASS] practrand::fpf_platter                            p = 0.431730  (samples=8388697, e=1, sig_bins=2^12, dof=4095, chi2=4109.9148)
-  [PASS] practrand::fpf_platter                            p = 0.225414  (samples=8388697, e=2, sig_bins=2^12, dof=4095, chi2=4162.9457)
-  [PASS] practrand::fpf_platter                            p = 0.418690  (samples=8388697, e=3, sig_bins=2^11, dof=2047, chi2=2059.4915)
-  [PASS] practrand::fpf_platter                            p = 0.950532  (samples=8388697, e=4, sig_bins=2^10, dof=1023, chi2=949.5300)
-  [PASS] practrand::fpf_platter                            p = 0.213835  (samples=8388697, e=5, sig_bins=2^9, dof=511, chi2=536.0925)
-  [PASS] practrand::fpf_platter                            p = 0.539844  (samples=8388697, e=6, sig_bins=2^9, dof=511, chi2=507.1444)
-  [PASS] practrand::fpf_platter                            p = 0.095453  (samples=8388697, e=7, sig_bins=2^8, dof=255, chi2=284.9763)
-  [INFO] practrand::fpf_more                   9 additional platter results omitted
+  [PASS] practrand::fpf_platter                            p = 0.914281  (samples=8388697, e=0, sig_bins=2^14, dof=16383, chi2=16136.0304)
+  [PASS] practrand::fpf_platter                            p = 0.476354  (samples=8388697, e=1, sig_bins=2^14, dof=16383, chi2=16393.0709)
+  [PASS] practrand::fpf_platter                            p = 0.601921  (samples=8388697, e=2, sig_bins=2^14, dof=16383, chi2=16335.6191)
+  [PASS] practrand::fpf_platter                            p = 0.299939  (samples=8388697, e=3, sig_bins=2^14, dof=16383, chi2=16477.4702)
+  [PASS] practrand::fpf_platter                            p = 0.015711  (samples=8388697, e=4, sig_bins=2^14, dof=16383, chi2=16774.8995)
+  [PASS] practrand::fpf_platter                            p = 0.664469  (samples=8388697, e=5, sig_bins=2^13, dof=8191, chi2=8136.0988)
+  [PASS] practrand::fpf_platter                            p = 0.251539  (samples=8388697, e=6, sig_bins=2^12, dof=4095, chi2=4155.2299)
+  [PASS] practrand::fpf_platter                            p = 0.547063  (samples=8388697, e=7, sig_bins=2^11, dof=2047, chi2=2038.7783)
+  [INFO] practrand::fpf_more                   10 additional platter results omitted
 
 BAD Unix System V mrand48()
   [PASS] testu01::hamming_corr                             p = 0.723207  (n=500000, r=20, s=10, L=300, rho_hat=-0.000501, z=-0.3542)
   [PASS] testu01::hamming_indep_main                       p = 0.153387  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2276.9508)
   [PASS] testu01::hamming_indep_block                      p = 0.078374  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=5.0925)
   [PASS] practrand::fpf_cross                              p = 0.609658  (samples=8388833, sig_bits=14, max_exp=63, dof=19, chi2=16.7078)
-  [PASS] practrand::fpf_platter                            p = 0.419329  (samples=8388833, e=0, sig_bins=2^13, dof=8191, chi2=8216.4201)
-  [PASS] practrand::fpf_platter                            p = 0.483616  (samples=8388833, e=1, sig_bins=2^12, dof=4095, chi2=4098.0519)
-  [PASS] practrand::fpf_platter                            p = 0.910049  (samples=8388833, e=2, sig_bins=2^12, dof=4095, chi2=3974.1770)
-  [PASS] practrand::fpf_platter                            p = 0.253373  (samples=8388833, e=3, sig_bins=2^11, dof=2047, chi2=2089.0998)
-  [PASS] practrand::fpf_platter                            p = 0.454368  (samples=8388833, e=4, sig_bins=2^10, dof=1023, chi2=1027.5253)
-  [PASS] practrand::fpf_platter                            p = 0.363250  (samples=8388833, e=5, sig_bins=2^9, dof=511, chi2=521.5888)
-  [PASS] practrand::fpf_platter                            p = 0.980016  (samples=8388833, e=6, sig_bins=2^9, dof=511, chi2=447.4992)
-  [PASS] practrand::fpf_platter                            p = 0.124659  (samples=8388833, e=7, sig_bins=2^8, dof=255, chi2=281.2020)
-  [INFO] practrand::fpf_more                   9 additional platter results omitted
+  [PASS] practrand::fpf_platter                            p = 0.723039  (samples=8388833, e=0, sig_bins=2^14, dof=16383, chi2=16275.4285)
+  [PASS] practrand::fpf_platter                            p = 0.965097  (samples=8388833, e=1, sig_bins=2^14, dof=16383, chi2=16056.3205)
+  [PASS] practrand::fpf_platter                            p = 0.523587  (samples=8388833, e=2, sig_bins=2^14, dof=16383, chi2=16371.6273)
+  [PASS] practrand::fpf_platter                            p = 0.563120  (samples=8388833, e=3, sig_bins=2^14, dof=16383, chi2=16353.5905)
+  [PASS] practrand::fpf_platter                            p = 0.259842  (samples=8388833, e=4, sig_bins=2^14, dof=16383, chi2=16499.1497)
+  [PASS] practrand::fpf_platter                            p = 0.036824  (samples=8388833, e=5, sig_bins=2^13, dof=8191, chi2=8421.4123)
+  [PASS] practrand::fpf_platter                            p = 0.734321  (samples=8388833, e=6, sig_bins=2^12, dof=4095, chi2=4037.9535)
+  [PASS] practrand::fpf_platter                            p = 0.127270  (samples=8388833, e=7, sig_bins=2^11, dof=2047, chi2=2120.0908)
+  [INFO] practrand::fpf_more                   10 additional platter results omitted
 
 BAD Unix BSD random()
   [PASS] testu01::hamming_corr                             p = 0.743907  (n=500000, r=20, s=10, L=300, rho_hat=-0.000462, z=-0.3267)
   [PASS] testu01::hamming_indep_main                       p = 0.795139  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2154.0001)
   [PASS] testu01::hamming_indep_block                      p = 0.698912  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=0.7165)
   [PASS] practrand::fpf_cross                              p = 0.167061  (samples=8388328, sig_bits=14, max_exp=63, dof=19, chi2=24.8050)
-  [PASS] practrand::fpf_platter                            p = 0.536830  (samples=8388328, e=0, sig_bins=2^13, dof=8191, chi2=8178.5065)
-  [PASS] practrand::fpf_platter                            p = 0.254369  (samples=8388328, e=1, sig_bins=2^12, dof=4095, chi2=4154.4209)
-  [PASS] practrand::fpf_platter                            p = 0.028174  (samples=8388328, e=2, sig_bins=2^12, dof=4095, chi2=4269.4552)
-  [PASS] practrand::fpf_platter                            p = 0.771547  (samples=8388328, e=3, sig_bins=2^11, dof=2047, chi2=1999.1095)
-  [PASS] practrand::fpf_platter                            p = 0.731517  (samples=8388328, e=4, sig_bins=2^10, dof=1023, chi2=994.6705)
-  [PASS] practrand::fpf_platter                            p = 0.842265  (samples=8388328, e=5, sig_bins=2^9, dof=511, chi2=478.9356)
-  [PASS] practrand::fpf_platter                            p = 0.412325  (samples=8388328, e=6, sig_bins=2^9, dof=511, chi2=517.4441)
-  [PASS] practrand::fpf_platter                            p = 0.576952  (samples=8388328, e=7, sig_bins=2^8, dof=255, chi2=249.9820)
+  [PASS] practrand::fpf_platter                            p = 0.509799  (samples=8388328, e=0, sig_bins=2^14, dof=16383, chi2=16377.8873)
+  [PASS] practrand::fpf_platter                            p = 0.020835  (samples=8388328, e=1, sig_bins=2^14, dof=16383, chi2=16753.7829)
+  [PASS] practrand::fpf_platter                            p = 0.467219  (samples=8388328, e=2, sig_bins=2^14, dof=16383, chi2=16397.2280)
+  [PASS] practrand::fpf_platter                            p = 0.679459  (samples=8388328, e=3, sig_bins=2^14, dof=16383, chi2=16298.0942)
+  [PASS] practrand::fpf_platter                            p = 0.548268  (samples=8388328, e=4, sig_bins=2^13, dof=8191, chi2=8174.8203)
+  [PASS] practrand::fpf_platter                            p = 0.517017  (samples=8388328, e=5, sig_bins=2^12, dof=4095, chi2=4090.4735)
+  [PASS] practrand::fpf_platter                            p = 0.714845  (samples=8388328, e=6, sig_bins=2^11, dof=2047, chi2=2010.2375)
+  [PASS] practrand::fpf_platter                            p = 0.140398  (samples=8388328, e=7, sig_bins=2^10, dof=1023, chi2=1071.8784)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 BAD Unix Linux glibc rand()/random()
@@ -881,14 +881,14 @@ BAD Unix Linux glibc rand()/random()
   [PASS] testu01::hamming_indep_main                       p = 0.795139  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2154.0001)
   [PASS] testu01::hamming_indep_block                      p = 0.698912  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=0.7165)
   [PASS] practrand::fpf_cross                              p = 0.167061  (samples=8388328, sig_bits=14, max_exp=63, dof=19, chi2=24.8050)
-  [PASS] practrand::fpf_platter                            p = 0.536830  (samples=8388328, e=0, sig_bins=2^13, dof=8191, chi2=8178.5065)
-  [PASS] practrand::fpf_platter                            p = 0.254369  (samples=8388328, e=1, sig_bins=2^12, dof=4095, chi2=4154.4209)
-  [PASS] practrand::fpf_platter                            p = 0.028174  (samples=8388328, e=2, sig_bins=2^12, dof=4095, chi2=4269.4552)
-  [PASS] practrand::fpf_platter                            p = 0.771547  (samples=8388328, e=3, sig_bins=2^11, dof=2047, chi2=1999.1095)
-  [PASS] practrand::fpf_platter                            p = 0.731517  (samples=8388328, e=4, sig_bins=2^10, dof=1023, chi2=994.6705)
-  [PASS] practrand::fpf_platter                            p = 0.842265  (samples=8388328, e=5, sig_bins=2^9, dof=511, chi2=478.9356)
-  [PASS] practrand::fpf_platter                            p = 0.412325  (samples=8388328, e=6, sig_bins=2^9, dof=511, chi2=517.4441)
-  [PASS] practrand::fpf_platter                            p = 0.576952  (samples=8388328, e=7, sig_bins=2^8, dof=255, chi2=249.9820)
+  [PASS] practrand::fpf_platter                            p = 0.509799  (samples=8388328, e=0, sig_bins=2^14, dof=16383, chi2=16377.8873)
+  [PASS] practrand::fpf_platter                            p = 0.020835  (samples=8388328, e=1, sig_bins=2^14, dof=16383, chi2=16753.7829)
+  [PASS] practrand::fpf_platter                            p = 0.467219  (samples=8388328, e=2, sig_bins=2^14, dof=16383, chi2=16397.2280)
+  [PASS] practrand::fpf_platter                            p = 0.679459  (samples=8388328, e=3, sig_bins=2^14, dof=16383, chi2=16298.0942)
+  [PASS] practrand::fpf_platter                            p = 0.548268  (samples=8388328, e=4, sig_bins=2^13, dof=8191, chi2=8174.8203)
+  [PASS] practrand::fpf_platter                            p = 0.517017  (samples=8388328, e=5, sig_bins=2^12, dof=4095, chi2=4090.4735)
+  [PASS] practrand::fpf_platter                            p = 0.714845  (samples=8388328, e=6, sig_bins=2^11, dof=2047, chi2=2010.2375)
+  [PASS] practrand::fpf_platter                            p = 0.140398  (samples=8388328, e=7, sig_bins=2^10, dof=1023, chi2=1071.8784)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 BAD Windows CRT rand()
@@ -896,44 +896,44 @@ BAD Windows CRT rand()
   [PASS] testu01::hamming_indep_main                       p = 0.890950  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2127.4942)
   [FAIL] testu01::hamming_indep_block                      p = 0.004296  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=10.9001)
   [PASS] practrand::fpf_cross                              p = 0.205634  (samples=8389066, sig_bits=14, max_exp=63, dof=19, chi2=23.7571)
-  [PASS] practrand::fpf_platter                            p = 0.377790  (samples=8389066, e=0, sig_bins=2^13, dof=8191, chi2=8230.2387)
-  [PASS] practrand::fpf_platter                            p = 0.839022  (samples=8389066, e=1, sig_bins=2^12, dof=4095, chi2=4005.3606)
-  [PASS] practrand::fpf_platter                            p = 0.015704  (samples=8389066, e=2, sig_bins=2^12, dof=4095, chi2=4292.1546)
-  [PASS] practrand::fpf_platter                            p = 0.859748  (samples=8389066, e=3, sig_bins=2^11, dof=2047, chi2=1978.0696)
-  [PASS] practrand::fpf_platter                            p = 0.674242  (samples=8389066, e=4, sig_bins=2^10, dof=1023, chi2=1002.0472)
-  [PASS] practrand::fpf_platter                            p = 0.173477  (samples=8389066, e=5, sig_bins=2^9, dof=511, chi2=540.9701)
-  [PASS] practrand::fpf_platter                            p = 0.647279  (samples=8389066, e=6, sig_bins=2^9, dof=511, chi2=498.3541)
-  [PASS] practrand::fpf_platter                            p = 0.775595  (samples=8389066, e=7, sig_bins=2^8, dof=255, chi2=237.6355)
-  [INFO] practrand::fpf_more                   9 additional platter results omitted
+  [PASS] practrand::fpf_platter                            p = 0.275991  (samples=8389066, e=0, sig_bins=2^14, dof=16383, chi2=16490.2323)
+  [PASS] practrand::fpf_platter                            p = 0.343549  (samples=8389066, e=1, sig_bins=2^14, dof=16383, chi2=16455.3513)
+  [PASS] practrand::fpf_platter                            p = 0.083778  (samples=8389066, e=2, sig_bins=2^14, dof=16383, chi2=16633.4160)
+  [PASS] practrand::fpf_platter                            p = 0.105132  (samples=8389066, e=3, sig_bins=2^14, dof=16383, chi2=16610.1565)
+  [PASS] practrand::fpf_platter                            p = 0.112067  (samples=8389066, e=4, sig_bins=2^14, dof=16383, chi2=16603.3561)
+  [PASS] practrand::fpf_platter                            p = 0.028018  (samples=8389066, e=5, sig_bins=2^13, dof=8191, chi2=8437.3228)
+  [PASS] practrand::fpf_platter                            p = 0.800391  (samples=8389066, e=6, sig_bins=2^12, dof=4095, chi2=4018.5216)
+  [PASS] practrand::fpf_platter                            p = 0.191730  (samples=8389066, e=7, sig_bins=2^11, dof=2047, chi2=2102.5952)
+  [INFO] practrand::fpf_more                   10 additional platter results omitted
 
 BAD Windows VB6/VBA Rnd()
   [FAIL] testu01::hamming_corr                             p = 0.000000  (n=500000, r=20, s=10, L=300, rho_hat=-0.087334, z=-61.7546)
   [FAIL] testu01::hamming_indep_main                       p = 0.000000  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=60021.7661)
   [FAIL] testu01::hamming_indep_block                      p = 0.000000  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=3183.8786)
   [FAIL] practrand::fpf_cross                              p = 3.516e-155  (samples=8388981, sig_bits=14, max_exp=63, dof=19, chi2=789.5838)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=0, sig_bins=2^13, dof=8191, chi2=199008.6017)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=1, sig_bins=2^12, dof=4095, chi2=91830.3666)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=2, sig_bins=2^12, dof=4095, chi2=43338.5087)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=3, sig_bins=2^11, dof=2047, chi2=31405.5339)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=4, sig_bins=2^10, dof=1023, chi2=10968.8452)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=5, sig_bins=2^9, dof=511, chi2=4189.8599)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=6, sig_bins=2^9, dof=511, chi2=3257.9030)
-  [FAIL] practrand::fpf_platter                            p = 1.759e-161  (samples=8388981, e=7, sig_bins=2^8, dof=255, chi2=1424.1904)
-  [INFO] practrand::fpf_more                   9 additional platter results omitted
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=0, sig_bins=2^14, dof=16383, chi2=216877.1472)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=1, sig_bins=2^14, dof=16383, chi2=115556.5146)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=2, sig_bins=2^14, dof=16383, chi2=62565.4290)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=3, sig_bins=2^14, dof=16383, chi2=50472.9396)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=4, sig_bins=2^14, dof=16383, chi2=34721.8201)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8388981, e=5, sig_bins=2^13, dof=8191, chi2=16365.3480)
+  [FAIL] practrand::fpf_platter                            p = 9.421e-319  (samples=8388981, e=6, sig_bins=2^12, dof=4095, chi2=8577.8104)
+  [FAIL] practrand::fpf_platter                            p = 2.824e-160  (samples=8388981, e=7, sig_bins=2^11, dof=2047, chi2=4285.0227)
+  [INFO] practrand::fpf_more                   10 additional platter results omitted
 
 BAD Windows .NET Random(seed)
   [PASS] testu01::hamming_corr                             p = 0.467237  (n=500000, r=20, s=10, L=300, rho_hat=-0.001028, z=-0.7270)
   [PASS] testu01::hamming_indep_main                       p = 0.118997  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2287.6840)
   [PASS] testu01::hamming_indep_block                      p = 0.813001  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=0.4140)
   [PASS] practrand::fpf_cross                              p = 0.630666  (samples=8388481, sig_bits=14, max_exp=63, dof=19, chi2=16.3967)
-  [PASS] practrand::fpf_platter                            p = 0.976319  (samples=8388481, e=0, sig_bins=2^13, dof=8191, chi2=7939.1463)
-  [PASS] practrand::fpf_platter                            p = 0.371308  (samples=8388481, e=1, sig_bins=2^12, dof=4095, chi2=4124.1213)
-  [PASS] practrand::fpf_platter                            p = 0.791004  (samples=8388481, e=2, sig_bins=2^12, dof=4095, chi2=4021.4813)
-  [PASS] practrand::fpf_platter                            p = 0.548263  (samples=8388481, e=3, sig_bins=2^11, dof=2047, chi2=2038.5850)
-  [PASS] practrand::fpf_platter                            p = 0.674115  (samples=8388481, e=4, sig_bins=2^10, dof=1023, chi2=1002.0630)
-  [PASS] practrand::fpf_platter                            p = 0.294976  (samples=8388481, e=5, sig_bins=2^9, dof=511, chi2=527.7426)
-  [PASS] practrand::fpf_platter                            p = 0.333665  (samples=8388481, e=6, sig_bins=2^9, dof=511, chi2=524.1871)
-  [PASS] practrand::fpf_platter                            p = 0.462087  (samples=8388481, e=7, sig_bins=2^8, dof=255, chi2=256.4858)
+  [PASS] practrand::fpf_platter                            p = 0.944301  (samples=8388481, e=0, sig_bins=2^14, dof=16383, chi2=16095.8641)
+  [PASS] practrand::fpf_platter                            p = 0.087850  (samples=8388481, e=1, sig_bins=2^14, dof=16383, chi2=16628.6653)
+  [PASS] practrand::fpf_platter                            p = 0.832866  (samples=8388481, e=2, sig_bins=2^14, dof=16383, chi2=16208.1801)
+  [PASS] practrand::fpf_platter                            p = 0.808227  (samples=8388481, e=3, sig_bins=2^14, dof=16383, chi2=16225.1107)
+  [PASS] practrand::fpf_platter                            p = 0.566746  (samples=8388481, e=4, sig_bins=2^13, dof=8191, chi2=8168.8383)
+  [PASS] practrand::fpf_platter                            p = 0.417988  (samples=8388481, e=5, sig_bins=2^12, dof=4095, chi2=4113.0972)
+  [PASS] practrand::fpf_platter                            p = 0.260935  (samples=8388481, e=6, sig_bins=2^11, dof=2047, chi2=2087.5793)
+  [PASS] practrand::fpf_platter                            p = 0.995436  (samples=8388481, e=7, sig_bins=2^10, dof=1023, chi2=908.9340)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 ANSI C sample LCG
@@ -941,14 +941,14 @@ ANSI C sample LCG
   [FAIL] testu01::hamming_indep_main                       p = 0.000000  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=813696.0622)
   [FAIL] testu01::hamming_indep_block                      p = 1.164e-282  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=1298.3545)
   [FAIL] practrand::fpf_cross                              p = 0.000000  (samples=8346698, sig_bits=14, max_exp=63, dof=19, chi2=34790.4838)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=0, sig_bins=2^13, dof=8191, chi2=77502.8900)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=1, sig_bins=2^12, dof=4095, chi2=37813.7381)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=2, sig_bins=2^12, dof=4095, chi2=22037.2531)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=3, sig_bins=2^11, dof=2047, chi2=10621.6915)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=4, sig_bins=2^10, dof=1023, chi2=4928.2652)
-  [FAIL] practrand::fpf_platter                            p = 1.477e-180  (samples=8346698, e=5, sig_bins=2^9, dof=511, chi2=2035.9620)
-  [FAIL] practrand::fpf_platter                            p = 1.906e-102  (samples=8346698, e=6, sig_bins=2^9, dof=511, chi2=1531.5849)
-  [FAIL] practrand::fpf_platter                            p = 1.402e-47  (samples=8346698, e=7, sig_bins=2^8, dof=255, chi2=731.5678)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=0, sig_bins=2^14, dof=16383, chi2=95532.1155)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=1, sig_bins=2^14, dof=16383, chi2=65453.8367)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=2, sig_bins=2^14, dof=16383, chi2=59128.0603)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=3, sig_bins=2^14, dof=16383, chi2=67918.6734)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=4, sig_bins=2^13, dof=8191, chi2=34027.2844)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=5, sig_bins=2^12, dof=4095, chi2=15944.1870)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=6, sig_bins=2^11, dof=2047, chi2=7497.2604)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8346698, e=7, sig_bins=2^10, dof=1023, chi2=4164.0049)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 LCG MINSTD
@@ -956,14 +956,14 @@ LCG MINSTD
   [PASS] testu01::hamming_indep_main                       p = 0.069719  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2308.0100)
   [PASS] testu01::hamming_indep_block                      p = 0.465298  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=1.5302)
   [FAIL] practrand::fpf_cross                              p = 0.000000  (samples=8354812, sig_bits=14, max_exp=63, dof=19, chi2=18922.5021)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=0, sig_bins=2^13, dof=8191, chi2=59351.9347)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=1, sig_bins=2^12, dof=4095, chi2=26947.5197)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=2, sig_bins=2^12, dof=4095, chi2=16042.0308)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=3, sig_bins=2^11, dof=2047, chi2=7838.1824)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=4, sig_bins=2^10, dof=1023, chi2=3871.6841)
-  [FAIL] practrand::fpf_platter                            p = 4.543e-130  (samples=8354812, e=5, sig_bins=2^9, dof=511, chi2=1716.7939)
-  [FAIL] practrand::fpf_platter                            p = 1.154e-76  (samples=8354812, e=6, sig_bins=2^9, dof=511, chi2=1348.0053)
-  [FAIL] practrand::fpf_platter                            p = 1.849e-30  (samples=8354812, e=7, sig_bins=2^8, dof=255, chi2=604.8242)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=0, sig_bins=2^14, dof=16383, chi2=75856.0240)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=1, sig_bins=2^14, dof=16383, chi2=48989.7985)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=2, sig_bins=2^14, dof=16383, chi2=38652.1784)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=3, sig_bins=2^14, dof=16383, chi2=38920.7208)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=4, sig_bins=2^13, dof=8191, chi2=19972.0923)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=5, sig_bins=2^12, dof=4095, chi2=9502.4215)
+  [FAIL] practrand::fpf_platter                            p = 9.982e-212  (samples=8354812, e=6, sig_bins=2^11, dof=2047, chi2=4719.1563)
+  [FAIL] practrand::fpf_platter                            p = 6.552e-105  (samples=8354812, e=7, sig_bins=2^10, dof=1023, chi2=2341.1321)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 AES-128-CTR
@@ -971,231 +971,231 @@ AES-128-CTR
   [PASS] testu01::hamming_indep_main                       p = 0.346377  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2234.6957)
   [PASS] testu01::hamming_indep_block                      p = 0.936284  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=0.1317)
   [PASS] practrand::fpf_cross                              p = 0.972140  (samples=8388629, sig_bits=14, max_exp=63, dof=19, chi2=9.0793)
-  [PASS] practrand::fpf_platter                            p = 0.148616  (samples=8388629, e=0, sig_bins=2^13, dof=8191, chi2=8324.4700)
-  [PASS] practrand::fpf_platter                            p = 0.592010  (samples=8388629, e=1, sig_bins=2^12, dof=4095, chi2=4073.3106)
-  [PASS] practrand::fpf_platter                            p = 0.787117  (samples=8388629, e=2, sig_bins=2^12, dof=4095, chi2=4022.6841)
-  [PASS] practrand::fpf_platter                            p = 0.011439  (samples=8388629, e=3, sig_bins=2^11, dof=2047, chi2=2195.3725)
-  [PASS] practrand::fpf_platter                            p = 0.263568  (samples=8388629, e=4, sig_bins=2^10, dof=1023, chi2=1051.1942)
-  [PASS] practrand::fpf_platter                            p = 0.219498  (samples=8388629, e=5, sig_bins=2^9, dof=511, chi2=535.4557)
-  [PASS] practrand::fpf_platter                            p = 0.033161  (samples=8388629, e=6, sig_bins=2^9, dof=511, chi2=571.2598)
-  [FAIL] practrand::fpf_platter                            p = 0.004655  (samples=8388629, e=7, sig_bins=2^8, dof=255, chi2=317.5623)
-  [INFO] practrand::fpf_more                   9 additional platter results omitted
+  [PASS] practrand::fpf_platter                            p = 0.856875  (samples=8388629, e=0, sig_bins=2^14, dof=16383, chi2=16190.0652)
+  [PASS] practrand::fpf_platter                            p = 0.566485  (samples=8388629, e=1, sig_bins=2^14, dof=16383, chi2=16352.0452)
+  [PASS] practrand::fpf_platter                            p = 0.862661  (samples=8388629, e=2, sig_bins=2^14, dof=16383, chi2=16185.4016)
+  [PASS] practrand::fpf_platter                            p = 0.435937  (samples=8388629, e=3, sig_bins=2^14, dof=16383, chi2=16411.5437)
+  [PASS] practrand::fpf_platter                            p = 0.071000  (samples=8388629, e=4, sig_bins=2^14, dof=16383, chi2=16649.5641)
+  [PASS] practrand::fpf_platter                            p = 0.565550  (samples=8388629, e=5, sig_bins=2^13, dof=8191, chi2=8169.2266)
+  [PASS] practrand::fpf_platter                            p = 0.035436  (samples=8388629, e=6, sig_bins=2^12, dof=4095, chi2=4259.9676)
+  [PASS] practrand::fpf_platter                            p = 0.148911  (samples=8388629, e=7, sig_bins=2^11, dof=2047, chi2=2113.6604)
+  [INFO] practrand::fpf_more                   10 additional platter results omitted
 
 cryptography::CtrDrbgAes256
   [PASS] testu01::hamming_corr                             p = 0.310631  (n=500000, r=20, s=10, L=300, rho_hat=0.001434, z=1.0139)
   [PASS] testu01::hamming_indep_main                       p = 0.763462  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2160.9946)
   [PASS] testu01::hamming_indep_block                      p = 0.244947  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=2.8134)
   [PASS] practrand::fpf_cross                              p = 0.527737  (samples=8388217, sig_bits=14, max_exp=63, dof=19, chi2=17.9208)
-  [PASS] practrand::fpf_platter                            p = 0.395926  (samples=8388217, e=0, sig_bins=2^13, dof=8191, chi2=8224.1561)
-  [PASS] practrand::fpf_platter                            p = 0.565567  (samples=8388217, e=1, sig_bins=2^12, dof=4095, chi2=4079.4117)
-  [PASS] practrand::fpf_platter                            p = 0.438206  (samples=8388217, e=2, sig_bins=2^12, dof=4095, chi2=4108.4224)
-  [PASS] practrand::fpf_platter                            p = 0.530552  (samples=8388217, e=3, sig_bins=2^11, dof=2047, chi2=2041.4333)
-  [PASS] practrand::fpf_platter                            p = 0.593116  (samples=8388217, e=4, sig_bins=2^10, dof=1023, chi2=1011.7190)
-  [PASS] practrand::fpf_platter                            p = 0.241790  (samples=8388217, e=5, sig_bins=2^9, dof=511, chi2=533.0406)
-  [PASS] practrand::fpf_platter                            p = 0.645828  (samples=8388217, e=6, sig_bins=2^9, dof=511, chi2=498.4768)
-  [PASS] practrand::fpf_platter                            p = 0.263159  (samples=8388217, e=7, sig_bins=2^8, dof=255, chi2=268.8902)
+  [PASS] practrand::fpf_platter                            p = 0.337168  (samples=8388217, e=0, sig_bins=2^14, dof=16383, chi2=16458.5120)
+  [PASS] practrand::fpf_platter                            p = 0.353430  (samples=8388217, e=1, sig_bins=2^14, dof=16383, chi2=16450.5013)
+  [PASS] practrand::fpf_platter                            p = 0.699547  (samples=8388217, e=2, sig_bins=2^14, dof=16383, chi2=16287.8301)
+  [PASS] practrand::fpf_platter                            p = 0.385410  (samples=8388217, e=3, sig_bins=2^14, dof=16383, chi2=16435.1184)
+  [FAIL] practrand::fpf_platter                            p = 0.006559  (samples=8388217, e=4, sig_bins=2^13, dof=8191, chi2=8511.9231)
+  [PASS] practrand::fpf_platter                            p = 0.042286  (samples=8388217, e=5, sig_bins=2^12, dof=4095, chi2=4252.3959)
+  [PASS] practrand::fpf_platter                            p = 0.492483  (samples=8388217, e=6, sig_bins=2^11, dof=2047, chi2=2047.5391)
+  [PASS] practrand::fpf_platter                            p = 0.421195  (samples=8388217, e=7, sig_bins=2^10, dof=1023, chi2=1031.3503)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 
 ========================================================================
-testu01_lz  (TestU01 Lempel-Ziv  k=25  replications=10)
+testu01_lz  (Lempel-Ziv  k=25  replications=10)
 ========================================================================
 
 MT19937
-  [PASS] testu01::lzw_sum                                  p = 0.216239  (N=10, k=25, r=0, s=30, z_mean=-0.3910, z_sum=-1.2366)
-  [PASS] testu01::lzw_ks                                   p = 0.155883  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762933 z=-0.9552
-  [INFO] testu01::lzw_rep02                    W=1762950 z=-0.4478
-  [INFO] testu01::lzw_rep03                    W=1762918 z=-1.4030
-  [INFO] testu01::lzw_rep04                    W=1762999 z=1.0149
-  [INFO] testu01::lzw_rep05                    W=1762971 z=0.1791
-  [INFO] testu01::lzw_rep06                    W=1762935 z=-0.8955
-  [INFO] testu01::lzw_rep07                    W=1762939 z=-0.7761
-  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4776
-  [INFO] testu01::lzw_rep09                    W=1762940 z=-0.7463
-  [INFO] testu01::lzw_rep10                    W=1762953 z=-0.3582
+  [PASS] testu01::lzw_sum                                  p = 0.177591  (N=10, k=25, r=0, s=30, z_mean=-0.4263, z_sum=-1.3482)
+  [PASS] testu01::lzw_ks                                   p = 0.127845  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762933 z=-0.9894
+  [INFO] testu01::lzw_rep02                    W=1762950 z=-0.4829
+  [INFO] testu01::lzw_rep03                    W=1762918 z=-1.4363
+  [INFO] testu01::lzw_rep04                    W=1762999 z=0.9768
+  [INFO] testu01::lzw_rep05                    W=1762971 z=0.1427
+  [INFO] testu01::lzw_rep06                    W=1762935 z=-0.9298
+  [INFO] testu01::lzw_rep07                    W=1762939 z=-0.8106
+  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4406
+  [INFO] testu01::lzw_rep09                    W=1762940 z=-0.7809
+  [INFO] testu01::lzw_rep10                    W=1762953 z=-0.3936
 
 Xorshift32
-  [PASS] testu01::lzw_sum                                  p = 0.992468  (N=10, k=25, r=0, s=30, z_mean=-0.0030, z_sum=-0.0094)
-  [PASS] testu01::lzw_ks                                   p = 0.980845  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762985 z=0.5970
-  [INFO] testu01::lzw_rep02                    W=1762916 z=-1.4627
-  [INFO] testu01::lzw_rep03                    W=1762950 z=-0.4478
-  [INFO] testu01::lzw_rep04                    W=1762990 z=0.7463
-  [INFO] testu01::lzw_rep05                    W=1762959 z=-0.1791
-  [INFO] testu01::lzw_rep06                    W=1762943 z=-0.6567
-  [INFO] testu01::lzw_rep07                    W=1762962 z=-0.0896
-  [INFO] testu01::lzw_rep08                    W=1762978 z=0.3881
-  [INFO] testu01::lzw_rep09                    W=1763035 z=2.0896
-  [INFO] testu01::lzw_rep10                    W=1762931 z=-1.0149
+  [PASS] testu01::lzw_sum                                  p = 0.901706  (N=10, k=25, r=0, s=30, z_mean=-0.0391, z_sum=-0.1235)
+  [PASS] testu01::lzw_ks                                   p = 0.954167  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762985 z=0.5597
+  [INFO] testu01::lzw_rep02                    W=1762916 z=-1.4958
+  [INFO] testu01::lzw_rep03                    W=1762950 z=-0.4829
+  [INFO] testu01::lzw_rep04                    W=1762990 z=0.7087
+  [INFO] testu01::lzw_rep05                    W=1762959 z=-0.2148
+  [INFO] testu01::lzw_rep06                    W=1762943 z=-0.6915
+  [INFO] testu01::lzw_rep07                    W=1762962 z=-0.1255
+  [INFO] testu01::lzw_rep08                    W=1762978 z=0.3512
+  [INFO] testu01::lzw_rep09                    W=1763035 z=2.0493
+  [INFO] testu01::lzw_rep10                    W=1762931 z=-1.0490
 
 Xorshift64
-  [PASS] testu01::lzw_sum                                  p = 0.151337  (N=10, k=25, r=0, s=30, z_mean=-0.4537, z_sum=-1.4348)
-  [PASS] testu01::lzw_ks                                   p = 0.131902  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762946 z=-0.5672
-  [INFO] testu01::lzw_rep02                    W=1762978 z=0.3881
-  [INFO] testu01::lzw_rep03                    W=1762961 z=-0.1194
-  [INFO] testu01::lzw_rep04                    W=1762935 z=-0.8955
-  [INFO] testu01::lzw_rep05                    W=1762918 z=-1.4030
-  [INFO] testu01::lzw_rep06                    W=1762952 z=-0.3881
-  [INFO] testu01::lzw_rep07                    W=1762940 z=-0.7463
-  [INFO] testu01::lzw_rep08                    W=1763007 z=1.2537
-  [INFO] testu01::lzw_rep09                    W=1762943 z=-0.6567
-  [INFO] testu01::lzw_rep10                    W=1762918 z=-1.4030
+  [PASS] testu01::lzw_sum                                  p = 0.122093  (N=10, k=25, r=0, s=30, z_mean=-0.4889, z_sum=-1.5460)
+  [PASS] testu01::lzw_ks                                   p = 0.107762  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762946 z=-0.6021
+  [INFO] testu01::lzw_rep02                    W=1762978 z=0.3512
+  [INFO] testu01::lzw_rep03                    W=1762961 z=-0.1552
+  [INFO] testu01::lzw_rep04                    W=1762935 z=-0.9298
+  [INFO] testu01::lzw_rep05                    W=1762918 z=-1.4363
+  [INFO] testu01::lzw_rep06                    W=1762952 z=-0.4234
+  [INFO] testu01::lzw_rep07                    W=1762940 z=-0.7809
+  [INFO] testu01::lzw_rep08                    W=1763007 z=1.2152
+  [INFO] testu01::lzw_rep09                    W=1762943 z=-0.6915
+  [INFO] testu01::lzw_rep10                    W=1762918 z=-1.4363
 
 BAD Unix System V rand()
-  [PASS] testu01::lzw_sum                                  p = 0.590536  (N=10, k=25, r=0, s=30, z_mean=-0.1701, z_sum=-0.5381)
-  [PASS] testu01::lzw_ks                                   p = 0.291519  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762954 z=-0.3284
-  [INFO] testu01::lzw_rep02                    W=1762949 z=-0.4776
-  [INFO] testu01::lzw_rep03                    W=1762945 z=-0.5970
-  [INFO] testu01::lzw_rep04                    W=1762958 z=-0.2090
-  [INFO] testu01::lzw_rep05                    W=1762974 z=0.2687
-  [INFO] testu01::lzw_rep06                    W=1762936 z=-0.8657
-  [INFO] testu01::lzw_rep07                    W=1763024 z=1.7612
-  [INFO] testu01::lzw_rep08                    W=1762971 z=0.1791
-  [INFO] testu01::lzw_rep09                    W=1762951 z=-0.4179
-  [INFO] testu01::lzw_rep10                    W=1762931 z=-1.0149
+  [PASS] testu01::lzw_sum                                  p = 0.515001  (N=10, k=25, r=0, s=30, z_mean=-0.2059, z_sum=-0.6511)
+  [PASS] testu01::lzw_ks                                   p = 0.242977  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762954 z=-0.3638
+  [INFO] testu01::lzw_rep02                    W=1762949 z=-0.5127
+  [INFO] testu01::lzw_rep03                    W=1762945 z=-0.6319
+  [INFO] testu01::lzw_rep04                    W=1762958 z=-0.2446
+  [INFO] testu01::lzw_rep05                    W=1762974 z=0.2320
+  [INFO] testu01::lzw_rep06                    W=1762936 z=-0.9000
+  [INFO] testu01::lzw_rep07                    W=1763024 z=1.7216
+  [INFO] testu01::lzw_rep08                    W=1762971 z=0.1427
+  [INFO] testu01::lzw_rep09                    W=1762951 z=-0.4532
+  [INFO] testu01::lzw_rep10                    W=1762931 z=-1.0490
 
 BAD Unix System V mrand48()
-  [PASS] testu01::lzw_sum                                  p = 0.719815  (N=10, k=25, r=0, s=30, z_mean=0.1134, z_sum=0.3587)
-  [PASS] testu01::lzw_ks                                   p = 0.878463  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762884 z=-2.4179
-  [INFO] testu01::lzw_rep02                    W=1762984 z=0.5672
-  [INFO] testu01::lzw_rep03                    W=1762921 z=-1.3134
-  [INFO] testu01::lzw_rep04                    W=1762998 z=0.9851
-  [INFO] testu01::lzw_rep05                    W=1762951 z=-0.4179
-  [INFO] testu01::lzw_rep06                    W=1763024 z=1.7612
-  [INFO] testu01::lzw_rep07                    W=1763014 z=1.4627
-  [INFO] testu01::lzw_rep08                    W=1762970 z=0.1493
-  [INFO] testu01::lzw_rep09                    W=1762962 z=-0.0896
-  [INFO] testu01::lzw_rep10                    W=1762980 z=0.4478
+  [PASS] testu01::lzw_sum                                  p = 0.807305  (N=10, k=25, r=0, s=30, z_mean=0.0771, z_sum=0.2439)
+  [PASS] testu01::lzw_ks                                   p = 0.927732  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762884 z=-2.4492
+  [INFO] testu01::lzw_rep02                    W=1762984 z=0.5300
+  [INFO] testu01::lzw_rep03                    W=1762921 z=-1.3469
+  [INFO] testu01::lzw_rep04                    W=1762998 z=0.9470
+  [INFO] testu01::lzw_rep05                    W=1762951 z=-0.4532
+  [INFO] testu01::lzw_rep06                    W=1763024 z=1.7216
+  [INFO] testu01::lzw_rep07                    W=1763014 z=1.4237
+  [INFO] testu01::lzw_rep08                    W=1762970 z=0.1129
+  [INFO] testu01::lzw_rep09                    W=1762962 z=-0.1255
+  [INFO] testu01::lzw_rep10                    W=1762980 z=0.4108
 
 BAD Unix BSD random()
-  [PASS] testu01::lzw_sum                                  p = 0.969880  (N=10, k=25, r=0, s=30, z_mean=-0.0119, z_sum=-0.0378)
-  [PASS] testu01::lzw_ks                                   p = 0.997893  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762964 z=-0.0299
-  [INFO] testu01::lzw_rep02                    W=1763021 z=1.6716
-  [INFO] testu01::lzw_rep03                    W=1762904 z=-1.8209
-  [INFO] testu01::lzw_rep04                    W=1762982 z=0.5075
-  [INFO] testu01::lzw_rep05                    W=1763007 z=1.2537
-  [INFO] testu01::lzw_rep06                    W=1762961 z=-0.1194
-  [INFO] testu01::lzw_rep07                    W=1762949 z=-0.4776
-  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4776
-  [INFO] testu01::lzw_rep09                    W=1762932 z=-0.9851
-  [INFO] testu01::lzw_rep10                    W=1762945 z=-0.5970
+  [PASS] testu01::lzw_sum                                  p = 0.879369  (N=10, k=25, r=0, s=30, z_mean=-0.0480, z_sum=-0.1518)
+  [PASS] testu01::lzw_ks                                   p = 0.990817  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762964 z=-0.0659
+  [INFO] testu01::lzw_rep02                    W=1763021 z=1.6322
+  [INFO] testu01::lzw_rep03                    W=1762904 z=-1.8533
+  [INFO] testu01::lzw_rep04                    W=1762982 z=0.4704
+  [INFO] testu01::lzw_rep05                    W=1763007 z=1.2152
+  [INFO] testu01::lzw_rep06                    W=1762961 z=-0.1552
+  [INFO] testu01::lzw_rep07                    W=1762949 z=-0.5127
+  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4406
+  [INFO] testu01::lzw_rep09                    W=1762932 z=-1.0192
+  [INFO] testu01::lzw_rep10                    W=1762945 z=-0.6319
 
 BAD Unix Linux glibc rand()/random()
-  [PASS] testu01::lzw_sum                                  p = 0.969880  (N=10, k=25, r=0, s=30, z_mean=-0.0119, z_sum=-0.0378)
-  [PASS] testu01::lzw_ks                                   p = 0.997893  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762964 z=-0.0299
-  [INFO] testu01::lzw_rep02                    W=1763021 z=1.6716
-  [INFO] testu01::lzw_rep03                    W=1762904 z=-1.8209
-  [INFO] testu01::lzw_rep04                    W=1762982 z=0.5075
-  [INFO] testu01::lzw_rep05                    W=1763007 z=1.2537
-  [INFO] testu01::lzw_rep06                    W=1762961 z=-0.1194
-  [INFO] testu01::lzw_rep07                    W=1762949 z=-0.4776
-  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4776
-  [INFO] testu01::lzw_rep09                    W=1762932 z=-0.9851
-  [INFO] testu01::lzw_rep10                    W=1762945 z=-0.5970
+  [PASS] testu01::lzw_sum                                  p = 0.879369  (N=10, k=25, r=0, s=30, z_mean=-0.0480, z_sum=-0.1518)
+  [PASS] testu01::lzw_ks                                   p = 0.990817  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762964 z=-0.0659
+  [INFO] testu01::lzw_rep02                    W=1763021 z=1.6322
+  [INFO] testu01::lzw_rep03                    W=1762904 z=-1.8533
+  [INFO] testu01::lzw_rep04                    W=1762982 z=0.4704
+  [INFO] testu01::lzw_rep05                    W=1763007 z=1.2152
+  [INFO] testu01::lzw_rep06                    W=1762961 z=-0.1552
+  [INFO] testu01::lzw_rep07                    W=1762949 z=-0.5127
+  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4406
+  [INFO] testu01::lzw_rep09                    W=1762932 z=-1.0192
+  [INFO] testu01::lzw_rep10                    W=1762945 z=-0.6319
 
 BAD Windows CRT rand()
-  [PASS] testu01::lzw_sum                                  p = 0.159574  (N=10, k=25, r=0, s=30, z_mean=0.4448, z_sum=1.4065)
-  [PASS] testu01::lzw_ks                                   p = 0.409984  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762952 z=-0.3881
-  [INFO] testu01::lzw_rep02                    W=1763026 z=1.8209
-  [INFO] testu01::lzw_rep03                    W=1762990 z=0.7463
-  [INFO] testu01::lzw_rep04                    W=1762961 z=-0.1194
-  [INFO] testu01::lzw_rep05                    W=1763020 z=1.6418
-  [INFO] testu01::lzw_rep06                    W=1762944 z=-0.6269
-  [INFO] testu01::lzw_rep07                    W=1762963 z=-0.0597
-  [INFO] testu01::lzw_rep08                    W=1762997 z=0.9552
-  [INFO] testu01::lzw_rep09                    W=1762973 z=0.2388
-  [INFO] testu01::lzw_rep10                    W=1762973 z=0.2388
+  [PASS] testu01::lzw_sum                                  p = 0.197185  (N=10, k=25, r=0, s=30, z_mean=0.4078, z_sum=1.2896)
+  [PASS] testu01::lzw_ks                                   p = 0.463781  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762952 z=-0.4234
+  [INFO] testu01::lzw_rep02                    W=1763026 z=1.7812
+  [INFO] testu01::lzw_rep03                    W=1762990 z=0.7087
+  [INFO] testu01::lzw_rep04                    W=1762961 z=-0.1552
+  [INFO] testu01::lzw_rep05                    W=1763020 z=1.6024
+  [INFO] testu01::lzw_rep06                    W=1762944 z=-0.6617
+  [INFO] testu01::lzw_rep07                    W=1762963 z=-0.0957
+  [INFO] testu01::lzw_rep08                    W=1762997 z=0.9172
+  [INFO] testu01::lzw_rep09                    W=1762973 z=0.2023
+  [INFO] testu01::lzw_rep10                    W=1762973 z=0.2023
 
 BAD Windows VB6/VBA Rnd()
-  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-221.9851, z_sum=-701.9784)
+  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-221.5781, z_sum=-700.6914)
   [FAIL] testu01::lzw_ks                                   p = 0.000000  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1755485 z=-223.2836
-  [INFO] testu01::lzw_rep02                    W=1755545 z=-221.4925
-  [INFO] testu01::lzw_rep03                    W=1755563 z=-220.9552
-  [INFO] testu01::lzw_rep04                    W=1755535 z=-221.7910
-  [INFO] testu01::lzw_rep05                    W=1755551 z=-221.3134
-  [INFO] testu01::lzw_rep06                    W=1755521 z=-222.2090
-  [INFO] testu01::lzw_rep07                    W=1755536 z=-221.7612
-  [INFO] testu01::lzw_rep08                    W=1755473 z=-223.6418
-  [INFO] testu01::lzw_rep09                    W=1755512 z=-222.4776
-  [INFO] testu01::lzw_rep10                    W=1755564 z=-220.9254
+  [INFO] testu01::lzw_rep01                    W=1755485 z=-222.8740
+  [INFO] testu01::lzw_rep02                    W=1755545 z=-221.0865
+  [INFO] testu01::lzw_rep03                    W=1755563 z=-220.5503
+  [INFO] testu01::lzw_rep04                    W=1755535 z=-221.3844
+  [INFO] testu01::lzw_rep05                    W=1755551 z=-220.9078
+  [INFO] testu01::lzw_rep06                    W=1755521 z=-221.8015
+  [INFO] testu01::lzw_rep07                    W=1755536 z=-221.3546
+  [INFO] testu01::lzw_rep08                    W=1755473 z=-223.2315
+  [INFO] testu01::lzw_rep09                    W=1755512 z=-222.0696
+  [INFO] testu01::lzw_rep10                    W=1755564 z=-220.5205
 
 BAD Windows .NET Random(seed)
-  [PASS] testu01::lzw_sum                                  p = 0.219765  (N=10, k=25, r=0, s=30, z_mean=0.3881, z_sum=1.2272)
-  [PASS] testu01::lzw_ks                                   p = 0.183482  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762967 z=0.0597
-  [INFO] testu01::lzw_rep02                    W=1762886 z=-2.3582
-  [INFO] testu01::lzw_rep03                    W=1762991 z=0.7761
-  [INFO] testu01::lzw_rep04                    W=1762976 z=0.3284
-  [INFO] testu01::lzw_rep05                    W=1763020 z=1.6418
-  [INFO] testu01::lzw_rep06                    W=1762976 z=0.3284
-  [INFO] testu01::lzw_rep07                    W=1762883 z=-2.4478
-  [INFO] testu01::lzw_rep08                    W=1763001 z=1.0746
-  [INFO] testu01::lzw_rep09                    W=1763018 z=1.5821
-  [INFO] testu01::lzw_rep10                    W=1763062 z=2.8955
+  [PASS] testu01::lzw_sum                                  p = 0.266733  (N=10, k=25, r=0, s=30, z_mean=0.3512, z_sum=1.1106)
+  [PASS] testu01::lzw_ks                                   p = 0.222826  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762967 z=0.0235
+  [INFO] testu01::lzw_rep02                    W=1762886 z=-2.3896
+  [INFO] testu01::lzw_rep03                    W=1762991 z=0.7385
+  [INFO] testu01::lzw_rep04                    W=1762976 z=0.2916
+  [INFO] testu01::lzw_rep05                    W=1763020 z=1.6024
+  [INFO] testu01::lzw_rep06                    W=1762976 z=0.2916
+  [INFO] testu01::lzw_rep07                    W=1762883 z=-2.4790
+  [INFO] testu01::lzw_rep08                    W=1763001 z=1.0364
+  [INFO] testu01::lzw_rep09                    W=1763018 z=1.5429
+  [INFO] testu01::lzw_rep10                    W=1763062 z=2.8537
 
 ANSI C sample LCG
-  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-34.9821, z_sum=-110.6231)
+  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-34.9483, z_sum=-110.5164)
   [FAIL] testu01::lzw_ks                                   p = 0.000000  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1761859 z=-33.0149
-  [INFO] testu01::lzw_rep02                    W=1761837 z=-33.6716
-  [INFO] testu01::lzw_rep03                    W=1761768 z=-35.7313
-  [INFO] testu01::lzw_rep04                    W=1761798 z=-34.8358
-  [INFO] testu01::lzw_rep05                    W=1761764 z=-35.8507
-  [INFO] testu01::lzw_rep06                    W=1761816 z=-34.2985
-  [INFO] testu01::lzw_rep07                    W=1761741 z=-36.5373
-  [INFO] testu01::lzw_rep08                    W=1761768 z=-35.7313
-  [INFO] testu01::lzw_rep09                    W=1761800 z=-34.7761
-  [INFO] testu01::lzw_rep10                    W=1761780 z=-35.3731
+  [INFO] testu01::lzw_rep01                    W=1761859 z=-32.9851
+  [INFO] testu01::lzw_rep02                    W=1761837 z=-33.6405
+  [INFO] testu01::lzw_rep03                    W=1761768 z=-35.6961
+  [INFO] testu01::lzw_rep04                    W=1761798 z=-34.8024
+  [INFO] testu01::lzw_rep05                    W=1761764 z=-35.8153
+  [INFO] testu01::lzw_rep06                    W=1761816 z=-34.2661
+  [INFO] testu01::lzw_rep07                    W=1761741 z=-36.5005
+  [INFO] testu01::lzw_rep08                    W=1761768 z=-35.6961
+  [INFO] testu01::lzw_rep09                    W=1761800 z=-34.7428
+  [INFO] testu01::lzw_rep10                    W=1761780 z=-35.3386
 
 LCG MINSTD
-  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-37.7104, z_sum=-119.2509)
+  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-37.6713, z_sum=-119.1270)
   [FAIL] testu01::lzw_ks                                   p = 0.000000  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1761635 z=-39.7015
-  [INFO] testu01::lzw_rep02                    W=1761843 z=-33.4925
-  [INFO] testu01::lzw_rep03                    W=1761693 z=-37.9701
-  [INFO] testu01::lzw_rep04                    W=1761676 z=-38.4776
-  [INFO] testu01::lzw_rep05                    W=1761717 z=-37.2537
-  [INFO] testu01::lzw_rep06                    W=1761680 z=-38.3582
-  [INFO] testu01::lzw_rep07                    W=1761686 z=-38.1791
-  [INFO] testu01::lzw_rep08                    W=1761681 z=-38.3284
-  [INFO] testu01::lzw_rep09                    W=1761689 z=-38.0896
-  [INFO] testu01::lzw_rep10                    W=1761717 z=-37.2537
+  [INFO] testu01::lzw_rep01                    W=1761635 z=-39.6583
+  [INFO] testu01::lzw_rep02                    W=1761843 z=-33.4618
+  [INFO] testu01::lzw_rep03                    W=1761693 z=-37.9304
+  [INFO] testu01::lzw_rep04                    W=1761676 z=-38.4369
+  [INFO] testu01::lzw_rep05                    W=1761717 z=-37.2154
+  [INFO] testu01::lzw_rep06                    W=1761680 z=-38.3177
+  [INFO] testu01::lzw_rep07                    W=1761686 z=-38.1390
+  [INFO] testu01::lzw_rep08                    W=1761681 z=-38.2879
+  [INFO] testu01::lzw_rep09                    W=1761689 z=-38.0496
+  [INFO] testu01::lzw_rep10                    W=1761717 z=-37.2154
 
 AES-128-CTR
-  [PASS] testu01::lzw_sum                                  p = 0.052975  (N=10, k=25, r=0, s=30, z_mean=0.6119, z_sum=1.9351)
-  [PASS] testu01::lzw_ks                                   p = 0.217584  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762990 z=0.7463
-  [INFO] testu01::lzw_rep02                    W=1762977 z=0.3582
-  [INFO] testu01::lzw_rep03                    W=1762968 z=0.0896
-  [INFO] testu01::lzw_rep04                    W=1763003 z=1.1343
-  [INFO] testu01::lzw_rep05                    W=1762950 z=-0.4478
-  [INFO] testu01::lzw_rep06                    W=1762949 z=-0.4776
-  [INFO] testu01::lzw_rep07                    W=1763021 z=1.6716
-  [INFO] testu01::lzw_rep08                    W=1763026 z=1.8209
-  [INFO] testu01::lzw_rep09                    W=1762964 z=-0.0299
-  [INFO] testu01::lzw_rep10                    W=1763007 z=1.2537
+  [PASS] testu01::lzw_sum                                  p = 0.069190  (N=10, k=25, r=0, s=30, z_mean=0.5746, z_sum=1.8172)
+  [PASS] testu01::lzw_ks                                   p = 0.256694  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762990 z=0.7087
+  [INFO] testu01::lzw_rep02                    W=1762977 z=0.3214
+  [INFO] testu01::lzw_rep03                    W=1762968 z=0.0533
+  [INFO] testu01::lzw_rep04                    W=1763003 z=1.0960
+  [INFO] testu01::lzw_rep05                    W=1762950 z=-0.4829
+  [INFO] testu01::lzw_rep06                    W=1762949 z=-0.5127
+  [INFO] testu01::lzw_rep07                    W=1763021 z=1.6322
+  [INFO] testu01::lzw_rep08                    W=1763026 z=1.7812
+  [INFO] testu01::lzw_rep09                    W=1762964 z=-0.0659
+  [INFO] testu01::lzw_rep10                    W=1763007 z=1.2152
 
 cryptography::CtrDrbgAes256
-  [PASS] testu01::lzw_sum                                  p = 0.527089  (N=10, k=25, r=0, s=30, z_mean=0.2000, z_sum=0.6325)
-  [PASS] testu01::lzw_ks                                   p = 0.778942  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762988 z=0.6866
-  [INFO] testu01::lzw_rep02                    W=1763007 z=1.2537
-  [INFO] testu01::lzw_rep03                    W=1763003 z=1.1343
-  [INFO] testu01::lzw_rep04                    W=1762932 z=-0.9851
-  [INFO] testu01::lzw_rep05                    W=1762953 z=-0.3582
-  [INFO] testu01::lzw_rep06                    W=1762982 z=0.5075
-  [INFO] testu01::lzw_rep07                    W=1762965 z=0.0000
-  [INFO] testu01::lzw_rep08                    W=1762954 z=-0.3284
-  [INFO] testu01::lzw_rep09                    W=1763001 z=1.0746
-  [INFO] testu01::lzw_rep10                    W=1762932 z=-0.9851
+  [PASS] testu01::lzw_sum                                  p = 0.605081  (N=10, k=25, r=0, s=30, z_mean=0.1635, z_sum=0.5171)
+  [PASS] testu01::lzw_ks                                   p = 0.842903  (N=10, k=25, r=0, s=30)
+  [INFO] testu01::lzw_rep01                    W=1762988 z=0.6491
+  [INFO] testu01::lzw_rep02                    W=1763007 z=1.2152
+  [INFO] testu01::lzw_rep03                    W=1763003 z=1.0960
+  [INFO] testu01::lzw_rep04                    W=1762932 z=-1.0192
+  [INFO] testu01::lzw_rep05                    W=1762953 z=-0.3936
+  [INFO] testu01::lzw_rep06                    W=1762982 z=0.4704
+  [INFO] testu01::lzw_rep07                    W=1762965 z=-0.0361
+  [INFO] testu01::lzw_rep08                    W=1762954 z=-0.3638
+  [INFO] testu01::lzw_rep09                    W=1763001 z=1.0364
+  [INFO] testu01::lzw_rep10                    W=1762932 z=-1.0192
 
 
 ========================================================================
