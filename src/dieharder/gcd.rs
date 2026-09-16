@@ -4,13 +4,13 @@
 //! with a zero, and scores two statistics:
 //!
 //! 1. The GCD: P(gcd = k) → 6/(π²k²) for large words.  The counts of
-//!    k = 2 … K − 2, with larger GCDs in the last cell, are scored with a
+//!    k = 1 … K − 2, with larger GCDs in the last cell, are scored with a
 //!    Pearson χ², K growing as √(pairs).
 //! 2. The step count k of `while v ≠ 0 { (u, v) = (v, u mod v) }`, scored with
 //!    a Pearson χ² against [`STEP_PROBABILITIES`].
 //!
-//! Cells expecting fewer than 5 pairs are left out of each χ², with the
-//! degrees of freedom reduced to match.
+//! In each χ² the tail cells are pooled until every cell expects at least 5
+//! pairs, so every pair is scored once.
 //!
 //! # The step-count law
 //!
@@ -26,7 +26,11 @@
 //! Randomness", *Journal of Statistical Software* 7(3), 2002,
 //! <https://doi.org/10.18637/jss.v007.i03>.
 
-use crate::{math::igamc, result::TestResult, rng::Rng};
+use crate::{
+    math::{chi_square_pooled_tails, igamc},
+    result::TestResult,
+    rng::Rng,
+};
 use std::f64::consts::PI;
 
 /// Pairs drawn.
@@ -116,55 +120,25 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
 
     let n = actual_pairs as f64;
 
-    // GCD χ²: cells 0 and 1 are not scored (gcd 1 is the complement of the
-    // rest); cell i ≥ 2 expects n·6/(π²i²), and the last cell sums that over
-    // i ≥ gtblsize − 1.
-    let gcd_expected: Vec<f64> = (0..gtblsize)
-        .map(|i| {
-            if i < 2 {
-                0.0
-            } else if i == gtblsize - 1 {
-                // Tail: Σ 6/(π²j²) for j ≥ gtblsize − 1, to j = 100 000.
-                (i..100_000)
-                    .map(|j| n * gnorm / (j as f64 * j as f64))
-                    .sum()
-            } else {
-                n * gnorm / (i as f64 * i as f64)
-            }
-        })
+    // GCD χ² over gcd = 1 … gtblsize − 2 and a last cell for every larger gcd:
+    // cell k expects n·6/(π²k²) and the last cell the remainder, so every pair
+    // is scored once.
+    let head: Vec<f64> = (1..gtblsize - 1)
+        .map(|k| n * gnorm / (k as f64 * k as f64))
         .collect();
-
-    let gcd_chi_sq: f64 = gcd_counts
-        .iter()
-        .zip(gcd_expected.iter())
-        .filter(|(_, &exp)| exp >= 5.0)
-        .map(|(&obs, &exp)| (obs as f64 - exp).powi(2) / exp)
-        .sum();
-    let gcd_df = gcd_counts
-        .iter()
-        .zip(gcd_expected.iter())
-        .filter(|(_, &exp)| exp >= 5.0)
-        .count()
-        .saturating_sub(1);
+    let mut gcd_expected = head.clone();
+    gcd_expected.push(n - head.iter().sum::<f64>());
+    let gcd_observed: Vec<f64> = gcd_counts[1..].iter().map(|&c| f64::from(c)).collect();
+    let (gcd_chi_sq, gcd_df) =
+        chi_square_pooled_tails(&gcd_observed, &gcd_expected, 5.0).unwrap_or((0.0, 0));
     let p_gcd = starved_or_pvalue(gcd_df, gcd_chi_sq);
 
-    // Step-count χ² against the simulated law; cells expecting fewer than 5
-    // pairs are left out.
-    let step_chi_sq: f64 = step_counts
-        .iter()
-        .zip(STEP_PROBABILITIES.iter())
-        .filter(|(_, &p)| p * n >= 5.0)
-        .map(|(&obs, &p)| {
-            let exp = p * n;
-            (obs as f64 - exp).powi(2) / exp
-        })
-        .sum();
-    let step_df = step_counts
-        .iter()
-        .zip(STEP_PROBABILITIES.iter())
-        .filter(|(_, &p)| p * n >= 5.0)
-        .count()
-        .saturating_sub(1);
+    // Step-count χ² against the simulated law, the tails pooled until each
+    // cell expects at least 5 pairs.
+    let step_expected: Vec<f64> = STEP_PROBABILITIES.iter().map(|&p| p * n).collect();
+    let step_observed: Vec<f64> = step_counts.iter().map(|&c| f64::from(c)).collect();
+    let (step_chi_sq, step_df) =
+        chi_square_pooled_tails(&step_observed, &step_expected, 5.0).unwrap_or((0.0, 0));
     let p_steps = starved_or_pvalue(step_df, step_chi_sq);
 
     // Note for a chi-square left without a degree of freedom.

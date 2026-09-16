@@ -10,8 +10,8 @@
 //! same sum over the 5⁴ = 625 counts of each word's leading four letters.
 //! Overlapping words make neither sum χ²-distributed, but their difference
 //! is asymptotically χ² with 5⁵ − 5⁴ = 2 500 degrees of freedom (Marsaglia
-//! 1985), so z = (Q5 − Q4 − 2 500)/√5 000 is approximately standard normal.
-//! The p-value is two-sided, erfc(|z|/√2): a difference that is too small
+//! 1985).  The p-value is two-sided in that distribution,
+//! 2·min(P(χ² ≤ Q5 − Q4), P(χ² ≥ Q5 − Q4)): a difference that is too small
 //! fails as well as one that is too large.
 //!
 //! Bytes are taken from each word low byte first.  256 004 bytes are read: a
@@ -26,8 +26,7 @@
 //! Statistics: 16th Symposium on the Interface* (1985), for the overlapping
 //! χ² difference.
 
-use crate::{math::erfc, result::TestResult};
-use std::f64::consts::SQRT_2;
+use crate::{math::igamc, result::TestResult};
 
 const WORD_LEN: usize = 5;
 const ALPHA_SIZE: usize = 5;
@@ -93,14 +92,11 @@ pub(crate) fn hamming_letter(b: u8) -> usize {
 fn count_ones_test(letters: impl Iterator<Item = usize>, name: &'static str) -> TestResult {
     let (q5, q4) = q5_q4(letters);
 
-    let z = q_difference_z(q5, q4);
-    let p_value = erfc(z.abs() / SQRT_2);
-
     TestResult::with_note(
         name,
-        p_value,
+        q_difference_p_value(q5, q4),
         format!(
-            "n={N_SAMPLES}, Q5={q5:.2}, Q4={q4:.2}, Q5-Q4={:.2}, Z={z:.4}",
+            "n={N_SAMPLES}, Q5={q5:.2}, Q4={q4:.2}, Q5-Q4={:.2}",
             q5 - q4
         ),
     )
@@ -152,14 +148,29 @@ fn pearson_sum(counts: &[u32], n: f64) -> f64 {
         .sum()
 }
 
-/// z = (Q5 − Q4 − 2 500)/√5 000: Q5 − Q4 standardised as χ²(2 500).
-pub(crate) fn q_difference_z(q5: f64, q4: f64) -> f64 {
-    (q5 - q4 - QDIFF_DF) / (2.0 * QDIFF_DF).sqrt()
+/// The two-sided p-value of Q5 − Q4 in χ²(2 500):
+/// min(1, 2·min(P(χ² ≤ Q5 − Q4), P(χ² ≥ Q5 − Q4))).
+pub(crate) fn q_difference_p_value(q5: f64, q4: f64) -> f64 {
+    let upper = igamc(QDIFF_DF / 2.0, (q5 - q4).max(0.0) / 2.0);
+    (2.0 * upper.min(1.0 - upper)).min(1.0)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{count_ones_stream, hamming_letter, ALPHA_SIZE, LETTER_PROBS, N_SAMPLES, WORD_LEN};
+    use super::{
+        count_ones_stream, hamming_letter, q_difference_p_value, ALPHA_SIZE, LETTER_PROBS,
+        N_SAMPLES, WORD_LEN,
+    };
+
+    /// At the median of χ²(2 500) the two-sided p-value is 1, and it falls
+    /// symmetrically in probability toward either tail.
+    #[test]
+    fn q_difference_p_value_is_two_sided() {
+        assert!(q_difference_p_value(2_499.33, 0.0) > 0.99);
+        let low = q_difference_p_value(2_300.0, 0.0);
+        let high = q_difference_p_value(2_700.0, 0.0);
+        assert!(low < 0.01 && high < 0.01, "{low} {high}");
+    }
 
     /// Counting the 256 bytes by letter must reproduce the table, and the
     /// dyadic entries sum to exactly 1.

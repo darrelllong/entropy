@@ -117,7 +117,9 @@ mod tests {
             (cumulative_sums::cumulative_sums_forward(&e), 0.669887),
             (cumulative_sums::cumulative_sums_backward(&e), 0.724266),
             (runs::runs(&e), 0.561917),
-            (longest_run::longest_run(&e), 0.718945),
+            // Appendix B prints 0.718945, from §3.4's four-decimal class
+            // probabilities; the exact probabilities give 0.718366.
+            (longest_run::longest_run(&e), 0.718366),
             (matrix_rank::matrix_rank(&e), 0.306156),
             (spectral::spectral(&e), 0.847187),
             (

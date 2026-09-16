@@ -7,13 +7,14 @@
 //!    200 000·p(1 − p), p = 244/495, scored two-sided, erfc(|z|/√2).
 //! 2. Throws per game: counts for 1 to 21 throws, with 22 or more pooled,
 //!    scored with a Pearson χ² against the exact distribution computed by
-//!    `expected_throw_probs`.
+//!    `expected_throw_probs`, the long-game cells pooled until each expects at
+//!    least 5 games.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
 use crate::{
-    math::{erfc, igamc},
+    math::{chi_square_pooled_tails, erfc, igamc},
     result::TestResult,
     rng::Rng,
 };
@@ -63,21 +64,15 @@ fn simulate(rng: &mut impl Rng) -> CrapsOutcome {
     let z_wins = (wins as f64 - mu_w) / sigma_w;
     let p_wins = erfc(z_wins.abs() / SQRT_2);
 
-    // Test 2: throws-per-game chi-square against the analytical distribution.
-    let expected = expected_throw_probs();
-    let included = || {
-        throw_counts
-            .iter()
-            .zip(expected.iter())
-            .filter(|(_, &e)| e * N_GAMES as f64 >= 5.0)
-    };
-    let chi_sq: f64 = included()
-        .map(|(&c, &e)| {
-            let exp = e * N_GAMES as f64;
-            (c as f64 - exp).powi(2) / exp
-        })
-        .sum();
-    let df = included().count() - 1;
+    // Test 2: throws-per-game chi-square against the exact distribution, the
+    // long-game tail pooled until each cell expects at least 5 games.
+    let expected: Vec<f64> = expected_throw_probs()
+        .iter()
+        .map(|&p| p * N_GAMES as f64)
+        .collect();
+    let observed: Vec<f64> = throw_counts.iter().map(|&c| f64::from(c)).collect();
+    let (chi_sq, df) = chi_square_pooled_tails(&observed, &expected, 5.0)
+        .expect("the throw law has many cells expecting 5 games");
     let p_throws = igamc(df as f64 / 2.0, chi_sq / 2.0);
 
     CrapsOutcome {

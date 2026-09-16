@@ -252,8 +252,8 @@ fn count_ones_stream() {
         )],
         &[Golden {
             name: "diehard::count_ones_stream",
-            p: 0.20400116144378103,
-            note: "n=256000, Q5=3248.43, Q4=658.62, Q5-Q4=2589.82, Z=1.2702",
+            p: 0.20596684098343668,
+            note: "n=256000, Q5=3248.43, Q4=658.62, Q5-Q4=2589.82",
         }],
     );
 }
@@ -627,13 +627,13 @@ fn gcd_both() {
         &[
             Golden {
                 name: "dieharder::gcd_distribution",
-                p: 0.65915610839112,
-                note: "pairs=100000, gtblsize=24, χ²=17.8392",
+                p: 0.6953495975870201,
+                note: "pairs=100000, gtblsize=24, χ²=18.1786",
             },
             Golden {
                 name: "dieharder::gcd_step_counts",
-                p: 0.3925067476039136,
-                note: "pairs=100000, χ²=27.3239",
+                p: 0.49140780973975207,
+                note: "pairs=100000, χ²=25.4898",
             },
         ],
     );

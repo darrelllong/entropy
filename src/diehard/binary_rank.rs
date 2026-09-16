@@ -14,7 +14,7 @@
 //! distribution.
 
 use crate::{
-    math::{gf2_rank, igamc},
+    math::{chi_square_pooled_tails, gf2_rank, igamc},
     result::TestResult,
 };
 
@@ -135,8 +135,8 @@ pub(crate) fn rank_6x8_chi_square(f: &[usize; 3]) -> f64 {
 /// General binary rank test for R×C matrices (C ≤ 32).
 ///
 /// Each row is the leftmost `cols` bits of one word (see [`leftmost_bits`]).
-/// Four cells: rank = full, full − 1, full − 2 and ≤ full − 3.  Cells with
-/// expected count below 5 are left out of the χ² and its degrees of freedom.
+/// Four cells: rank ≤ full − 3, full − 2, full − 1 and full, with cells
+/// expecting fewer than 5 matrices pooled into their neighbours.
 fn rank_test(
     words: &[u32],
     rows: usize,
@@ -174,19 +174,11 @@ fn rank_test(
     }
 
     let m = n_matrices as f64;
-    let probs = [p0, p1, p2, p3];
-    let chi_sq: f64 = f
-        .iter()
-        .zip(probs.iter())
-        .filter(|(_, &p)| p * m >= 5.0)
-        .map(|(&cnt, &p)| (cnt as f64 - m * p).powi(2) / (m * p))
-        .sum();
-    let df = f
-        .iter()
-        .zip(probs.iter())
-        .filter(|(_, &p)| p * m >= 5.0)
-        .count()
-        .saturating_sub(1);
+    let expected = [p0 * m, p1 * m, p2 * m, p3 * m];
+    let observed = f.map(|c| c as f64);
+    let Some((chi_sq, df)) = chi_square_pooled_tails(&observed, &expected, 5.0) else {
+        return TestResult::insufficient(name, "fewer than two cells expect 5 matrices");
+    };
 
     let p_value = igamc(df as f64 / 2.0, chi_sq / 2.0);
 

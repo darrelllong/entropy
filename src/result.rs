@@ -148,7 +148,10 @@ mod tests {
     fn invalid_p_values_are_errors() {
         for p in [f64::INFINITY, f64::NEG_INFINITY, 1.25, -0.5, f64::NAN] {
             let r = TestResult::new("t", p);
-            assert!(r.errored() && !r.passed() && !r.failed() && !r.skipped(), "{p}");
+            assert!(
+                r.errored() && !r.passed() && !r.failed() && !r.skipped(),
+                "{p}"
+            );
             assert!(r.to_string().starts_with("[ERROR]"), "{r}");
         }
         assert!(TestResult::new("t", 1.0).passed());

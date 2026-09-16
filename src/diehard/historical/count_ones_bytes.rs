@@ -8,8 +8,7 @@
 //! b + 7 counting from the most significant bit, that is `(w >> (25 − b)) &
 //! 255`.  Each byte becomes a letter by its Hamming weight, and the Q5 − Q4
 //! statistic of [`crate::diehard::count_ones`] is computed over 256 000
-//! overlapping five-letter words: z = (Q5 − Q4 − 2 500)/√5 000, with the
-//! two-sided p-value erfc(|z|/√2).
+//! overlapping five-letter words, with its two-sided p-value in χ²(2 500).
 //!
 //! Window b reads its own block of 256 004 words, the b-th in the input
 //! (6 400 100 words in all), so under the null the 25 results are
@@ -31,11 +30,9 @@
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
 use crate::{
-    diehard::count_ones::{hamming_letter, q5_q4, q_difference_z, LETTERS_PER_TEST},
-    math::erfc,
+    diehard::count_ones::{hamming_letter, q5_q4, q_difference_p_value, LETTERS_PER_TEST},
     result::TestResult,
 };
-use std::f64::consts::SQRT_2;
 
 /// Result name, shared by the 25 windows.
 const NAME: &str = "diehard_historical::count_ones_bytes";
@@ -65,11 +62,10 @@ pub fn count_ones_bytes(words: &[u32]) -> Vec<TestResult> {
         .zip(1..=WINDOWS)
         .map(|(block, b)| {
             let (q5, q4) = window_q5_q4(block, WINDOWS - b);
-            let z = q_difference_z(q5, q4);
             TestResult::with_note(
                 NAME,
-                erfc(z.abs() / SQRT_2),
-                format!("bits {b} to {}, Q5-Q4={:.2}, z={z:.3}", b + 7, q5 - q4),
+                q_difference_p_value(q5, q4),
+                format!("bits {b} to {}, Q5-Q4={:.2}", b + 7, q5 - q4),
             )
         })
         .collect()
@@ -89,7 +85,7 @@ mod tests {
     };
 
     /// Sum of the 25 p-values on a fixed PCG64 stream, pinned.
-    const GOLDEN_P_SUM: f64 = 12.533_506_486_403_912;
+    const GOLDEN_P_SUM: f64 = 12.546_311_271_539_537;
 
     /// The 25 results on a fixed stream, in window order, pinned
     /// through their sum.
