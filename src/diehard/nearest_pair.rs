@@ -31,10 +31,67 @@ pub(crate) fn min_squared_distance<const D: usize>(points: &[[f64; D]]) -> f64 {
     min_sq
 }
 
+/// H_d(r), the probability that two independent uniform points in the unit
+/// d-cube lie within Euclidean distance r of each other, for 0 ≤ r ≤ 1.
+///
+/// The difference of two uniform points has density Πᵢ (1 − |zᵢ|) on
+/// [−1, 1]^d.  Expanding the product and integrating each monomial over the
+/// ball of radius r gives
+///
+/// H_d(r) = Σ_{k=0..d} (−1)^k C(d, k) π^((d−k)/2) r^(d+k) / Γ(1 + (d+k)/2).
+///
+/// The k = 0 term is the volume of the ball; the others account for the part
+/// of the ball that lies outside the cube near its faces.  Returns NaN for r
+/// outside [0, 1].
+pub(crate) fn cube_pair_probability(r: f64, d: usize) -> f64 {
+    if !(0.0..=1.0).contains(&r) {
+        return f64::NAN;
+    }
+    let mut binomial = 1.0f64;
+    let mut sum = 0.0;
+    for k in 0..=d {
+        let m = (d + k) as f64;
+        let term = binomial
+            * std::f64::consts::PI.powf((d - k) as f64 / 2.0)
+            * r.powf(m)
+            * (-crate::math::lgamma(1.0 + m / 2.0)).exp();
+        sum += if k % 2 == 0 { term } else { -term };
+        binomial *= (d - k) as f64 / (k + 1) as f64;
+    }
+    sum
+}
+
 #[cfg(test)]
 mod tests {
-    use super::min_squared_distance;
+    use super::{cube_pair_probability, min_squared_distance};
     use crate::rng::{Mt19937, Rng};
+
+    /// H_1(r) = 2r − r² and H_2(r) = πr² − (8/3)r³ + r⁴/2, and H_3(0.4)
+    /// matches a Monte Carlo estimate.
+    #[test]
+    fn cube_pair_probability_closed_forms() {
+        for r in [0.0, 0.01, 0.3, 1.0] {
+            assert!((cube_pair_probability(r, 1) - (2.0 * r - r * r)).abs() < 1e-14);
+            let h2 = std::f64::consts::PI * r * r - 8.0 / 3.0 * r.powi(3) + r.powi(4) / 2.0;
+            assert!((cube_pair_probability(r, 2) - h2).abs() < 1e-14, "r = {r}");
+        }
+        let mut rng = Mt19937::new(99);
+        let trials = 400_000;
+        let r = 0.4;
+        let hits = (0..trials)
+            .filter(|_| {
+                let d2: f64 = (0..3)
+                    .map(|_| (rng.next_f64() - rng.next_f64()).powi(2))
+                    .sum();
+                d2 <= r * r
+            })
+            .count();
+        let estimate = hits as f64 / trials as f64;
+        let exact = cube_pair_probability(r, 3);
+        let se = (exact * (1.0 - exact) / trials as f64).sqrt();
+        assert!((estimate - exact).abs() < 4.0 * se, "{estimate} vs {exact}");
+        assert!(cube_pair_probability(1.5, 2).is_nan());
+    }
 
     /// (0, 0)–(0.5, 0.5) and (3, 4)–(3.5, 4.5) tie at squared distance 0.5.
     #[test]

@@ -291,7 +291,7 @@ fn minimum_distance_2d() {
         )],
         &[Golden {
             name: "diehard::minimum_distance_2d",
-            p: 0.9369405368555558,
+            p: 0.9347249730007391,
             note: "n=500, side=10000, repeats=20",
         }],
     );
@@ -303,7 +303,7 @@ fn spheres_3d() {
         &[diehard::spheres_3d::spheres_3d(&mut fresh(), true)],
         &[Golden {
             name: "diehard::spheres_3d",
-            p: 0.5076875459955872,
+            p: 0.4877886534091478,
             note: "n=500, cube=1000, repeats=10",
         }],
     );
@@ -580,22 +580,22 @@ fn minimum_distance_nd() {
         &[
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.9296794972228317,
+                p: 0.9347249730007391,
                 note: "d=2, n=500, repeats=20",
             },
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.7384218158785949,
+                p: 0.7143715432958859,
                 note: "d=3, n=500, repeats=20",
             },
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.6743886858318953,
+                p: 0.7540034288529496,
                 note: "d=4, n=500, repeats=20",
             },
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.7250557630778823,
+                p: 0.8702829953020814,
                 note: "d=5, n=500, repeats=20",
             },
         ],

@@ -321,16 +321,15 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 - **`minimum_distance_2d`.** Place $8{,}000$ points in a
   $10{,}000\times10{,}000$ square and find the nearest-pair distance
-  $d_{\min}$.  The $\binom{n}{2}$ pairs within distance $d$ are approximately
-  Poisson with mean $\binom{n}{2}\pi d^2/A$, so
-  $U = 1-\exp(-\binom{n}{2}\pi d_{\min}^2/A)$ is approximately uniform; an
-  outer KS runs over $100$ repeats.
+  $d_{\min}$, with $r = d_{\min}/10{,}000$.  Two uniform points in the unit
+  square lie within $r$ with probability
+  $H_2(r) = \pi r^2 - \tfrac{8}{3}r^3 + \tfrac{1}{2}r^4$, the pairs that do
+  are approximately Poisson, and $U = 1-\exp(-\binom{n}{2}H_2(r))$ is
+  approximately uniform; an outer KS runs over $100$ repeats.
 
-- **`spheres_3d`.** Place $4{,}000$ points in a $1000^3$ cube and find the
-  nearest-pair distance $r_{\min}$.  By the same Poisson approximation
-  $r_{\min}^3$ is approximately exponential with mean
-  $V/(\binom{n}{2}\cdot 4\pi/3) \approx 30$, and an outer KS runs over the
-  transformed repeats.
+- **`spheres_3d`.** Place $4{,}000$ points in a $1000^3$ cube, find the
+  nearest-pair distance and score $U = 1-\exp(-\binom{n}{2}H_3(r))$ in the
+  same way over $20$ repeats.
 
 - **`squeeze`.** Start from $k_0 = 2^{31}-1$ and iterate
   $k_{t+1}=\lceil k_t U_t\rceil$ until $k_t=1$ or $48$ steps are taken. The
@@ -368,11 +367,12 @@ $$P_{m,n}(r)=2^{-mn}\prod_{i=0}^{r-1}\frac{(2^m-2^i)(2^n-2^i)}{(2^r-2^i)}$$
 
 - **`minimum_distance_nd`.** A nearest-neighbour test in $d=2,\dots,5$
   dimensions; the battery runs $d=5$, with $n=8{,}000$ points in the unit
-  cube per repeat. For the observed minimum distance $r$, Fischler's
-  approximation uses the $d$-ball volume $V_d(r)$:
-  $p = 1-\exp\!\bigl(-n(n-1)V_d(r)/2\bigr)\!\left[1+\frac{2+Q_d}{6}n^3V_d(r)^2\right]$,
-  followed by an outer KS across $100$ repeats.  The formula ignores the
-  boundary of the cube, which matters most in five dimensions (see AUDIT.md).
+  cube per repeat.  Two uniform points in the unit $d$-cube lie within $r$
+  with probability
+  $H_d(r)=\sum_{k=0}^{d}(-1)^k\binom{d}{k}\pi^{(d-k)/2}r^{d+k}/\Gamma(1+\tfrac{d+k}{2})$,
+  the integral over the ball of the difference density
+  $\prod_i(1-|z_i|)$.  $U = 1-\exp(-\binom{n}{2}H_d(r))$ is approximately
+  uniform, followed by an outer KS across $100$ repeats.
 
 - **`permutations`.** Draw non-overlapping blocks of $t=5$ independent
   uniforms, map each block to its permutation rank in $S_5$, and compare the
