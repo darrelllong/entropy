@@ -1,29 +1,13 @@
 file	source	retrieved
 matsumoto-nishimura-1998-mersenne-twister.pdf	http://www.math.sci.hiroshima-u.ac.jp/m-mat/MT/ARTICLES/mt.pdf	2026-09-11
-mt19937ar.c	http://www.math.sci.hiroshima-u.ac.jp/m-mat/MT/MT2002/CODES/mt19937ar.c	2026-09-11
-mt19937ar.out	http://www.math.sci.hiroshima-u.ac.jp/m-mat/MT/MT2002/CODES/mt19937ar.out	2026-09-11
 blackman-vigna-2021-scrambled-linear-prngs.pdf	https://arxiv.org/pdf/1805.01407	2026-09-11
-vigna-xoshiro256starstar.c	https://prng.di.unimi.it/xoshiro256starstar.c	2026-09-11
-vigna-xoshiro256plusplus.c	https://prng.di.unimi.it/xoshiro256plusplus.c	2026-09-11
-vigna-xoroshiro128plus.c	https://prng.di.unimi.it/xoroshiro128plus.c	2026-09-11
-vigna-xoroshiro128starstar.c	https://prng.di.unimi.it/xoroshiro128starstar.c	2026-09-11
-vigna-xoroshiro128plusplus.c	https://prng.di.unimi.it/xoroshiro128plusplus.c	2026-09-11
-vigna-splitmix64.c	https://prng.di.unimi.it/splitmix64.c	2026-09-11
 oneill-2014-pcg.pdf	https://www.pcg-random.org/pdf/hmc-cs-2014-0905.pdf	2026-09-11
-pcg-c-83252d9c23df.tar.gz	https://github.com/imneme/pcg-c/archive/83252d9c23df9c82ecb42210afed61a7b42402d7.tar.gz	2026-09-11
-wyhash-e4764a0b637d.tar.gz	https://github.com/wangyi-fudan/wyhash/archive/e4764a0b637d34d3421a7760affada9288b625a8.tar.gz	2026-09-11
 jenkins-2007-smallprng.html	http://burtleburtle.net/bob/rand/smallprng.html	2026-09-11
 bernstein-2008-chacha.pdf	https://cr.yp.to/chacha/chacha-20080128.pdf	2026-09-11
 bernstein-2005-salsa20-spec.pdf	https://cr.yp.to/snuffle/spec.pdf	2026-09-11
 rfc8439-chacha20-poly1305.txt	https://www.rfc-editor.org/rfc/rfc8439.txt	2026-09-11
 rfc4503-rabbit.txt	https://www.rfc-editor.org/rfc/rfc4503.txt	2026-09-11
 kim-umeno-hasegawa-2004-nist-sts-corrections.pdf	https://eprint.iacr.org/2004/018.pdf	2026-09-11
-freebsd-0d022baa047a-random.c	https://raw.githubusercontent.com/freebsd/freebsd-src/0d022baa047aea6499e394d2cd8d097820ecf486/lib/libc/stdlib/random.c	2026-09-11
-freebsd-0d022baa047a-rand.c	https://raw.githubusercontent.com/freebsd/freebsd-src/0d022baa047aea6499e394d2cd8d097820ecf486/lib/libc/stdlib/rand.c	2026-09-11
-glibc-2.40-random_r.c	https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz (sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2)	2026-09-11
-glibc-2.40-random.c	https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz (sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2)	2026-09-11
-glibc-2.40-COPYING.LIB	https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz (sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2)	2026-09-11
-TestU01-2009-57e98bf33880.tar.gz	https://github.com/umontreal-simul/TestU01-2009/archive/57e98bf33880daedc930739c81e39b89a8d24dba.tar.gz	2026-09-11
 marsaglia-2003-xorshift-rngs.pdf	https://www.jstatsoft.org/index.php/jss/article/download/v008i14/916	2026-09-11
 marsaglia-marsaglia-2004-anderson-darling.pdf	https://www.jstatsoft.org/index.php/jss/article/download/v009i02/925	2026-09-11
 marsaglia-tsang-wang-2003-kolmogorov-distribution.pdf	https://www.jstatsoft.org/index.php/jss/article/download/v008i18/920	2026-09-11
@@ -33,21 +17,11 @@ bernstein-lange-niederhagen-2015-dual-ec.pdf	https://eprint.iacr.org/2015/767.pd
 wald-wolfowitz-1940-runs.pdf	https://projecteuclid.org/journalArticle/Download?urlId=10.1214%2Faoms%2F1177731909	2026-09-11
 v7-unix-programmers-manual-vol1.pdf	https://plan9.io/7thEdMan/v7vol1.pdf	2026-09-11
 rabbit-estream-description.pdf	https://cr.yp.to/streamciphers/rabbit/desc.pdf	2026-09-11
-NIST-STS-2.1.2-src-and-constants.zip	https://csrc.nist.gov/CSRC/media/Projects/Random-Bit-Generation/documents/sts-2_1_2.zip (sha256 0238d2f1d26e120e3cc748ed2d4c674cdc636de37fc4027c76cc2a394fff9157; repacked without data/ generator outputs and experiments/, keeping data.e, data.pi, data.sqrt2, data.sqrt3)	2026-09-11
-gsl-2.8-rng-subset.tar.gz	https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz (sha256 6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190; rng/, COPYING, AUTHORS and README only)	2026-09-11
-diehard-fortran-1996.tar.gz	https://web.archive.org/web/20160119105923id_/http://stat.fsu.edu/pub/diehard/fortran.tar.gz (sha256 99666a65c58b39802d8fabf545341c835a2746f41bf0d130e292805053eb3fe1; Marsaglia's stat.fsu.edu/pub/diehard as archived by the Internet Archive)	2026-09-11
-diehard-f2c-source-1996.tar.gz	https://web.archive.org/web/20160119023143id_/http://stat.fsu.edu/pub/diehard/source.tar.gz (sha256 e68b14abec617f459ee3f3232d0eca957444093f9ac038abef880f15329b9750; same archived site)	2026-09-11
-diehard-c-wang-1998.tar.gz	https://web.archive.org/web/20160119042640id_/http://stat.fsu.edu/pub/diehard/die-c.tar.gz (sha256 e028a755c1441e5af90f060cd5d8fceaa5967a6a66fbc1f4c66410be712208ae; same archived site)	2026-09-11
-marsaglia-zaman-1993-monkey-tests.pdf	ps2pdf of source/monkey.ps in pubs/diehard-f2c-source-1996.tar.gz (monkey.ps sha256 6f01fc5349c700305a402e15048a93c8e474b9c04c6b71c31f2270c5a962e471; Ghostscript 10.06.0)	2026-09-11
-marsaglia-1985-current-view-keynote.pdf	ps2pdf of source/keynote.ps in pubs/diehard-f2c-source-1996.tar.gz (keynote.ps sha256 fb16a2aa2a82607ae98363d9003bc30dfeb07847ad18693348bcd6c3809a7afc; Ghostscript 10.06.0)	2026-09-11
-marsaglia-marsaglia-2004-ADinf.c	https://www.jstatsoft.org/article/download/v009i02/3126 (zip sha256 8ebaf582a444ea489dbe5057fa3b5efbdb22349793f8575047bc697bdc6d52c1; member ADinf.c)	2026-09-11
-marsaglia-marsaglia-2004-AnDarl.c	https://www.jstatsoft.org/article/download/v009i02/3127 (zip sha256 4f2cd8056932cf54627721afaee31ca155996be48bf1f3ccf102b823ae988529; member AnDarl.c)	2026-09-11
-marsaglia-tsang-2002-tuftests.c	https://www.jstatsoft.org/article/download/v007i03/3088 (zip sha256 cf77462ac9be37833293440d57178b70f509d7de1f2778df138035db98498199; member tuftests.c)	2026-09-11
+marsaglia-zaman-1993-monkey-tests.pdf	ps2pdf of source/monkey.ps in the DIEHARD source archive https://web.archive.org/web/20160119023143id_/http://stat.fsu.edu/pub/diehard/source.tar.gz (monkey.ps sha256 6f01fc5349c700305a402e15048a93c8e474b9c04c6b71c31f2270c5a962e471; Ghostscript 10.06.0)	2026-09-11
+marsaglia-1985-current-view-keynote.pdf	ps2pdf of source/keynote.ps in the DIEHARD source archive https://web.archive.org/web/20160119023143id_/http://stat.fsu.edu/pub/diehard/source.tar.gz (keynote.ps sha256 fb16a2aa2a82607ae98363d9003bc30dfeb07847ad18693348bcd6c3809a7afc; Ghostscript 10.06.0)	2026-09-11
 etsi-sage-zuc-testdata-v1.1.pdf	https://www.gsma.com/security/wp-content/uploads/2019/05/eea3eia3testdatav11.pdf	2026-09-11
 etsi-sage-snow3g-testdata-v1.1.doc	https://www.gsma.com/solutions-and-impact/technologies/security/wp-content/uploads/2019/05/Doc3-UEA2-UIA2-Spec-Implementors-Test-Data.doc	2026-09-11
-glibc-2.40-rand.c	https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz (sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2; member stdlib/rand.c)	2026-09-11
 marsaglia-2004-normal-distribution.pdf	https://www.jstatsoft.org/article/download/v011i04/13 (sha256 eb8a9ac1f519c1720e66cab5120826ef4217fb1ee546349b3dcba528c9c7981c)	2026-09-11
-marsaglia-2004-normal-distribution-sources.c	https://www.jstatsoft.org/article/download/v011i04/1458 (zip sha256 fc7c97343f46e1df61b3f8353188cf10d067984d54183e68fa76095d815f9907; member sources.c)	2026-09-11
 NIST-CAVP-drbgtestvectors-no_reseed-HMAC_DRBG.rsp	https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/drbg/drbgtestvectors.zip (sha256 5f7e5658ebd5b4e6785a7b12fa32333511d2acc2f2d9c5ae1ffa16b699377769; member drbgvectors_no_reseed.zip, sha256 8f9644adc655dd651c90b73190175b1d99164dc5a4861edab16e39862ead27ad; its member HMAC_DRBG.rsp, unmodified, sha256 9fdd7f11dbbe75e0a7e19c6ae57660008dd4e74672ebb67119cab287c7aa5a79)	2026-09-11
 park-miller-1988-good-ones-hard-to-find.pdf	https://web.archive.org/web/20251128005150id_/https://dl.acm.org/doi/pdf/10.1145/63039.63042 (the ACM Digital Library PDF as the Internet Archive captured it; dl.acm.org itself serves a browser challenge to scripts)	2026-09-11
 lecuyer-simard-1999-beware-lcg-multipliers.pdf	https://web.archive.org/web/20200602195746id_/https://dl.acm.org/doi/pdf/10.1145/326147.326156?download=true (the ACM Digital Library PDF as the Internet Archive captured it)	2026-09-11
