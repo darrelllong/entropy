@@ -181,7 +181,7 @@ That mix makes output useful both for regression testing and for verifying that 
 | Webster–Tavares (1985): strict avalanche / bit-independence probe over seeded RNG families | Research binary (`webster_tavares`); the dependence matrix and avalanche-variable correlations of the paper |
 | Knuth TAOCP Vol. 2 §3.3.2 permutation and gap tests, plus the Wald–Wolfowitz (1940) runs test above/below the median | Research binary (`bib_tests`) over uniform `[0,1)` streams |
 | NIST SP 800-22 §2.12 ApEn statistic swept over embedding dimensions `m=2..6` | Part of `bib_tests` |
-| L'Ecuyer and Simard (2007): Lempel–Ziv compressibility | Research binary (`testu01_lz`); the LZ78 phrase count standardised by a mean and standard deviation estimated by simulation (`examples/lz78_table.rs`) |
+| L'Ecuyer and Simard (2007): Lempel–Ziv compressibility | Research binary (`testu01_lz`); the LZ78 phrase count against its exact distribution for k ≤ 5 and simulated distributions above (`examples/lz78_table.rs`), through a randomized probability-integral transform |
 | L'Ecuyer and Simard (1999, 2007): Hamming-weight correlation and independence | Part of `upstream_tests`; asymptotic normal correlation test with a two-sided p-value, and the weight-pair χ² with its corner statistics |
 | Doty-Humphrey: floating-point-format frequency (FPF) | Part of `upstream_tests`; disjoint codewords, so the samples are independent, with per-exponent significand G-tests and an exponent-distribution G-test |
 | Marsaglia and Tsang (2002): Gorilla | Research binary (`gorilla`); the missing-word counts of all 32 bit positions and the paper's Anderson–Darling aggregate |

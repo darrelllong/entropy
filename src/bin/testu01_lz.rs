@@ -26,6 +26,7 @@ struct Args {
     k: usize,
     r: usize,
     s: usize,
+    pit_seed: u64,
     rng: cli::RngFilter,
 }
 
@@ -35,6 +36,7 @@ impl Args {
         let mut k = 25usize;
         let mut r = 0usize;
         let mut s = 30usize;
+        let mut pit_seed = 1u64;
         let mut rng = cli::RngFilter::default();
         while let Some(option) = argv.next_option()? {
             match option.as_str() {
@@ -42,6 +44,7 @@ impl Args {
                 flag @ "--k" => k = argv.usize_value(flag)?,
                 flag @ "--r" => r = argv.usize_value(flag)?,
                 flag @ "--s" => s = argv.usize_value(flag)?,
+                flag @ "--pit-seed" => pit_seed = argv.usize_value(flag)? as u64,
                 flag @ "--rng" => rng.push(argv.value(flag)?),
                 other => return Err(cli::unknown_option(other)),
             }
@@ -67,6 +70,7 @@ impl Args {
             k,
             r,
             s,
+            pit_seed,
             rng,
         })
     }
@@ -75,9 +79,12 @@ impl Args {
 fn print_usage() {
     eprintln!(
         "Usage: testu01_lz [--rng <label>] [--replications N] [--k K] [--r R] [--s S]\n\
+                  [--pit-seed SEED]\n\
          \n\
-         Runs the Lempel-Ziv phrase-count test, standardised by the mean\n\
-         and standard deviation in entropy::research::testu01_lz.\n\
+         Runs the Lempel-Ziv phrase-count test against the phrase-count\n\
+         tables in entropy::research.  SEED seeds the separate generator of\n\
+         the randomized probability-integral transform.  Simulated tables\n\
+         support at most a hundredth of their replications.\n\
          \n\
          Example:\n\
            cargo run --release --bin testu01_lz -- --rng AES\n\
@@ -86,15 +93,23 @@ fn print_usage() {
 }
 
 fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
-    let (reps, summary) = lempel_ziv_summary(&mut rng, args.replications, args.k, args.r, args.s);
+    let (reps, summary) = lempel_ziv_summary(
+        &mut rng,
+        args.replications,
+        args.k,
+        args.r,
+        args.s,
+        args.pit_seed,
+    );
     println!("{label}");
     println!("  {}", lempel_ziv_sum_result(&summary));
     println!("  {}", lempel_ziv_ks_result(&summary));
     for (i, rep) in reps.iter().enumerate() {
         println!(
-            "  [INFO] testu01::lzw_rep{:02}                    W={} z={:.4}",
+            "  [INFO] testu01::lzw_rep{:02}                    W={} U={:.6} z={:.4}",
             i + 1,
             rep.phrase_count,
+            rep.uniform,
             rep.z_score
         );
     }

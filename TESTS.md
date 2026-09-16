@@ -499,12 +499,15 @@ underweight.
   dictionary: each new phrase extends the longest previously seen prefix by
   one bit.  The stream concatenates the $s$ bits kept from each word after
   dropping its $r$ leading bits ($k = 25$, $r = 0$, $s = 30$ in the auxiliary
-  run).  Each replication's phrase count $C_n$ is standardized as
-  $z = (C_n - \mu_k)/\sigma_k$, with $\mu_k$ and $\sigma_k$ estimated by
-  simulation (`examples/lz78_table.rs`).  Over $N = 10$ replications the crate
-  reports the two-sided normal p-value of $\sum z/\sqrt{N}$ (`lzw_sum`) and a
-  KS test of the values $\Phi(z)$ (`lzw_ks`).  Low complexity (few phrases)
-  flags repetitive structure; high complexity flags over-dispersion.
+  run).  The phrase count $W$ is discrete, with distribution $F$ enumerated
+  exactly for $k \le 5$ and simulated above (`examples/lz78_table.rs`).
+  Each replication gives $U = F(W-1) + V\,P(W)$, with $V$ uniform from a
+  separately seeded generator, which is exactly uniform under $F$.  Over $N$
+  replications the crate reports a KS test of the $U$ (`lzw_ks`) and the
+  two-sided normal p-value of $\sum \Phi^{-1}(U)/\sqrt{N}$ (`lzw_sum`).  A
+  simulated table of $M$ replications supports $N \le M/100$.  Low complexity
+  (few phrases) flags repetitive structure; high complexity flags
+  over-dispersion.
 
 - **Hamming weights** (L'Ecuyer–Simard).  Each word contributes the $s$-bit
   field left after dropping its $r$ leading bits, and $L$-bit blocks are

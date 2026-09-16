@@ -2,6 +2,7 @@
 
 pub mod approx_entropy;
 pub mod knuth;
+mod lz78_counts;
 pub mod marsaglia_tsang;
 pub mod practrand_fpf;
 pub mod testu01_hamming;

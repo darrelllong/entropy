@@ -174,6 +174,52 @@ pub fn normal_cdf(x: f64) -> f64 {
     }
 }
 
+/// Standard normal quantile Φ⁻¹(p) for 0 < p < 1.
+///
+/// Solves ln Φ(x) = ln q for the lower tail q = min(p, 1 − p) by Newton's
+/// method, whose derivative φ(x)/Φ(x) is well conditioned far into the tail,
+/// inside a bisection bracket on [−39, 0], then reflects for p > 1/2.
+/// Φ⁻¹(0) = −∞, Φ⁻¹(1) = +∞, and NaN outside [0, 1].
+#[must_use]
+pub fn normal_quantile(p: f64) -> f64 {
+    if !(0.0..=1.0).contains(&p) {
+        return f64::NAN;
+    }
+    if p == 0.0 {
+        return f64::NEG_INFINITY;
+    }
+    if p == 1.0 {
+        return f64::INFINITY;
+    }
+    let q = p.min(1.0 - p);
+    let target = q.ln();
+    let (mut lo, mut hi) = (-39.0f64, 0.0f64);
+    let mut x = (-(-2.0 * target).sqrt()).max(lo);
+    for _ in 0..200 {
+        let cdf = normal_cdf(x);
+        if cdf.ln() > target {
+            hi = x;
+        } else {
+            lo = x;
+        }
+        let density = (-0.5 * x * x).exp() / (2.0 * std::f64::consts::PI).sqrt();
+        let mut next = x - (cdf.ln() - target) * cdf / density;
+        if !(next > lo && next < hi) {
+            next = 0.5 * (lo + hi);
+        }
+        if (next - x).abs() <= 4.0 * f64::EPSILON * x.abs().max(1.0) {
+            x = next;
+            break;
+        }
+        x = next;
+    }
+    if p > 0.5 {
+        -x
+    } else {
+        x
+    }
+}
+
 // ── ln Γ ──────────────────────────────────────────────────────────────────────
 
 /// Natural logarithm of the gamma function, ln Γ(x), for x > 0: rump's
@@ -1598,5 +1644,29 @@ mod tests {
         let x = ad_inf(10.0);
         assert!(1.0 - (x + ad_errfix(32, x)) > 2.0 * 1.429e-5);
         assert!(1.0 - x < 0.9 * 1.622675e-5);
+    }
+
+    /// Φ⁻¹ inverts Φ from the centre to p = 10⁻³⁰⁰, and matches
+    /// Φ⁻¹(0.975) = 1.959963984540054.
+    #[test]
+    fn normal_quantile_inverts_the_cdf() {
+        assert!((super::normal_quantile(0.975) - 1.959_963_984_540_054).abs() < 1e-14);
+        assert!(super::normal_quantile(0.5).abs() < 1e-15);
+        for e in [1, 2, 5, 10, 30, 100, 300] {
+            let p = 10f64.powi(-e);
+            let x = super::normal_quantile(p);
+            let back = super::normal_cdf(x);
+            assert!(
+                (back - p).abs() <= 1e-12 * p,
+                "p = {p}: x = {x}, Φ(x) = {back}"
+            );
+            let upper = 1.0 - p.max(1e-15);
+            assert_eq!(
+                super::normal_quantile(upper),
+                -super::normal_quantile(1.0 - upper)
+            );
+        }
+        assert!(super::normal_quantile(-0.1).is_nan());
+        assert_eq!(super::normal_quantile(0.0), f64::NEG_INFINITY);
     }
 }

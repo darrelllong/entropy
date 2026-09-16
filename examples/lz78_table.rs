@@ -1,56 +1,93 @@
-//! Estimates the mean and standard deviation of the LZ78 phrase count of 2^k
-//! fair random bits, for the Lempel–Ziv test's `LZ_MEAN_SD` table.
+//! The distribution of the LZ78 phrase count W of 2^k fair random bits, the
+//! tables in `src/research/lz78_counts.rs`.
 //!
-//! Each thread runs replications of `lempel_ziv_replication` with r = 0 and
-//! s = 32 on its own PCG64 stream and accumulates the phrase counts' first two
-//! moments exactly as integers.  One line per k gives the replications, the
-//! sums Σ W and Σ W², the mean, the standard deviation and the standard error
-//! of the mean, so runs on several machines can be pooled.
-//!
-//! Usage: `lz78_table <k> <replications per thread> <threads> <first stream>`
+//! `exact <k>` enumerates all 2^(2^k) strings (k ≤ 5) and prints the number of
+//! strings with each W.  `simulate <k> <replications per thread> <threads>
+//! <first stream>` counts W over replications on PCG64 streams.  Output is one
+//! line: `k=… total=… w_min=… counts=c,c,…`.
 
-use entropy::{research::testu01_lz::lempel_ziv_replication, rng::Pcg64};
-use std::thread;
+use entropy::{
+    research::testu01_lz::phrase_count,
+    rng::{Pcg64, Rng},
+};
+use std::{collections::BTreeMap, thread};
+
+/// Emits one fixed word.
+struct Word(u32);
+
+impl Rng for Word {
+    fn next_u32(&mut self) -> u32 {
+        self.0
+    }
+}
+
+fn print(k: usize, hist: &BTreeMap<usize, u64>) {
+    let total: u64 = hist.values().sum();
+    let (&lo, _) = hist.first_key_value().expect("counts");
+    let (&hi, _) = hist.last_key_value().expect("counts");
+    let counts: Vec<String> = (lo..=hi)
+        .map(|w| hist.get(&w).copied().unwrap_or(0).to_string())
+        .collect();
+    println!("k={k} total={total} w_min={lo} counts={}", counts.join(","));
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let usage = "usage: lz78_table <k> <replications per thread> <threads> <first stream>";
-    let [_, k, reps, threads, first] = args.as_slice() else {
-        panic!("{usage}");
-    };
-    let k: usize = k.parse().expect(usage);
-    let reps: u64 = reps.parse().expect(usage);
-    let threads: u64 = threads.parse().expect(usage);
-    let first: u64 = first.parse().expect(usage);
-    let handles: Vec<_> = (0..threads)
-        .map(|t| {
-            thread::spawn(move || {
-                let mut rng = Pcg64::new(0x6c7a_3738_7461_626c, u128::from(first + t));
-                let (mut sum, mut sum_sq) = (0u128, 0u128);
-                for _ in 0..reps {
-                    let w = lempel_ziv_replication(&mut rng, k, 0, 32).phrase_count as u128;
-                    sum += w;
-                    sum_sq += w * w;
+    let k: usize = args[2].parse().expect("k");
+    match args[1].as_str() {
+        "exact" => {
+            assert!((3..=5).contains(&k), "exact enumeration covers k = 3 … 5");
+            let bits = 1usize << k;
+            let threads: u64 = 128;
+            let span = 1u64 << bits;
+            let handles: Vec<_> = (0..threads)
+                .map(|t| {
+                    thread::spawn(move || {
+                        let mut hist = BTreeMap::new();
+                        let lo = span * t / threads;
+                        let hi = span * (t + 1) / threads;
+                        for x in lo..hi {
+                            let word = (x << (32 - bits)) as u32;
+                            let (w, _) = phrase_count(&mut Word(word), k, 0, bits);
+                            *hist.entry(w).or_insert(0u64) += 1;
+                        }
+                        hist
+                    })
+                })
+                .collect();
+            let mut hist = BTreeMap::new();
+            for h in handles {
+                for (w, c) in h.join().expect("worker") {
+                    *hist.entry(w).or_insert(0) += c;
                 }
-                (sum, sum_sq)
-            })
-        })
-        .collect();
-    let (mut sum, mut sum_sq) = (0u128, 0u128);
-    for handle in handles {
-        let (s, q) = handle.join().expect("worker panicked");
-        sum += s;
-        sum_sq += q;
+            }
+            print(k, &hist);
+        }
+        "simulate" => {
+            let reps: u64 = args[3].parse().expect("replications");
+            let threads: u64 = args[4].parse().expect("threads");
+            let first: u64 = args[5].parse().expect("first stream");
+            let handles: Vec<_> = (0..threads)
+                .map(|t| {
+                    thread::spawn(move || {
+                        let mut rng = Pcg64::new(0x6c7a_3738_7461_626c, u128::from(first + t));
+                        let mut hist = BTreeMap::new();
+                        for _ in 0..reps {
+                            let (w, _) = phrase_count(&mut rng, k, 0, 32);
+                            *hist.entry(w).or_insert(0u64) += 1;
+                        }
+                        hist
+                    })
+                })
+                .collect();
+            let mut hist = BTreeMap::new();
+            for h in handles {
+                for (w, c) in h.join().expect("worker") {
+                    *hist.entry(w).or_insert(0) += c;
+                }
+            }
+            print(k, &hist);
+        }
+        other => panic!("unknown mode {other}"),
     }
-    let count = u128::from(reps * threads);
-    let n = count as f64;
-    let mean = sum as f64 / n;
-    // n·ΣW² − (ΣW)² is exact in u128 at these sizes.
-    let variance = (count * sum_sq - sum * sum) as f64 / (n * (n - 1.0));
-    println!(
-        "k={k} replications={} sum={sum} sum_sq={sum_sq} mean={mean:.6} sd={:.6} se={:.6}",
-        reps * threads,
-        variance.sqrt(),
-        (variance / n).sqrt()
-    );
 }
