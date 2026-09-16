@@ -60,11 +60,11 @@ are noise, not structure.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 739 | 727 | 6 | 6 |
+| OsRng (/dev/urandom) | 739 | 728 | 5 | 6 |
 | MT19937 (seed=19650218) | 739 | 728 | 5 | 6 |
 | Xorshift64 (seed=1) | 739 | 726 | 7 | 6 |
 | Xorshift32 (seed=1) | 739 | 720 | 13 | 6 |
-| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 727 | 6 | 6 |
+| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 728 | 5 | 6 |
 | BAD Unix System V mrand48() (seed=1) | 739 | 726 | 7 | 6 |
 | BAD Unix BSD random() TYPE_3 (seed=1) | 739 | 721 | 12 | 6 |
 | BAD Unix Linux glibc rand()/random() (seed=1) | 739 | 721 | 12 | 6 |
@@ -73,7 +73,7 @@ are noise, not structure.
 | BAD Windows VB6/VBA Rnd() (project seed=1) | 739 | 202 | 531 | 6 |
 | BAD Windows .NET Random(seed=1) compat | 739 | 726 | 7 | 6 |
 | ANSI C sample LCG (1103515245,12345; seed=1) | 739 | 10 | 697 | 32 |
-| LCG MINSTD (seed=1) | 739 | 17 | 690 | 32 |
+| LCG MINSTD (seed=1) | 739 | 16 | 691 | 32 |
 | BAD Borland C++ rand() LCG (seed=1) | 739 | 722 | 11 | 6 |
 | AES-128-CTR (NIST key) | 739 | 728 | 5 | 6 |
 | Camellia-128-CTR (key=00..0f) | 739 | 724 | 9 | 6 |
@@ -87,17 +87,17 @@ are noise, not structure.
 | Salsa20 (key=00..1f, nonce=00..07) | 739 | 725 | 8 | 6 |
 | Snow3G (key=00..0f, iv=00..0f) | 739 | 726 | 7 | 6 |
 | ZUC-128 (key=00..0f, iv=00..0f) | 739 | 729 | 4 | 6 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 729 | 4 | 6 |
-| Squidward (SHA-256 chain, OsRng seed) | 739 | 729 | 4 | 6 |
-| PCG32 (OsRng seed) | 739 | 724 | 9 | 6 |
-| PCG64 (OsRng seed) | 739 | 727 | 6 | 6 |
-| Xoshiro256 (OsRng seed) | 739 | 727 | 6 | 6 |
-| Xoroshiro128 (OsRng seed) | 739 | 730 | 3 | 6 |
-| WyRand (OsRng seed) | 739 | 722 | 11 | 6 |
-| SFC64 (OsRng seed) | 739 | 726 | 7 | 6 |
-| JSF64 (OsRng seed) | 739 | 724 | 9 | 6 |
-| ChaCha20 CSPRNG (OsRng key) | 739 | 726 | 7 | 6 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 701 | 6 | 32 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 731 | 2 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 739 | 726 | 7 | 6 |
+| PCG32 (OsRng seed) | 739 | 725 | 8 | 6 |
+| PCG64 (OsRng seed) | 739 | 701 | 6 | 32 |
+| Xoshiro256 (OsRng seed) | 739 | 720 | 13 | 6 |
+| Xoroshiro128 (OsRng seed) | 739 | 728 | 5 | 6 |
+| WyRand (OsRng seed) | 739 | 718 | 15 | 6 |
+| SFC64 (OsRng seed) | 739 | 727 | 6 | 6 |
+| JSF64 (OsRng seed) | 739 | 722 | 11 | 6 |
+| ChaCha20 CSPRNG (OsRng key) | 739 | 727 | 6 | 6 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 725 | 8 | 6 |
 | Hash_DRBG SHA-256 (OsRng seed) | 739 | 727 | 6 | 6 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 699 | 8 | 32 |
 | Constant (0xDEAD_DEAD) | 739 | 0 | 707 | 32 |
@@ -580,11 +580,11 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::block_frequency`, `nist::non_overlapping_template` (×2)
+- **OsRng (/dev/urandom)**: 5/739 — `dieharder::bit_distribution` (×5)
 - **MT19937 (seed=19650218)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2)
 - **Xorshift64 (seed=1)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 13/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `dieharder::monobit2`, `nist::matrix_rank`
-- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 6/739 — `diehard::opso`, `dieharder::bit_distribution`, `dieharder::minimum_distance_nd`, `nist::non_overlapping_template` (×2), `nist::spectral`
+- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 5/739 — `diehard::opso`, `dieharder::bit_distribution`, `nist::non_overlapping_template` (×2), `nist::spectral`
 - **BAD Unix System V mrand48() (seed=1)**: 7/739 — `diehard::dna`, `diehard::opso`, `diehard::oqso`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
 - **BAD Unix BSD random() TYPE_3 (seed=1)**: 12/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
 - **BAD Unix Linux glibc rand()/random() (seed=1)**: 12/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
@@ -593,7 +593,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **BAD Windows VB6/VBA Rnd() (project seed=1)**: 531/739 — `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×499), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l05`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
 - **BAD Windows .NET Random(seed=1) compat**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
 - **ANSI C sample LCG (1103515245,12345; seed=1)**: 697/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
-- **LCG MINSTD (seed=1)**: 690/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
+- **LCG MINSTD (seed=1)**: 691/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×146), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
 - **BAD Borland C++ rand() LCG (seed=1)**: 11/739 — `diehard::opso`, `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`, `nist::spectral`
 - **AES-128-CTR (NIST key)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
 - **Camellia-128-CTR (key=00..0f)**: 9/739 — `dieharder::bit_distribution` (×9)
@@ -607,18 +607,18 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **Salsa20 (key=00..1f, nonce=00..07)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
 - **Snow3G (key=00..0f, iv=00..0f)**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
 - **ZUC-128 (key=00..0f, iv=00..0f)**: 4/739 — `dieharder::bit_distribution` (×4)
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
-- **Squidward (SHA-256 chain, OsRng seed)**: 4/739 — `diehard::parking_lot`, `dieharder::bit_distribution` (×3)
-- **PCG32 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
-- **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::longest_run`, `nist::non_overlapping_template`
-- **Xoshiro256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `maurer::universal_l09`
-- **Xoroshiro128 (OsRng seed)**: 3/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template`
-- **WyRand (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×5), `nist::matrix_rank`, `nist::non_overlapping_template` (×5)
-- **SFC64 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×7)
-- **JSF64 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3), `nist::random_excursions`
-- **ChaCha20 CSPRNG (OsRng key)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 6/739 — `diehard::birthday_spacings`, `dieharder::bit_distribution` (×5)
-- **Hash_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×6)
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 2/739 — `dieharder::bit_distribution`, `nist::non_overlapping_template`
+- **Squidward (SHA-256 chain, OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×7)
+- **PCG32 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×8)
+- **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
+- **Xoshiro256 (OsRng seed)**: 13/739 — `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `nist::non_overlapping_template` (×3)
+- **Xoroshiro128 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::random_excursions`
+- **WyRand (OsRng seed)**: 15/739 — `dieharder::bit_distribution` (×11), `maurer::universal_l06`, `nist::non_overlapping_template` (×3)
+- **SFC64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
+- **JSF64 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×4)
+- **ChaCha20 CSPRNG (OsRng key)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template`
+- **Hash_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×4), `dieharder::fill_tree_count`, `nist::longest_run`
 - **cryptography::CtrDrbgAes256 (seed=00..2f)**: 8/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5)
 - **Constant (0xDEAD_DEAD)**: 707/739 — expected for degenerate generator.
 - **Counter (0,1,2,…)**: 706/739 — expected for degenerate generator.
@@ -627,7 +627,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **2** (`Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)`) and the highest is **13** (`Xorshift32 (seed=1)`).
+- Among non-trivial generators, the lowest FAIL count is **2** (`SpongeBob (SHA3-512 chain, OsRng seed)`) and the highest is **15** (`WyRand (OsRng seed)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 
 ## Auxiliary Probes
@@ -755,14 +755,14 @@ ANSI C sample LCG
   [INFO] approx_entropy_m06   ApEn=0.692659 (phi_m=-4.156065, phi_m1=-4.848724)
 
 LCG MINSTD
-  [PASS] knuth::permutation                                p = 0.261206  (t=5, blocks=40000, χ²=128.4440, df=119)
-  [FAIL] knuth::gap                                        p = 0.000000  ([0.250,0.500) gaps=100358, r=15, cells=16, χ²=50762.1340, df=15)
-  [PASS] wald_wolfowitz::runs_median                       p = 0.889737  (median=0.250876, below=100000, above=100000, runs=99970, z=-0.1386)
-  [INFO] approx_entropy_m02   ApEn=0.692728 (phi_m=-1.385463, phi_m1=-2.078191)
-  [INFO] approx_entropy_m03   ApEn=0.692727 (phi_m=-2.078191, phi_m1=-2.770918)
-  [INFO] approx_entropy_m04   ApEn=0.692722 (phi_m=-2.770918, phi_m1=-3.463640)
-  [INFO] approx_entropy_m05   ApEn=0.692714 (phi_m=-3.463640, phi_m1=-4.156354)
-  [INFO] approx_entropy_m06   ApEn=0.692696 (phi_m=-4.156354, phi_m1=-4.849050)
+  [PASS] knuth::permutation                                p = 0.151153  (t=5, blocks=40000, χ²=134.9120, df=119)
+  [FAIL] knuth::gap                                        p = 0.000000  ([0.250,0.500) gaps=100130, r=15, cells=16, χ²=49909.9252, df=15)
+  [FAIL] wald_wolfowitz::runs_median                       p = 0.007897  (median=0.250342, below=100000, above=100000, runs=100595, z=2.6565)
+  [INFO] approx_entropy_m02   ApEn=0.692637 (phi_m=-1.385279, phi_m1=-2.077916)
+  [INFO] approx_entropy_m03   ApEn=0.692632 (phi_m=-2.077916, phi_m1=-2.770549)
+  [INFO] approx_entropy_m04   ApEn=0.692628 (phi_m=-2.770549, phi_m1=-3.463177)
+  [INFO] approx_entropy_m05   ApEn=0.692612 (phi_m=-3.463177, phi_m1=-4.155788)
+  [INFO] approx_entropy_m06   ApEn=0.692596 (phi_m=-4.155788, phi_m1=-4.848384)
 
 AES-128-CTR
   [PASS] knuth::permutation                                p = 0.224876  (t=5, blocks=40000, χ²=130.3400, df=119)
@@ -955,18 +955,18 @@ ANSI C sample LCG
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 LCG MINSTD
-  [PASS] testu01::hamming_corr                             p = 0.923793  (n=500000, r=20, s=10, L=300, rho_hat=-0.000135, z=-0.0957)
-  [PASS] testu01::hamming_indep_main                       p = 0.069719  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2308.0100)
-  [PASS] testu01::hamming_indep_block                      p = 0.465298  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=1.5302)
-  [FAIL] practrand::fpf_cross                              p = 0.000000  (samples=8354812, sig_bits=14, max_exp=63, dof=19, chi2=18922.5021)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=0, sig_bins=2^14, dof=16383, chi2=75856.0240)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=1, sig_bins=2^14, dof=16383, chi2=48989.7985)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=2, sig_bins=2^14, dof=16383, chi2=38652.1784)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=3, sig_bins=2^14, dof=16383, chi2=38920.7208)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=4, sig_bins=2^13, dof=8191, chi2=19972.0923)
-  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354812, e=5, sig_bins=2^12, dof=4095, chi2=9502.4215)
-  [FAIL] practrand::fpf_platter                            p = 9.982e-212  (samples=8354812, e=6, sig_bins=2^11, dof=2047, chi2=4719.1563)
-  [FAIL] practrand::fpf_platter                            p = 6.552e-105  (samples=8354812, e=7, sig_bins=2^10, dof=1023, chi2=2341.1321)
+  [PASS] testu01::hamming_corr                             p = 0.574341  (n=500000, r=20, s=10, L=300, rho_hat=-0.000794, z=-0.5617)
+  [PASS] testu01::hamming_indep_main                       p = 0.318058  (n=500000, r=20, s=10, L=300, dof=2209, lumped_cells=88392, chi2=2239.9257)
+  [PASS] testu01::hamming_indep_block                      p = 0.088892  (n=500000, r=20, s=10, L=300, d=1, dof=2, chi2=4.8407)
+  [FAIL] practrand::fpf_cross                              p = 0.000000  (samples=8354530, sig_bits=14, max_exp=63, dof=19, chi2=18914.9527)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354530, e=0, sig_bins=2^14, dof=16383, chi2=77218.4397)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354530, e=1, sig_bins=2^14, dof=16383, chi2=46824.6122)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354530, e=2, sig_bins=2^14, dof=16383, chi2=34686.9410)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354530, e=3, sig_bins=2^14, dof=16383, chi2=35472.5001)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354530, e=4, sig_bins=2^13, dof=8191, chi2=17452.3266)
+  [FAIL] practrand::fpf_platter                            p = 0.000000  (samples=8354530, e=5, sig_bins=2^12, dof=4095, chi2=8690.6996)
+  [FAIL] practrand::fpf_platter                            p = 1.093e-160  (samples=8354530, e=6, sig_bins=2^11, dof=2047, chi2=4288.6499)
+  [FAIL] practrand::fpf_platter                            p = 1.634e-63  (samples=8354530, e=7, sig_bins=2^10, dof=1023, chi2=1979.4614)
   [INFO] practrand::fpf_more                   9 additional platter results omitted
 
 AES-128-CTR
@@ -1005,200 +1005,200 @@ testu01_lz  (Lempel-Ziv  k=25  replications=10)
 ========================================================================
 
 MT19937
-  [PASS] testu01::lzw_sum                                  p = 0.177591  (N=10, k=25, r=0, s=30, z_mean=-0.4263, z_sum=-1.3482)
-  [PASS] testu01::lzw_ks                                   p = 0.127845  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762933 z=-0.9894
-  [INFO] testu01::lzw_rep02                    W=1762950 z=-0.4829
-  [INFO] testu01::lzw_rep03                    W=1762918 z=-1.4363
-  [INFO] testu01::lzw_rep04                    W=1762999 z=0.9768
-  [INFO] testu01::lzw_rep05                    W=1762971 z=0.1427
-  [INFO] testu01::lzw_rep06                    W=1762935 z=-0.9298
-  [INFO] testu01::lzw_rep07                    W=1762939 z=-0.8106
-  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4406
-  [INFO] testu01::lzw_rep09                    W=1762940 z=-0.7809
-  [INFO] testu01::lzw_rep10                    W=1762953 z=-0.3936
+  [PASS] testu01::lzw_sum                                  p = 0.190009  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-1.3106)
+  [PASS] testu01::lzw_ks                                   p = 0.149165  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762933 U=0.156179 z=-1.0103
+  [INFO] testu01::lzw_rep02                    W=1762950 U=0.317314 z=-0.4752
+  [INFO] testu01::lzw_rep03                    W=1762918 U=0.075535 z=-1.4358
+  [INFO] testu01::lzw_rep04                    W=1762999 U=0.843154 z=1.0075
+  [INFO] testu01::lzw_rep05                    W=1762971 U=0.567327 z=0.1696
+  [INFO] testu01::lzw_rep06                    W=1762935 U=0.173859 z=-0.9390
+  [INFO] testu01::lzw_rep07                    W=1762939 U=0.210948 z=-0.8031
+  [INFO] testu01::lzw_rep08                    W=1762981 U=0.677739 z=0.4614
+  [INFO] testu01::lzw_rep09                    W=1762940 U=0.225662 z=-0.7532
+  [INFO] testu01::lzw_rep10                    W=1762953 U=0.357127 z=-0.3661
 
 Xorshift32
-  [PASS] testu01::lzw_sum                                  p = 0.901706  (N=10, k=25, r=0, s=30, z_mean=-0.0391, z_sum=-0.1235)
-  [PASS] testu01::lzw_ks                                   p = 0.954167  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762985 z=0.5597
-  [INFO] testu01::lzw_rep02                    W=1762916 z=-1.4958
-  [INFO] testu01::lzw_rep03                    W=1762950 z=-0.4829
-  [INFO] testu01::lzw_rep04                    W=1762990 z=0.7087
-  [INFO] testu01::lzw_rep05                    W=1762959 z=-0.2148
-  [INFO] testu01::lzw_rep06                    W=1762943 z=-0.6915
-  [INFO] testu01::lzw_rep07                    W=1762962 z=-0.1255
-  [INFO] testu01::lzw_rep08                    W=1762978 z=0.3512
-  [INFO] testu01::lzw_rep09                    W=1763035 z=2.0493
-  [INFO] testu01::lzw_rep10                    W=1762931 z=-1.0490
+  [PASS] testu01::lzw_sum                                  p = 0.926662  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.0920)
+  [PASS] testu01::lzw_ks                                   p = 0.972799  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762985 U=0.715592 z=0.5698
+  [INFO] testu01::lzw_rep02                    W=1762916 U=0.064821 z=-1.5155
+  [INFO] testu01::lzw_rep03                    W=1762950 U=0.322283 z=-0.4613
+  [INFO] testu01::lzw_rep04                    W=1762990 U=0.770940 z=0.7419
+  [INFO] testu01::lzw_rep05                    W=1762959 U=0.423821 z=-0.1921
+  [INFO] testu01::lzw_rep06                    W=1762943 U=0.247026 z=-0.6839
+  [INFO] testu01::lzw_rep07                    W=1762962 U=0.459082 z=-0.1027
+  [INFO] testu01::lzw_rep08                    W=1762978 U=0.647156 z=0.3777
+  [INFO] testu01::lzw_rep09                    W=1763035 U=0.978662 z=2.0269
+  [INFO] testu01::lzw_rep10                    W=1762931 U=0.146459 z=-1.0517
 
 Xorshift64
-  [PASS] testu01::lzw_sum                                  p = 0.122093  (N=10, k=25, r=0, s=30, z_mean=-0.4889, z_sum=-1.5460)
-  [PASS] testu01::lzw_ks                                   p = 0.107762  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762946 z=-0.6021
-  [INFO] testu01::lzw_rep02                    W=1762978 z=0.3512
-  [INFO] testu01::lzw_rep03                    W=1762961 z=-0.1552
-  [INFO] testu01::lzw_rep04                    W=1762935 z=-0.9298
-  [INFO] testu01::lzw_rep05                    W=1762918 z=-1.4363
-  [INFO] testu01::lzw_rep06                    W=1762952 z=-0.4234
-  [INFO] testu01::lzw_rep07                    W=1762940 z=-0.7809
-  [INFO] testu01::lzw_rep08                    W=1763007 z=1.2152
-  [INFO] testu01::lzw_rep09                    W=1762943 z=-0.6915
-  [INFO] testu01::lzw_rep10                    W=1762918 z=-1.4363
+  [PASS] testu01::lzw_sum                                  p = 0.131754  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-1.5072)
+  [PASS] testu01::lzw_ks                                   p = 0.114121  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762946 U=0.274592 z=-0.5990
+  [INFO] testu01::lzw_rep02                    W=1762978 U=0.644883 z=0.3715
+  [INFO] testu01::lzw_rep03                    W=1762961 U=0.447918 z=-0.1309
+  [INFO] testu01::lzw_rep04                    W=1762935 U=0.178910 z=-0.9195
+  [INFO] testu01::lzw_rep05                    W=1762918 U=0.075044 z=-1.4392
+  [INFO] testu01::lzw_rep06                    W=1762952 U=0.339646 z=-0.4134
+  [INFO] testu01::lzw_rep07                    W=1762940 U=0.221477 z=-0.7672
+  [INFO] testu01::lzw_rep08                    W=1763007 U=0.889641 z=1.2246
+  [INFO] testu01::lzw_rep09                    W=1762943 U=0.253772 z=-0.6627
+  [INFO] testu01::lzw_rep10                    W=1762918 U=0.076295 z=-1.4304
 
 BAD Unix System V rand()
-  [PASS] testu01::lzw_sum                                  p = 0.515001  (N=10, k=25, r=0, s=30, z_mean=-0.2059, z_sum=-0.6511)
-  [PASS] testu01::lzw_ks                                   p = 0.242977  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762954 z=-0.3638
-  [INFO] testu01::lzw_rep02                    W=1762949 z=-0.5127
-  [INFO] testu01::lzw_rep03                    W=1762945 z=-0.6319
-  [INFO] testu01::lzw_rep04                    W=1762958 z=-0.2446
-  [INFO] testu01::lzw_rep05                    W=1762974 z=0.2320
-  [INFO] testu01::lzw_rep06                    W=1762936 z=-0.9000
-  [INFO] testu01::lzw_rep07                    W=1763024 z=1.7216
-  [INFO] testu01::lzw_rep08                    W=1762971 z=0.1427
-  [INFO] testu01::lzw_rep09                    W=1762951 z=-0.4532
-  [INFO] testu01::lzw_rep10                    W=1762931 z=-1.0490
+  [PASS] testu01::lzw_sum                                  p = 0.545233  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.6049)
+  [PASS] testu01::lzw_ks                                   p = 0.278731  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762954 U=0.361037 z=-0.3557
+  [INFO] testu01::lzw_rep02                    W=1762949 U=0.307228 z=-0.5037
+  [INFO] testu01::lzw_rep03                    W=1762945 U=0.269408 z=-0.6146
+  [INFO] testu01::lzw_rep04                    W=1762958 U=0.415098 z=-0.2144
+  [INFO] testu01::lzw_rep05                    W=1762974 U=0.602342 z=0.2594
+  [INFO] testu01::lzw_rep06                    W=1762936 U=0.183155 z=-0.9034
+  [INFO] testu01::lzw_rep07                    W=1763024 U=0.957985 z=1.7278
+  [INFO] testu01::lzw_rep08                    W=1762971 U=0.565723 z=0.1655
+  [INFO] testu01::lzw_rep09                    W=1762951 U=0.336519 z=-0.4220
+  [INFO] testu01::lzw_rep10                    W=1762931 U=0.146459 z=-1.0517
 
 BAD Unix System V mrand48()
-  [PASS] testu01::lzw_sum                                  p = 0.807305  (N=10, k=25, r=0, s=30, z_mean=0.0771, z_sum=0.2439)
-  [PASS] testu01::lzw_ks                                   p = 0.927732  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762884 z=-2.4492
-  [INFO] testu01::lzw_rep02                    W=1762984 z=0.5300
-  [INFO] testu01::lzw_rep03                    W=1762921 z=-1.3469
-  [INFO] testu01::lzw_rep04                    W=1762998 z=0.9470
-  [INFO] testu01::lzw_rep05                    W=1762951 z=-0.4532
-  [INFO] testu01::lzw_rep06                    W=1763024 z=1.7216
-  [INFO] testu01::lzw_rep07                    W=1763014 z=1.4237
-  [INFO] testu01::lzw_rep08                    W=1762970 z=0.1129
-  [INFO] testu01::lzw_rep09                    W=1762962 z=-0.1255
-  [INFO] testu01::lzw_rep10                    W=1762980 z=0.4108
+  [PASS] testu01::lzw_sum                                  p = 0.748611  (N=10, k=25, r=0, s=30, pit_seed=1, Z=0.3205)
+  [PASS] testu01::lzw_ks                                   p = 0.883224  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762884 U=0.008498 z=-2.3868
+  [INFO] testu01::lzw_rep02                    W=1762984 U=0.707475 z=0.5460
+  [INFO] testu01::lzw_rep03                    W=1762921 U=0.089821 z=-1.3419
+  [INFO] testu01::lzw_rep04                    W=1762998 U=0.836558 z=0.9804
+  [INFO] testu01::lzw_rep05                    W=1762951 U=0.331865 z=-0.4348
+  [INFO] testu01::lzw_rep06                    W=1763024 U=0.957381 z=1.7211
+  [INFO] testu01::lzw_rep07                    W=1763014 U=0.924491 z=1.4359
+  [INFO] testu01::lzw_rep08                    W=1762970 U=0.554925 z=0.1381
+  [INFO] testu01::lzw_rep09                    W=1762962 U=0.464433 z=-0.0893
+  [INFO] testu01::lzw_rep10                    W=1762980 U=0.671675 z=0.4445
 
 BAD Unix BSD random()
-  [PASS] testu01::lzw_sum                                  p = 0.879369  (N=10, k=25, r=0, s=30, z_mean=-0.0480, z_sum=-0.1518)
-  [PASS] testu01::lzw_ks                                   p = 0.990817  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762964 z=-0.0659
-  [INFO] testu01::lzw_rep02                    W=1763021 z=1.6322
-  [INFO] testu01::lzw_rep03                    W=1762904 z=-1.8533
-  [INFO] testu01::lzw_rep04                    W=1762982 z=0.4704
-  [INFO] testu01::lzw_rep05                    W=1763007 z=1.2152
-  [INFO] testu01::lzw_rep06                    W=1762961 z=-0.1552
-  [INFO] testu01::lzw_rep07                    W=1762949 z=-0.5127
-  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4406
-  [INFO] testu01::lzw_rep09                    W=1762932 z=-1.0192
-  [INFO] testu01::lzw_rep10                    W=1762945 z=-0.6319
+  [PASS] testu01::lzw_sum                                  p = 0.913444  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.1087)
+  [PASS] testu01::lzw_ks                                   p = 0.993820  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762964 U=0.478113 z=-0.0549
+  [INFO] testu01::lzw_rep02                    W=1763021 U=0.948391 z=1.6294
+  [INFO] testu01::lzw_rep03                    W=1762904 U=0.032027 z=-1.8518
+  [INFO] testu01::lzw_rep04                    W=1762982 U=0.693300 z=0.5052
+  [INFO] testu01::lzw_rep05                    W=1763007 U=0.890324 z=1.2283
+  [INFO] testu01::lzw_rep06                    W=1762961 U=0.443325 z=-0.1425
+  [INFO] testu01::lzw_rep07                    W=1762949 U=0.310867 z=-0.4934
+  [INFO] testu01::lzw_rep08                    W=1762981 U=0.677739 z=0.4614
+  [INFO] testu01::lzw_rep09                    W=1762932 U=0.154946 z=-1.0154
+  [INFO] testu01::lzw_rep10                    W=1762945 U=0.270944 z=-0.6100
 
 BAD Unix Linux glibc rand()/random()
-  [PASS] testu01::lzw_sum                                  p = 0.879369  (N=10, k=25, r=0, s=30, z_mean=-0.0480, z_sum=-0.1518)
-  [PASS] testu01::lzw_ks                                   p = 0.990817  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762964 z=-0.0659
-  [INFO] testu01::lzw_rep02                    W=1763021 z=1.6322
-  [INFO] testu01::lzw_rep03                    W=1762904 z=-1.8533
-  [INFO] testu01::lzw_rep04                    W=1762982 z=0.4704
-  [INFO] testu01::lzw_rep05                    W=1763007 z=1.2152
-  [INFO] testu01::lzw_rep06                    W=1762961 z=-0.1552
-  [INFO] testu01::lzw_rep07                    W=1762949 z=-0.5127
-  [INFO] testu01::lzw_rep08                    W=1762981 z=0.4406
-  [INFO] testu01::lzw_rep09                    W=1762932 z=-1.0192
-  [INFO] testu01::lzw_rep10                    W=1762945 z=-0.6319
+  [PASS] testu01::lzw_sum                                  p = 0.913444  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.1087)
+  [PASS] testu01::lzw_ks                                   p = 0.993820  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762964 U=0.478113 z=-0.0549
+  [INFO] testu01::lzw_rep02                    W=1763021 U=0.948391 z=1.6294
+  [INFO] testu01::lzw_rep03                    W=1762904 U=0.032027 z=-1.8518
+  [INFO] testu01::lzw_rep04                    W=1762982 U=0.693300 z=0.5052
+  [INFO] testu01::lzw_rep05                    W=1763007 U=0.890324 z=1.2283
+  [INFO] testu01::lzw_rep06                    W=1762961 U=0.443325 z=-0.1425
+  [INFO] testu01::lzw_rep07                    W=1762949 U=0.310867 z=-0.4934
+  [INFO] testu01::lzw_rep08                    W=1762981 U=0.677739 z=0.4614
+  [INFO] testu01::lzw_rep09                    W=1762932 U=0.154946 z=-1.0154
+  [INFO] testu01::lzw_rep10                    W=1762945 U=0.270944 z=-0.6100
 
 BAD Windows CRT rand()
-  [PASS] testu01::lzw_sum                                  p = 0.197185  (N=10, k=25, r=0, s=30, z_mean=0.4078, z_sum=1.2896)
-  [PASS] testu01::lzw_ks                                   p = 0.463781  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762952 z=-0.4234
-  [INFO] testu01::lzw_rep02                    W=1763026 z=1.7812
-  [INFO] testu01::lzw_rep03                    W=1762990 z=0.7087
-  [INFO] testu01::lzw_rep04                    W=1762961 z=-0.1552
-  [INFO] testu01::lzw_rep05                    W=1763020 z=1.6024
-  [INFO] testu01::lzw_rep06                    W=1762944 z=-0.6617
-  [INFO] testu01::lzw_rep07                    W=1762963 z=-0.0957
-  [INFO] testu01::lzw_rep08                    W=1762997 z=0.9172
-  [INFO] testu01::lzw_rep09                    W=1762973 z=0.2023
-  [INFO] testu01::lzw_rep10                    W=1762973 z=0.2023
+  [PASS] testu01::lzw_sum                                  p = 0.177062  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.3499)
+  [PASS] testu01::lzw_ks                                   p = 0.453306  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762952 U=0.338317 z=-0.4171
+  [INFO] testu01::lzw_rep02                    W=1763026 U=0.961849 z=1.7726
+  [INFO] testu01::lzw_rep03                    W=1762990 U=0.769659 z=0.7377
+  [INFO] testu01::lzw_rep04                    W=1762961 U=0.449522 z=-0.1269
+  [INFO] testu01::lzw_rep05                    W=1763020 U=0.946377 z=1.6107
+  [INFO] testu01::lzw_rep06                    W=1762944 U=0.256224 z=-0.6550
+  [INFO] testu01::lzw_rep07                    W=1762963 U=0.471103 z=-0.0725
+  [INFO] testu01::lzw_rep08                    W=1762997 U=0.826199 z=0.9393
+  [INFO] testu01::lzw_rep09                    W=1762973 U=0.595852 z=0.2426
+  [INFO] testu01::lzw_rep10                    W=1762973 U=0.593758 z=0.2372
 
 BAD Windows VB6/VBA Rnd()
-  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-221.5781, z_sum=-700.6914)
-  [FAIL] testu01::lzw_ks                                   p = 0.000000  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1755485 z=-222.8740
-  [INFO] testu01::lzw_rep02                    W=1755545 z=-221.0865
-  [INFO] testu01::lzw_rep03                    W=1755563 z=-220.5503
-  [INFO] testu01::lzw_rep04                    W=1755535 z=-221.3844
-  [INFO] testu01::lzw_rep05                    W=1755551 z=-220.9078
-  [INFO] testu01::lzw_rep06                    W=1755521 z=-221.8015
-  [INFO] testu01::lzw_rep07                    W=1755536 z=-221.3546
-  [INFO] testu01::lzw_rep08                    W=1755473 z=-223.2315
-  [INFO] testu01::lzw_rep09                    W=1755512 z=-222.0696
-  [INFO] testu01::lzw_rep10                    W=1755564 z=-220.5205
+  [FAIL] testu01::lzw_sum                                  p = 2.029e-35  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-12.4203)
+  [FAIL] testu01::lzw_ks                                   p = 3.550e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1755485 U=0.000012 z=-4.2153
+  [INFO] testu01::lzw_rep02                    W=1755545 U=0.000017 z=-4.1440
+  [INFO] testu01::lzw_rep03                    W=1755563 U=0.000062 z=-3.8372
+  [INFO] testu01::lzw_rep04                    W=1755535 U=0.000076 z=-3.7887
+  [INFO] testu01::lzw_rep05                    W=1755551 U=0.000052 z=-3.8801
+  [INFO] testu01::lzw_rep06                    W=1755521 U=0.000024 z=-4.0687
+  [INFO] testu01::lzw_rep07                    W=1755536 U=0.000054 z=-3.8727
+  [INFO] testu01::lzw_rep08                    W=1755473 U=0.000037 z=-3.9607
+  [INFO] testu01::lzw_rep09                    W=1755512 U=0.000097 z=-3.7268
+  [INFO] testu01::lzw_rep10                    W=1755564 U=0.000078 z=-3.7821
 
 BAD Windows .NET Random(seed)
-  [PASS] testu01::lzw_sum                                  p = 0.266733  (N=10, k=25, r=0, s=30, z_mean=0.3512, z_sum=1.1106)
-  [PASS] testu01::lzw_ks                                   p = 0.222826  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762967 z=0.0235
-  [INFO] testu01::lzw_rep02                    W=1762886 z=-2.3896
-  [INFO] testu01::lzw_rep03                    W=1762991 z=0.7385
-  [INFO] testu01::lzw_rep04                    W=1762976 z=0.2916
-  [INFO] testu01::lzw_rep05                    W=1763020 z=1.6024
-  [INFO] testu01::lzw_rep06                    W=1762976 z=0.2916
-  [INFO] testu01::lzw_rep07                    W=1762883 z=-2.4790
-  [INFO] testu01::lzw_rep08                    W=1763001 z=1.0364
-  [INFO] testu01::lzw_rep09                    W=1763018 z=1.5429
-  [INFO] testu01::lzw_rep10                    W=1763062 z=2.8537
+  [PASS] testu01::lzw_sum                                  p = 0.240978  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.1725)
+  [PASS] testu01::lzw_ks                                   p = 0.199677  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762967 U=0.515394 z=0.0386
+  [INFO] testu01::lzw_rep02                    W=1762886 U=0.009449 z=-2.3475
+  [INFO] testu01::lzw_rep03                    W=1762991 U=0.779531 z=0.7706
+  [INFO] testu01::lzw_rep04                    W=1762976 U=0.629089 z=0.3294
+  [INFO] testu01::lzw_rep05                    W=1763020 U=0.946377 z=1.6107
+  [INFO] testu01::lzw_rep06                    W=1762976 U=0.622684 z=0.3125
+  [INFO] testu01::lzw_rep07                    W=1762883 U=0.008167 z=-2.4013
+  [INFO] testu01::lzw_rep08                    W=1763001 U=0.853421 z=1.0512
+  [INFO] testu01::lzw_rep09                    W=1763018 U=0.941106 z=1.5641
+  [INFO] testu01::lzw_rep10                    W=1763062 U=0.997278 z=2.7796
 
 ANSI C sample LCG
-  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-34.9483, z_sum=-110.5164)
-  [FAIL] testu01::lzw_ks                                   p = 0.000000  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1761859 z=-32.9851
-  [INFO] testu01::lzw_rep02                    W=1761837 z=-33.6405
-  [INFO] testu01::lzw_rep03                    W=1761768 z=-35.6961
-  [INFO] testu01::lzw_rep04                    W=1761798 z=-34.8024
-  [INFO] testu01::lzw_rep05                    W=1761764 z=-35.8153
-  [INFO] testu01::lzw_rep06                    W=1761816 z=-34.2661
-  [INFO] testu01::lzw_rep07                    W=1761741 z=-36.5005
-  [INFO] testu01::lzw_rep08                    W=1761768 z=-35.6961
-  [INFO] testu01::lzw_rep09                    W=1761800 z=-34.7428
-  [INFO] testu01::lzw_rep10                    W=1761780 z=-35.3386
+  [FAIL] testu01::lzw_sum                                  p = 2.029e-35  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-12.4203)
+  [FAIL] testu01::lzw_ks                                   p = 3.550e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1761859 U=0.000012 z=-4.2153
+  [INFO] testu01::lzw_rep02                    W=1761837 U=0.000017 z=-4.1440
+  [INFO] testu01::lzw_rep03                    W=1761768 U=0.000062 z=-3.8372
+  [INFO] testu01::lzw_rep04                    W=1761798 U=0.000076 z=-3.7887
+  [INFO] testu01::lzw_rep05                    W=1761764 U=0.000052 z=-3.8801
+  [INFO] testu01::lzw_rep06                    W=1761816 U=0.000024 z=-4.0687
+  [INFO] testu01::lzw_rep07                    W=1761741 U=0.000054 z=-3.8727
+  [INFO] testu01::lzw_rep08                    W=1761768 U=0.000037 z=-3.9607
+  [INFO] testu01::lzw_rep09                    W=1761800 U=0.000097 z=-3.7268
+  [INFO] testu01::lzw_rep10                    W=1761780 U=0.000078 z=-3.7821
 
 LCG MINSTD
-  [FAIL] testu01::lzw_sum                                  p = 0.000000  (N=10, k=25, r=0, s=30, z_mean=-37.6713, z_sum=-119.1270)
-  [FAIL] testu01::lzw_ks                                   p = 0.000000  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1761635 z=-39.6583
-  [INFO] testu01::lzw_rep02                    W=1761843 z=-33.4618
-  [INFO] testu01::lzw_rep03                    W=1761693 z=-37.9304
-  [INFO] testu01::lzw_rep04                    W=1761676 z=-38.4369
-  [INFO] testu01::lzw_rep05                    W=1761717 z=-37.2154
-  [INFO] testu01::lzw_rep06                    W=1761680 z=-38.3177
-  [INFO] testu01::lzw_rep07                    W=1761686 z=-38.1390
-  [INFO] testu01::lzw_rep08                    W=1761681 z=-38.2879
-  [INFO] testu01::lzw_rep09                    W=1761689 z=-38.0496
-  [INFO] testu01::lzw_rep10                    W=1761717 z=-37.2154
+  [FAIL] testu01::lzw_sum                                  p = 2.029e-35  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-12.4203)
+  [FAIL] testu01::lzw_ks                                   p = 3.550e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1761746 U=0.000012 z=-4.2153
+  [INFO] testu01::lzw_rep02                    W=1761663 U=0.000017 z=-4.1440
+  [INFO] testu01::lzw_rep03                    W=1761733 U=0.000062 z=-3.8372
+  [INFO] testu01::lzw_rep04                    W=1761659 U=0.000076 z=-3.7887
+  [INFO] testu01::lzw_rep05                    W=1761751 U=0.000052 z=-3.8801
+  [INFO] testu01::lzw_rep06                    W=1761622 U=0.000024 z=-4.0687
+  [INFO] testu01::lzw_rep07                    W=1761706 U=0.000054 z=-3.8727
+  [INFO] testu01::lzw_rep08                    W=1761722 U=0.000037 z=-3.9607
+  [INFO] testu01::lzw_rep09                    W=1761708 U=0.000097 z=-3.7268
+  [INFO] testu01::lzw_rep10                    W=1761669 U=0.000078 z=-3.7821
 
 AES-128-CTR
-  [PASS] testu01::lzw_sum                                  p = 0.069190  (N=10, k=25, r=0, s=30, z_mean=0.5746, z_sum=1.8172)
-  [PASS] testu01::lzw_ks                                   p = 0.256694  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762990 z=0.7087
-  [INFO] testu01::lzw_rep02                    W=1762977 z=0.3214
-  [INFO] testu01::lzw_rep03                    W=1762968 z=0.0533
-  [INFO] testu01::lzw_rep04                    W=1763003 z=1.0960
-  [INFO] testu01::lzw_rep05                    W=1762950 z=-0.4829
-  [INFO] testu01::lzw_rep06                    W=1762949 z=-0.5127
-  [INFO] testu01::lzw_rep07                    W=1763021 z=1.6322
-  [INFO] testu01::lzw_rep08                    W=1763026 z=1.7812
-  [INFO] testu01::lzw_rep09                    W=1762964 z=-0.0659
-  [INFO] testu01::lzw_rep10                    W=1763007 z=1.2152
+  [PASS] testu01::lzw_sum                                  p = 0.060670  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.8759)
+  [PASS] testu01::lzw_ks                                   p = 0.244179  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762990 U=0.764932 z=0.7223
+  [INFO] testu01::lzw_rep02                    W=1762977 U=0.633934 z=0.3423
+  [INFO] testu01::lzw_rep03                    W=1762968 U=0.534110 z=0.0856
+  [INFO] testu01::lzw_rep04                    W=1763003 U=0.869148 z=1.1224
+  [INFO] testu01::lzw_rep05                    W=1762950 U=0.321180 z=-0.4644
+  [INFO] testu01::lzw_rep06                    W=1762949 U=0.307879 z=-0.5019
+  [INFO] testu01::lzw_rep07                    W=1763021 U=0.949640 z=1.6414
+  [INFO] testu01::lzw_rep08                    W=1763026 U=0.962255 z=1.7775
+  [INFO] testu01::lzw_rep09                    W=1762964 U=0.489013 z=-0.0275
+  [INFO] testu01::lzw_rep10                    W=1763007 U=0.891499 z=1.2345
 
 cryptography::CtrDrbgAes256
-  [PASS] testu01::lzw_sum                                  p = 0.605081  (N=10, k=25, r=0, s=30, z_mean=0.1635, z_sum=0.5171)
-  [PASS] testu01::lzw_ks                                   p = 0.842903  (N=10, k=25, r=0, s=30)
-  [INFO] testu01::lzw_rep01                    W=1762988 z=0.6491
-  [INFO] testu01::lzw_rep02                    W=1763007 z=1.2152
-  [INFO] testu01::lzw_rep03                    W=1763003 z=1.0960
-  [INFO] testu01::lzw_rep04                    W=1762932 z=-1.0192
-  [INFO] testu01::lzw_rep05                    W=1762953 z=-0.3936
-  [INFO] testu01::lzw_rep06                    W=1762982 z=0.4704
-  [INFO] testu01::lzw_rep07                    W=1762965 z=-0.0361
-  [INFO] testu01::lzw_rep08                    W=1762954 z=-0.3638
-  [INFO] testu01::lzw_rep09                    W=1763001 z=1.0364
-  [INFO] testu01::lzw_rep10                    W=1762932 z=-1.0192
+  [PASS] testu01::lzw_sum                                  p = 0.573631  (N=10, k=25, r=0, s=30, pit_seed=1, Z=0.5627)
+  [PASS] testu01::lzw_ks                                   p = 0.814483  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762988 U=0.745911 z=0.6617
+  [INFO] testu01::lzw_rep02                    W=1763007 U=0.888707 z=1.2197
+  [INFO] testu01::lzw_rep03                    W=1763003 U=0.868272 z=1.1183
+  [INFO] testu01::lzw_rep04                    W=1762932 U=0.153373 z=-1.0221
+  [INFO] testu01::lzw_rep05                    W=1762953 U=0.354369 z=-0.3736
+  [INFO] testu01::lzw_rep06                    W=1762982 U=0.686947 z=0.4872
+  [INFO] testu01::lzw_rep07                    W=1762965 U=0.495752 z=-0.0106
+  [INFO] testu01::lzw_rep08                    W=1762954 U=0.364049 z=-0.3477
+  [INFO] testu01::lzw_rep09                    W=1763001 U=0.857236 z=1.0680
+  [INFO] testu01::lzw_rep10                    W=1762932 U=0.153524 z=-1.0214
 
 
 ========================================================================
@@ -1220,7 +1220,7 @@ BAD Windows VB6/VBA Rnd()                    4096   0.4173   0.5000   0.1049   0
 BAD Windows .NET Random(seed)                4096   0.2346   0.4944   0.0697   0.7415        0
 warning: ANSI C sample LCG: --input-bits 32 exceeds RNG seed width (31 bits); bits 31..32 are silently truncated — results are misleading
 ANSI C sample LCG                            4096   0.3617   0.5000   0.1012   0.7015    11489
-LCG MINSTD                                   4096   0.2464   0.5000   0.0777   0.7244      992
+LCG MINSTD                                   4096   0.2637   0.5000   0.0807   0.7608      992
 AES-128-CTR                                  4096   0.0061   0.0232   0.0125   0.0663        0
 cryptography::CtrDrbgAes256                  4096   0.0063   0.0308   0.0125   0.0610        0
 
@@ -1241,7 +1241,7 @@ BAD Windows CRT rand()                    0.000000  0.999969         3     12.00
 BAD Windows VB6/VBA Rnd()                 0.000000  0.000000         7  10162.438  2178.4817   0.000000
 BAD Windows .NET Random(seed)             0.026731  0.969952        28      1.931     0.2187   0.984438
 ANSI C sample LCG                         0.000000  1.000000         0  10172.876  1427.2633   0.000000
-LCG MINSTD                                0.000000  1.000000         0  10172.876   161.5174   0.000000
+LCG MINSTD                                0.000000  1.000000         0  10172.876   102.5270   0.000000
 AES-128-CTR                               0.050697  0.987885         9      2.253     0.4736   0.772588
 cryptography::CtrDrbgAes256               0.000534  0.993353        31      3.272     0.9383   0.390523
 ```
