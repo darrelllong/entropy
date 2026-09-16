@@ -1,10 +1,9 @@
 //! DIEHARDER tests not covered by NIST SP 800-22 or DIEHARD.
 //!
-//! Reference: Robert G. Brown, *Dieharder: A Random Number Test Suite*,
-//! version 3.31.1.  <https://webhome.phy.duke.edu/~rgb/General/dieharder.php>
-//! `pubs/dieharder-3.31.1.tgz`
+//! Reference: Robert G. Brown, *Dieharder: A Random Number Test Suite*
+//! (2004–2011), <https://webhome.phy.duke.edu/~rgb/General/dieharder.php>.
 //!
-//! Each function cites its original author.
+//! Each function cites the author of its test.
 
 pub mod bit_distribution;
 pub mod byte_distribution;

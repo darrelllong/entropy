@@ -1,70 +1,71 @@
-//! DIEHARDER test 207 — dab_filltree.
+//! DIEHARDER fill-tree test.
 //!
-//! Fills a 32-element sorted binary array (treated as a binary search tree) with
-//! random floating-point values.  Each trial records the number of words consumed
-//! before a collision (i.e., before the search path reaches a node whose children
-//! have already been filled).  A chi-square test compares the observed fill-count
-//! distribution against the empirical reference table `TARGET_DATA` from the C
-//! source.  A second chi-square tests that the collision positions are uniform.
+//! A 32-slot array holds a binary search tree of four levels: the root in slot
+//! 15 and, below each slot, children 8, 4, 2 and then 1 slots to either side.
+//! Each trial inserts uniform samples until one follows a path whose four
+//! slots are all occupied; that sample "collides" at one of the 16 gaps below
+//! the bottom level.  Two statistics:
 //!
-//! The tree is the 32-element sorted array from `dab_filltree.c`:
-//!   - Array size: SIZE = 32, start value index: startVal = SIZE/2 - 1 = 15.
-//!   - `insert(x, array, startVal)`: binary search from position 15 with step 8,
-//!     halving the step at each level.  Returns the collision position when d=0.
+//! 1. Fill count: the number t of samples placed before the collision,
+//!    4 ≤ t ≤ 15, scored with a Pearson χ² against its exact distribution.
+//! 2. Collision position: which of the 16 gaps, scored with a Pearson χ²
+//!    against the uniform distribution, df 15.
+//!
+//! # The null distribution
+//!
+//! Inserting independent continuous samples builds a random binary search
+//! tree.  For a subtree of h levels let D_h(t, g) be the probability that its
+//! own sequence of arrivals places t samples and then collides at gap g.  The
+//! first arrival takes the root with value u; later arrivals go left with
+//! probability u.  If the left subtree would collide on its (a + 1)-th
+//! arrival and the right one on its (b + 1)-th, the left collides first, after
+//! r ≤ b right arrivals, with probability C(a + r, r)·u^(a+1)·(1 − u)^r, and
+//! integrating over u gives (a + 1)/((a + r + 1)(a + r + 2)).  Hence
+//!
+//! D_h(1 + a + r, g) = Σ D_{h−1}(a, g) · P(T_{h−1} ≥ r) · (a + 1)/((a + r + 1)(a + r + 2)),
+//!
+//! with the mirror-image term for the right subtree and D_0(0, 0) = 1.  At
+//! h = 4 this gives P(t = 4) = 2/15, P(5) = 1/5, P(6) = 13/63, …,
+//! P(15) = 1/59 535, and every gap has probability exactly 1/16.
+//!
+//! Fill-count cells are pooled from the tail inward until each expects at
+//! least 5 trials, so every trial is counted once and df is one less than the
+//! number of cells.
+//!
+//! Samples are words scaled to [0, 1); every 25 000 trials the words are
+//! rotated left by one more bit, so the comparisons read different bits.
 //!
 //! # Author
-//! David Bauer, *Dieharder* (2006), test `dab_filltree`.
-//! Source: `dieharder-3.31.1/libdieharder/dab_filltree.c`
+//! David Bauer, in Robert G. Brown's *Dieharder: A Random Number Test Suite*
+//! (2006).
 
-use crate::{math::igamc, result::TestResult};
+use crate::{
+    math::{chi_square_pooled_tails, igamc},
+    result::TestResult,
+};
+use std::sync::OnceLock;
 
-/// Binary tree array size (ntuple = 32 in the C source).
+/// Slots in the tree array.
 const SIZE: usize = 32;
+/// Levels of the tree.
+const LEVELS: usize = 4;
+/// Gaps below the bottom level, where a sample collides.
+const GAPS: usize = 1 << LEVELS;
+/// Largest fill count: every slot of the four levels occupied.
+const MAX_FILL: usize = GAPS - 1;
 /// Number of trials.
-///
-/// Below Dieharder's default (`dab_filltree.h`): tsamples = 1.5 × 10⁷ with
-/// psamples = 1, 150 times more.  Chi-square noncentrality grows linearly with
-/// the trial count, so a deviation in the fill-count or collision-position
-/// frequencies must be about √150 ≈ 12 times larger here to be detected with
-/// the same power.  The trial count also sets the fill-count cells, which the
-/// C picks from expectations above 4: cells 4..14 (end exclusive; 10 cells,
-/// df 9) here against 4..15 (11 cells, df 10) at 1.5 × 10⁷.
 const N_TRIALS: usize = 100_000;
 /// Number of rotation cycles.
 const CYCLES: usize = 4;
-/// Start node index: SIZE/2 - 1.
+/// The root slot.
 const START_VAL: usize = SIZE / 2 - 1; // = 15
+/// Smallest expected count for a fill-count cell.
+const MIN_EXPECTED: f64 = 5.0;
 
-/// Empirical probability P(collision on word i) for i = 0..TARGET_LEN.
-/// Source: `dab_filltree.c` `targetData[]`.
-const TARGET_DATA: [f64; 20] = [
-    0.0,        // i=0: impossible
-    0.0,        // i=1: impossible (root always empty on first insert)
-    0.0,        // i=2
-    0.0,        // i=3
-    0.13333333, // i=4
-    0.20000000, // i=5
-    0.20634921, // i=6
-    0.17857143, // i=7
-    0.13007085, // i=8
-    0.08183633, // i=9
-    0.04338395, // i=10
-    0.01851828, // i=11
-    0.00617270, // i=12
-    0.00151193, // i=13
-    0.00023520, // i=14
-    0.00001680, // i=15
-    0.0,        // i=16
-    0.0,        // i=17
-    0.0,        // i=18
-    0.0,        // i=19
-];
-const TARGET_LEN: usize = TARGET_DATA.len(); // 20
-
-/// Run the fill-tree test and return both reference outputs separately.
+/// Run the fill-tree test, returning the fill-count and the position results.
 ///
 /// # Author
-/// David Bauer, Dieharder (2006), `dab_filltree`.
+/// David Bauer, Dieharder (2006).
 pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
     // Cheap upfront floor: mean consumption is ≈ 7.5 words/trial, so demand
     // 8·N_TRIALS.  (The worst case is 16 words per trial, see `tree_insert`,
@@ -78,41 +79,14 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
         ];
     }
 
-    // Precompute expected counts for fill distribution.
-    let n_f = N_TRIALS as f64;
-    let expected_fill: Vec<f64> = TARGET_DATA.iter().map(|&p| p * n_f).collect();
-
-    // Find chi-square range: use cells where expected >= 4.
-    // Mirrors the C code: start = (last index with expected < 4 before any > 4) + 1,
-    // end = last index with expected > 4.
-    let mut start_idx = 0usize;
-    let mut end_idx = 0usize;
-    let mut found_end = false;
-    for (i, &val) in expected_fill.iter().enumerate().take(TARGET_LEN) {
-        if val < 4.0 {
-            if !found_end {
-                start_idx = i;
-            }
-        } else if val > 4.0 {
-            end_idx = i;
-            found_end = true;
-        }
-    }
-    start_idx += 1; // as in C: `start++`
-
-    // Observed fill counts and position counts.  Sizes are compile-time
-    // constants (TARGET_LEN=20, SIZE/2=16) so we can use stack arrays.
-    let mut fill_counts = [0u32; TARGET_LEN];
-    let mut position_counts = [0u32; SIZE / 2];
+    let mut fill_counts = [0u32; MAX_FILL + 1];
+    let mut position_counts = [0u32; GAPS];
 
     let mut word_idx = 0usize;
 
     let mut rot_amount = 0u32;
     for j in 0..N_TRIALS {
-        // Empty slots are NaN, not 0.0.  Dieharder's C uses 0.0 as the "empty"
-        // sentinel, which silently mishandles a generator that emits the word
-        // mapping to 0.0 (that node reads as empty forever); NaN cannot collide
-        // with any real sample in [0, 1).
+        // Empty slots are NaN, which no sample in [0, 1) equals.
         let mut array = [f64::NAN; SIZE];
         let mut word_count = 0usize;
 
@@ -127,10 +101,8 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
             word_idx += 1;
             word_count += 1;
 
-            // Rotate and normalise to [0, 1).  (Division by 2³² keeps the
-            // half-open interval, matching ks_uniform/lagged_sums; the tree
-            // only ever compares samples to one another, so the exact scale is
-            // immaterial to the result.)
+            // Rotate and scale to [0, 1); the tree only compares samples, so
+            // the scale does not matter.
             let rotated = if rot_amount == 0 {
                 v
             } else {
@@ -143,8 +115,7 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
             }
         };
 
-        let count_idx = (word_count - 1).min(TARGET_LEN - 1);
-        fill_counts[count_idx] += 1;
+        fill_counts[word_count - 1] += 1;
         position_counts[fail_pos / 2] += 1;
 
         if j % (N_TRIALS / CYCLES) == 0 {
@@ -152,35 +123,22 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
         }
     }
 
-    // Chi-square 1: fill-count distribution vs TARGET_DATA.
-    // C-faithful cell range: `chisq_pearson(counts+start, expected+start,
-    // end-start)` sums start..end EXCLUSIVE (10 cells at these parameters),
-    // with df = cells − 1 = 9.  Including `end` while keeping df = 9 tested an
-    // ~10-dof statistic against χ²₉, biasing p low.
-    let chi_fill: f64 = (start_idx..end_idx)
-        .map(|i| {
-            let e = expected_fill[i];
-            let o = fill_counts[i] as f64;
-            (o - e).powi(2) / e
-        })
-        .sum();
-    let df_fill = (end_idx - start_idx).saturating_sub(1);
+    let (chi_fill, df_fill, cells) = fill_count_chi_square(&fill_counts);
     let p_fill = igamc(df_fill as f64 / 2.0, chi_fill / 2.0);
 
-    // Chi-square 2: collision position uniformity over SIZE/2 positions.
-    let expected_pos = N_TRIALS as f64 / (SIZE / 2) as f64;
+    let expected_pos = N_TRIALS as f64 / GAPS as f64;
     let chi_pos: f64 = position_counts
         .iter()
         .map(|&c| (c as f64 - expected_pos).powi(2) / expected_pos)
         .sum();
-    let df_pos = SIZE / 2 - 1;
+    let df_pos = GAPS - 1;
     let p_pos = igamc(df_pos as f64 / 2.0, chi_pos / 2.0);
 
     vec![
         TestResult::with_note(
             "dieharder::fill_tree_count",
             p_fill,
-            format!("trials={N_TRIALS}, χ²={chi_fill:.4}, start={start_idx}, end={end_idx}"),
+            format!("trials={N_TRIALS}, cells={cells}, χ²={chi_fill:.4}"),
         ),
         TestResult::with_note(
             "dieharder::fill_tree_position",
@@ -190,7 +148,7 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
     ]
 }
 
-/// Backward-compatible single-result wrapper.
+/// Fill-tree test as one result.
 ///
 /// The two statistics come from the same trials, so the fold uses a
 /// Bonferroni bound (valid under dependence) rather than a bare min,
@@ -209,24 +167,62 @@ pub fn fill_tree(words: &[u32]) -> TestResult {
     )
 }
 
-/// Binary search-tree insertion into a flat double array.
+/// Pearson χ² of the fill counts (indexed by t) against the exact
+/// distribution, the tail cells pooled until each expects at least
+/// [`MIN_EXPECTED`] trials.  Returns (χ², df, cells).
+fn fill_count_chi_square(counts: &[u32; MAX_FILL + 1]) -> (f64, usize, usize) {
+    let n = N_TRIALS as f64;
+    let law = fill_count_distribution();
+    let first = law.iter().position(|&p| p > 0.0).expect("a nonempty law");
+    let expected: Vec<f64> = law[first..].iter().map(|&p| n * p).collect();
+    let observed: Vec<f64> = counts[first..].iter().map(|&c| f64::from(c)).collect();
+    let (chi, df) = chi_square_pooled_tails(&observed, &expected, MIN_EXPECTED)
+        .expect("the law has cells expecting at least five trials");
+    (chi, df, df + 1)
+}
+
+/// P(fill count = t), t = 0 … 15, computed once.
+fn fill_count_distribution() -> &'static [f64; MAX_FILL + 1] {
+    static LAW: OnceLock<[f64; MAX_FILL + 1]> = OnceLock::new();
+    LAW.get_or_init(|| {
+        let joint = collision_distribution(LEVELS);
+        std::array::from_fn(|t| joint.get(t).map_or(0.0, |row| row.iter().sum()))
+    })
+}
+
+/// D_h(t, g) of the module documentation, as rows t of gap probabilities.
+fn collision_distribution(levels: usize) -> Vec<Vec<f64>> {
+    if levels == 0 {
+        return vec![vec![1.0]];
+    }
+    let sub = collision_distribution(levels - 1);
+    let half = sub[0].len();
+    // P(T ≥ r) for the subtree.
+    let at_least: Vec<f64> = (0..=sub.len())
+        .map(|r| sub[r.min(sub.len())..].iter().flatten().sum())
+        .collect();
+    let mut out = vec![vec![0.0; 2 * half]; 2 * sub.len()];
+    for (a, row) in sub.iter().enumerate() {
+        for (r, &tail) in at_least.iter().enumerate().take(sub.len()) {
+            let weight = tail * (a + 1) as f64 / ((a + r + 1) * (a + r + 2)) as f64;
+            for (g, &p) in row.iter().enumerate() {
+                out[1 + a + r][g] += p * weight;
+                out[1 + a + r][half + g] += p * weight;
+            }
+        }
+    }
+    out
+}
+
+/// Binary search-tree insertion into a flat array whose empty slots are NaN.
 ///
-/// Mirrors the C `insert()` from `dab_filltree.c`, with one deliberate
-/// correction: empty slots are `NaN`, not `0.0`.  The C uses `0.0` as its
-/// "empty" sentinel, which cannot distinguish an empty slot from one holding
-/// the sample `0.0`; `NaN` is disjoint from every real sample in `[0, 1)`.
 ///   - Start at index `START_VAL` with step `(START_VAL+1)/2`.
 ///   - If slot is empty (`NaN`), place `x` there and return `None` (success).
 ///   - Else move left or right, halve the step.
-///   - If step reaches 0, return `Some(i)` (collision at position i).
+///   - If step reaches 0, return `Some(i)` (collision at even position i).
 ///
-/// A trial therefore ends within 16 inserts.  The search path, with steps
-/// 8, 4, 2, 1 from `START_VAL`, reaches only the 15 slots 1, 3, …, 29; every insert
-/// that does not collide fills one of them with a non-NaN sample, so by the
-/// 16th insert the whole path is occupied and it collides.  The C needed an
-/// `i > size * 2` bail-out because its 0.0 sentinel lets a stream of 0.0
-/// samples refill the root forever; with the NaN sentinel that cannot happen,
-/// so this port has no bail-out.
+/// The search path reaches only the 15 slots 1, 3, …, 29; every insert that
+/// does not collide fills one of them, so a trial ends within 16 inserts.
 fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
     let mut i = START_VAL;
     let mut d = START_VAL.div_ceil(2); // = 8
@@ -247,12 +243,14 @@ fn tree_insert(x: f64, array: &mut [f64; SIZE]) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{fill_tree_both, tree_insert, N_TRIALS, SIZE, START_VAL, TARGET_DATA};
+    use super::{
+        fill_count_chi_square, fill_count_distribution, fill_tree_both, tree_insert, GAPS,
+        MAX_FILL, N_TRIALS, SIZE, START_VAL,
+    };
     use crate::rng::{Mt19937, Rng};
 
     /// Inserting 1/16 … 15/16 in level order fills slots 1, 3, …, 29, the
     /// only ones the search path reaches; the next insert must collide.
-    /// Slots and collision positions replicated in Python.
     #[test]
     fn fifteen_inserts_fill_every_reachable_slot() {
         let mut array = [f64::NAN; SIZE];
@@ -269,8 +267,7 @@ mod tests {
         assert_eq!(tree_insert(0.99, &mut array), Some(30));
     }
 
-    /// No trial needs more than 16 words, which is why the removed
-    /// `word_count > 2·SIZE` bail-out could never fire.
+    /// No trial needs more than 16 words.
     #[test]
     fn every_trial_collides_within_sixteen_words() {
         let mut rng = Mt19937::new(5489);
@@ -286,9 +283,8 @@ mod tests {
         assert!(longest <= 16, "longest trial took {longest} words");
     }
 
-    /// An all-zero stream is the case the C's bail-out existed for.  Here
-    /// every trial collides on its fifth word at position 0 (replicated in
-    /// Python), so both statistics are scored and fail.
+    /// On an all-zero stream every trial collides on its fifth word at
+    /// position 0, so both statistics are scored and fail.
     #[test]
     fn all_zero_stream_is_scored_and_fails() {
         let words = vec![0u32; N_TRIALS * 8];
@@ -298,9 +294,7 @@ mod tests {
         }
     }
 
-    /// Regression (Grok issue 1): a sample of exactly 0.0 must occupy its node,
-    /// not read back as "empty".  With the old 0.0 sentinel a later insert
-    /// routing through the same node would silently overwrite the stored 0.0.
+    /// A sample of exactly 0.0 occupies its slot and is not overwritten.
     #[test]
     fn zero_sample_occupies_its_slot() {
         let mut array = [f64::NAN; SIZE];
@@ -312,12 +306,48 @@ mod tests {
         assert_eq!(array[START_VAL], 0.0, "0.0 slot must remain occupied");
     }
 
-    /// TARGET_DATA is printed to eight decimals, so its 20 entries sum to 1 only
-    /// within 20 × 5 × 10⁻⁹ (the table's actual total is 1.00000001).
+    /// The exact fill-count law: rational values at both ends, total 1, and
+    /// support 4 … 15.
     #[test]
-    fn target_data_sums_to_one() {
-        let sum: f64 = TARGET_DATA.iter().sum();
-        assert!((sum - 1.0).abs() <= 20.0 * 5e-9, "sum = {sum}");
+    fn fill_count_distribution_is_exact() {
+        let law = fill_count_distribution();
+        assert!(law[..4].iter().all(|&p| p == 0.0));
+        for (t, want) in [
+            (4, 2.0 / 15.0),
+            (5, 1.0 / 5.0),
+            (6, 13.0 / 63.0),
+            (7, 5.0 / 28.0),
+            (8, 295.0 / 2268.0),
+            (11, 1.0 / 54.0),
+            (15, 1.0 / 59535.0),
+        ] {
+            assert!((law[t] - want).abs() < 1e-15, "P({t}) = {}", law[t]);
+        }
+        assert!((law.iter().sum::<f64>() - 1.0).abs() < 1e-14);
+    }
+
+    /// Every gap has probability 1/16, so the position test's uniform law is
+    /// exact.
+    #[test]
+    fn collision_position_is_uniform() {
+        let joint = super::collision_distribution(4);
+        assert_eq!(joint.len(), MAX_FILL + 1);
+        for g in 0..GAPS {
+            let p: f64 = joint.iter().map(|row| row[g]).sum();
+            assert!((p - 1.0 / 16.0).abs() < 1e-15, "gap {g}: {p}");
+        }
+    }
+
+    /// Counts rounded from their expectations give χ² near 0; the top two fill counts are
+    /// pooled (1.68 expected at t = 15), leaving 11 cells.
+    #[test]
+    fn fill_count_cells_cover_every_trial() {
+        let law = fill_count_distribution();
+        let counts: [u32; MAX_FILL + 1] =
+            std::array::from_fn(|t| (law[t] * N_TRIALS as f64).round() as u32);
+        let (chi, df, cells) = fill_count_chi_square(&counts);
+        assert_eq!((cells, df), (11, 10));
+        assert!(chi < 0.1, "χ² = {chi}");
     }
 
     #[test]

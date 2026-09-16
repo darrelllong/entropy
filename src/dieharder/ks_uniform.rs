@@ -1,24 +1,20 @@
-//! DIEHARDER test 204 — rgb_kstest_test.
+//! DIEHARDER Kolmogorov–Smirnov uniformity test.
 //!
-//! Applies the Kolmogorov-Smirnov test directly to the floating-point output
-//! of the generator, testing that values are uniformly distributed on [0, 1).
-//! This implements the core `rgb_kstest_test.c` statistic: one KS test on one
-//! vector of uniform deviates.
+//! Scales every word to [0, 1) and applies one Kolmogorov–Smirnov test of
+//! uniformity to the whole sample.
 //!
 //! # Author
-//! Robert G. Brown, *Dieharder* (2006), test `rgb_kstest_test`.
+//! Robert G. Brown, *Dieharder: A Random Number Test Suite* (2004–2011).
 
 use crate::{math::ks_test, result::TestResult};
 
-/// Dieharder default is `tsamples = 1000`, but the core statistic is a single
-/// KS test on one vector of uniform deviates. We use the full available word
-/// stream here to keep the algorithm exact while avoiding a fake nested KS.
+/// Fewest words the test accepts; it uses every word it is given.
 const MIN_SAMPLES: usize = 1_000;
 
 /// Apply the Kolmogorov-Smirnov test for uniformity to the generator's float output.
 ///
 /// # Author
-/// Robert G. Brown, Dieharder (2006), `rgb_kstest_test`.
+/// Robert G. Brown, Dieharder (2006).
 pub fn ks_uniform(words: &[u32]) -> TestResult {
     if words.len() < MIN_SAMPLES {
         return TestResult::insufficient("dieharder::ks_uniform", "not enough words");

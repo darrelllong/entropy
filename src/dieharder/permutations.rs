@@ -1,27 +1,28 @@
-//! DIEHARDER test 202 — rgb_permutations.
+//! DIEHARDER permutations test.
 //!
-//! A parameterisable ordering test: tests whether all t! orderings of t
-//! consecutive values appear with equal frequency.  This is the cleaner,
-//! adjustable version of DIEHARD's OPERM5 (which is fixed at t = 5).
+//! Draws non-overlapping windows of t uniforms and counts which of the t!
+//! orderings each window is in.  The windows are independent and every
+//! ordering has probability 1/t!, so a Pearson χ² on the counts, df t! − 1,
+//! is the statistic.  Unlike DIEHARD's OPERM5, which uses overlapping
+//! windows, no covariance correction is needed.
 //!
 //! # Author
-//! Robert G. Brown, *Dieharder* (2006), test `rgb_permutations`.
+//! Robert G. Brown, *Dieharder: A Random Number Test Suite* (2004–2011).
 
 use crate::{math::igamc, result::TestResult, rng::Rng};
 
 /// Run the permutations test for windows of `t` consecutive floats.
 ///
 /// # Author
-/// Robert G. Brown, Dieharder (2006), `rgb_permutations`.
+/// Robert G. Brown, Dieharder (2006).
 pub fn permutations(rng: &mut impl Rng, t: usize) -> TestResult {
     if !(2..=8).contains(&t) {
         return TestResult::insufficient("dieharder::permutations", "t must be 2..=8");
     }
 
     let n_perms = factorial(t);
-    // Use non-overlapping k-tuples: tsamples independent draws of k values.
-    // rgb_permutations.c: for t in 0..tsamples { fill testv[0..k] with k rands; sort; count }
-    let n_samples = 100_000.max(n_perms * 30); // tsamples >> 30·k!
+    // Non-overlapping windows: at least 30 expected per ordering.
+    let n_samples = 100_000.max(n_perms * 30);
 
     let mut counts = vec![0u32; n_perms];
     let mut testv = vec![0.0f64; t];

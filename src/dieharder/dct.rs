@@ -1,36 +1,23 @@
-//! DIEHARDER test 206 — dab_dct.
+//! DIEHARDER discrete cosine transform test.
 //!
-//! Performs a Type-II Discrete Cosine Transform on blocks of raw 32-bit words
-//! from the RNG.  For each block, the position of the maximum absolute DCT value
-//! is recorded; a chi-square test checks that this position is uniformly
-//! distributed over all block positions (primary method: tsamples > 5 × ntuple).
-//!
-//! Algorithm from `dieharder-3.31.1/libdieharder/dab_dct.c`:
-//!   1. Rotate raw u32 words (rotAmount increases by rmax_bits/4 each quarter).
-//!   2. DCT-II: `X[k] = Σ x[j] cos(π(j+½)k/N)`  (direct O(n²), n=256).
-//!   3. Adjust DC component: `X[0] -= N·(2³¹−½); X[0] /= √2`.
-//!   4. Record `argmax |X[k]|`.
-//!
-//!   Chi-square on position counts; expected = tsamples/ntuple per position.
+//! Each block of N = 256 words, read as numbers, gets the unnormalised DCT-II
+//! X\[k\] = Σⱼ x\[j\]·cos(π(j + ½)k/N).  The DC coefficient is centred by its mean,
+//! N·(2³¹ − ½), and divided by √2 so that all coefficients have the same
+//! variance; the position of the largest |X\[k\]| should then be uniform over
+//! 0 … N − 1.  5 000 blocks give a Pearson χ² on the position counts, df 255.
+//! The words are rotated left by 0, 8, 16 and 24 bits in the four quarters of
+//! the blocks, so that each byte takes a turn in the most significant place.
 //!
 //! # Author
-//! David Bauer, *Dieharder* (2006), test `dab_dct`.
-//! Source: `dieharder-3.31.1/libdieharder/dab_dct.c`
+//! David Bauer, in Robert G. Brown's *Dieharder: A Random Number Test Suite*
+//! (2006).
 
 use crate::{math::igamc, result::TestResult};
 use std::f64::consts::PI;
 
 /// Block length (ntuple), must be a power of 2.
 const NTUPLE: usize = 256;
-/// Number of blocks (tsamples).  Must be > 5 × NTUPLE for the primary method.
-///
-/// Below Dieharder's default (`dab_dct.h`): tsamples = 50 000 with
-/// psamples = 1, ten times more.  The expected count per position falls from
-/// 195.3 to 19.5, and since chi-square noncentrality grows linearly with the
-/// block count, a non-uniformity in the argmax position must be about
-/// √10 ≈ 3.2 times larger here to be detected with the same power.  5 000
-/// stays above the 5 × 256 = 1 280 blocks at or below which Dieharder falls
-/// back to its less sensitive KS variant.
+/// Number of blocks: 19.5 expected per position.
 const TSAMPLES: usize = 5_000;
 /// Bit width of each generator word (rmax_bits = 32 for u32 output).
 const RMAX_BITS: u32 = 32;
@@ -38,7 +25,7 @@ const RMAX_BITS: u32 = 32;
 /// Run the DCT spectral test.
 ///
 /// # Author
-/// David Bauer, Dieharder (2006), `dab_dct`.
+/// David Bauer, Dieharder (2006).
 pub fn dct(words: &[u32]) -> TestResult {
     let needed = TSAMPLES * NTUPLE;
     if words.len() < needed {
@@ -63,8 +50,7 @@ pub fn dct(words: &[u32]) -> TestResult {
         .collect();
 
     for j in 0..TSAMPLES {
-        // rotAmount increases by rmax_bits/4 every TSAMPLES/4 blocks,
-        // matching `if j != 0 && j % (tsamples/4) == 0 { rotAmount += rmax_bits/4; }`.
+        // The rotation grows by a quarter word every quarter of the blocks.
         let rot_amount = ((j / (TSAMPLES / 4)) as u32 * (RMAX_BITS / 4)) % RMAX_BITS;
 
         let block = &words[j * NTUPLE..(j + 1) * NTUPLE];
@@ -109,7 +95,7 @@ pub fn dct(words: &[u32]) -> TestResult {
 ///
 /// X[k] = Σ_{j=0}^{N-1} x[j] · cos(π(j+½)k/N)
 ///
-/// where x[j] is the rotated word cast to f64.  Matches `fDCT2` in dab_dct.c.
+/// where x[j] is the rotated word cast to f64.
 ///
 /// `cos_table` must be a flat array of N×N cosine values where entry
 /// `cos_table[k * N + j]` = cos(π(j+½)k/N), precomputed by the caller.

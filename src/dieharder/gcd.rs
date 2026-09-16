@@ -1,64 +1,93 @@
-//! DIEHARDER test 17 — marsaglia_tsang_gcd.
+//! DIEHARDER GCD test.
 //!
-//! Tests two signals from applying the Euclidean algorithm to pairs of random
-//! 32-bit integers:
+//! Applies Euclid's algorithm to pairs of 32-bit words, discarding pairs
+//! with a zero, and scores two statistics:
 //!
-//! 1. **GCD distribution**: P(gcd = k) = 6/(π²k²).  Tested with chi-square.
-//! 2. **Step-count distribution**: the number of Euclidean steps follows a
-//!    per-step distribution tabulated via `kprob[]` in the C source (41 bins,
-//!    k=0..40; values ≥41 lumped into bin 40).  Tested with chi-square.
+//! 1. The GCD: P(gcd = k) → 6/(π²k²) for large words.  The counts of
+//!    k = 2 … K − 2, with larger GCDs in the last cell, are scored with a
+//!    Pearson χ², K growing as √(pairs).
+//! 2. The step count k of `while v ≠ 0 { (u, v) = (v, u mod v) }`, scored with
+//!    a Pearson χ² against [`STEP_PROBABILITIES`].
 //!
-//! The kprob[] table is the authentic empirical table from the published
-//! Dieharder source (`marsaglia_tsang_gcd.c`), built from ~10^11 samples with
-//! four independent high-quality RNGs (mt19937_1999, ranlxd2, gfsr4, taus2).
-//! Bins with expected count < 5 are excluded from the chi-square (matching
-//! Vtest_eval cutoff = 5.0 in the C source).
+//! Cells expecting fewer than 5 pairs are left out of each χ², with the
+//! degrees of freedom reduced to match.
+//!
+//! # The step-count law
+//!
+//! No closed form is known for 32-bit words.  [`STEP_PROBABILITIES`] is an
+//! estimate from `examples/gcd_step_table.rs`: 5·10¹¹ pairs from PCG64 and
+//! 5·10¹¹ from xoshiro256**, two unrelated generator designs whose counts
+//! agree within sampling error (χ² = 42.0 on 37 degrees of freedom).  At that size the standard error of every
+//! probability used at the test's 100 000 pairs is a negligible fraction of
+//! the test's own sampling noise.
 //!
 //! # Author
 //! George Marsaglia and Wai Wan Tsang, "Some Difficult-to-pass Tests of
-//! Randomness", *Journal of Statistical Software* 7(3), 2002.
-//! <https://doi.org/10.18637/jss.v007.i03>
-//! Source: `dieharder-3.31.1/libdieharder/marsaglia_tsang_gcd.c`
+//! Randomness", *Journal of Statistical Software* 7(3), 2002,
+//! <https://doi.org/10.18637/jss.v007.i03>.
 
 use crate::{math::igamc, result::TestResult, rng::Rng};
 use std::f64::consts::PI;
 
-/// Pairs drawn in the single run.
-///
-/// Below Dieharder's defaults (`marsaglia_tsang_gcd.h`): tsamples = 10⁷ pairs
-/// per run and psamples = 100 runs, whose p-values Dieharder then KS-tests.
-/// A chi-square's noncentrality grows linearly with the number of pairs, so a
-/// cell-frequency deviation must be about √100 = 10 times larger here than in
-/// one 10⁷-pair run to be detected with the same power, and there is no
-/// second-level KS over 100 runs.  The GCD table shrinks with the sample too:
-/// gtblsize = 24 cells here against 246 at 10⁷.
+/// Pairs drawn.
 const N_PAIRS: usize = 100_000;
 
 /// Size of the step-count table (k = 0..KTBLSIZE-1; k ≥ KTBLSIZE-1 lumped).
 const KTBLSIZE: usize = 41;
 
-/// Authentic kprob[] table from `marsaglia_tsang_gcd.c`.
-/// Built from ~10^11 samples with mt19937_1999, ranlxd2, gfsr4, and taus2.
-/// Index k = number of Euclidean steps; k ≥ 40 lumped into bin 40.
-///
-/// Source: `dieharder-3.31.1/libdieharder/marsaglia_tsang_gcd.c`, `kprob[KTBLSIZE]`.
+/// P(k steps) for independent uniform nonzero 32-bit words, k = 0 … 40,
+/// with k ≥ 40 in the last entry (see the module documentation).
 #[rustfmt::skip]
-const KPROB: [f64; KTBLSIZE] = [
-    0.0,          5.39e-09,     6.077e-08,    4.8421e-07,   2.94869e-06,  1.443266e-05,
-    5.908569e-05, 2.0658047e-04, 6.2764766e-04, 1.67993762e-03, 3.99620143e-03, 8.51629626e-03,
-    1.635214339e-02, 2.843154488e-02, 4.493723812e-02, 6.476525706e-02, 8.533638862e-02, 1.030000214e-01,
-    1.1407058851e-01, 1.1604146948e-01, 1.0853040184e-01, 9.336837411e-02, 7.389607162e-02, 5.380182248e-02,
-    3.601960159e-02, 2.215902902e-02, 1.251328472e-02, 6.47884418e-03, 3.06981507e-03, 1.32828179e-03,
-    5.2381841e-04, 1.8764452e-04, 6.084138e-05, 1.779885e-05, 4.66795e-06, 1.09504e-06,
-    2.2668e-07,   4.104e-08,    6.42e-09,     8.4e-10,      1.4e-10,
+pub const STEP_PROBABILITIES: [f64; KTBLSIZE] = [
+    0.0,
+    5.286000002532e-09,
+    6.056700002901e-08,
+    4.844950002321e-07,
+    2.946393001411e-06,
+    1.445050000692e-05,
+    5.906462702829e-05,
+    2.065249450989e-04,
+    6.276912573007e-04,
+    1.679825103805e-03,
+    3.996315067914e-03,
+    8.515906561079e-03,
+    1.635256293283e-02,
+    2.843217635762e-02,
+    4.493705163252e-02,
+    6.476610257202e-02,
+    8.533581001588e-02,
+    1.030018326953e-01,
+    1.140692901406e-01,
+    1.160421623676e-01,
+    1.085313084480e-01,
+    9.336725869072e-02,
+    7.389565731240e-02,
+    5.380160704577e-02,
+    3.601897808125e-02,
+    2.215832767161e-02,
+    1.251355227499e-02,
+    6.478457274103e-03,
+    3.069824236470e-03,
+    1.328563627636e-03,
+    5.238620362509e-04,
+    1.876686260899e-04,
+    6.085164002915e-05,
+    1.779029600852e-05,
+    4.665563002235e-06,
+    1.089485000522e-06,
+    2.259970001083e-07,
+    4.074600001952e-08,
+    6.459000003094e-09,
+    8.510000004076e-10,
+    1.200000000575e-10,
 ];
 
 /// Run both GCD tests (distribution and step counts); returns two `TestResult`s.
 pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
     let gnorm = 6.0 / (PI * PI);
 
-    // Dynamic GCD table size: gtblsize = sqrt(N_PAIRS * gnorm / 100).
-    // Matches C: `gtblsize = sqrt((double)tsamples * gnorm / 100.0)`.
+    // GCD cells: √(pairs · 6/π² / 100), so the last scored single GCD still
+    // expects about 100 pairs.
     let gtblsize = ((N_PAIRS as f64 * gnorm / 100.0).sqrt() as usize).max(3);
     let mut gcd_counts = vec![0u32; gtblsize];
 
@@ -87,17 +116,15 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
 
     let n = actual_pairs as f64;
 
-    // --- GCD chi-square ---
-    // C: bins 0 and 1 are explicitly zeroed (set to 0.0/0.0) and excluded.
-    // Expected for bin i (i ≥ 2): n * gnorm / i².
-    // Tail bin (gtblsize-1): sum of n * gnorm / j² for j = gtblsize-1..100000.
+    // GCD χ²: cells 0 and 1 are not scored (gcd 1 is the complement of the
+    // rest); cell i ≥ 2 expects n·6/(π²i²), and the last cell sums that over
+    // i ≥ gtblsize − 1.
     let gcd_expected: Vec<f64> = (0..gtblsize)
         .map(|i| {
             if i < 2 {
                 0.0
             } else if i == gtblsize - 1 {
-                // Tail: accumulate 6/(π²j²) for j from gtblsize-1 up to (but
-                // excluding) 100000, matching the C's `for (j = i; j < 100000)`.
+                // Tail: Σ 6/(π²j²) for j ≥ gtblsize − 1, to j = 100 000.
                 (i..100_000)
                     .map(|j| n * gnorm / (j as f64 * j as f64))
                     .sum()
@@ -107,11 +134,6 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
         })
         .collect();
 
-    // NOTE: dropping sub-cutoff cells (rather than pooling them Vtest-style)
-    // is exactly equivalent to the C at N_PAIRS = 100_000 (the bundled tail
-    // stays below the cutoff there too); if N_PAIRS is ever raised, the C
-    // pools weak k-bins into a contributing tail cell and this filter would
-    // need the same treatment.
     let gcd_chi_sq: f64 = gcd_counts
         .iter()
         .zip(gcd_expected.iter())
@@ -126,11 +148,11 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
         .saturating_sub(1);
     let p_gcd = starved_or_pvalue(gcd_df, gcd_chi_sq);
 
-    // --- Step-count chi-square ---
-    // Uses KPROB[] table from published C source; bins with expected < 5.0 excluded.
+    // Step-count χ² against the simulated law; cells expecting fewer than 5
+    // pairs are left out.
     let step_chi_sq: f64 = step_counts
         .iter()
-        .zip(KPROB.iter())
+        .zip(STEP_PROBABILITIES.iter())
         .filter(|(_, &p)| p * n >= 5.0)
         .map(|(&obs, &p)| {
             let exp = p * n;
@@ -139,7 +161,7 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
         .sum();
     let step_df = step_counts
         .iter()
-        .zip(KPROB.iter())
+        .zip(STEP_PROBABILITIES.iter())
         .filter(|(_, &p)| p * n >= 5.0)
         .count()
         .saturating_sub(1);
@@ -179,8 +201,7 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
 /// pair that way with probability about 2/2³², and at `N_PAIRS` both tables
 /// keep many scored cells, so a chi-square with no degree of freedom means
 /// most words were zero: catastrophic evidence, reported as p = 0 rather than
-/// as missing data.  (Dieharder's C redraws zero words instead, so on an
-/// all-zero stream it never terminates.)
+/// as missing data.
 fn starved_or_pvalue(df: usize, chi_sq: f64) -> f64 {
     if df == 0 {
         0.0
@@ -189,14 +210,14 @@ fn starved_or_pvalue(df: usize, chi_sq: f64) -> f64 {
     }
 }
 
-/// Run only the GCD distribution chi-square (backward-compatible single result).
+/// The GCD distribution χ² alone.
 pub fn gcd(rng: &mut impl Rng) -> TestResult {
     gcd_both(rng).remove(0)
 }
 
 /// Compute gcd(a, b) using the Euclidean algorithm; also return the step count.
 ///
-/// Matches the C loop: `do { w = u%v; u = v; v = w; k++; } while(v>0)`.
+/// Counts the steps of `while b ≠ 0 { (a, b) = (b, a mod b) }`.
 fn euclid_gcd_with_steps(mut a: u32, mut b: u32) -> (u32, usize) {
     let mut steps = 0usize;
     while b != 0 {
@@ -210,12 +231,12 @@ fn euclid_gcd_with_steps(mut a: u32, mut b: u32) -> (u32, usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::{gcd_both, KPROB};
+    use super::{gcd_both, STEP_PROBABILITIES};
     use crate::rng::ConstantRng;
 
     /// Every pair of an all-zero stream contains a zero word and is discarded,
     /// so neither chi-square keeps a degree of freedom.  That is a FAIL
-    /// (p = 0), not missing data; it used to be reported as SKIP.
+    /// (p = 0), not missing data.
     #[test]
     fn all_zero_stream_fails() {
         for r in gcd_both(&mut ConstantRng::new(0)) {
@@ -226,13 +247,13 @@ mod tests {
         }
     }
 
-    /// KPROB entries carry at most eleven decimal places, so the 41 of them
-    /// sum to 1 only within 41 × 5 × 10⁻¹²; k = 0 steps is impossible.
+    /// The table is a distribution, and k = 0 steps is impossible for
+    /// nonzero words.
     #[test]
-    fn kprob_sums_to_one() {
-        let sum: f64 = KPROB.iter().sum();
-        assert!((sum - 1.0).abs() <= 41.0 * 5e-12, "sum = {sum}");
-        assert_eq!(KPROB[0], 0.0);
+    fn step_probabilities_sum_to_one() {
+        let sum: f64 = STEP_PROBABILITIES.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-12, "sum = {sum}");
+        assert_eq!(STEP_PROBABILITIES[0], 0.0);
     }
 
     /// u = v = 1 in every pair: gcd 1 after one step, both in cells neither

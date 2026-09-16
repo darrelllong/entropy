@@ -1,26 +1,25 @@
-//! DIEHARDER test 200 — rgb_bitdist.
+//! DIEHARDER bit distribution test.
 //!
-//! Faithful core port of Brown's `rgb_bitdist.c`:
-//! - consume a continuous MSB-first bitstream from 32-bit words
-//! - partition the stream into `tsamples` blocks of `bsamples = 64` consecutive
-//!   `n`-bit values
-//! - for each pattern value, build the histogram of how often that pattern
-//!   occurs 0..64 times inside a block
-//! - compare that histogram to the exact binomial expectation with the same
-//!   Vtest tail-bundling rule used by Dieharder
+//! The words are read as one stream of bits, most significant bit first, and
+//! cut into n-bit values, which are grouped into blocks of 64.  For each of
+//! the 2ⁿ possible values v, the number of times v occurs in a block is
+//! Binomial(64, 2⁻ⁿ); over all blocks the histogram of that number is scored
+//! with a Pearson χ² against its binomial expectation, the cells expecting
+//! fewer than 20 counts pooled (see [`crate::math::chi_square_pooled`]).  Every
+//! width from 1 to the requested maximum and every value of each width gives
+//! its own result, so a failure is reported with its width and pattern.  The
+//! results share their input and are not independent.
 //!
-//! Brown's original runner stores one randomly chosen pattern p-value per
-//! width because the dieharder harness only has a single p-value slot per run.
-//! This Rust crate instead emits every per-pattern p-value explicitly, which is
-//! more transparent and avoids hiding failures behind a random pick.
+//! # Author
+//! Robert G. Brown, *Dieharder: A Random Number Test Suite* (2004–2011).
 
 use crate::{
-    math::{binomial_pmf, vtest_pvalue},
+    math::{binomial_pmf, chi_square_pooled},
     result::TestResult,
 };
 
 const BSAMPLES: usize = 64;
-const VTEST_CUTOFF: f64 = 20.0;
+const MIN_EXPECTED: f64 = 20.0;
 
 fn next_n_bits_msb(words: &[u32], bit_cursor: &mut usize, nbits: usize) -> Option<u32> {
     let total_bits = words.len() * 32;
@@ -56,7 +55,7 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
         .collect();
 
     // Histograms store exact integer counts; conversion to f64 happens only
-    // inside vtest_pvalue at the chi-square computation stage.
+    // inside chi_square_pooled at the chi-square computation stage.
     let mut histograms = vec![vec![0u32; BSAMPLES + 1]; value_max];
     let mut count = vec![0usize; value_max];
     let mut cursor = 0usize;
@@ -74,7 +73,7 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
 
     let mut results = Vec::with_capacity(value_max);
     for (pattern, histogram) in histograms.iter().enumerate().take(value_max) {
-        if let Some((p, df, chi_sq)) = vtest_pvalue(histogram, &expected_hist, VTEST_CUTOFF) {
+        if let Some((p, df, chi_sq)) = chi_square_pooled(histogram, &expected_hist, MIN_EXPECTED) {
             results.push(TestResult::with_note(
                 "dieharder::bit_distribution",
                 p,
@@ -85,7 +84,7 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
     Some(results)
 }
 
-/// Convenience collapse retained for ad hoc callers.
+/// The whole family as one result.
 ///
 /// Reports the worst per-pattern p-value with a Bonferroni correction for the
 /// number of patterns examined (up to Σ 2ⁿ ≈ 510 at `max_bits = 8`).  A bare
@@ -115,7 +114,7 @@ pub fn bit_distribution(words: &[u32], max_bits: usize) -> TestResult {
     )
 }
 
-/// Emit the full per-width, per-pattern `rgb_bitdist` family.
+/// Every per-width, per-pattern result, widths 1 to `max_bits` (at most 20).
 pub fn bit_distribution_all(words: &[u32], max_bits: usize) -> Vec<TestResult> {
     let mut results = Vec::new();
     for n in 1..=max_bits.min(20) {

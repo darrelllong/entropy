@@ -1,36 +1,23 @@
-//! DIEHARDER test 203 — rgb_lagged_sums.
+//! DIEHARDER lagged sums test.
 //!
-//! Sums samples drawn with a configurable lag between each. If the generator
-//! has autocorrelation at distance `lag`, the sum will deviate from the
-//! normal distribution expected for independent samples.
-//!
-//! # Deviation from Dieharder
-//! Dieharder's `rgb_lagged_sums` accumulates many single-sum p-values and runs
-//! an outer KS over them.  This port reports the **single-run core normal
-//! deviate** (`erfc(|z|/√2)`) instead, so its power and null distribution
-//! differ from `dieharder -d rgb_lagged_sums`: at 16 M words one sum is very
-//! sharp, so a badly autocorrelated generator still fails hard, but a mild
-//! autocorrelation may not track Dieharder's outcome one-to-one.  Compare
-//! qualitatively, not slot-for-slot.
+//! Scales words to [0, 1) and sums every (lag + 1)-th one, skipping `lag`
+//! words between samples.  For t independent uniforms the sum has mean t/2
+//! and variance t/12, so z = (sum − t/2)/√(t/12) is approximately standard
+//! normal, and the p-value is two-sided, erfc(|z|/√2).  A generator with
+//! correlation at that lag moves the sum.
 //!
 //! # Author
-//! Robert G. Brown, *Dieharder* (2006), test `rgb_lagged_sums`.
+//! Robert G. Brown, *Dieharder: A Random Number Test Suite* (2004–2011).
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
 
 /// Run the lagged sums test with the given lag.
 ///
-/// This implements the core `rgb_lagged_sums.c` statistic: one sum of samples
-/// spaced `lag` apart, converted to a normal deviate. Dieharder then performs
-/// an outer KS over many such p-values, but this crate reports the single-run
-/// core statistic directly.
-///
 /// # Author
-/// Robert G. Brown, Dieharder (2006), `rgb_lagged_sums`.
+/// Robert G. Brown, Dieharder (2006).
 pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
-    // lag = 0 is valid in dieharder ("don't throw any away"): every sample is
-    // summed.  stride = lag + 1 handles it naturally; do not coerce.
+    // lag = 0 sums every word.
     let stride = lag + 1;
     let tsamples = words.len() / stride;
 

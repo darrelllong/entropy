@@ -1,228 +1,197 @@
-//! DIEHARDER test 209 — dab_monobit2.
+//! DIEHARDER monobit2 test: bit counts over blocks of increasing length.
 //!
-//! Port of `dab_monobit2.c`. The reference test tries multiple block sizes,
-//! computes a binomial chi-square p-value for each, then keeps only the most
-//! extreme p-value with a Šidák multiple-test correction (cf. `evalMostExtreme()`
-//! in `dab_dct.c`).
+//! Level j splits the words into complete, non-overlapping blocks of 2^(j+1)
+//! words.  The number of one bits in a block of b = 32·2^(j+1) bits is
+//! Binomial(b, ½) under the null, so the histogram of block counts is scored
+//! with a Pearson χ² against its binomial expectation, the tail cells pooled
+//! until each expects at least 50 blocks.  The pooling matters in the far
+//! upper tail, which the combination below reaches: over 40 000 null trials of
+//! 100 000 words, pooling only to 5 put 1.6 times the nominal rate of level
+//! p-values below 10⁻³, and 20 put 1.2 times.  Level j is used only while its most
+//! likely cell expects at least 20 blocks, at most 16 levels.
 //!
-//! Deliberate deviation from the C: `evalMostExtreme` maps low-side extremes to
-//! p ≈ 1, which dieharder's harness flags as failure but this crate's one-sided
-//! `p ≥ α` pass rule would report as PASS. Here each per-block p-value is folded
-//! two-sided (`2·min(p, 1−p)`) *before* the Šidák correction, so both failure
-//! directions map to small p while H₀ uniformity is preserved.
+//! Each level's p-value p is folded two-sided, 2·min(p, 1 − p), so that a fit
+//! too good to be true fails as well as a bad one.  The levels read the same
+//! words and are dependent, so they are combined by Bonferroni's bound: the
+//! result is min(1, L·min fold) over the L levels, valid whatever their
+//! dependence.  The bound makes the result conservative and its null
+//! distribution not uniform: the rate below 0.01 was 0.97% over 40 000 null
+//! trials of 100 000 words, 1.00% over 10 000 of 1 000 000 words and 0.67%
+//! over 300 of 16 000 000 words.
 //!
 //! # Author
-//! David Bauer, *Dieharder* (2006), test `dab_monobit2`.
+//! David Bauer, in Robert G. Brown's *Dieharder: A Random Number Test Suite*
+//! (2006).
 
 use crate::{
-    math::{binomial_pmf, igamc, lgamma},
+    math::{binomial_pmf, chi_square_pooled_tails, igamc, lgamma},
     result::TestResult,
 };
 
-const BLOCK_MAX: usize = 16;
-const RMAX_BITS: usize = 32;
-const GOFS_MIN_OBSERVED: f64 = 10.0;
-const LN_HALF: f64 = -std::f64::consts::LN_2;
+/// Most levels considered: blocks of 2 to 2¹⁶ words.
+const MAX_LEVELS: usize = 16;
+/// Bits in a word.
+const WORD_BITS: usize = 32;
+/// Smallest expected count of the most likely cell for a level to be used.
+const MIN_CENTRE_EXPECTED: f64 = 20.0;
+/// Smallest expected count of a cell after pooling.
+const MIN_CELL_EXPECTED: f64 = 50.0;
 
-/// Run the enhanced monobit test.
-///
-/// Level j counts the one-bits in successive blocks of 2^(j+1) words and
-/// compares the histogram of those counts, cells 0 to 32·2^(j+1), with the
-/// binomial.  Two details of `dab_monobit2.c`'s counting loop are kept as
-/// they are:
-///
-/// - **Shared cells.**  The C keeps every level's histogram in one buffer,
-///   level j starting at offset 32·(2^(j+1) − 1).  Level j needs
-///   32·2^(j+1) + 1 cells, so its last cell, a block of all ones, is also
-///   level j+1's first, a block of all zeros, and each level reads counts
-///   the other put there.  A block holds at least 64 bits, so under H₀
-///   either event has probability at most 2⁻⁶⁴ per block, and
-///   `chisq_binomial` scores only cells holding more than 10 counts.
-/// - **Block phase.**  The start-of-block test `(t & i) && !(t & (i-1))`
-///   closes level j's blocks at word indices i ≡ 2^j (mod 2^(j+1)).  For
-///   j ≥ 1 the first block therefore holds 2^j + 1 words and every later one
-///   is whole.  The histogram holds ⌊tsamples/2^(j+1)⌋ blocks, one more when
-///   tsamples mod 2^(j+1) exceeds 2^j, and the expected counts assume
-///   ⌊tsamples/2^(j+1)⌋ whole ones.
-///
-/// Neither detail moves the null distribution measurably.  A null simulation
-/// with MT19937 (20 000 trials each at 2 000 and 10 000 words, 5 000 at
-/// 100 000, 1 000 at 1 000 000 and 300 at 16 000 000) never put a count in a
-/// shared cell, and separate histograms gave bit-identical p-values in every
-/// trial.
-///
-/// The shared cells can turn a pass into a fail on a stream that fills them,
-/// a sensitivity outside the null rather than a false alarm under it.
-/// MT19937 output of 100 000 words with six all-ones level-0 blocks and six
-/// all-zeros level-1 blocks written into it scores p = 0 at seeds 1, 2, 3 and
-/// 5489, against 0.345, 0.435, 0.140 and 0.848 with separate histograms: six
-/// counts in each of two cells stay under the 10-count threshold, but twelve
-/// in one shared cell do not.
-///
-/// **Calibration defect, inherited from Dieharder.**  `chisq_binomial`
-/// (`chisq.c` line 166) scores a cell only when its observed count exceeds
-/// 10, so the cells that enter each level's chi-square depend on the data
-/// and its p-value is not uniform under H₀.  Level 0 alone, before the Šidák
-/// step, fell below 0.01 in 1.44% of 20 000 null trials at 2 000 words.  The
-/// reported p-value fell below 0.01 in 1.30% of 20 000 trials at 2 000 words,
-/// 1.27% of 20 000 at 10 000, 1.50% of 5 000 at 100 000 and 1.50% of 1 000
-/// at 1 000 000.  The statistic is kept for fidelity to the C, as the
-/// fill-tree off-by-one is.
+/// Run the monobit2 test.
 ///
 /// # Author
-/// David Bauer, Dieharder (2006), `dab_monobit2`.
+/// David Bauer, Dieharder (2006).
 pub fn monobit2(words: &[u32]) -> TestResult {
-    if words.len() < 2 {
-        return TestResult::insufficient("dieharder::monobit2", "not enough words");
-    }
-
-    let ntup = auto_ntuple(words.len());
-    if ntup == 0 {
+    let levels = level_count(words.len());
+    if levels == 0 {
         return TestResult::insufficient(
             "dieharder::monobit2",
-            "not enough samples for any block size",
+            "not enough words for any block length",
         );
     }
 
-    // One flat buffer, as in the C: level j starts at blens * ((2 << j) - 1),
-    // so adjacent levels share a cell (see the function doc).
-    let mut counts = vec![0.0f64; RMAX_BITS * (2 << ntup)];
-    let mut temp_count = vec![0u32; ntup];
-
-    for (i, &word) in words.iter().enumerate() {
-        let ones = word.count_ones();
-        let mut t = 1usize;
-        for j in 0..ntup {
-            temp_count[j] += ones;
-            if (t & i) != 0 && (t & (i.saturating_sub(1))) == 0 {
-                let offset = RMAX_BITS * ((2 << j) - 1);
-                counts[offset + temp_count[j] as usize] += 1.0;
-                temp_count[j] = 0;
-            }
-            t <<= 1;
+    // Ones in each block of the current level, starting with pairs of words.
+    let mut block_ones: Vec<u64> = words
+        .chunks_exact(2)
+        .map(|pair| u64::from(pair[0].count_ones() + pair[1].count_ones()))
+        .collect();
+    let mut folds = Vec::with_capacity(levels);
+    for j in 0..levels {
+        if j > 0 {
+            block_ones = block_ones
+                .chunks_exact(2)
+                .map(|pair| pair[0] + pair[1])
+                .collect();
+        }
+        let bits = WORD_BITS * (2 << j);
+        if let Some(p) = level_p_value(&block_ones, bits) {
+            folds.push(2.0 * p.min(1.0 - p));
         }
     }
-
-    let mut pvalues = Vec::with_capacity(ntup);
-    for j in 0..ntup {
-        let block_words = 2 << j;
-        let kmax = RMAX_BITS * block_words;
-        let nsamp = words.len() / block_words;
-        let offset = RMAX_BITS * (block_words - 1);
-        let p = chisq_binomial(&counts[offset..=offset + kmax], 0.5, kmax, nsamp);
-        pvalues.push(p);
+    if folds.is_empty() {
+        return TestResult::insufficient("dieharder::monobit2", "no level had two cells");
     }
-
-    let p_value = eval_most_extreme(&pvalues);
+    let smallest = folds.iter().copied().fold(f64::INFINITY, f64::min);
+    let p_value = (folds.len() as f64 * smallest).min(1.0);
     TestResult::with_note(
         "dieharder::monobit2",
         p_value,
         format!(
-            "tsamples={}, ntuple={}, block_sizes=2..{}",
+            "tsamples={}, levels={}, block_sizes=2..{}",
             words.len(),
-            ntup,
-            2usize << (ntup - 1)
+            folds.len(),
+            2usize << (levels - 1)
         ),
     )
 }
 
-fn auto_ntuple(tsamples: usize) -> usize {
-    let mut ntup = BLOCK_MAX;
-    for j in 0..BLOCK_MAX {
-        let block_words = 2usize << j;
-        let nmax = RMAX_BITS * block_words;
-        let nsamp = tsamples / block_words;
-        if nsamp == 0 {
-            ntup = j;
-            break;
-        }
-        let mid = nmax / 2;
-        let log_pdf =
-            lgamma((nmax + 1) as f64) - lgamma((mid + 1) as f64) - lgamma((nmax - mid + 1) as f64)
-                + (nmax as f64) * LN_HALF;
-        let center_mass = log_pdf.exp();
-        if (nsamp as f64) * center_mass < 20.0 {
-            ntup = j;
-            break;
-        }
-    }
-    ntup
+/// Levels whose most likely cell expects at least [`MIN_CENTRE_EXPECTED`]
+/// blocks, for `words` words.
+fn level_count(words: usize) -> usize {
+    (0..MAX_LEVELS)
+        .take_while(|&j| {
+            let block = 2usize << j;
+            let bits = WORD_BITS * block;
+            let blocks = (words / block) as f64;
+            let half = bits / 2;
+            let ln_centre = lgamma((bits + 1) as f64)
+                - 2.0 * lgamma((half + 1) as f64)
+                - bits as f64 * std::f64::consts::LN_2;
+            blocks * ln_centre.exp() >= MIN_CENTRE_EXPECTED
+        })
+        .count()
 }
 
-fn chisq_binomial(observed: &[f64], prob: f64, kmax: usize, nsamp: usize) -> f64 {
-    let mut chi_sq = 0.0;
-    let mut ndof = 0usize;
-
-    for (n, &obs) in observed.iter().take(kmax + 1).enumerate() {
-        if obs > GOFS_MIN_OBSERVED {
-            let expected = (nsamp as f64) * binomial_pmf(kmax, n, prob);
-            let delta = obs - expected;
-            chi_sq += delta * delta / expected;
-            ndof += 1;
-        }
+/// The χ² p-value of one level's block counts, each a count of ones among
+/// `bits` bits, or `None` if pooling leaves fewer than two cells.
+fn level_p_value(block_ones: &[u64], bits: usize) -> Option<f64> {
+    let mut histogram = vec![0.0f64; bits + 1];
+    for &ones in block_ones {
+        histogram[ones as usize] += 1.0;
     }
-
-    let df = ndof.saturating_sub(1);
-    if df == 0 {
-        // Fewer than two populated cells.  With a nonzero chi-square this is a
-        // wildly concentrated distribution — catastrophic evidence, not missing
-        // data (the C reaches GSL's Q(0, x > 0) = 0 here).  A zero chi-square
-        // means nothing was measurable at all.
-        return if chi_sq > 0.0 { 0.0 } else { f64::NAN };
-    }
-    igamc(df as f64 / 2.0, chi_sq / 2.0)
-}
-
-/// Most-extreme p-value across blocks, two-sided.
-///
-/// Each per-block p is folded two-sided (`2·min(p, 1−p)`, uniform under H₀),
-/// then the minimum fold is Šidák-corrected for the number of usable blocks.
-/// NaN blocks (no measurable statistic) are excluded; all-NaN returns NaN so
-/// the caller reports an insufficient-data result rather than a verdict.
-fn eval_most_extreme(pvalues: &[f64]) -> f64 {
-    let mut n = 0u32;
-    let mut min_fold = f64::INFINITY;
-    for &p in pvalues.iter().filter(|p| !p.is_nan()) {
-        n += 1;
-        min_fold = min_fold.min(2.0 * p.min(1.0 - p));
-    }
-    if n == 0 {
-        return f64::NAN;
-    }
-    1.0 - (1.0 - min_fold).powi(n as i32)
+    let blocks = block_ones.len() as f64;
+    let expected: Vec<f64> = (0..=bits)
+        .map(|k| blocks * binomial_pmf(bits, k, 0.5))
+        .collect();
+    let (chi, df) = chi_square_pooled_tails(&histogram, &expected, MIN_CELL_EXPECTED)?;
+    Some(igamc(df as f64 / 2.0, chi / 2.0))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{auto_ntuple, eval_most_extreme, monobit2};
-    use crate::rng::{ConstantRng, Rng};
+    use super::{level_count, level_p_value, monobit2};
+    use crate::{
+        math::ks_test,
+        rng::{ConstantRng, Mt19937, Pcg64, Rng},
+    };
 
     #[test]
-    fn eval_most_extreme_two_sided_sidak() {
-        // Folds: 0.4, 0.2, 0.6 → min 0.2 → 1 − 0.8³ = 0.488.
-        let p = eval_most_extreme(&[0.2, 0.9, 0.7]);
-        assert!((p - 0.488).abs() < 1e-12);
-        // BOTH extremes must map to small p — a p ≈ 1 block is a failure too.
-        assert!(eval_most_extreme(&[1.0 - 1e-9, 0.5, 0.5]) < 1e-6);
-        assert!(eval_most_extreme(&[1e-9, 0.5, 0.5]) < 1e-6);
-        // NaN blocks are excluded; all-NaN yields NaN (→ SKIP), not a verdict.
-        assert!((eval_most_extreme(&[f64::NAN, 0.5]) - 1.0).abs() < 1e-12);
-        assert!(eval_most_extreme(&[f64::NAN, f64::NAN]).is_nan());
+    fn level_count_grows_with_the_sample() {
+        assert_eq!(level_count(0), 0);
+        assert!(level_count(2_000) >= 1);
+        assert!(level_count(16_000_000) > level_count(2_000));
     }
 
-    #[test]
-    fn auto_ntuple_is_nonzero_for_dieharder_scale() {
-        assert!(auto_ntuple(16_000_000) > 0);
-    }
-
-    /// A constant stream concentrates every block's bit-count in one bin;
-    /// that must FAIL (p ≈ 0), not skip and not pass.
+    /// A constant stream concentrates every block's count in one cell; that
+    /// must fail, not skip and not pass.
     #[test]
     fn monobit2_fails_constant_stream() {
-        let mut rng = ConstantRng::new(0);
-        let words = rng.collect_u32s(1_000_000);
+        let words = ConstantRng::new(0).collect_u32s(1_000_000);
         let result = monobit2(&words);
         assert!(!result.skipped(), "{result}");
-        assert!(result.p_value < 0.01, "{result}");
+        assert!(result.p_value < 1e-10, "{result}");
+    }
+
+    /// Too few words for any level report SKIP.
+    #[test]
+    fn short_input_skips() {
+        assert!(monobit2(&[]).skipped());
+        assert!(monobit2(&[1, 2, 3]).skipped());
+    }
+
+    /// Blocks whose counts follow the binomial exactly in shape give a large
+    /// level p-value.
+    #[test]
+    fn level_p_value_accepts_a_binomial_sample() {
+        let words = Mt19937::new(5489).collect_u32s(200_000);
+        let ones: Vec<u64> = words
+            .chunks_exact(2)
+            .map(|p| u64::from(p[0].count_ones() + p[1].count_ones()))
+            .collect();
+        let p = level_p_value(&ones, 64).expect("cells");
+        assert!(p > 1e-4, "{p}");
+    }
+
+    /// Trials from separately seeded PCG64 streams.
+    const NULL_TRIALS: u64 = 2_000;
+
+    /// Level p-values are uniform under the null: 2 000 level-0 p-values pass
+    /// a KS test, and the combined result falls below 0.01 at no more than its
+    /// nominal rate plus three binomial standard deviations.
+    #[test]
+    #[cfg_attr(
+        debug_assertions,
+        ignore = "2 000 trials of 10 000 words; runs under cargo test --release"
+    )]
+    fn null_trials_are_calibrated() {
+        let mut level0 = Vec::new();
+        let mut below = 0;
+        for i in 0..NULL_TRIALS {
+            let words = Pcg64::new(u128::from(i), 0x6d6f_6e6f).collect_u32s(10_000);
+            let ones: Vec<u64> = words
+                .chunks_exact(2)
+                .map(|p| u64::from(p[0].count_ones() + p[1].count_ones()))
+                .collect();
+            level0.push(level_p_value(&ones, 64).expect("cells"));
+            below += usize::from(monobit2(&words).p_value < 0.01);
+        }
+        let ks = ks_test(&mut level0);
+        assert!(ks > 1e-3, "KS p = {ks}");
+        let n = NULL_TRIALS as f64;
+        let limit = n * 0.01 + 3.0 * (n * 0.01 * 0.99).sqrt();
+        assert!(
+            (below as f64) <= limit,
+            "{below} of {NULL_TRIALS} below 0.01"
+        );
     }
 }
