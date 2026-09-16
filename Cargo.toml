@@ -72,6 +72,18 @@ name = "upstream_tests"
 path = "src/bin/upstream_tests.rs"
 required-features = ["cryptography"]
 
+# These integration tests run the binaries above, so they need the same
+# feature; without it Cargo builds neither the binaries nor the tests.
+[[test]]
+name = "dump_rng"
+path = "tests/dump_rng.rs"
+required-features = ["cryptography"]
+
+[[test]]
+name = "registry"
+path = "tests/registry.rs"
+required-features = ["cryptography"]
+
 [lib]
 name = "entropy"
 path = "src/lib.rs"

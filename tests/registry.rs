@@ -1,8 +1,7 @@
 //! Locks the `dump_rng` and `pilot_rng` name registries together.
 //!
-//! `dump_rng` documents that its names match `pilot_rng`; nothing enforced
-//! that until now.  These tests spawn both binaries (paths provided by cargo
-//! via `CARGO_BIN_EXE_*`, stable since Rust 1.43 — same pattern as
+//! `dump_rng` documents that its names match `pilot_rng`.  These tests spawn
+//! both binaries (paths provided by cargo via `CARGO_BIN_EXE_*`, as in
 //! `tests/dump_rng.rs`) and assert:
 //!
 //! 1. the two `--list` outputs are identical,

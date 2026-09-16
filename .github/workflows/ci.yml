@@ -82,6 +82,8 @@ jobs:
         run: cargo test --release -- --include-ignored
       - name: Doc build (deny missing docs)
         run: RUSTDOCFLAGS="-D missing_docs" cargo doc --no-deps
+      - name: Tests without default features, in an empty target directory
+        run: CARGO_TARGET_DIR="$RUNNER_TEMP/no-default" cargo test --no-default-features --all-targets
   scripts:
     name: scripts (python + shell)
     runs-on: ubuntu-latest

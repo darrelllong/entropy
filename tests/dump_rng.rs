@@ -12,7 +12,7 @@
 //! - We use `count = 4` for every name (16 bytes).  Even Dual_EC_DRBG, the
 //!   slowest generator, finishes one P-256 block in well under a second.
 //! - The binary path is exposed via the `CARGO_BIN_EXE_dump_rng` env var
-//!   that cargo sets for integration tests (stable since Rust 1.43).
+//!   that cargo sets for integration tests.
 
 use std::process::{Command, Stdio};
 
