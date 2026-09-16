@@ -4,14 +4,19 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DUMP="$ROOT/target/release/dump_rng"
+TARGET="${CARGO_TARGET_DIR:-$ROOT/target}"
+DUMP="$TARGET/release/dump_rng"
 R_SCRIPT="$ROOT/scripts/r_rng_tests.R"
 OUT="$ROOT/R-REPORT.md"
 
+# Always build: a binary left from other sources or features would be
+# reported as this checkout's.
+(cd "$ROOT" && cargo build --quiet --release --bin dump_rng)
 if [[ ! -x "$DUMP" ]]; then
-  echo "[build] $DUMP not found — building" >&2
-  (cd "$ROOT" && cargo build --quiet --release --bin dump_rng)
+  echo "error: $DUMP was not built" >&2
+  exit 1
 fi
+DUMP_SHA=$( (sha256sum "$DUMP" 2>/dev/null || shasum -a 256 "$DUMP") | cut -d' ' -f1)
 if [[ ! -r "$R_SCRIPT" ]]; then
   echo "error: $R_SCRIPT missing or unreadable" >&2
   exit 1
@@ -144,7 +149,7 @@ for a uniform stream; it is included as a sanity check.
 The moment table reports the empirical raw moments E[U^k] for k = 1..10 and
 the absolute error against the theoretical value 1/(k+1) for U(0,1).
 
-Generated with `scripts/run_r_report.sh`; binary: `target/release/dump_rng`;
+Generated with `scripts/run_r_report.sh`; binary: `dump_rng`;
 analysis: `scripts/r_rng_tests.R`.
 
 R packages used:
@@ -162,12 +167,14 @@ cat <<EOF
 
 R version: $(Rscript -e 'cat(paste0(R.version$major,".",R.version$minor))' 2>/dev/null)
 Host: $(hostname -s) — $(uname -srm), $(cpu_description)
+Source: $(git -C "$ROOT" rev-parse --short HEAD)$(git -C "$ROOT" diff --quiet HEAD -- || echo " (modified)"); dump_rng sha256 ${DUMP_SHA}
 Date: $(date "+%Y-%m-%d %H:%M:%S %Z")
 
 ---
 EOF
 
 # ----- per-RNG ----------------------------------------------------------------
+FAILED=()
 for entry in "${RNGS[@]}"; do
   label="${entry%%|*}"
   name="${entry##*|}"
@@ -180,6 +187,7 @@ for entry in "${RNGS[@]}"; do
   bin="$TMP/$name.bin"
   if ! "$DUMP" "$name" "$n" > "$bin"; then
     echo "[err] dump_rng $name failed" >&2
+    FAILED+=("$name")
     continue
   fi
   expected=$(( n * 4 ))
@@ -189,18 +197,27 @@ for entry in "${RNGS[@]}"; do
     :
   else
     echo "[err] cannot stat $bin" >&2
+    FAILED+=("$name")
     continue
   fi
   if [[ "$actual" != "$expected" ]]; then
     echo "[err] $name: expected $expected bytes, got $actual" >&2
+    FAILED+=("$name")
     continue
   fi
   if ! Rscript "$R_SCRIPT" "$bin" "$label"; then
     echo "[err] R analysis on $label failed" >&2
+    FAILED+=("$name")
   fi
   rm -f "$bin"
 done
 } > "$OUT.tmp"
 
+# A report missing a generator is not a report: leave R-REPORT.md alone.
+if (( ${#FAILED[@]} > 0 )); then
+  mv -f "$OUT.tmp" "$OUT.incomplete"
+  echo "[fail] ${#FAILED[@]} generator(s) failed: ${FAILED[*]}; partial output in $OUT.incomplete" >&2
+  exit 1
+fi
 mv -f "$OUT.tmp" "$OUT"
 echo "[done] wrote $OUT" >&2

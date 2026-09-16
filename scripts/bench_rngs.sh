@@ -2,8 +2,10 @@
 # RNG throughput benchmark using pilot-bench.
 #
 # For each generator, measures throughput (MW/s) using pilot-bench and writes a
-# result file to stats/<machine>/<name>.bench.  If the file already exists, that
-# RNG is skipped unless --force is given.
+# result file to stats/<machine>/<name>.bench.  A result is reused only when
+# its key file, <name>.bench.key, matches the pilot_rng and bench executables'
+# SHA-256, the preset, the confidence level and the words per probe; --force
+# remeasures regardless.  The script exits 1 if any generator failed.
 #
 # Confidence level defaults to 90%.  Pass --confidence-level 0.95 for tighter
 # intervals (requires more runs and significantly longer wall time for slow RNGs).
@@ -18,7 +20,8 @@
 #
 # Environment:
 #   PILOT_BENCH_CLI   path to the pilot bench CLI  (default: ~/pilot-bench/build/cli/bench)
-#   PILOT_RNG_BIN     path to pilot_rng binary      (default: target/release/pilot_rng)
+#   PILOT_RNG_BIN     path to pilot_rng binary      (default: built into
+#                     $CARGO_TARGET_DIR/release, or target/release)
 #   PILOT_PRESET      quick | normal | strict       (default: quick)
 #   PILOT_MACHINE     machine subdirectory name     (default: hostname -s)
 #   PILOT_CONF_LEVEL  confidence level              (default: 0.90)
@@ -26,7 +29,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BENCH="${PILOT_BENCH_CLI:-$HOME/pilot-bench/build/cli/bench}"
-RNG_BIN="${PILOT_RNG_BIN:-$ROOT_DIR/target/release/pilot_rng}"
+TARGET_DIR="${CARGO_TARGET_DIR:-$ROOT_DIR/target}"
+RNG_BIN="${PILOT_RNG_BIN:-$TARGET_DIR/release/pilot_rng}"
 PRESET="${PILOT_PRESET:-quick}"
 MACHINE="${PILOT_MACHINE:-$(hostname -s 2>/dev/null || hostname)}"
 CONF_LEVEL="${PILOT_CONF_LEVEL:-0.90}"
@@ -57,8 +61,18 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# Build the default binary so a stale one is never measured.
+if [[ -z "${PILOT_RNG_BIN:-}" ]]; then
+    (cd "$ROOT_DIR" && cargo build --quiet --release --bin pilot_rng)
+fi
+
+sha256() { (sha256sum "$1" 2>/dev/null || shasum -a 256 "$1") | cut -d' ' -f1; }
+RNG_SHA=$(sha256 "$RNG_BIN")
+BENCH_SHA=$(sha256 "$BENCH")
+
 STATS_DIR="$ROOT_DIR/stats/$MACHINE"
 mkdir -p "$STATS_DIR"
+FAILURES=0
 
 # measure <rng_name> <display_name> <words_per_probe>
 # Writes result to stats/<machine>/<rng_name>.bench and prints a Markdown table row.
@@ -67,6 +81,7 @@ mkdir -p "$STATS_DIR"
 measure() {
     local rng_name=$1 display=$2 words=$3
     local stat_file="$STATS_DIR/${rng_name}.bench"
+    local key="pilot_rng=$RNG_SHA bench=$BENCH_SHA preset=$PRESET confidence=$CONF_LEVEL words=$words"
 
     # Apply whitelist filter (record matches so unknown names can be
     # reported at the end instead of silently yielding an empty table).
@@ -77,8 +92,9 @@ measure() {
         MATCHED_NAMES="$MATCHED_NAMES $rng_name"
     fi
 
-    # Skip if already measured.
-    if [[ $FORCE -eq 0 && -f "$stat_file" ]]; then
+    # Reuse a result measured with the same executables and parameters.
+    if [[ $FORCE -eq 0 && -f "$stat_file" && -f "$stat_file.key" \
+          && "$(cat "$stat_file.key")" == "$key" ]]; then
         # Re-emit the cached row.
         cat "$stat_file"
         return
@@ -95,6 +111,7 @@ measure() {
           -- "$RNG_BIN" "$rng_name" 2>&1); then
         echo "[err] $rng_name failed:" >&2
         echo "$out" >&2
+        FAILURES=$((FAILURES + 1))
         return
     fi
     mean=$(  echo "$out" | awk '/Reading mean/{print $5}')
@@ -106,6 +123,7 @@ measure() {
     if [[ -z "$mean" || -z "$ci" || -z "$rounds" ]]; then
         echo "[err] $rng_name: could not parse pilot-bench output" \
              "(mean='$mean' ci='$ci' rounds='$rounds'); not caching" >&2
+        FAILURES=$((FAILURES + 1))
         return
     fi
 
@@ -115,6 +133,7 @@ measure() {
 
     # Cache for future runs.
     echo "$row" > "$stat_file"
+    echo "$key" > "$stat_file.key"
     echo "$row"
 }
 
@@ -190,4 +209,9 @@ if [[ ${#WHITELIST[@]} -gt 0 ]]; then
         esac
     done
     [[ $unmatched -eq 1 ]] && exit 1
+fi
+
+if [[ $FAILURES -gt 0 ]]; then
+    echo "[fail] $FAILURES generator(s) not measured; the table above is incomplete" >&2
+    exit 1
 fi
