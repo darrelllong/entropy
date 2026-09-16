@@ -2,7 +2,6 @@
 //!
 //! Both generators use a linear engine (xor/shift/rotate recurrence) combined
 //! with a non-linear *scrambler* (starstar: multiply–rotate–multiply).
-//! They pass BigCrush, PractRand > 32 TiB, and NIST SP 800-22.
 //!
 //! | Generator    | State  | Period  | Use case                        |
 //! |--------------|--------|---------|---------------------------------|
@@ -21,6 +20,8 @@
 //!   [Figs. 1 and 4 give the xoroshiro128 and xoshiro256 code, Table 2 their
 //!   engine parameters (A, B, C) = (24, 16, 37) and (A, B) = (17, 45), and
 //!   Table 3 the `**` scrambler's (S, R, T) = (5, 7, 9)]
+//!   [the paper's (A, B, C) = (24, 16, 37) replaced the (55, 14, 36) of the
+//!   2016 xoroshiro128+; the two parameter sets are different generators]
 //!
 //! # Author
 //! David Blackman and Sebastiano Vigna (algorithm).

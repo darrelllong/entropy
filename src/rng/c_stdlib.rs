@@ -244,8 +244,10 @@ impl Rng for WindowsVb6Rnd {
 
 /// `.NET Framework` / classic `System.Random(seed)` compatibility PRNG.
 ///
-/// This is the long-lived subtractive generator preserved for seed-compatibility
-/// in modern .NET runtimes. It is widely deployed and very much not a CSPRNG.
+/// The subtractive generator of .NET Framework's `System.Random`.  Since .NET 6,
+/// `new Random()` without a seed uses xoshiro256** instead, and
+/// `new Random(seed)` keeps this generator so seeded sequences are unchanged.
+/// Not a CSPRNG.
 #[derive(Debug, Clone)]
 pub struct WindowsDotNetRandom {
     seed_array: [i32; 56],

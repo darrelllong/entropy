@@ -1,13 +1,19 @@
 //! PCG (Permuted Congruential Generator) — PCG32 and PCG64.
 //!
-//! A family of LCG-based generators whose output is passed through a
-//! *permutation function* (XSH-RR for 32-bit, XSL-RR for 64-bit) that
-//! destroys the linearity visible in the raw LCG stream.  The result passes
-//! BigCrush, PractRand, and NIST SP 800-22 with high confidence.
+//! An LCG whose state is passed through a *permutation function* (XSH-RR for
+//! 32-bit output, XSL-RR for 64-bit) that hides the linearity of the raw LCG
+//! stream.  A second parameter (`seq`) selects the LCG increment and so the
+//! stream.  Streams of one multiplier are affine images of each other, and
+//! outputs of streams with related seeds can be correlated, so separate
+//! streams are not independent generators.
 //!
-//! PCG generators support multiple independent streams via a second parameter
-//! (`seq`) that selects the LCG increment; streams with different `seq` values
-//! are statistically independent.
+//! # PCG64 DXSM
+//!
+//! NumPy (as `PCG64DXSM`) and Go's `math/rand/v2` (as `PCG`) replaced
+//! XSL-RR with O'Neill's 2019 DXSM output function and a 64-bit multiplier,
+//! after the stream correlations above were reported against PCG64.  DXSM is
+//! defined only by its reference source; with no mathematical specification
+//! to implement it from, it is not provided here.
 //!
 //! # References
 //! * M. E. O'Neill, "PCG: A Family of Simple Fast Space-Efficient
