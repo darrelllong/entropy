@@ -148,8 +148,8 @@ mod tests {
         assert!(family.skipped(), "{family}");
     }
 
-    /// Per-state results computed as before the fixed array, with the visit
-    /// counts in a `HashMap`.
+    /// Per-state results computed independently, with the visit counts in a
+    /// `HashMap`.
     fn per_state_with_hashmap(bits: &[u8]) -> Vec<TestResult> {
         let (walk, j) = build_walk(bits);
         let mut visit_counts = HashMap::new();

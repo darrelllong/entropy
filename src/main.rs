@@ -995,9 +995,9 @@ mod tests {
         );
     }
 
-    /// Every result name, and every suite prefix, still selects its battery.
-    /// The hyphenated historical prefix selects the historical suite and is
-    /// rewritten so it matches.  A pattern that matches no result, or only
+    /// Every result name, and every suite prefix, selects its battery.  The
+    /// hyphenated historical prefix selects the historical suite and is
+    /// normalised so it matches.  A pattern that matches no result, or only
     /// results of batteries the selection does not run, is a usage error.
     #[test]
     fn test_patterns_are_checked_against_the_result_names() {

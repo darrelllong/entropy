@@ -4,9 +4,7 @@
 //!
 //! Each 256-bit state is consumed as a sequential byte stream.  Every SHA-256
 //! call goes through the pure-Rust `cryptography::Sha256` implementation on
-//! all targets.  A pre-publication build carried an optional FEAT_SHA2
-//! hardware fast path via an `aarch64-alt` sub-crate; it was removed for the
-//! published crate.
+//! all targets.
 //!
 //! Unlike SpongeBob (which uses a SHA3-512 chain and carries 512 bits of state
 //! per step), SHA-256 has no XOF mode.  The state here is kept inline at
@@ -97,8 +95,6 @@ impl Rng for Squidward {
 }
 
 /// Compute SHA-256 via the pure-Rust `cryptography_rs` implementation.
-/// The previous build had an optional FEAT_SHA2 fast path via the
-/// `aarch64-alt` sub-crate; it has been removed for the published crate.
 #[inline]
 fn sha256(data: &[u8]) -> [u8; BLOCK] {
     Sha256::digest(data)

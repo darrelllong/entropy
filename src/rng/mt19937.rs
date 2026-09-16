@@ -7,7 +7,7 @@
 //!
 //! The recurrence and the tempering are those of §2.1 of the paper.  The state
 //! is seeded by the authors' 2002 initialisation,
-//! mt\[i\] = 1812433253·(mt\[i−1\] ⊕ (mt\[i−1\] ≫ 30)) + i, which replaced the
+//! mt\[i\] = 1812433253·(mt\[i−1\] ⊕ (mt\[i−1\] ≫ 30)) + i, not the
 //! multiplier 69069 of the paper's Appendix C, and all 624 words are twisted
 //! at once.  The C++ standard's `std::mt19937` uses the same seeding.
 //!

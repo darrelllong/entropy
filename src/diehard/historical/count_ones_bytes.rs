@@ -91,7 +91,7 @@ mod tests {
     /// Sum of the 25 p-values on a fixed PCG64 stream, pinned.
     const GOLDEN_P_SUM: f64 = 12.533_506_486_403_912;
 
-    /// Regression: the 25 results on a fixed stream, in window order, pinned
+    /// The 25 results on a fixed stream, in window order, pinned
     /// through their sum.
     #[test]
     fn results_on_a_fixed_stream_are_pinned() {

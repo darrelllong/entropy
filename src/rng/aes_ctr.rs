@@ -7,9 +7,7 @@
 //! encryption tables are computed at compile time from the FIPS 197 S-box and
 //! each block is encrypted with four table lookups per column per round.  The
 //! T-table approach is optimised for throughput, not constant-time behaviour
-//! (table indices are data-dependent).  A pre-publication build carried an
-//! optional AES-NI fast path via an `x86-alt` sub-crate; it was removed for
-//! the published crate.
+//! (table indices are data-dependent).
 //!
 //! Counter mode construction follows NIST SP 800-38A § 6.5.
 //!
@@ -238,9 +236,7 @@ const NIST_SP800_38A_F5_KEY: [u8; 16] = [
 /// statistical results are unaffected, but bit-plane/differential probes are
 /// not directly comparable between them.
 ///
-/// AES path is the pure-Rust T-table implementation. The previous
-/// build had an optional AES-NI fast path via the `x86-alt` sub-crate;
-/// it has been removed for the published crate.
+/// AES path is the pure-Rust T-table implementation.
 ///
 /// Default key: the NIST SP 800-38A Appendix F.5 AES-128-CTR test-vector key
 /// (see [`AesCtr::with_nist_key`]).

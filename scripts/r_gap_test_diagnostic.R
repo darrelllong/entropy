@@ -53,8 +53,7 @@ cochran_trim <- function(observed, expected, threshold = 5) {
   # The geometric expected sequence decreases monotonically, so the safe bins
   # (expected >= threshold) form a contiguous prefix.  Merge the entire sparse
   # tail into the last safe bin with one O(N) sum — the same prefix-merge used
-  # by r_rng_tests.R.  (The previous pop-from-tail loop was O(N^2) and hung on
-  # CounterRng, whose gap.test result has ~5e6 bins.)
+  # by r_rng_tests.R, which stays fast on CounterRng's ~5e6 gap.test bins.
   observed <- as.numeric(observed)
   expected <- as.numeric(expected)
   keep <- which(expected >= threshold)

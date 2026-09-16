@@ -536,11 +536,6 @@ impl Rng for Rand48 {
 #[cfg(test)]
 pub(super) const MSVC_RAND_SEED_1_PREFIX: [u32; 5] = [41, 18_467, 6_334, 26_500, 19_169];
 
-/// Former name of [`SystemVRand`], kept so code written against 0.5.0 still
-/// compiles.
-#[deprecated(note = "use SystemVRand")]
-pub type CRand = SystemVRand;
-
 #[cfg(test)]
 mod tests {
     use super::{
@@ -734,14 +729,5 @@ mod tests {
         for want in expected {
             assert_eq!(rng.next_raw(), want);
         }
-    }
-
-    /// `CRand` stays available, deprecated, as the same generator.
-    #[test]
-    #[allow(deprecated)]
-    fn crand_alias_is_system_v_rand() {
-        let mut old = super::CRand::new(1);
-        let mut new = SystemVRand::new(1);
-        assert_eq!(old.next_raw(), new.next_raw());
     }
 }

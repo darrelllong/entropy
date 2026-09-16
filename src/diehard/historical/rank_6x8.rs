@@ -130,7 +130,7 @@ mod tests {
     /// The summary's p-value on the same stream, pinned.
     const GOLDEN_SUMMARY_P: f64 = 0.279_674_977_667_713_1;
 
-    /// Regression: the 26 results on a fixed stream, in order, pinned to
+    /// The 26 results on a fixed stream, in order, pinned to
     /// 10⁻¹².
     #[test]
     fn results_on_a_fixed_stream_are_pinned() {
