@@ -3,8 +3,8 @@
 #
 # Probes covered:
 #   bib_tests      — Knuth permutation/gap, Wald–Wolfowitz median runs, NIST ApEn profile (m=2..6)
-#   upstream_tests — TestU01 HammingCorr/HammingIndep, PractRand FPF(4,14,6)
-#   testu01_lz     — TestU01 Lempel-Ziv core statistic (k=25, 10 replications)
+#   upstream_tests — Hamming-weight correlation and independence, FPF
+#   testu01_lz     — Lempel-Ziv phrase count (k=25, 10 replications)
 #   webster_tavares — SAC / BIC avalanche analysis (4096 samples, 32-bit I/O)
 #   gorilla        — Marsaglia-Tsang Gorilla (all 32 bit positions + Anderson-Darling aggregate)
 #
@@ -52,10 +52,10 @@ cargo build --quiet --release \
 section "bib_tests  (Knuth + NIST ApEn profile m=2..6)"
 "$BIN/bib_tests"
 
-section "upstream_tests  (TestU01 HammingCorr/HammingIndep · PractRand FPF)"
+section "upstream_tests  (Hamming correlation/independence · FPF)"
 "$BIN/upstream_tests"
 
-section "testu01_lz  (TestU01 Lempel-Ziv  k=25  replications=10)"
+section "testu01_lz  (Lempel-Ziv  k=25  replications=10)"
 "$BIN/testu01_lz"
 
 section "webster_tavares  (SAC / BIC avalanche  samples=4096  bits=32)"

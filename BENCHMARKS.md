@@ -2,22 +2,18 @@
 
 Throughput measured with `pilot-bench` `run_program --preset normal`.
 
-> **Provenance.**  `tolkien` and `baase` were measured on 2026-07-22 against
-> the post-cleanup code and are the current reference columns.  `Dyson`, `dmz`,
-> and `moore` are retained for cross-architecture comparison, but their
-> measurement dates were not recorded and they predate the v0.5.0 crates.io
-> release and the July 2026 code cleanup.  Two consequences are visible in the
-> table: their `OsRng` figures predate the read-buffering fix (the old code did
-> one `read` syscall per word rather than per 64 words), which is why `tolkien`
-> and `baase` read `/dev/urandom` roughly 40–80× faster; and their `Squidward`
-> numbers were taken under an earlier build with a hardware SHA-256 fast path
-> that has since been removed (see its entry below).
+> **Provenance.**  `tolkien` and `baase` were measured on 2026-07-22 and are
+> the reference columns.  `Dyson`, `dmz` and `moore` are older measurements of
+> earlier builds, kept for cross-architecture comparison; their `OsRng`
+> figures were taken with one `read` syscall per word rather than per 64 words,
+> and Dyson's `Squidward` figure with a hardware SHA-256 path the current crate
+> does not have, so neither is comparable with the reference columns.
 
 All results are in millions of 32-bit words per second (`MW/s`); 90% CI shown.
 The `Dyson` column is an Apple Silicon M4 (`macOS aarch64`).  The current crate
 uses neither its FEAT_SHA2 nor its FEAT_SHA3 extension, since every hash runs
-portable Rust, but the Dyson Squidward figure predates that and was measured
-with the old SHA-256 hardware path (see its entry below).  The `dmz.lan` column is an Intel Core i5
+portable Rust; the Dyson Squidward figure used a hardware SHA-256 path (see its
+entry below).  The `dmz.lan` column is an Intel Core i5
 (`Linux x86_64`).  The `moore` column is an AMD EPYC 7452 32-core (`Linux x86_64`,
 `moore.soe.ucsc.edu`).  The `tolkien` column is an Apple M1 (`macOS aarch64`,
 4 performance + 4 efficiency cores); the `baase` column is an ARM Cortex-X925
@@ -416,14 +412,11 @@ Squidward is a SHA-256 hash chain, the same design as SpongeBob but with
 SHA-256 replacing SHA3-512.  The state is a single 32-byte digest; each step
 advances by
 $x_{i+1} = \mathrm{SHA\text{-}256}(x_i)$,
-and output is consumed as a sequential byte stream.  Every SHA-256 call now
-goes through the pure-Rust `cryptography::Sha256` implementation on all
-targets: a pre-publication build carried an optional FEAT_SHA2 hardware fast
-path via an `aarch64-alt` sub-crate, but it was removed for the published
-crate.  The 240 MW/s Dyson figure in the table was measured under that
-earlier hardware-accelerated build and has not been re-measured; expect the
-current pure-software build to land near the dmz/moore figures' software
-rate on comparable hardware.
+and output is consumed as a sequential byte stream.  Every SHA-256 call goes
+through the pure-Rust `cryptography::Sha256` implementation on all targets.
+The 240 MW/s Dyson figure in the table was measured with a hardware SHA-256
+path; expect the pure-software build to land near the dmz/moore figures on
+comparable hardware.
 
 #### `HMAC_DRBG SHA-256 (OsRng seed)` **(CSPRNG)**
 

@@ -264,9 +264,9 @@ Command:
 Scope:
 
 This top section covers the standard `run_tests` battery only.  The Knuth,
-TestU01, PractRand, Webster-Tavares, and Gorilla probes are reported
-separately in `## Auxiliary Probes`; use `tests/run_all.sh` for the combined
-audit path or `tests/run_aux.sh` for the auxiliary suite alone.
+Hamming-weight, FPF, Lempel-Ziv, Webster-Tavares, and Gorilla probes are
+reported separately in `## Auxiliary Probes`; use `tests/run_all.sh` for the
+combined run or `tests/run_aux.sh` for the auxiliary suite alone.
 
 Notes:
 

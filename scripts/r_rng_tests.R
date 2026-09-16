@@ -272,8 +272,7 @@ cat("| Metric | Value |\n|--------|-------|\n")
 cat(sprintf("| Periodogram bins tested (m = N/2 - 1) | %s |\n",
             format(m, big.mark = ",")))
 cat(sprintf("| max normalized periodogram (P_max) | %.6f |\n", maxP))
-# Note: this is the exact max-order-statistic p 1-(1-e^{-x})^m, not a
-# Bonferroni bound (the old label overstated the correction).
+# The exact max-order-statistic p 1-(1-e^{-x})^m, not a Bonferroni bound.
 cat(sprintf("| Max-spike exact p (no spike) | %s |\n", fmt(p_spike)))
 if (is.na(flatness)) {
   cat("| Spectral flatness (Wiener entropy) | NA (all-zero periodogram; degenerate/constant stream) |\n")

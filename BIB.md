@@ -4,7 +4,7 @@ References used or surveyed for this project. Entries marked **[pubs/]** have a 
 Entries marked **[not in pubs/]** have no local copy; entries marked **[TODO: library]** still need
 to be fetched from a library or publisher site.
 
-The point of keeping these files in-tree is auditability: readers should be able to check the implementation claims against the exact standards, manuals, source drops, and papers used here.
+The point of keeping these files in-tree is that readers can check each implementation against the standard, manual or paper it follows.
 
 ---
 
@@ -24,13 +24,8 @@ The point of keeping these files in-tree is auditability: readers should be able
   author = {Marsaglia, George},
   title  = {{DIEHARD}: A Battery of Tests of Randomness},
   year   = {1995},
-  note   = {Florida State University. Source from the Internet Archive's copy of
-            stat.fsu.edu/pub/diehard: Marsaglia's Fortran, diehard.f (January 1996), with
-            tests.txt, diehard.doc and operm5d.ata [pubs/diehard-fortran-1996.tar.gz]; the f2c
-            translation the DOS executables were built from, with four PostScript papers
-            [pubs/diehard-f2c-source-1996.tar.gz]; and Dagang Wang's 1998 C translation, whose
-            NOTES file lists where it differs from the Fortran [pubs/diehard-c-wang-1998.tar.gz].
-            DOS executables and documentation: [pubs/diehard-doc.txt, pubs/diehard-tests.txt, pubs/Diehard.zip]}
+  note   = {Florida State University, stat.fsu.edu/pub/diehard (via the Internet Archive).
+            Documentation: [pubs/diehard-doc.txt, pubs/diehard-tests.txt]}
 }
 
 @article{marsaglia1993monkey,
@@ -50,7 +45,7 @@ The point of keeping these files in-tree is auditability: readers should be able
   author = {Brown, Robert G.},
   title  = {Dieharder: A Random Number Test Suite},
   year   = {2004},
-  note   = {Version 3.31.x. [pubs/dieharder-manual.pdf, pubs/dieharder-3.31.1.tgz]}
+  note   = {Version 3.31.x. [pubs/dieharder-manual.pdf]}
 }
 
 @article{marsaglia2002difficult,
@@ -61,7 +56,7 @@ The point of keeping these files in-tree is auditability: readers should be able
   number  = {3},
   year    = {2002},
   doi     = {10.18637/jss.v007.i03},
-  note    = {Gorilla test behind research::marsaglia_tsang. [pubs/marsaglia-tsang-2002-difficult-tests.pdf]; the C attached to the article, whose gorilla() and ad32() define the test and its ADKS aggregate: [pubs/marsaglia-tsang-2002-tuftests.c]}
+  note    = {Gorilla test behind research::marsaglia_tsang, and the GCD test. [pubs/marsaglia-tsang-2002-difficult-tests.pdf]}
 }
 ```
 
@@ -153,7 +148,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   pages   = {3--30},
   year    = {1998},
   doi     = {10.1145/272991.272995},
-  note    = {[pubs/matsumoto-nishimura-1998-mersenne-twister.pdf] (authors' preprint); reference code and its output check file: [pubs/mt19937ar.c], [pubs/mt19937ar.out] Period 2^{19937}-1; state recovery from 624 consecutive
+  note    = {[pubs/matsumoto-nishimura-1998-mersenne-twister.pdf] (authors' preprint). Period 2^{19937}-1; state recovery from 624 consecutive
              outputs is documented in §3.  Default generator in MATLAB and R;
              NumPy's legacy RandomState uses it, but NumPy's default_rng has been
              PCG64 since NumPy 1.17.}
@@ -168,7 +163,7 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   pages   = {36:1--36:32},
   year    = {2021},
   doi     = {10.1145/3460772},
-  note    = {[pubs/blackman-vigna-2021-scrambled-linear-prngs.pdf] (arXiv:1805.01407v3); reference C: [pubs/vigna-xoshiro256starstar.c], [pubs/vigna-xoshiro256plusplus.c], [pubs/vigna-xoroshiro128plus.c], [pubs/vigna-xoroshiro128starstar.c], [pubs/vigna-xoroshiro128plusplus.c], [pubs/vigna-splitmix64.c] Xoshiro256** and
+  note    = {[pubs/blackman-vigna-2021-scrambled-linear-prngs.pdf] (arXiv:1805.01407v3) Xoshiro256** and
              Xoroshiro128** scrambler definitions.}
 }
 
@@ -182,11 +177,12 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   note        = {[pubs/oneill-2014-pcg.pdf] PCG32 (XSH-RR) and PCG64 (XSL-RR).}
 }
 
-@misc{oneill-pcg-c,
+@misc{oneill-pcg-web,
   author = {O'Neill, M. E.},
-  title  = {pcg-c: the reference C implementation of the {PCG} family},
-  url    = {https://github.com/imneme/pcg-c},
-  note   = {include/pcg_variants.h and the test-high expected outputs that src/rng/pcg.rs pins. [pubs/pcg-c-83252d9c23df.tar.gz] (commit 83252d9c23df9c82ecb42210afed61a7b42402d7)}
+  title  = {{PCG}, A Family of Better Random Number Generators},
+  url    = {https://www.pcg-random.org},
+  note   = {Default multipliers, stream seeding and the published outputs for seed (42, 54) that src/rng/pcg.rs pins.}
+}
 }
 
 @article{marsaglia2003xorshift,
@@ -206,9 +202,9 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
   title  = {wyhash and wyrand},
   year   = {2022},
   url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {[pubs/wyhash-e4764a0b637d.tar.gz] (commit e4764a0b637d34d3421a7760affada9288b625a8 of 2026-03-23, whose wyhash.h is final version 4.3; the year above is final version 4's, commit c46ecdc245 of 2022-11-01) Weyl-sequence counter with 128-bit
+  note   = {Weyl-sequence counter with 128-bit
              multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.  src/rng/wyrand.rs uses the
-             wyrand constants of old\_versions/wyhash\_final2.h and wyhash\_final4.h, not those of 4.3.}
+             wyrand constants of final versions 2 and 4, not those of 4.3.}
 }
 
 @misc{jenkins2007smallprng,
@@ -399,7 +395,7 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
   author = {Doty-Humphrey, Chris},
   title  = {{PractRand}: Practically Random --- A C++ Library of Statistical Tests for {RNG}s},
   year   = {2018},
-  note   = {[TODO: fetch docs] Version pre-0.95 (the source the crate's FPF port follows).
+  note   = {[TODO: fetch docs] The design of the FPF test in research::practrand_fpf.
              Novel tests: BCFN (DFT of Hamming-weight block
              counts), DC6 (lagged difference patterns for small-state generators), FPF
              (leading-bit frequency chi-square), TMFn (N-dim spectral), streaming linear
@@ -441,25 +437,6 @@ FIPS standards and mode-of-operation documents underlying the cipher-based gener
                DIEHARDER's rgb_permutations also scores t! orderings (src/dieharder/permutations.rs);
                the others are not in NIST/DIEHARD/DIEHARDER. The runs test above/below the median
                that bib_tests runs is Wald and Wolfowitz's (wald1940runs), not the §3.3.2 run test. [TODO: library] (copyrighted book)}
-}
-
-@book{press1992nrc,
-  author    = {Press, William H. and Teukolsky, Saul A. and Vetterling, William T. and Flannery, Brian P.},
-  title     = {Numerical Recipes in C: The Art of Scientific Computing},
-  edition   = {2nd},
-  publisher = {Cambridge University Press},
-  year      = {1992},
-  note      = {`src/math.rs` cites §6.1 for `gammln`.  `math::erfc` followed this edition's `erfcc` until
-               6806a53 (AUDIT.md item N). [TODO: library] (copyrighted book)}
-}
-
-@book{press2007nr3,
-  author    = {Press, William H. and Teukolsky, Saul A. and Vetterling, William T. and Flannery, Brian P.},
-  title     = {Numerical Recipes: The Art of Scientific Computing},
-  edition   = {3rd},
-  publisher = {Cambridge University Press},
-  year      = {2007},
-  note      = {`src/math.rs` cites §6.2 for its series and modified Lentz continued fraction. [TODO: library] (copyrighted book)}
 }
 
 @article{wald1940runs,
@@ -589,7 +566,7 @@ previously missing from this bibliography.
   number  = {2},
   year    = {2004},
   doi     = {10.18637/jss.v009.i02},
-  note    = {Anderson-Darling distribution behind math::anderson_darling_cdf and the Gorilla aggregate. [pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]; the C attached to the article: [pubs/marsaglia-marsaglia-2004-ADinf.c], [pubs/marsaglia-marsaglia-2004-AnDarl.c]}
+  note    = {Anderson-Darling distribution behind math::anderson_darling_cdf and the Gorilla aggregate. [pubs/marsaglia-marsaglia-2004-anderson-darling.pdf]}
 }
 
 @article{marsaglia2003kolmogorov,
@@ -663,44 +640,84 @@ previously missing from this bibliography.
   number  = {4},
   year    = {2004},
   doi     = {10.18637/jss.v011.i04},
-  note    = {Taylor-series evaluation of Phi(x) and the complementary cPhi(x) in double precision.
-             [pubs/marsaglia-2004-normal-distribution.pdf]; the C attached to the article:
-             [pubs/marsaglia-2004-normal-distribution-sources.c]}
+  note    = {Taylor-series evaluation of the normal tail through Mills' ratio, behind math::erfc
+             and math::normal_cdf. [pubs/marsaglia-2004-normal-distribution.pdf]}
 }
 
-@misc{nist-sts-2.1.2,
-  author       = {{National Institute of Standards and Technology}},
-  title        = {{NIST} Statistical Test Suite, version 2.1.2},
-  howpublished = {https://csrc.nist.gov/CSRC/media/Projects/Random-Bit-Generation/documents/sts-2\_1\_2.zip},
-  note         = {Source code, templates and the constant expansions data.e, data.pi, data.sqrt2 and data.sqrt3; repacked without the generator-output files in data/ and the empty experiments/ tree. Original sha256 0238d2f1d26e120e3cc748ed2d4c674cdc636de37fc4027c76cc2a394fff9157. tests/data/e\_1e6\_bits.bin packs the first 10\^6 digits of data.e for the SP 800-22 worked examples. [pubs/NIST-STS-2.1.2-src-and-constants.zip]}
+@techreport{fischler2002mindist,
+  author      = {Fischler, Mark},
+  title       = {Distribution of Minimum Distance among {N} Random Points in d Dimensions},
+  institution = {Fermi National Accelerator Laboratory},
+  year        = {2002},
+  url         = {https://www.osti.gov/biblio/794005},
+  note        = {The second-order approximation and Q\_d coefficients behind dieharder::minimum\_distance\_nd. [not in pubs/]}
 }
 
-@misc{testu01-source,
-  author       = {L'Ecuyer, Pierre and Simard, Richard},
-  title        = {{TestU01} source code},
-  howpublished = {https://github.com/umontreal-simul/TestU01-2009, commit 57e98bf33880daedc930739c81e39b89a8d24dba},
-  note         = {Includes testu01/sstring.c (HammingCorr, HammingIndep) and testu01/scomp.c (LempelZiv). [pubs/TestU01-2009-57e98bf33880.tar.gz]}
+@article{gilpelaez1951inversion,
+  author  = {Gil-Pelaez, J.},
+  title   = {Note on the Inversion Theorem},
+  journal = {Biometrika},
+  volume  = {38},
+  number  = {3--4},
+  pages   = {481--482},
+  year    = {1951},
+  doi     = {10.1093/biomet/38.3-4.481},
+  note    = {Characteristic-function inversion behind the correction table of diehard::historical::overlapping\_sums. [not in pubs/]}
 }
 
-@misc{gsl-2.8,
-  author       = {Galassi, M. and others},
-  title        = {{GNU} Scientific Library 2.8, random number generator sources},
-  howpublished = {https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz},
-  note         = {rng/, COPYING, AUTHORS and README only; gsl\_rng\_uniform\_int is in rng/gsl\_rng.h. Original sha256 6a99eeed15632c6354895b1dd542ed5a855c0f15d9ad1326c6fe2b2c9e423190. [pubs/gsl-2.8-rng-subset.tar.gz]}
+@article{lentz1976continued,
+  author  = {Lentz, W. J.},
+  title   = {Generating {Bessel} Functions in {Mie} Scattering Calculations Using Continued Fractions},
+  journal = {Applied Optics},
+  volume  = {15},
+  number  = {3},
+  pages   = {668--671},
+  year    = {1976},
+  doi     = {10.1364/AO.15.000668},
+  note    = {Continued-fraction evaluation behind math::igamc, with the modification of thompson1986coulomb. [not in pubs/]}
 }
 
-@misc{glibc-2.40-random,
-  author       = {{The GNU C Library contributors}},
-  title        = {{GNU} C Library 2.40, stdlib/random.c, stdlib/random\_r.c and stdlib/rand.c},
-  howpublished = {https://ftp.gnu.org/gnu/glibc/glibc-2.40.tar.xz},
-  note         = {The srandom/random implementation LinuxLibcRandom emulates: \_\_initstate\_r and \_\_random\_r compiled from random\_r.c match it, and its TYPE\_0 generator matches LcgVariant::AnsiC for every seed whose low 32 bits are nonzero, which covers 1 to 2^{32}-1. Tarball sha256 19a890175e9263d748f627993de6f4b1af9cd21e03f080e4bfb3a1fac10205a2. [pubs/glibc-2.40-random_r.c], [pubs/glibc-2.40-random.c], [pubs/glibc-2.40-rand.c], whose rand() returns (int) \_\_random(), license [pubs/glibc-2.40-COPYING.LIB]}
+@article{thompson1986coulomb,
+  author  = {Thompson, I. J. and Barnett, A. R.},
+  title   = {Coulomb and {Bessel} Functions of Complex Arguments and Order},
+  journal = {Journal of Computational Physics},
+  volume  = {64},
+  number  = {2},
+  pages   = {490--509},
+  year    = {1986},
+  doi     = {10.1016/0021-9991(86)90046-X},
+  note    = {The modified Lentz algorithm. [not in pubs/]}
 }
 
-@misc{freebsd-libc-random,
-  author       = {{The FreeBSD Project}},
-  title        = {{FreeBSD} libc stdlib/random.c and stdlib/rand.c},
-  howpublished = {https://github.com/freebsd/freebsd-src, commit 0d022baa047aea6499e394d2cd8d097820ecf486},
-  note         = {rand\_r() and random() at this commit. BsdRandCompat matches rand\_r(); random() seeds through parkmiller32, which shifts each word by one around the Park-Miller step, so its stream differs from BsdRandom's, which follows glibc. [pubs/freebsd-0d022baa047a-random.c], [pubs/freebsd-0d022baa047a-rand.c]}
+@misc{dlmf8,
+  author       = {Paris, R. B.},
+  title        = {Incomplete Gamma and Related Functions},
+  howpublished = {NIST Digital Library of Mathematical Functions, Chapter 8},
+  url          = {https://dlmf.nist.gov/8},
+  note         = {Series 8.7.1 and continued fraction 8.9.2 behind math::igamc.}
+}
+
+@article{stephens1974edf,
+  author  = {Stephens, M. A.},
+  title   = {{EDF} Statistics for Goodness of Fit and Some Comparisons},
+  journal = {Journal of the American Statistical Association},
+  volume  = {69},
+  number  = {347},
+  pages   = {730--737},
+  year    = {1974},
+  doi     = {10.1080/01621459.1974.10480196},
+  note    = {The modified Kolmogorov--Smirnov argument behind math::ks\_pvalue for large n. [not in pubs/]}
+}
+
+@article{marsaglia1985matrices,
+  author  = {Marsaglia, George and Tsay, L. H.},
+  title   = {Matrices and the Structure of Random Number Sequences},
+  journal = {Linear Algebra and its Applications},
+  volume  = {67},
+  pages   = {147--156},
+  year    = {1985},
+  doi     = {10.1016/0024-3795(85)90192-2},
+  note    = {The rank distribution of random binary matrices behind diehard::binary\_rank and nist::matrix\_rank. [not in pubs/]}
 }
 ```
 

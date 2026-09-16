@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Full repository audit: main NIST/DIEHARD/DIEHARDER battery + all auxiliary probes.
+# Full run: main NIST/DIEHARD/DIEHARDER battery + all auxiliary probes.
 #
 # Output is written to both stdout and a timestamped log file under logs/.
 # The main-battery portion of the log can be fed to scripts/parse_battery.py
 # to regenerate TESTS.md.
 #
 # Usage:
-#   tests/run_all.sh                  # full audit, default parameters
+#   tests/run_all.sh                  # full run, default parameters
 #   tests/run_all.sh --quick          # quick mode for the main battery only
 #
 # The log file path is printed at the end of the run.
@@ -20,11 +20,11 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
     cat <<'EOF'
 Usage: tests/run_all.sh [run_tests options...]
 
-Runs the full repository audit:
+Runs every battery and probe:
   1. NIST SP 800-22 / DIEHARD / DIEHARDER battery  (run_tests)
   2. Knuth + ApEn profile                           (bib_tests)
-  3. TestU01 Hamming + PractRand FPF                (upstream_tests)
-  4. TestU01 Lempel-Ziv                             (testu01_lz)
+  3. Hamming weights + FPF                          (upstream_tests)
+  4. Lempel-Ziv                                    (testu01_lz)
   5. SAC / BIC avalanche                            (webster_tavares)
   6. Marsaglia-Tsang Gorilla                        (gorilla)
 
@@ -69,10 +69,10 @@ run_all() {
     section "bib_tests  (Knuth + NIST ApEn profile m=2..6)"
     "$BIN/bib_tests"
 
-    section "upstream_tests  (TestU01 HammingCorr/HammingIndep · PractRand FPF)"
+    section "upstream_tests  (Hamming correlation/independence · FPF)"
     "$BIN/upstream_tests"
 
-    section "testu01_lz  (TestU01 Lempel-Ziv  k=25  replications=10)"
+    section "testu01_lz  (Lempel-Ziv  k=25  replications=10)"
     "$BIN/testu01_lz"
 
     section "webster_tavares  (SAC / BIC avalanche  samples=4096  bits=32)"

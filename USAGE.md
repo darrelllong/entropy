@@ -20,7 +20,7 @@ does not run, and runs only when it is named:
 
 ```sh
 cargo run --release -- --suite diehard-historical --rng MT19937
-cargo run --release -- --test diehard_historical::operm5_dieharder --rng PCG64
+cargo run --release -- --test diehard_historical::operm5 --rng PCG64
 cargo run --release -- --suite diehard --suite diehard-historical --rng AES
 ```
 
@@ -30,22 +30,20 @@ Running every suite, the default, never includes it. Without `--suite`, a
 only results of suites the selection does not run, is a usage error: nothing
 runs and `run_tests` exits 1. The suite's tests read one capture of
 16 000 000 words and report 53 results per generator, and `--quick` does not
-change them. Each result name states its variant:
+change them:
 
-| Result name | Variant | Words |
+| Result name | Test | Words |
 |---|---|---|
-| `diehard_historical::operm5_dieharder` | OPERM5 as corrected in Dieharder 3.31.1: `kperm` index, Moenkehues' pseudoinverse, df 96, one pass | 1 000 005 |
-| `diehard_historical::overlapping_sums_fortran` | Overlapping sums as Marsaglia's `diehard.f` computes them: y(1) coefficients, his table f, three Anderson–Darling layers | 199 000 |
-| `diehard_historical::count_ones_bytes_25_fresh` | Count-the-1s on DIEHARD's 25 byte windows, each on its own words; 25 results | 6 400 100 |
-| `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on each of DIEHARD's 25 bit windows, each on its own words; 25 results | 15 000 000 |
-| `diehard_historical::rank_6x8_25_fresh_summary` | Anderson–Darling summary of those 25 window p-values | (same words) |
+| `diehard_historical::operm5` | Overlapping 5-permutations, χ² through the pseudoinverse of their exact covariance, df 96 | 1 000 005 |
+| `diehard_historical::overlapping_sums` | Decorrelated overlapping sums of uniforms with their computed correction table, three Anderson–Darling layers | 199 000 |
+| `diehard_historical::count_ones_bytes` | Count-the-1s on each of the 25 byte offsets of a word, each on its own words; 25 results | 6 400 100 |
+| `diehard_historical::rank_6x8_windows` | 6×8 rank on each of the 25 byte offsets, each on its own words; 25 results | 15 000 000 |
+| `diehard_historical::rank_6x8_windows_summary` | Anderson–Darling summary of those 25 p-values | (same words) |
 
 From the library, `entropy::diehard::historical::run_all(&mut rng, n_words)`
 runs the same tests, and each module under `entropy::diehard::historical`
 exposes its test on a word slice. The module documentation gives each test's
-departures from `diehard.f`, its calibration evidence and its limitations;
-README.md's "Historical DIEHARD Tests" section records why each was removed
-and at which revision.
+statistic, its null distribution and its calibration.
 
 ---
 

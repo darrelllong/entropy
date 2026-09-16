@@ -35,7 +35,7 @@ WHITELIST=()
 MATCHED_NAMES=""
 
 # need_value <flag> <remaining-argc>: die with a clear message when a
-# value-taking flag is the last argument (previously "$1: unbound variable").
+# value-taking flag is the last argument.
 need_value() {
     if [[ "$2" -lt 2 ]]; then
         echo "error: $1 requires a value" >&2
