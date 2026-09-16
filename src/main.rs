@@ -31,7 +31,8 @@
 //!
 //! Exit codes: 0 = ran to completion; 1 = usage error (including a
 //! `--rng`/`--suite`/`--test` selection that runs no RNG), or FAILs under
-//! `--fail-on-fail`; 2 = an RNG task panicked (results incomplete).
+//! `--fail-on-fail`; 2 = an RNG task panicked (results incomplete); 3 = a
+//! test computed a p-value that is not a probability (results incomplete).
 //! ```
 //!
 //! Examples:
@@ -407,7 +408,7 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
  Exit codes: 0 = ran to completion (tests may still have FAILed unless
  --fail-on-fail); 1 = usage error (including a selection that runs no RNG),
  or FAILs with --fail-on-fail; 2 = an RNG task panicked and its results are
- missing.
+ missing; 3 = a test reported ERROR, a p-value that is not a probability.
 
  Examples:
   run_tests                              # full battery, all RNGs
@@ -735,9 +736,11 @@ fn main() {
         Err(_) => panic!("results still shared after workers finished"),
     };
 
-    let mut total_fail = 0usize;
+    let (mut total_fail, mut total_error) = (0usize, 0usize);
     for r in all_results.into_iter().flatten() {
-        total_fail += print_rng_results(&r, &banner, &args);
+        let (fail, error) = print_rng_results(&r, &banner, &args);
+        total_fail += fail;
+        total_error += error;
     }
     // A panicked task means the battery did NOT run to completion — exit
     // nonzero regardless of --fail-on-fail, upholding the documented
@@ -745,6 +748,10 @@ fn main() {
     if any_panicked.load(std::sync::atomic::Ordering::Relaxed) {
         eprintln!("error: at least one RNG task panicked; results above are incomplete");
         std::process::exit(2);
+    }
+    if total_error > 0 {
+        eprintln!("error: {total_error} test(s) computed a p-value that is not a probability");
+        std::process::exit(3);
     }
     if args.fail_on_fail && total_fail > 0 {
         eprintln!("error: {total_fail} test(s) FAILed and --fail-on-fail was given");
@@ -767,8 +774,9 @@ fn group_thousands(n: usize) -> String {
     out
 }
 
-/// Print one RNG's block; returns the number of shown tests that FAILed.
-fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
+/// Print one RNG's block; returns the numbers of shown tests that FAILed and
+/// that reported an ERROR.
+fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize) {
     // Collect only matching results; skip the entire block if nothing matches.
     let matching: Vec<&TestResult> = r
         .nist
@@ -779,7 +787,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
         .filter(|t| args.matches(t.name))
         .collect();
     if matching.is_empty() {
-        return 0;
+        return (0, 0);
     }
 
     println!("\n{banner}");
@@ -853,13 +861,11 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
     }
 
     let pass = matching.iter().filter(|t| t.passed()).count();
-    let fail = matching
-        .iter()
-        .filter(|t| !t.passed() && !t.skipped())
-        .count();
+    let fail = matching.iter().filter(|t| t.failed()).count();
     let skip = matching.iter().filter(|t| t.skipped()).count();
-    println!("\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP");
-    let n_run = matching.iter().filter(|t| !t.skipped()).count();
+    let error = matching.iter().filter(|t| t.errored()).count();
+    println!("\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP, {error} ERROR");
+    let n_run = pass + fail;
     if n_run > 0 {
         // Many slots share a name: the 148 non-overlapping templates and the
         // up-to-510 bit-distribution patterns are correlated sub-tests, not
@@ -868,7 +874,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
         // upper bound read family-wise.
         let families: std::collections::HashSet<&str> = matching
             .iter()
-            .filter(|t| !t.skipped())
+            .filter(|t| t.passed() || t.failed())
             .map(|t| t.name)
             .collect();
         println!(
@@ -883,7 +889,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> usize {
             n_run as f64 * 0.01
         );
     }
-    fail
+    (fail, error)
 }
 
 #[cfg(test)]
