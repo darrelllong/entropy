@@ -1,7 +1,7 @@
 //! DIEHARD battery tests not already covered by NIST SP 800-22.
 //!
 //! Reference: George Marsaglia, *DIEHARD: A Battery of Tests of Randomness*,
-//! Florida State University, 1995.  `pubs/Diehard.zip`
+//! Florida State University, 1995.
 //!
 //! Every function in this module cites Marsaglia as the original author.
 //!

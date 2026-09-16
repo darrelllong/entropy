@@ -1,13 +1,17 @@
-//! DIEHARD Tests 3, 4, 5 — Binary Rank Tests (31×31, 32×32, 6×8).
+//! DIEHARD binary rank tests on 31×31, 32×32 and 6×8 matrices over GF(2).
 //!
-//! The NIST SP 800-22 binary rank test uses only 32×32 matrices with specific
-//! theoretical probabilities.  DIEHARD additionally tests 31×31 and 6×8
-//! matrices.  These are provided as separate tests here.
+//! The number of r × c binary matrices of rank k is
+//! 2^(k(r + c − k)) · Π_{i<k} (1 − 2^(i−r))(1 − 2^(i−c)) / (1 − 2^(i−k)),
+//! so a uniformly random matrix has rank k with probability
+//! 2^(k(r + c − k) − rc) · Π_{i<k} (1 − 2^(i−r))(1 − 2^(i−c)) / (1 − 2^(i−k)).
+//! Each test counts ranks over many matrices, pools the unlikely low ranks,
+//! and scores the counts with a Pearson χ² against those probabilities.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutines `rank3132` and
-//! `cdbinrnk`.  [pubs/diehard-fortran-1996.tar.gz]
+//! G. Marsaglia and L. H. Tsay, "Matrices and the structure of random number
+//! sequences", *Linear Algebra and its Applications* 67 (1985), for the rank
+//! distribution.
 
 use crate::{
     math::{gf2_rank, igamc},
@@ -16,11 +20,10 @@ use crate::{
 
 // ── 32×32 ─────────────────────────────────────────────────────────────────────
 
-// Four cells, as in DIEHARD's `rank3132` and Dieharder: P(rank=32)≈0.2888,
-// P(31)≈0.5776, P(30)≈0.1284, P(≤29)≈0.0053, over 40 000 matrices.  NIST
-// SP 800-22 §2.5 uses the same law with three cells, pooling rank ≤ 30.
-
-/// 32×32 binary matrix rank test (DIEHARD variant; 40 000 matrices).
+/// 32×32 binary matrix rank test on 40 000 matrices, one word per row.
+///
+/// Four cells: P(rank 32) ≈ 0.2888, P(31) ≈ 0.5776, P(30) ≈ 0.1284 and
+/// P(≤ 29) ≈ 0.0053.  NIST SP 800-22 §2.5 uses the same law with three cells.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -35,21 +38,12 @@ pub fn binary_rank_32x32(words: &[u32]) -> TestResult {
 
 // ── 31×31 ─────────────────────────────────────────────────────────────────────
 
-// P(rank=31)≈0.2888, P(rank=30)≈0.5776, P(rank=29)≈0.1284, P(rank≤28)≈0.0053.
-// Same probabilities as 32×32: difference is 2^{-32} ≈ 2.3×10^{-10}, negligible.
-
-/// 31×31 binary matrix rank test (DIEHARD variant; 40 000 matrices).
+/// 31×31 binary matrix rank test on 40 000 matrices.
 ///
-/// Each row is the leftmost 31 bits of one 32-bit word (`w >> 1`), as
-/// Marsaglia specifies: "The leftmost 31 bits of 31 random integers from the
-/// test sequence are used to form a 31x31 binary matrix" (`tests.txt`).
-/// `rank3132` builds each row as `rshift(jtbl(),32-m)` with m = 31
-/// (`fortran/diehard.f` line 1079).
-/// Ranks ≤ 28 are pooled, giving the four cells 31, 30, 29 and ≤ 28.
-///
-/// Dieharder 3.31.1 has no 31×31 test to compare against:
-/// `diehard_rank_32x32.c` quotes this description in its header but builds
-/// only 32×32 matrices from whole words.
+/// Each row is the leftmost 31 bits of one 32-bit word (`w >> 1`), as the
+/// DIEHARD description specifies.  Ranks ≤ 28 are pooled, giving the four
+/// cells 31, 30, 29 and ≤ 28, with probabilities within 3·10⁻¹⁰ of the
+/// 32×32 ones.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -60,46 +54,21 @@ pub fn binary_rank_31x31(words: &[u32]) -> TestResult {
 
 // ── 6×8 ───────────────────────────────────────────────────────────────────────
 
-// Theoretical probabilities for a 6×8 binary matrix over GF(2).
-// P(rank=6) = (255×254×252×248×240×224) / 2^48 = 217613271859200 / 281474976710656 ≈ 0.7731
-// P(rank=5) = 63 × (255×254×252×248×240) / 2^48 = 61203732710400 / 281474976710656 ≈ 0.2174
-// P(rank≤4) = 1 − P(rank=6) − P(rank=5) ≈ 0.0094
+// P(rank 6) = (255·254·252·248·240·224)/2⁴⁸ ≈ 0.7731,
+// P(rank 5) = 63·(255·254·252·248·240)/2⁴⁸ ≈ 0.2174, and
+// P(rank ≤ 4) = 1 − P(6) − P(5) ≈ 0.0094.
 
 /// P(rank = 6) for a random 6×8 GF(2) matrix (a dyadic fraction, exact in f64).
 const P6X8_FULL: f64 = 217_613_271_859_200.0 / 281_474_976_710_656.0;
 /// P(rank = 5) for a random 6×8 GF(2) matrix (a dyadic fraction, exact in f64).
 const P6X8_FIVE: f64 = 61_203_732_710_400.0 / 281_474_976_710_656.0;
 
-/// 6×8 binary matrix rank test (one byte per row, 6 rows; 100 000 matrices).
+/// 6×8 binary matrix rank test on 100 000 matrices.
 ///
-/// Each row is the low byte (bits 0–7, `w & 0xFF`) of one of six successive
-/// 32-bit words; bytes 1–3 never enter a matrix.  This matches Dieharder's
-/// `diehard_rank_6x8.c`, whose `binary_rank(mtx, 6, 8)` (`rank.c`) reads the
-/// eight columns from bit 0 upward, even though its comment speaks of the
-/// leftmost byte.
-///
-/// DIEHARD runs the test on 25 bit windows, and the low byte read here is the
-/// last of them.  Marsaglia's `cdbinrnk` (`fortran/diehard.f` lines
-/// 920–1001) takes each row as `and(rshift(jtbl(),kr),255)` for kr = 24 down
-/// to 0, printed as "bits 1 to 8" through "bits 25 to 32" counting from the
-/// leftmost bit.  Before each window it calls `jkreset` (line 947), which
-/// resets `jtbl`'s record counter but not its place in the current 4 096-word
-/// record (lines 414–428), so each window after the first reads the rest of
-/// that record, 128 to 3 520 words, before rereading the file from word 1.
-/// Run alone, window 2 starts at word 600 001 and window 25 (kr = 0) at word
-/// 596 481 (a gfortran build of `diehard.f` instrumented to print them).  The
-/// 25 windows share nearly all their words, with matrix boundaries shifted by
-/// 0, 2 or 4 words.  DIEHARD combines the 25 p-values with Marsaglia's
-/// Anderson–Darling statistic, which `tests.txt` calls a KS test (`KSTEST`,
-/// lines 1668–1709).  Each of its p-values is 1 − exp(−χ²/2), the lower tail
-/// of χ²(2), where this test reports the upper tail exp(−χ²/2).
-/// [`crate::diehard::historical::rank_6x8`] runs all 25 windows on request,
-/// each on its own words.
-///
-/// The chi-square uses three cells, rank ≤ 4, 5 and 6 (df 2), as `cdbinrnk`
-/// does (`mr=max(4,rankb(r,6,8))`), with exact cell probabilities where it
-/// uses six-digit ones.  Dieharder's `diehard_rank_6x8.c` also scores rank 3
-/// on its own (4 cells, df 3).
+/// Each row is the low byte (`w & 0xFF`) of one of six successive words.
+/// Ranks ≤ 4 are pooled, giving three cells and df 2.
+/// [`crate::diehard::historical::rank_6x8`] runs the same test on each of the
+/// 25 byte offsets of a word.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -149,7 +118,7 @@ pub(crate) fn rank_6x8_counts(mut rows: impl Iterator<Item = u32>) -> [usize; 3]
 }
 
 /// Pearson χ² (df 2) of [`rank_6x8_counts`] against the exact GF(2) cell
-/// probabilities, pooling ranks ≤ 4 as `cdbinrnk` does.
+/// probabilities, ranks ≤ 4 pooled.
 pub(crate) fn rank_6x8_chi_square(f: &[usize; 3]) -> f64 {
     let p_full = P6X8_FULL; // rank = 6
     let p_five = P6X8_FIVE; // rank = 5
@@ -166,8 +135,8 @@ pub(crate) fn rank_6x8_chi_square(f: &[usize; 3]) -> f64 {
 /// General binary rank test for R×C matrices (C ≤ 32).
 ///
 /// Each row is the leftmost `cols` bits of one word (see [`leftmost_bits`]).
-/// Uses 4 bins matching `diehard_rank_32x32.c`: rank=full, full-1, full-2, ≤full-3.
-/// Bins with expected count < 5.0 are excluded from the chi-square (Vtest cutoff).
+/// Four cells: rank = full, full − 1, full − 2 and ≤ full − 3.  Cells with
+/// expected count below 5 are left out of the χ² and its degrees of freedom.
 fn rank_test(
     words: &[u32],
     rows: usize,
@@ -229,48 +198,30 @@ fn rank_test(
 }
 
 /// The leftmost `cols` bits of `w` (1 ≤ `cols` ≤ 32), right-aligned so that
-/// [`gf2_rank`] sees them as its low `cols` columns.  DIEHARD's `rank3132`
-/// forms each row as `rshift(jtbl(),32-m)` (`fortran/diehard.f` line 1079);
-/// for `cols` = 32 this is the whole word.
+/// [`gf2_rank`] sees them as its low `cols` columns; for `cols` = 32 this is
+/// the whole word.
 fn leftmost_bits(w: u32, cols: usize) -> u32 {
     debug_assert!((1..=32).contains(&cols), "cols = {cols} must be 1..=32");
     w >> (32 - cols)
 }
 
-/// Theoretical rank-distribution probabilities for an R×C matrix over GF(2).
-///
-/// Returns (P(rank=full), P(rank=full-1), P(rank=full-2), P(rank≤full-3)).
-///
-/// For 32×32: values from `diehard_rank_32x32.c` (David Bauer, "On the Rank
-/// of Random Matrices"), pooling ranks ≤ 29 into the tail bin.
-/// Source: `dieharder-3.31.1/libdieharder/diehard_rank_32x32.c`.
-///
-/// For other sizes we compute the exact GF(2) rank probabilities directly from
-/// the matrix-count formula instead of reusing the 32×32 constants.
+/// Rank probabilities of a uniformly random `rows` × `cols` matrix over
+/// GF(2): (P(rank = full), P(full − 1), P(full − 2), P(≤ full − 3)).
 fn theoretical_probs(rows: usize, cols: usize) -> (f64, f64, f64, f64) {
-    match (rows, cols) {
-        // Probabilities from diehard_rank_32x32.c, in tuple order
-        // (rank=32, 31, 30, ≤29) — matching the docstring above.
-        (32, 32) => (0.2887880952, 0.5775761902, 0.1283502644, 0.0052854502),
-        _ => {
-            let full = rows.min(cols);
-            let p_full = gf2_rank_probability(rows, cols, full);
-            let p_full_minus_1 = if full >= 1 {
-                gf2_rank_probability(rows, cols, full - 1)
-            } else {
-                0.0
-            };
-            let p_full_minus_2 = if full >= 2 {
-                gf2_rank_probability(rows, cols, full - 2)
-            } else {
-                0.0
-            };
-            let p_tail = (1.0 - p_full - p_full_minus_1 - p_full_minus_2).max(0.0);
-            (p_full, p_full_minus_1, p_full_minus_2, p_tail)
-        }
-    }
+    let full = rows.min(cols);
+    let p_full = gf2_rank_probability(rows, cols, full);
+    let p_full_minus_1 = full
+        .checked_sub(1)
+        .map_or(0.0, |k| gf2_rank_probability(rows, cols, k));
+    let p_full_minus_2 = full
+        .checked_sub(2)
+        .map_or(0.0, |k| gf2_rank_probability(rows, cols, k));
+    let p_tail = (1.0 - p_full - p_full_minus_1 - p_full_minus_2).max(0.0);
+    (p_full, p_full_minus_1, p_full_minus_2, p_tail)
 }
 
+/// P(rank = `rank`) for a uniformly random `rows` × `cols` matrix over GF(2),
+/// by the product formula in the module documentation, summed in logarithms.
 fn gf2_rank_probability(rows: usize, cols: usize, rank: usize) -> f64 {
     if rank > rows.min(cols) {
         return 0.0;
@@ -302,8 +253,8 @@ mod tests {
     };
 
     /// Exact P(rank = 31), P(30), P(29) and P(≤ 28) for a random 31×31 GF(2)
-    /// matrix, from the product formula in exact rational arithmetic (Python
-    /// `fractions`), rounded once to f64.
+    /// matrix, from the product formula in exact rational arithmetic, rounded
+    /// once to f64.
     #[test]
     fn theoretical_31x31_matches_exact_rank_probabilities() {
         let got = theoretical_probs(31, 31);
@@ -327,9 +278,8 @@ mod tests {
     const HIGH_NOISE: u32 = 0xDEAD_BE00;
 
     /// A stream of 100 000 6×8 matrices with known ranks: 944 of rank 4,
-    /// 21 744 of rank 5 and 77 312 of rank 6 (ranks checked by an independent
-    /// Python elimination).  χ² and p come from a Python replica of the
-    /// three-cell statistic with the exact GF(2) probabilities.
+    /// 21 744 of rank 5 and 77 312 of rank 6.  χ² and p are computed by hand
+    /// from the three-cell statistic with the exact GF(2) probabilities.
     #[test]
     fn rank_6x8_statistic_matches_replica_on_constructed_ranks() {
         const RANK6: [u32; 6] = [1, 2, 4, 8, 16, 32];
@@ -354,8 +304,7 @@ mod tests {
     const WORDS_31X31: usize = 31 * 40_000;
 
     /// Row i = 2^(i+1).  Its leftmost 31 bits are 2^i, the identity (rank 31);
-    /// its low 31 bits lose row 30 entirely (rank 30).  Ranks checked with an
-    /// independent Python GF(2) elimination.
+    /// its low 31 bits lose row 30 entirely (rank 30).
     #[test]
     fn rank_31x31_rows_are_the_leftmost_31_bits() {
         let words: Vec<u32> = (0..31).map(|i| 1u32 << (i + 1)).collect();
@@ -367,9 +316,8 @@ mod tests {
         assert_eq!(leftmost_bits(u32::MAX, 32), u32::MAX);
     }
 
-    /// The statistic must not see bit 0.  With the low-31-bit mask, clearing
-    /// bit 0 zeroed a whole column (every rank ≤ 30, p ≈ 0) while setting it
-    /// did not, so the two p-values differed.
+    /// The statistic must not see bit 0: clearing it and setting it give the
+    /// same p-value.
     #[test]
     fn rank_31x31_ignores_the_lowest_bit() {
         let words = Mt19937::new(5489).collect_u32s(WORDS_31X31);
@@ -407,22 +355,28 @@ mod tests {
         assert!(p_tail > 0.0);
     }
 
+    /// P(rank 32) for a 32×32 matrix is Π_{i≥1} (1 − 2⁻ⁱ) to within 2⁻³², and
+    /// the full distribution sums to 1.
     #[test]
-    fn generic_rank_probability_matches_32x32_reference_close() {
+    fn rank_32x32_probabilities_follow_the_product_formula() {
+        let infinite_product: f64 = (1..200).map(|i| 1.0 - 0.5f64.powi(i)).product();
         let p = gf2_rank_probability(32, 32, 32);
-        assert!((p - 0.2887880952).abs() < 1e-9);
+        assert!(
+            (p - infinite_product).abs() < 1e-9,
+            "{p} vs {infinite_product}"
+        );
+        let total: f64 = (0..=32).map(|r| gf2_rank_probability(32, 32, r)).sum();
+        assert!((total - 1.0).abs() < 1e-12, "32×32 total = {total}");
     }
 
-    /// The 32×32 constants carry ten decimals, so their four entries sum to 1
-    /// only within 4 × 5 × 10⁻¹¹.  The 6×8 masses P(6) and P(5) are exact and,
-    /// with the exact P(rank ≤ 4) = 0.009443013983400306 (Python rationals),
-    /// sum to 1; the generic formula reproduces both and sums to 1 over ranks
-    /// 0..=6.
+    /// The 6×8 masses P(6) and P(5) are exact and, with the exact
+    /// P(rank ≤ 4) = 0.009443013983400306, sum to 1; the generic formula
+    /// reproduces both and sums to 1 over ranks 0..=6.
     #[test]
     fn rank_probability_tables_sum_to_one() {
         let (a, b, c, d) = theoretical_probs(32, 32);
         let sum = a + b + c + d;
-        assert!((sum - 1.0).abs() <= 4.0 * 5e-11, "32×32 sum = {sum}");
+        assert!((sum - 1.0).abs() < 1e-15, "32×32 sum = {sum}");
 
         assert!((P6X8_FULL + P6X8_FIVE + 0.009443013983400306 - 1.0).abs() < 1e-15);
         assert!((gf2_rank_probability(6, 8, 6) - P6X8_FULL).abs() < 1e-13);

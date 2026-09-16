@@ -1,46 +1,30 @@
-//! DIEHARD Tests 8 & 9 — Count-the-1's Tests.
+//! DIEHARD count-the-1s test on a stream of bytes.
 //!
-//! Each byte is mapped to a letter {A,B,C,D,E} based on its Hamming weight:
-//!   0,1,2 → A;  3 → B;  4 → C;  5 → D;  6,7,8 → E.
+//! Each byte becomes a letter by its Hamming weight: 0, 1 or 2 is A, 3 is B,
+//! 4 is C, 5 is D, and 6, 7 or 8 is E.  A uniform byte's weight is
+//! Binomial(8, ½), so the letters have probabilities 37, 56, 70, 56 and 37 in
+//! 256.
 //!
-//! The reference statistic is the **Q5 − Q4 difference**
-//! (Marsaglia, DIEHARD 1995; `diehard_count_1s_stream.c`):
+//! Over n = 256 000 overlapping five-letter words, Q5 is the Pearson sum of
+//! the 5⁵ = 3 125 word counts against their expected counts n·Πp, and Q4 the
+//! same sum over the 5⁴ = 625 counts of each word's leading four letters.
+//! Overlapping words make neither sum χ²-distributed, but their difference
+//! is asymptotically χ² with 5⁵ − 5⁴ = 2 500 degrees of freedom (Marsaglia
+//! 1985), so z = (Q5 − Q4 − 2 500)/√5 000 is approximately standard normal.
+//! The p-value is two-sided, erfc(|z|/√2): a difference that is too small
+//! fails as well as one that is too large.
 //!
-//! 1. Collect N = 256 000 overlapping 5-letter words → chi-square Q5 over
-//!    3125 = 5⁵ categories using letter-probability-weighted expected counts.
-//! 2. Collect the same N overlapping 4-letter words (leading 4 letters of each
-//!    5-letter window) → chi-square Q4 over 625 = 5⁴ categories.
-//! 3. The test statistic  Z = (Q5 − Q4 − 2500) / √5000  is approximately
-//!    standard normal under H₀.  Mean 2500 and σ √5000 are Marsaglia's
-//!    (`sknt1s`, `fortran/diehard.f` line 808), which Dieharder's
-//!    `diehard_count_1s_stream.c` keeps.
+//! Bytes are taken from each word low byte first.  256 004 bytes are read: a
+//! four-letter prefix, then one letter per counted word.
 //!
-//! Three differences from DIEHARD, all shared with Dieharder.  Marsaglia's
-//! `sknt1s` (`fortran/diehard.f` lines 740–826) scores 2 560 000 overlapping
-//! five-letter words (`n=100` at line 767, 25 600 × n at lines 779–780) and
-//! runs the test twice on successive bytes (`do 888 jk=1,2`, line 772); this
-//! module scores 256 000 words once, the size `tests.txt` gives.  `jtbl8`
-//! hands out each word's bytes high byte first (lines 214–215); this module
-//! takes them low byte first, as Dieharder does.  And DIEHARD reports
-//! `phi(z)` (line 817), a CDF value, where this module reports the two-sided
-//! erfc(|z|/√2).
-//!
-//! The default battery keeps only the stream variant.
-//! [`crate::diehard::historical::count_ones_bytes`] runs DIEHARD's byte
-//! variant, all 25 of `wknt1s`'s bit windows, on request.  Dieharder rates its byte
-//! variant, `diehard_count_1s_byte`, "Good" (`list_tests.c` lines 31–36).  Its
-//! author calls that test "LESS stringent than the stream version overall"
-//! but says it "might reveal problems with specific offsets ignored by the
-//! stream test", and that he "could fix the stream test to cycle through the
-//! possible bitlevel offsets and make this test completely obsolete"
-//! (`diehard_count_1s_byte.c` lines 60–71).  This crate's own byte variant,
-//! since removed, scored Q5 alone with df 3 124, which overlapping words do
-//! not support, and was miscalibrated.
+//! [`crate::diehard::historical::count_ones_bytes`] applies the same
+//! statistic to one byte of each word, at each of the 25 bit offsets.
 //!
 //! # Author
-//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutine `sknt1s`.
-//! [pubs/diehard-fortran-1996.tar.gz]
+//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995), and
+//! "A Current View of Random Number Generators", *Computer Science and
+//! Statistics: 16th Symposium on the Interface* (1985), for the overlapping
+//! χ² difference.
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -57,8 +41,7 @@ pub(crate) const LETTERS_PER_TEST: usize = N_SAMPLES + WORD_LEN - 1;
 
 /// Letter probabilities P(A) … P(E).  A uniform byte's Hamming weight is
 /// Binomial(8, ½), so the weight groups {0, 1, 2}, 3, 4, 5 and {6, 7, 8} have
-/// 37, 56, 70, 56 and 37 chances in 256 (Marsaglia, `tests.txt`; `ps[]` in
-/// Dieharder's `diehard_count_1s_stream.c`).
+/// 37, 56, 70, 56 and 37 chances in 256.
 const LETTER_PROBS: [f64; ALPHA_SIZE] = [
     37.0 / 256.0,
     56.0 / 256.0,
@@ -67,15 +50,11 @@ const LETTER_PROBS: [f64; ALPHA_SIZE] = [
     37.0 / 256.0,
 ];
 
-// Reference statistic parameters (Marsaglia's `sknt1s`, diehard.f line 808;
-// Dieharder's diehard_count_1s_stream.c).
-const QDIFF_MEAN: f64 = 2500.0;
-const QDIFF_STDDEV: f64 = 70.710_678; // √5000
+/// Degrees of freedom of Q5 − Q4: 5⁵ − 5⁴.
+const QDIFF_DF: f64 = (N_CATEGORIES5 - N_CATEGORIES4) as f64;
 
-/// Count-the-1's test on a stream of all bytes.
-///
-/// Uses Marsaglia's Q5 − Q4 difference statistic (`sknt1s`), as Dieharder's
-/// `diehard_count_1s_stream.c` ports it.
+/// Count-the-1s test on a stream of all bytes, by the Q5 − Q4 statistic in
+/// the module documentation.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
@@ -96,8 +75,7 @@ pub fn count_ones_stream(words: &[u32]) -> TestResult {
     count_ones_test(letter_iter, "diehard::count_ones_stream")
 }
 
-/// The letter, 0 (A) to 4 (E), that DIEHARD assigns a byte by its Hamming
-/// weight.
+/// The letter, 0 (A) to 4 (E), of a byte by its Hamming weight.
 pub(crate) fn hamming_letter(b: u8) -> usize {
     match b.count_ones() {
         0..=2 => 0, // A
@@ -115,7 +93,6 @@ pub(crate) fn hamming_letter(b: u8) -> usize {
 fn count_ones_test(letters: impl Iterator<Item = usize>, name: &'static str) -> TestResult {
     let (q5, q4) = q5_q4(letters);
 
-    // Reference statistic: Z = (Q5 − Q4 − 2500) / √5000.
     let z = q_difference_z(q5, q4);
     let p_value = erfc(z.abs() / SQRT_2);
 
@@ -129,13 +106,12 @@ fn count_ones_test(letters: impl Iterator<Item = usize>, name: &'static str) -> 
     )
 }
 
-/// Marsaglia's naive Pearson sums (Q5, Q4) over `N_SAMPLES` overlapping
+/// The Pearson sums (Q5, Q4) over `N_SAMPLES` overlapping
 /// five-letter words and their leading four letters, read from the first
 /// [`LETTERS_PER_TEST`] letters of `letters` (0..ALPHA_SIZE each).
 pub(crate) fn q5_q4(mut letters: impl Iterator<Item = usize>) -> (f64, f64) {
     let n = N_SAMPLES;
 
-    let lp = LETTER_PROBS;
     let nf = n as f64;
 
     let mut counts5 = [0u32; N_CATEGORIES5];
@@ -155,41 +131,30 @@ pub(crate) fn q5_q4(mut letters: impl Iterator<Item = usize>) -> (f64, f64) {
         counts4[word5 / ALPHA_SIZE] += 1;
     }
 
-    // Q5: Vtest chi-square on 5-letter words.
-    let q5: f64 = counts5
-        .iter()
-        .enumerate()
-        .map(|(w, &c)| {
-            let l = [w / 625, (w / 125) % 5, (w / 25) % 5, (w / 5) % 5, w % 5];
-            let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]] * lp[l[4]];
-            if exp < 5.0 {
-                return 0.0;
-            }
-            (c as f64 - exp).powi(2) / exp
-        })
-        .sum();
-
-    // Q4: Vtest chi-square on 4-letter words.
-    let q4: f64 = counts4
-        .iter()
-        .enumerate()
-        .map(|(w, &c)| {
-            let l = [w / 125, (w / 25) % 5, (w / 5) % 5, w % 5];
-            let exp = nf * lp[l[0]] * lp[l[1]] * lp[l[2]] * lp[l[3]];
-            if exp < 5.0 {
-                return 0.0;
-            }
-            (c as f64 - exp).powi(2) / exp
-        })
-        .sum();
-
-    (q5, q4)
+    (pearson_sum(&counts5, nf), pearson_sum(&counts4, nf))
 }
 
-/// Z = (Q5 − Q4 − 2500) / √5000, Marsaglia's standardisation (`sknt1s` and
-/// `wknt1s`, `fortran/diehard.f` lines 808 and 902).
+/// Σ (c − e)²/e over the counts of words of 5ᵏ possible values, word w's k
+/// letters being its base-5 digits and e = n·Π P(letter).  Every expected
+/// count is at least n·P(A)⁵ ≈ 16.
+fn pearson_sum(counts: &[u32], n: f64) -> f64 {
+    counts
+        .iter()
+        .enumerate()
+        .map(|(mut word, &c)| {
+            let mut expected = n;
+            for _ in 0..counts.len().ilog(ALPHA_SIZE) {
+                expected *= LETTER_PROBS[word % ALPHA_SIZE];
+                word /= ALPHA_SIZE;
+            }
+            (f64::from(c) - expected).powi(2) / expected
+        })
+        .sum()
+}
+
+/// z = (Q5 − Q4 − 2 500)/√5 000: Q5 − Q4 standardised as χ²(2 500).
 pub(crate) fn q_difference_z(q5: f64, q4: f64) -> f64 {
-    (q5 - q4 - QDIFF_MEAN) / QDIFF_STDDEV
+    (q5 - q4 - QDIFF_DF) / (2.0 * QDIFF_DF).sqrt()
 }
 
 #[cfg(test)]

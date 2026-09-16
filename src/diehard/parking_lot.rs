@@ -1,34 +1,19 @@
-//! DIEHARD Test 10 — Parking Lot Test.
+//! DIEHARD parking lot test.
 //!
-//! Tries to park 12 000 unit-side "cars" (squares, L∞ criterion) in a 100×100 square.
-//! A new car is placed at a random (x,y) location; it is rejected if it
-//! overlaps any previously parked car (max(|Δx|,|Δy|) < 1).  The number of
-//! cars successfully parked is approximately normal with mean = 3 523, σ = 21.9.
-//!
-//! The test repeats 10 times; the 10 resulting z-scores are converted to
-//! p-values and tested with a Kolmogorov-Smirnov test.
-//!
-//! Marsaglia's `cdpark` (`fortran/diehard.f` lines 282–341) parks a first car
-//! and then makes 12 000 attempts (lines 304–315), 12 001 in all; this module
-//! and Dieharder's `diehard_parking_lot.c` make 12 000.  In the fidelity
-//! review's simulation of 3 000 lots that moved the mean by 0.08 cars against
-//! σ = 21.9.  DIEHARD reports `phi(z)` for each lot and combines the ten with
-//! Marsaglia's Anderson–Darling statistic, which `tests.txt`
-//! calls a KS test (`KSTEST`, lines 1668–1709), and reports a CDF value; this
-//! module applies a Kolmogorov–Smirnov test and reports its upper tail.
+//! Makes 12 000 attempts to park a car, a square of side 1, at a uniform
+//! position in a 100 × 100 lot.  An attempt fails if the new car overlaps a
+//! parked one, max(|Δx|, |Δy|) < 1.  The number parked is approximately normal
+//! with mean 3 523 and standard deviation 21.9, values Marsaglia determined
+//! by simulation.  Ten lots give ten values of Φ(z), and a
+//! Kolmogorov–Smirnov test of them is the result.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutine `cdpark`.
-//! [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{math::ks_test, result::TestResult, rng::Rng};
 
 const ATTEMPTS: usize = 12_000;
-// Marsaglia's empirically derived constants for the L∞ square-car criterion
-// used in Dieharder's diehard_parking_lot.c.  The doc comment "unit-radius"
-// is Marsaglia's informal description; the actual collision test is L∞ ≥ 1
-// (square cars of side 1), not Euclidean distance ≥ 2.
+/// Mean and standard deviation of the number parked (Marsaglia, DIEHARD).
 const MEAN: f64 = 3_523.0;
 const SIGMA: f64 = 21.9;
 

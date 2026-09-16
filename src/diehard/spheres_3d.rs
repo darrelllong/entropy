@@ -1,27 +1,21 @@
-//! DIEHARD Test 12 — 3D Spheres Test.
+//! DIEHARD 3-D spheres test.
 //!
-//! Places 4 000 random points in a 1 000×1 000×1 000 cube and finds the
-//! point with the nearest neighbour.  The radius r of a sphere centred there
-//! that just touches its nearest neighbour satisfies: r³ ~ Exp(mean = 30).
-//! Thus 1 − exp(−r³/30) ~ U(0,1).  Repeats 20 times; p-values are combined
-//! with a Kolmogorov-Smirnov test.
-//!
-//! DIEHARD's `d3sphere` (`fortran/diehard.f` lines 147–200) combines the 20
-//! values with Marsaglia's Anderson–Darling statistic, which `tests.txt`
-//! calls a KS test (`KSTEST`, lines 1668–1709), and reports a CDF value; this
-//! module applies a Kolmogorov–Smirnov test and reports its upper tail.
+//! Places n = 4 000 uniform points in a cube of side 1 000 and finds the
+//! smallest distance r between two of them.  Each of the C(n, 2) pairs is
+//! within distance r with probability close to (4π/3)r³/V, V the volume,
+//! and the number of such pairs is approximately Poisson, so r³ is
+//! approximately exponential with mean V/(C(n, 2)·4π/3) ≈ 30, and
+//! 1 − exp(−r³/mean) is approximately uniform.  20 repetitions give 20
+//! values, and a Kolmogorov–Smirnov test of them is the result.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutine `d3sphere`.
-//! [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{
     diehard::nearest_pair::min_squared_distance, math::ks_test, result::TestResult, rng::Rng,
 };
 
 const CUBE_SIDE: f64 = 1_000.0;
-const MEAN_R3: f64 = 30.0;
 
 /// Run the 3D spheres test.
 ///
@@ -33,8 +27,9 @@ const MEAN_R3: f64 = 30.0;
 pub fn spheres_3d(rng: &mut impl Rng, quick: bool) -> TestResult {
     let n_points = if quick { 500 } else { 4_000 };
     let repeats = if quick { 10 } else { 20 };
-    // λ = n(n−1)/2 × (4π/3)/L³, so mean r³ = 1/λ ∝ 1/(n²).
-    let mean_r3 = MEAN_R3 * (4_000.0 / n_points as f64).powi(2);
+    // Mean of r³ under the Poisson approximation: V / (C(n, 2)·4π/3).
+    let pairs = n_points as f64 * (n_points as f64 - 1.0) / 2.0;
+    let mean_r3 = CUBE_SIDE.powi(3) / (pairs * 4.0 * std::f64::consts::PI / 3.0);
     let mut p_values = Vec::with_capacity(repeats);
 
     for _ in 0..repeats {
@@ -76,10 +71,18 @@ fn min_dist_cubed(points: &[[f64; 3]]) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{min_dist_cubed, spheres_3d};
+    use super::{min_dist_cubed, spheres_3d, CUBE_SIDE};
     use crate::rng::{ConstantRng, Mt19937, Rng};
 
-    /// Per-pair square root and cube, the scan as first written.
+    /// At 4 000 points the Poisson mean of r³ is V/(C(n, 2)·4π/3) ≈ 30.
+    #[test]
+    fn mean_cubed_distance_at_full_size() {
+        let pairs = 4_000.0 * 3_999.0 / 2.0;
+        let mean = CUBE_SIDE.powi(3) / (pairs * 4.0 * std::f64::consts::PI / 3.0);
+        assert!((mean - 30.0).abs() < 0.2, "{mean}");
+    }
+
+    /// Per-pair square root and cube, an independent scan.
     fn per_pair_cube_min(points: &[[f64; 3]]) -> f64 {
         let mut min_r3 = f64::MAX;
         for i in 0..points.len() {
@@ -95,7 +98,7 @@ mod tests {
     }
 
     /// The closest pair is (100.5, 200.25, 300.125)–(101, 201, 301) with
-    /// r² = 1.578125; r³ comes from a Python replica taking √ then r·r·r.
+    /// r² = 1.578125, so r³ = √1.578125 · √1.578125 · √1.578125.
     #[test]
     fn min_dist_cubed_on_fixed_points() {
         let points = [

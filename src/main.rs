@@ -172,11 +172,11 @@ const RESULT_FAMILIES: [(Suite, &[&str]); 4] = [
     (
         Suite::DiehardHistorical,
         &[
-            "diehard_historical::count_ones_bytes_25_fresh",
-            "diehard_historical::operm5_dieharder",
-            "diehard_historical::overlapping_sums_fortran",
-            "diehard_historical::rank_6x8_25_fresh",
-            "diehard_historical::rank_6x8_25_fresh_summary",
+            "diehard_historical::count_ones_bytes",
+            "diehard_historical::operm5",
+            "diehard_historical::overlapping_sums",
+            "diehard_historical::rank_6x8_windows",
+            "diehard_historical::rank_6x8_windows_summary",
         ],
     ),
 ];
@@ -337,7 +337,7 @@ impl Args {
             return Err(format!(
                 "--test '{pat}' matches no result name — names look like nist::frequency, \
                  diehard::craps_wins, dieharder::gcd_distribution or \
-                 diehard_historical::operm5_dieharder"
+                 diehard_historical::operm5"
             ));
         }
         if !holders.iter().any(|suite| self.run_suite(suite)) {
@@ -386,11 +386,10 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
 
  --suite         Run only this battery.  Repeatable: --suite nist --suite diehard.
                  diehard-historical runs the historical DIEHARD tests, which
-                 no default run includes: OPERM5 as Dieharder 3.31.1 corrects
-                 it, overlapping sums as diehard.f computes them, and
-                 count-the-1s and the 6x8 rank on DIEHARD's 25 bit windows,
-                 {} results per generator.  README.md inventories them and
-                 their limitations.
+                 no default run includes: OPERM5 with its exact covariance,
+                 overlapping sums, and count-the-1s and the 6x8 rank on each
+                 of the 25 byte offsets of a word, {} results per generator.
+                 README.md describes them.
  --test          Show only tests whose name contains <name>.
                  The selected batteries still run in full; this filters output.
                  Prefix nist::/diehard::/dieharder::/diehard_historical:: (or
@@ -984,7 +983,7 @@ mod tests {
         let a = run_args(&["--suite", "diehard-historical"]);
         assert_eq!(a.suites, HashSet::from([Suite::DiehardHistorical]));
         assert!(!a.run_suite(&Suite::Nist) && !a.run_suite(&Suite::Diehard));
-        let a = run_args(&["--test", "diehard_historical::operm5_dieharder"]);
+        let a = run_args(&["--test", "diehard_historical::operm5"]);
         assert_eq!(a.suites, HashSet::from([Suite::DiehardHistorical]));
         let a = run_args(&["--suite", "diehard", "--suite", "diehard-historical"]);
         assert!(a.run_suite(&Suite::Diehard) && a.run_suite(&Suite::DiehardHistorical));
@@ -1021,13 +1020,10 @@ mod tests {
         ] {
             run_args(&["--test", pat]);
         }
-        for pat in [
-            "diehard-historical::operm5_dieharder",
-            "diehard-historical::",
-        ] {
+        for pat in ["diehard-historical::operm5", "diehard-historical::"] {
             let a = run_args(&["--test", pat]);
             assert_eq!(a.suites, HashSet::from([Suite::DiehardHistorical]), "{pat}");
-            assert!(a.matches("diehard_historical::operm5_dieharder"), "{pat}");
+            assert!(a.matches("diehard_historical::operm5"), "{pat}");
         }
         for (argv, message) in [
             (&["--test", "bogus"][..], "matches no result name"),

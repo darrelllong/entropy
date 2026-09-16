@@ -1,15 +1,9 @@
 //! Brute-force nearest-pair scan shared by the minimum-distance tests.
 //!
-//! DIEHARD's minimum distance and 3-D spheres tests (George Marsaglia,
-//! *DIEHARD: A Battery of Tests of Randomness*, 1995) and Dieharder's
-//! `rgb_minimum_distance` (Robert G. Brown, Dieharder 3.31.1) each need the
-//! smallest Euclidean distance among n points in a square or cube.  All three
-//! measure the plain distance inside the box, with no wrap-around.  Both C
-//! files say they generate points "with periodic boundary conditions"
-//! (`diehard_2dsphere.c` lines 90–91, `rgb_minimum_distance.c` lines
-//! 118–119), yet neither wraps a distance: each scan's comment says that
-//! "for the moment we omit" periodic wraparound (lines 140–141 and
-//! 168–169).  `pubs/dieharder-3.31.1.tgz`
+//! The minimum distance, 3-D spheres and n-dimensional minimum distance
+//! tests each need the smallest Euclidean distance among n points in a
+//! square or cube.  All three measure the plain distance inside the box, with
+//! no wrap-around.
 
 /// Smallest squared Euclidean distance between two of `points`.
 ///
@@ -51,8 +45,8 @@ mod tests {
         assert_eq!(min_squared_distance(&[[1.0, 2.0, 3.0]]), f64::MAX);
     }
 
-    /// The scan `minimum_distance_nd` used before the merge: a root per pair,
-    /// with the squares summed by an iterator.
+    /// An independent scan: a root per pair, with the squares summed by an
+    /// iterator.
     fn per_pair_root_min<const D: usize>(points: &[[f64; D]]) -> f64 {
         let mut min_dist = f64::MAX;
         for i in 0..points.len() {

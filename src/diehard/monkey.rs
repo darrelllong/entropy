@@ -1,39 +1,26 @@
-//! DIEHARD Test 7 — Monkey Tests: OPSO, OQSO, DNA.
+//! DIEHARD monkey tests: OPSO, OQSO and DNA.
 //!
-//! OPSO and OQSO take their letters exactly as the Dieharder C does
-//! (`diehard_opso.c`, `diehard_oqso.c`): fixed bit fields of separate 32-bit
-//! words, not a continuous bitstream.  OPSO pairs bits 0–9 of two words, then
-//! bits 10–19 of the same two; OQSO takes six 5-bit fields (bits 0–29) from
-//! each group of four words.
+//! Each test forms 2²¹ twenty-bit "words" from letters of a small alphabet
+//! and counts how many of the 2²⁰ possible words never appear.
 //!
-//! DNA letter extraction differs from Dieharder.  `diehard_dna.c` refreshes
-//! its ten words every 32 samples and slides a 2-bit window one bit per sample
-//! with cyclic wraparound (`get_bit_ntuple_from_uint`), so successive letters
-//! overlap.  Here each group of ten words yields 16 samples at bit offsets
-//! 0, 2, …, 30, so every letter is a disjoint 2-bit field.
+//! - OPSO: two 10-bit letters.  Each pair of 32-bit words gives two samples,
+//!   bits 0–9 of both words and then bits 10–19.
+//! - OQSO: four 5-bit letters.  Each group of four words gives six samples,
+//!   from bits 0–4, 5–9, …, 25–29 of all four.
+//! - DNA: ten 2-bit letters.  Each group of ten words gives sixteen samples,
+//!   from bits 0–1, 2–3, …, 30–31 of all ten.
 //!
-//! The null moments differ from both references in all three tests.  Every
-//! sample here comes from disjoint bit fields, so the 2²¹ samples are
-//! independent, and the missing-words count is scored with their exact iid
-//! moments (μ ≈ 141 909.19, σ ≈ 290.33), which the fidelity review's
-//! simulation confirms for such samples.  Marsaglia's σs of 290, 295 and 339
-//! describe his overlapping words, one letter per 32-bit word; Dieharder applies
-//! them even to its disjoint OPSO and OQSO fields (μ/σ = 141 909.33/290.46 and
-//! 141 909.60/294.66).  Dieharder's `bitstream.c` draws the same distinction:
-//! "If you use non-overlapping samples, sigma is 290, not 428".
-//!
-//! DIEHARD's `cdomso` (`fortran/diehard.f` lines 649–739) also sweeps the
-//! letter's bit field over 23, 28 and 31 positions for OPSO, OQSO and DNA
-//! (line 689) and prints a `phi` value for each; each test here scores one
-//! construction.  Dieharder 3.31.1 rates all three tests "Suspect"
-//! (`list_tests.c` lines 31–32).
+//! Every sample is built from its own bit fields, so under the null the 2²¹
+//! samples are independent and uniform over the 2²⁰ cells.  For m independent
+//! samples over k cells the number of empty cells has mean k(1 − 1/k)^m and
+//! variance k(1 − 1/k)^m + k(k − 1)(1 − 2/k)^m − k²(1 − 1/k)^(2m): at m = 2²¹
+//! and k = 2²⁰, μ ≈ 141 909.19 and σ ≈ 290.33.  The p-value is two-sided,
+//! erfc(|z|/√2).
 //!
 //! # Author
-//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995), which
-//! describes OPSO, OQSO and DNA in its `tests.txt`; G. Marsaglia and A. Zaman,
-//! "Monkey tests for random number generators," *Computers & Mathematics with
-//! Applications* 26(9), 1993, here in Marsaglia's own extract from his
-//! CD-ROM.  [pubs/marsaglia-zaman-1993-monkey-tests.pdf]
+//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995), and
+//! G. Marsaglia and A. Zaman, "Monkey tests for random number generators",
+//! *Computers & Mathematics with Applications* 26(9) (1993).
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -42,9 +29,8 @@ const STREAM: usize = 1 << 21;
 const WORD_SPACE: usize = 1 << 20;
 const BITSET_BYTES: usize = WORD_SPACE / 8;
 
-// Exact iid missing-words moments for m = 2²¹ independent samples over
-// k = 2²⁰ cells:  μ = k(1−1/k)^m,
-// σ² = k(1−1/k)^m + k(k−1)(1−2/k)^m − k²(1−1/k)^{2m}.
+// Empty-cell moments for m = 2²¹ independent samples over k = 2²⁰ cells
+// (see the module documentation).
 const MONKEY_MEAN: f64 = 141_909.194_619_809_6;
 const MONKEY_SIGMA: f64 = 290.333_061_196_0;
 
@@ -65,7 +51,8 @@ fn monkey_result(name: &'static str, missing: usize, mean: f64, sigma: f64) -> T
 
 /// Overlapping Pairs Sparse Occupancy (OPSO).
 ///
-/// Reference: `diehard_opso.c`
+/// # Author
+/// George Marsaglia and Arif Zaman (1993).
 pub fn opso(words: &[u32]) -> TestResult {
     if words.len() < STREAM {
         return TestResult::insufficient("diehard::opso", "not enough words");
@@ -95,7 +82,8 @@ pub fn opso(words: &[u32]) -> TestResult {
 
 /// Overlapping Quadruples Sparse Occupancy (OQSO).
 ///
-/// Reference: `diehard_oqso.c`
+/// # Author
+/// George Marsaglia and Arif Zaman (1993).
 pub fn oqso(words: &[u32]) -> TestResult {
     let words_needed = (STREAM / 6) * 4 + if STREAM.is_multiple_of(6) { 0 } else { 4 };
     if words.len() < words_needed {
@@ -139,13 +127,11 @@ pub fn oqso(words: &[u32]) -> TestResult {
 
 /// DNA test.
 ///
-/// Reference: `diehard_dna.c`
+/// # Author
+/// George Marsaglia and Arif Zaman (1993).
 pub fn dna(words: &[u32]) -> TestResult {
-    // Each group of 10 words yields 16 samples at boffset ∈ {0,2,4,...,30} —
-    // disjoint 2-bit fields, hence independent samples (see module docs).
-    // Dieharder instead refreshes every 32 samples, stepping boffset by 1 with
-    // cyclic wraparound (`get_bit_ntuple_from_uint`); its overlapping scheme
-    // requires the σ = 337/339 calibration this module deliberately does not use.
+    // Each group of 10 words yields 16 samples at boffset ∈ {0,2,4,...,30}:
+    // disjoint 2-bit fields, hence independent samples.
     let groups = STREAM.div_ceil(16);
     let words_needed = groups * 10;
     if words.len() < words_needed {
@@ -204,8 +190,19 @@ mod tests {
         assert!(dna(&words).skipped());
     }
 
+    /// The constants against the exact formula, and its Poisson limit.
     #[test]
     fn monkey_moments_match_iid_theory() {
+        let (k, m) = (WORD_SPACE as f64, STREAM as f64);
+        let q1 = (m * (-1.0 / k).ln_1p()).exp();
+        let q2 = (m * (-2.0 / k).ln_1p()).exp();
+        let var = k * q1 + k * (k - 1.0) * q2 - k * k * q1 * q1;
+        assert!((MONKEY_MEAN - k * q1).abs() < 1e-6, "{}", k * q1);
+        assert!(
+            (super::MONKEY_SIGMA - var.sqrt()).abs() < 1e-6,
+            "{}",
+            var.sqrt()
+        );
         // Asymptotic check: μ ≈ k·e^{−λ}, σ² ≈ k·e^{−λ}(1 − (1+λ)e^{−λ}), λ = 2.
         let k = WORD_SPACE as f64;
         let lambda = 2.0f64;

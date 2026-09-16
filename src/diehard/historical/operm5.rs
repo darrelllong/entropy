@@ -1,339 +1,285 @@
-//! OPERM5, the overlapping 5-permutation test, as corrected in Dieharder
-//! 3.31.1.  Result name: `diehard_historical::operm5_dieharder`.
+//! OPERM5, the overlapping 5-permutation test.  Result name:
+//! `diehard_historical::operm5`.
 //!
-//! # What it is
+//! # The statistic
 //!
-//! Marsaglia's OPERM5 (`tests.txt`) reads 32-bit words five at a time,
-//! overlapping: each of n = 1 000 000 windows w₀…w₄, w₁…w₅, … is in one of
-//! the 5! = 120 orderings of five values.  The 120 counts c are
-//! asymptotically normal with mean n/120 and covariance n·C, where C sums the
-//! covariances of one window's pattern indicators with those of the windows
-//! up to four places either side.  C has rank 96 = 5! − 4!
-//! (`diehard_operm5.c` lines 27–28, and the enumeration test below), so with
-//! P its Moore–Penrose pseudoinverse the quadratic form
-//! χ² = (c − n/120)ᵀ P (c − n/120) / n is χ²(96) under the null.  The p-value
-//! is the upper tail Q(48, χ²/2): a small p is a bad fit.
+//! Each of n = 1 000 000 overlapping windows of five successive 32-bit words
+//! w₀…w₄, w₁…w₅, … falls into one of the 5! = 120 orderings of its values.
+//! Let c be the vector of the 120 counts.  Under the null every ordering has
+//! probability 1/120, and c is asymptotically normal with mean n/120 and
+//! covariance n·C, where C is the per-window covariance of the 120 ordering
+//! indicators summed over the windows that overlap it:
 //!
-//! # Reference followed
+//! C = diag(1/120) − 9/120² + Σ_{d=1..4} (J_d + J_dᵀ),
 //!
-//! Robert G. Brown's Dieharder 3.31.1, `libdieharder/diehard_operm5.c`, in
-//! the overlapping mode it runs by default, with the pseudoinverse Stephen
-//! Moenkehues computed for it (`include/dieharder/diehard_operm5.h`, kept as
-//! data in `operm5_table.rs`).  [pubs/dieharder-3.31.1.tgz]  The code is this
-//! crate's `src/diehard/operm5.rs` as commit 3b41af8 removed it, with its
-//! computation unchanged:
+//! with J_d\[a\]\[b\] the probability that a window is in ordering a and the
+//! window d places later is in ordering b.  J_d depends only on the relative
+//! order of 5 + d distinct values, so it is computed exactly by enumerating
+//! all (5 + d)! orderings.  Every row of C sums to zero, and C has rank
+//! 5! − 4! = 96.  With P the Moore–Penrose pseudoinverse of C, the quadratic
+//! form
 //!
-//! - The permutation index is Dieharder's `kperm` (lines 73–122), not
-//!   Marsaglia's `kp`: for i = 4 down to 1 it finds the largest of the first
-//!   i + 1 values, ties going to the later one, at position k, sets
-//!   index = (i + 1)·index + k and swaps that value into place i.
-//! - One pass: five words fill the first window, then each of the 1 000 000
-//!   windows is counted and the next word replaces the oldest (lines 143–175),
-//!   1 000 005 words in all.
-//! - χ² = Σᵢ Σⱼ xᵢ Pᵢⱼ xⱼ / n with x = c − n/120, summed in the order
-//!   `diehard_operm5.c` sums it (lines 182–228); df 96 (line 230) and the
-//!   upper tail `gsl_sf_gamma_inc_Q` (line 239).
+//! χ² = (c − n/120)ᵀ P (c − n/120) / n
 //!
-//! Only the names, this documentation, `static` storage for the table and the
-//! input gate changed.  The removed module scored any stream of at least
-//! 10 005 words with df 96; this one requires the full 1 000 005, the only
-//! length its calibration covers.
+//! is asymptotically χ²(96).  The p-value is the upper tail Q(48, χ²/2).
 //!
-//! # Departures from Dieharder
+//! # Computation
 //!
-//! - Words are compared as `u32`.  Dieharder copies them into `int w[5]`
-//!   (line 77) and so orders them as signed integers, as `diehard.f` also
-//!   does.  Either is a total order on words, so the 120 orderings are
-//!   equally likely under either and χ² has the same null law; for a given
-//!   stream the counts differ.  Flipping bit 31 of every word turns one order
-//!   into the other, and the tests pin both against Dieharder's own C.
-//! - Dieharder reports |χ²| and warns when the form is negative
-//!   (lines 224–228).  P is positive semidefinite, so the form is not
-//!   negative beyond rounding, and the sign is kept.
-//! - Dieharder repeats the test for 100 p-samples by default and combines them
-//!   with a Kolmogorov–Smirnov test; this is one sample.
+//! `ordering_index` numbers the orderings 0..120 by their Lehmer code.  C is
+//! built by enumeration once per process, and P is formed from the
+//! eigendecomposition of C (cyclic Jacobi rotations), inverting the 96
+//! eigenvalues above a relative threshold of 10⁻⁹ and discarding the 24 that
+//! vanish.  The tests check C·P·C = C, P·C·P = P and trace(C·P) = 96.
 //!
-//! # Departures from `diehard.f`
+//! Words are compared as unsigned integers.  Equal words, which occur with
+//! probability about 10⁻⁹ per window, are ordered by position.
 //!
-//! Marsaglia's `cdoperm5` (`fortran/diehard.f` lines 1143–1209) differs from
-//! this test in four ways.
+//! # Calibration
 //!
-//! - Index and matrix: `kp` (lines 1210–1234) ranks the five words by its own
-//!   rule, compares them as signed integers and relabels indices below 60
-//!   through a 60-entry `map`.  The weak inverse is read from `operm5d.ata` as
-//!   two 60 × 60 upper triangles R and S (lines 1154–1157) and applied as
-//!   Σᵢⱼ [xᵢ Rᵢⱼ xⱼ + yᵢ Sᵢⱼ yⱼ] / (2·10⁸ n) with xᵢ = tᵢ + tᵢ₊₆₀ − av and
-//!   yᵢ = tᵢ − tᵢ₊₆₀ (lines 1187–1193).
-//! - Degrees of freedom: 99, "the rank is 99=50+49" (lines 1153 and 1198).
-//! - Passes: two, over the same 1 000 005 words (`DO 8888`, lines 1165–1202).
-//! - p-value: `chisq(chsq,99)` (line 1198), a Wilson–Hilferty approximation
-//!   to the χ²(99) CDF, so a p near 1 is the bad fit.
+//! 10 000 streams of 1 000 005 words, each from a separately seeded PCG64
+//! generator, gave p < 0.01 in 0.95% (binomial standard deviation 0.10%) and
+//! p < 0.001 in 0.10% (0.03%), with a Kolmogorov–Smirnov p of 0.10 over the
+//! 10 000 p-values.  A test below runs a fixed 100-stream version under
+//! `cargo test --release`.
 //!
-//! Marsaglia's version is miscalibrated, and the fault is in its data, not
-//! in a transcription.  Parsing `operm5d.ata` with Fortran record semantics
-//! and enumerating C in `kp`+`map` order (a NumPy script from the fidelity
-//! review, rerun for this module): R has full rank 60, not 50, and 9 negative
-//! eigenvalues (the smallest −1.453·10⁸ against a largest of 2.135·10⁸); S is
-//! positive definite, with 49 eigenvalues above 7; and the combined matrix W
-//! is not a generalised inverse of C (‖CWC − C‖/‖C‖ = 1.52).  Under the null
-//! Marsaglia's χ² is Σ λᵢ χ²(1) over the eigenvalues λ of C^½ W C^½, with
-//! mean 97.50 and variance 448 where χ²(99) has 99 and 198.  In 400 000
-//! draws of that sum, `chisq(χ², 99)` exceeded 0.99 in 4.89% and 0.999 in
-//! 1.94% of draws, and fell below 0.01 in 6.83%.  Dieharder's rank, 96, is
-//! right; Marsaglia's 99 is not.
+//! # Scope
 //!
-//! # Calibration evidence
+//! The input is 1 000 005 words, one pass: five for the first window and one
+//! more for each window after it.  Shorter input reports SKIP.  The suite's
+//! [`crate::dieharder::permutations`] tests 5-permutations on non-overlapping
+//! windows, where no covariance correction is needed.
 //!
-//! - **The matrix.**  A test below rebuilds C by enumerating all (5 + d)!
-//!   orderings for d = 1 to 4 and checks that Dieharder's table P satisfies
-//!   C·P·C = C (largest error under 10⁻¹²), P·C·P = P (relative error under
-//!   10⁻⁹) and trace(C·P) = 96 (within 10⁻⁶): P is a generalised inverse of C
-//!   and the form has 96 degrees of freedom.  In NumPy the table equals
-//!   pinv(C) to 4.5·10⁻¹⁰ (relative 3.7·10⁻¹²), and C^½ P C^½ has exactly 96
-//!   unit eigenvalues.
-//! - **Goldens.**  On words 1 to 1 000 005 of the fidelity review's input,
-//!   χ² agrees to 10⁻⁹ with a C harness compiled from Dieharder's own `kperm`
-//!   and quadratic form: 97.432 823 106 7 with this module's unsigned order,
-//!   and 80.350 208 578 1 with Dieharder's signed order after bit 31 of every
-//!   word is flipped.
-//! - **Null simulation.**  40 000 streams of 1 000 005 words, each from a
-//!   separately seeded PCG64 generator: p < 0.01 in 396 (0.99%; binomial
-//!   standard deviation 0.05%) and p < 0.001 in 37 (0.093%; 0.016%), with
-//!   p > 0.99 in 1.02%; a Kolmogorov–Smirnov test of the 40 000 p-values gives
-//!   p = 0.067.  χ² had mean 95.87 and variance 192.7, against 96 and 192.  A
-//!   test below runs a fixed 100-stream version under `cargo test --release`.
+//! # References
 //!
-//! # Why it is outside the default battery
-//!
-//! Commit 3b41af8 removed it, citing Dieharder's description of the original
-//! OPERM5 as broken.  The version it removed was Dieharder's corrected one,
-//! which `dieharder -l` rates "Good" (`dieharder/list_tests.c` lines 26–37;
-//! OPERM5 is test 1 in `include/dieharder/tests.h`), and the evaluation above
-//! finds it calibrated.  It stays out of the default battery because adding
-//! slots to that battery is a decision of its own, not a side effect of
-//! restoring a source.  The default battery already scores 5-permutations
-//! with [`crate::dieharder::permutations`], Brown's `rgb_permutations`, which
-//! avoids the covariance by using non-overlapping windows.
-//!
-//! # Author
-//! George Marsaglia, DIEHARD (1995), for the test; Robert G. Brown and
-//! Stephen Moenkehues, Dieharder 3.31.1, for this form of it.
+//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995),
+//! which defines the test on overlapping windows.  Robert G. Brown,
+//! *Dieharder: A Random Number Test Suite* (2004–2011), which identified the
+//! rank of the covariance as 96.
 
-use super::operm5_table::PSEUDO_INVERSE;
 use crate::{math::igamc, result::TestResult};
+use std::sync::OnceLock;
 
 /// Result name.
-const NAME: &str = "diehard_historical::operm5_dieharder";
-/// Overlapping windows counted: Dieharder's default `tsamples`.
+const NAME: &str = "diehard_historical::operm5";
+/// Overlapping windows counted.
 const N_WINDOWS: usize = 1_000_000;
+/// Values in each window.
+const WINDOW: usize = 5;
 /// Words the test reads: five for the first window, then one per window.
-pub const WORDS: usize = N_WINDOWS + 5;
+pub const WORDS: usize = N_WINDOWS + WINDOW;
 /// Orderings of five values.
-const N_PERMS: usize = 120;
+const N_ORDERINGS: usize = 120;
 /// Rank of the covariance matrix, 5! − 4!.
 const DF: f64 = 96.0;
+/// Eigenvalues of C below this fraction of the largest are treated as zero.
+const RANK_TOLERANCE: f64 = 1e-9;
 
-/// OPERM5 as Dieharder 3.31.1 computes it, on the first [`WORDS`] words.
+/// A dense 120 × 120 matrix, row by row.
+type Matrix = Vec<[f64; N_ORDERINGS]>;
+
+/// OPERM5 on the first [`WORDS`] words.
 ///
-/// Reports SKIP for fewer than [`WORDS`] words.  See the module
-/// documentation for the statistic and its departures from `diehard.f`.
+/// Reports SKIP for fewer than [`WORDS`] words.  See the module documentation
+/// for the statistic.
 ///
 /// # Author
-/// George Marsaglia, DIEHARD (1995); Robert G. Brown and Stephen Moenkehues,
-/// Dieharder 3.31.1.
-pub fn operm5_dieharder(words: &[u32]) -> TestResult {
+/// George Marsaglia, DIEHARD (1995).
+pub fn operm5(words: &[u32]) -> TestResult {
     if words.len() < WORDS {
         return TestResult::insufficient(NAME, "need 1 000 005 words");
     }
-    let chisq = operm5_statistic(&words[..WORDS]);
-    let p_value = igamc(DF / 2.0, chisq / 2.0);
+    let chi_square = statistic(&words[..WORDS]);
+    let p_value = igamc(DF / 2.0, chi_square / 2.0);
     TestResult::with_note(
         NAME,
         p_value,
-        format!("n={N_WINDOWS}, df={DF}, χ²={chisq:.4}"),
+        format!("n={N_WINDOWS}, df={DF}, χ²={chi_square:.4}"),
     )
 }
 
-/// χ² = xᵀ P x / n over the overlapping windows of `words`, which must hold
-/// at least [`WORDS`] words.
-fn operm5_statistic(words: &[u32]) -> f64 {
-    let mut count = [0u32; N_PERMS];
-
-    // Circular buffer of 5 words plus a rolling offset, mirroring the C code.
-    let mut v = [0u32; 5];
-    v.copy_from_slice(&words[..5]);
-    let mut vind = 0usize;
-
-    for t in 0..N_WINDOWS {
-        count[kperm(&v, vind)] += 1;
-        // Each counted window consumes one fresh replacement word.
-        v[vind] = words[t + 5];
-        vind = (vind + 1) % 5;
+/// χ² = xᵀ P x / n over the overlapping windows of exactly [`WORDS`] words,
+/// with x the ordering counts minus n/120.
+fn statistic(words: &[u32]) -> f64 {
+    let mut counts = [0u64; N_ORDERINGS];
+    for window in words.windows(WINDOW).take(N_WINDOWS) {
+        let window: &[u32; WINDOW] = window.try_into().expect("windows of five");
+        counts[ordering_index(window)] += 1;
     }
-
-    let nf = N_WINDOWS as f64;
-    let expected = nf / N_PERMS as f64; // n / 120
-    let x: Vec<f64> = count.iter().map(|&c| c as f64 - expected).collect();
-
-    // One running sum over i, then j, as diehard_operm5.c accumulates it.
-    let mut chisq = 0.0f64;
-    for (&xi, row) in x.iter().zip(PSEUDO_INVERSE.iter()) {
-        for (&pij, &xj) in row.iter().zip(&x) {
-            chisq += xi * pij * xj;
-        }
-    }
-    chisq / nf
+    let n = N_WINDOWS as f64;
+    let expected = n / N_ORDERINGS as f64;
+    let x: Vec<f64> = counts.iter().map(|&c| c as f64 - expected).collect();
+    let quadratic_form: f64 = pseudo_inverse()
+        .iter()
+        .zip(&x)
+        .map(|(row, &xi)| xi * row.iter().zip(&x).map(|(&p, &xj)| p * xj).sum::<f64>())
+        .sum();
+    quadratic_form / n
 }
 
-/// Dieharder's `kperm`: the permutation index, 0..120, of the five words
-/// `v[voffset]`, `v[voffset + 1]`, … read circularly, compared as `u32`.
-///
-/// Translated from Dieharder 3.31.1 `diehard_operm5.c` lines 71–110.
-fn kperm(v: &[u32; 5], voffset: usize) -> usize {
-    let mut w: [u32; 5] = std::array::from_fn(|i| v[(i + voffset) % 5]);
-    let mut pindex = 0usize;
-    for i in (1..=4).rev() {
-        let mut max = w[0];
-        let mut k = 0usize;
-        for (j, &wj) in w.iter().enumerate().take(i + 1).skip(1) {
-            if max <= wj {
-                max = wj;
-                k = j;
+/// The Lehmer-code index, 0..120, of the ordering of `w`: position i
+/// contributes the number of later values smaller than `w[i]`, weighted by
+/// (4 − i)!.
+fn ordering_index<T: Ord>(w: &[T; WINDOW]) -> usize {
+    let mut index = 0;
+    for i in 0..WINDOW {
+        let smaller_later = w[i + 1..].iter().filter(|v| **v < w[i]).count();
+        index = index * (WINDOW - i) + smaller_later;
+    }
+    index
+}
+
+/// The pseudoinverse P of the per-window covariance C, computed once.
+fn pseudo_inverse() -> &'static Matrix {
+    static P: OnceLock<Matrix> = OnceLock::new();
+    P.get_or_init(|| pseudo_inverse_of(&covariance()))
+}
+
+/// The per-window covariance C of the 120 ordering indicators, by
+/// enumeration (see the module documentation).
+fn covariance() -> Matrix {
+    let p = 1.0 / N_ORDERINGS as f64;
+    let overlaps = 2 * (WINDOW - 1) + 1;
+    let mut c: Matrix = vec![[-(overlaps as f64) * p * p; N_ORDERINGS]; N_ORDERINGS];
+    for (a, row) in c.iter_mut().enumerate() {
+        row[a] += p;
+    }
+    for d in 1..WINDOW {
+        let (joint, total) = joint_counts(d);
+        for (a, row) in c.iter_mut().enumerate() {
+            for (b, entry) in row.iter_mut().enumerate() {
+                *entry += (joint[a][b] + joint[b][a]) as f64 / total as f64;
             }
         }
-        pindex = (i + 1) * pindex + k;
-        w.swap(i, k);
     }
-    pindex
+    c
+}
+
+/// Over all orderings of 5 + `d` distinct values, how often the first five
+/// are in ordering a and the last five in ordering b; and the number of
+/// orderings, (5 + d)!.
+fn joint_counts(d: usize) -> (Vec<[u64; N_ORDERINGS]>, u64) {
+    let mut joint = vec![[0u64; N_ORDERINGS]; N_ORDERINGS];
+    let mut total = 0;
+    let mut values: Vec<usize> = (0..WINDOW + d).collect();
+    for_each_ordering(&mut values, |v| {
+        let first: &[usize; WINDOW] = v[..WINDOW].try_into().expect("five values");
+        let last: &[usize; WINDOW] = v[d..].try_into().expect("five values");
+        joint[ordering_index(first)][ordering_index(last)] += 1;
+        total += 1;
+    });
+    (joint, total)
+}
+
+/// Calls `visit` once on each ordering of `values`, rearranging them in
+/// place by single swaps (Heap's method).
+fn for_each_ordering(values: &mut [usize], mut visit: impl FnMut(&[usize])) {
+    let n = values.len();
+    let mut counter = vec![0; n];
+    visit(values);
+    let mut i = 0;
+    while i < n {
+        if counter[i] < i {
+            let j = if i % 2 == 0 { 0 } else { counter[i] };
+            values.swap(j, i);
+            visit(values);
+            counter[i] += 1;
+            i = 0;
+        } else {
+            counter[i] = 0;
+            i += 1;
+        }
+    }
+}
+
+/// The Moore–Penrose pseudoinverse of the symmetric matrix `c`: Σ vvᵀ/λ over
+/// the eigenpairs whose eigenvalue exceeds [`RANK_TOLERANCE`] times the
+/// largest.
+fn pseudo_inverse_of(c: &Matrix) -> Matrix {
+    let (values, vectors) = symmetric_eigen(c);
+    let largest = values.iter().fold(0.0f64, |m, v| m.max(v.abs()));
+    let mut p: Matrix = vec![[0.0; N_ORDERINGS]; N_ORDERINGS];
+    for (k, &lambda) in values.iter().enumerate() {
+        if lambda <= RANK_TOLERANCE * largest {
+            continue;
+        }
+        for (i, row) in p.iter_mut().enumerate() {
+            let vik = vectors[i][k] / lambda;
+            for (j, entry) in row.iter_mut().enumerate() {
+                *entry += vik * vectors[j][k];
+            }
+        }
+    }
+    p
+}
+
+/// Sweeps of Jacobi rotations before giving up on convergence.
+const MAX_SWEEPS: usize = 64;
+
+/// Eigenvalues and eigenvectors (as the columns of the second matrix) of the
+/// symmetric matrix `a`, by cyclic Jacobi rotations.
+#[allow(clippy::needless_range_loop)]
+fn symmetric_eigen(a: &Matrix) -> ([f64; N_ORDERINGS], Matrix) {
+    let n = N_ORDERINGS;
+    let mut a = a.clone();
+    let mut v: Matrix = vec![[0.0; N_ORDERINGS]; N_ORDERINGS];
+    for (i, row) in v.iter_mut().enumerate() {
+        row[i] = 1.0;
+    }
+    for _ in 0..MAX_SWEEPS {
+        let off: f64 = (0..n)
+            .flat_map(|i| (i + 1..n).map(move |j| (i, j)))
+            .map(|(i, j)| a[i][j] * a[i][j])
+            .sum();
+        let diagonal: f64 = (0..n).map(|i| a[i][i] * a[i][i]).sum();
+        if off <= f64::EPSILON * f64::EPSILON * diagonal {
+            break;
+        }
+        for p in 0..n {
+            for q in p + 1..n {
+                if a[p][q] == 0.0 {
+                    continue;
+                }
+                // The rotation that zeroes a[p][q]: t = tan θ, the smaller
+                // root of t² + 2τt − 1 = 0.
+                let tau = (a[q][q] - a[p][p]) / (2.0 * a[p][q]);
+                let t = tau.signum() / (tau.abs() + (1.0 + tau * tau).sqrt());
+                let t = if tau == 0.0 { 1.0 } else { t };
+                let cos = 1.0 / (1.0 + t * t).sqrt();
+                let sin = t * cos;
+                for k in 0..n {
+                    let (akp, akq) = (a[k][p], a[k][q]);
+                    a[k][p] = cos * akp - sin * akq;
+                    a[k][q] = sin * akp + cos * akq;
+                }
+                for k in 0..n {
+                    let (apk, aqk) = (a[p][k], a[q][k]);
+                    a[p][k] = cos * apk - sin * aqk;
+                    a[q][k] = sin * apk + cos * aqk;
+                }
+                for row in v.iter_mut() {
+                    let (vkp, vkq) = (row[p], row[q]);
+                    row[p] = cos * vkp - sin * vkq;
+                    row[q] = sin * vkp + cos * vkq;
+                }
+            }
+        }
+    }
+    (std::array::from_fn(|i| a[i][i]), v)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::{operm5_table::PSEUDO_INVERSE, oracle};
-    use super::{kperm, operm5_dieharder, operm5_statistic, N_PERMS, WORDS};
+    use super::{
+        covariance, for_each_ordering, operm5, ordering_index, pseudo_inverse, statistic, Matrix,
+        N_ORDERINGS, WINDOW, WORDS,
+    };
     use crate::{
         math::ks_test,
         rng::{Pcg64, Rng},
     };
 
-    /// Bit 31, whose flip turns unsigned order into signed order.
-    const SIGN_BIT: u32 = 1 << 31;
-
-    /// χ² on `in.bin` words 1 to 1 000 005 from a C harness compiled from
-    /// Dieharder 3.31.1's own code: `kperm` (`diehard_operm5.c` lines 73–122)
-    /// and the overlapping count and quadratic form (lines 143–228), with
-    /// `pseudoInv` included from the header.  With `int w[5]`, as Dieharder
-    /// declares it, the harness printed this value.
-    const DIEHARDER_C_SIGNED: f64 = 80.350_208_578_1;
-    /// The same harness with `w[5]` declared `unsigned int`, the order this
-    /// module uses.  The fidelity review reported 97.4328 for the removed
-    /// module on the same words.
-    const DIEHARDER_C_UNSIGNED: f64 = 97.432_823_106_7;
-    /// The harness printed ten decimals.
-    const PRINTED_TOL: f64 = 1e-9;
-
-    /// Fidelity: χ² matches Dieharder's own C on the review input in both
-    /// orders, to the ten decimals the harness printed.
-    #[test]
-    fn statistic_matches_dieharder_c_on_the_review_input() {
-        let words = oracle::words(WORDS);
-        let unsigned = operm5_statistic(&words);
-        assert!(
-            (unsigned - DIEHARDER_C_UNSIGNED).abs() < PRINTED_TOL,
-            "{unsigned}"
-        );
-        let flipped: Vec<u32> = words.iter().map(|&w| w ^ SIGN_BIT).collect();
-        let signed = operm5_statistic(&flipped);
-        assert!(
-            (signed - DIEHARDER_C_SIGNED).abs() < PRINTED_TOL,
-            "{signed}"
-        );
-    }
-
-    /// Q(48, χ²/2) on the review input from this crate's `igamc`, pinned on
-    /// the landing tree.
-    const GOLDEN_P: f64 = 0.439_998_873_488_646_64;
-
-    /// Regression: the result on the review input, note and p-value.
-    #[test]
-    fn result_on_the_review_input_is_pinned() {
-        let result = operm5_dieharder(&oracle::words(WORDS));
-        assert_eq!(result.note.as_deref(), Some("n=1000000, df=96, χ²=97.4328"));
-        assert!((result.p_value - GOLDEN_P).abs() < 1e-12, "{result}");
-    }
-
-    #[test]
-    fn kperm_numbers_the_120_orderings_once_each() {
-        let mut seen = [false; N_PERMS];
-        for_each_permutation(&mut [0, 1, 2, 3, 4], |p| {
-            let v: [u32; 5] = p.try_into().expect("five values");
-            let k = kperm(&v, 0);
-            assert!(!seen[k], "index {k} repeated");
-            seen[k] = true;
-        });
-        assert!(seen.iter().all(|&s| s));
-    }
-
-    /// Calls `visit` on each of the n! orderings of `items` (Heap's
-    /// algorithm).
-    fn for_each_permutation(items: &mut [u32], mut visit: impl FnMut(&[u32])) {
-        let n = items.len();
-        let mut c = vec![0usize; n];
-        visit(items);
-        let mut i = 1;
-        while i < n {
-            if c[i] < i {
-                if i % 2 == 0 {
-                    items.swap(0, i);
-                } else {
-                    items.swap(c[i], i);
-                }
-                visit(items);
-                c[i] += 1;
-                i = 1;
-            } else {
-                c[i] = 0;
-                i += 1;
-            }
-        }
-    }
-
-    type Matrix = Vec<[f64; N_PERMS]>;
-
-    /// The per-window covariance C of the 120 pattern indicators, in `kperm`
-    /// order, by enumeration:
-    /// C = diag(1/120) − 9/120² + Σ_{d=1..4} (J_d + J_dᵀ), where J_d[a][b] is
-    /// the fraction of the (5 + d)! orderings of 5 + d distinct values whose
-    /// first five are in pattern a and whose last five are in pattern b.
-    fn covariance_by_enumeration() -> Matrix {
-        let p = 1.0 / N_PERMS as f64;
-        let mut c: Matrix = vec![[-9.0 * p * p; N_PERMS]; N_PERMS];
-        for (a, row) in c.iter_mut().enumerate() {
-            row[a] += p;
-        }
-        for d in 1..=4usize {
-            let n = 5 + d;
-            let mut joint = vec![[0u64; N_PERMS]; N_PERMS];
-            let mut total = 0u64;
-            let mut items: Vec<u32> = (0..n as u32).collect();
-            for_each_permutation(&mut items, |perm| {
-                let first: [u32; 5] = perm[..5].try_into().expect("five values");
-                let last: [u32; 5] = perm[d..].try_into().expect("five values");
-                joint[kperm(&first, 0)][kperm(&last, 0)] += 1;
-                total += 1;
-            });
-            assert_eq!(total, (1..=n as u64).product::<u64>());
-            for a in 0..N_PERMS {
-                for b in 0..N_PERMS {
-                    c[a][b] += (joint[a][b] + joint[b][a]) as f64 / total as f64;
-                }
-            }
-        }
-        c
-    }
-
-    fn mat_mul(a: &[[f64; N_PERMS]], b: &[[f64; N_PERMS]]) -> Matrix {
-        let mut out: Matrix = vec![[0.0; N_PERMS]; N_PERMS];
+    fn mat_mul(a: &Matrix, b: &Matrix) -> Matrix {
+        let mut out: Matrix = vec![[0.0; N_ORDERINGS]; N_ORDERINGS];
         for (row_out, row_a) in out.iter_mut().zip(a) {
             for (&aik, row_b) in row_a.iter().zip(b) {
                 for (o, &bkj) in row_out.iter_mut().zip(row_b) {
@@ -344,60 +290,108 @@ mod tests {
         out
     }
 
-    fn max_abs_diff(a: &[[f64; N_PERMS]], b: &[[f64; N_PERMS]]) -> f64 {
+    fn max_abs(a: &Matrix) -> f64 {
+        a.iter().flatten().fold(0.0, |m, x| m.max(x.abs()))
+    }
+
+    fn max_abs_diff(a: &Matrix, b: &Matrix) -> f64 {
         a.iter()
             .flatten()
             .zip(b.iter().flatten())
-            .map(|(x, y)| (x - y).abs())
-            .fold(0.0, f64::max)
+            .fold(0.0, |m, (x, y)| m.max((x - y).abs()))
     }
 
-    /// Dieharder's table is a generalised inverse of the covariance rebuilt
-    /// from scratch: C·P·C = C, P·C·P = P, and trace(C·P) = rank(C) = 96,
-    /// the degrees of freedom.  NumPy on the same C found max |C·P·C − C| of
-    /// 3.0·10⁻¹⁴ (largest |C| entry 0.0109) and a relative P·C·P error of
-    /// 2.5·10⁻¹².
     #[test]
-    fn pseudo_inverse_is_a_generalised_inverse_of_the_enumerated_covariance() {
-        let c = covariance_by_enumeration();
-        for row in &c {
-            assert!(
-                row.iter().sum::<f64>().abs() < 1e-15,
-                "a row of C sums to 0"
-            );
+    fn ordering_index_numbers_the_120_orderings_once_each() {
+        let mut seen = [false; N_ORDERINGS];
+        let mut values: Vec<usize> = (0..WINDOW).collect();
+        for_each_ordering(&mut values, |v| {
+            let k = ordering_index::<usize>(v.try_into().expect("five values"));
+            assert!(!seen[k], "index {k} repeated");
+            seen[k] = true;
+        });
+        assert!(seen.iter().all(|&s| s));
+        assert_eq!(ordering_index(&[1, 2, 3, 4, 5]), 0);
+        assert_eq!(ordering_index(&[5, 4, 3, 2, 1]), N_ORDERINGS - 1);
+    }
+
+    /// Every row of C sums to zero, since the 120 indicators of one window sum
+    /// to one; C is symmetric; and its diagonal entry for the increasing
+    /// ordering has the value computed by hand from its overlaps.
+    #[test]
+    fn covariance_rows_sum_to_zero() {
+        let c = covariance();
+        for (a, row) in c.iter().enumerate() {
+            assert!(row.iter().sum::<f64>().abs() < 1e-15, "row {a}");
+            for (b, &v) in row.iter().enumerate() {
+                assert_eq!(v.to_bits(), c[b][a].to_bits(), "C[{a}][{b}]");
+            }
         }
-        let cp = mat_mul(&c, &PSEUDO_INVERSE);
+        // The increasing ordering overlaps itself d places on with
+        // probability 1/(5 + d)!, so its variance is
+        // 1/120 − 9/120² + 2·(1/720 + 1/5040 + 1/40320 + 1/362880).
+        let p = 1.0 / 120.0;
+        let want =
+            p - 9.0 * p * p + 2.0 * (1.0 / 720.0 + 1.0 / 5040.0 + 1.0 / 40320.0 + 1.0 / 362880.0);
+        assert!((c[0][0] - want).abs() < 1e-15, "{}", c[0][0]);
+    }
+
+    /// P is the pseudoinverse of C: C·P·C = C, P·C·P = P, and
+    /// trace(C·P) = rank(C) = 96, the degrees of freedom.
+    #[test]
+    fn pseudo_inverse_satisfies_the_penrose_conditions() {
+        let c = covariance();
+        let p = pseudo_inverse();
+        let cp = mat_mul(&c, p);
         let cpc = mat_mul(&cp, &c);
-        let err = max_abs_diff(&cpc, &c);
-        assert!(err < 1e-12, "max |CPC − C| = {err:e}");
-
-        let pcp = mat_mul(&mat_mul(&PSEUDO_INVERSE, &c), &PSEUDO_INVERSE);
-        let scale = PSEUDO_INVERSE
-            .iter()
-            .flatten()
-            .fold(0.0f64, |m, x| m.max(x.abs()));
-        let rel = max_abs_diff(&pcp, &PSEUDO_INVERSE) / scale;
-        assert!(rel < 1e-9, "max |PCP − P| / max |P| = {rel:e}");
-
+        let err = max_abs_diff(&cpc, &c) / max_abs(&c);
+        assert!(err < 1e-10, "max |CPC − C| / max |C| = {err:e}");
+        let pcp = mat_mul(&mat_mul(p, &c), p);
+        let err = max_abs_diff(&pcp, p) / max_abs(p);
+        assert!(err < 1e-10, "max |PCP − P| / max |P| = {err:e}");
+        let cp_transpose: Matrix = (0..N_ORDERINGS)
+            .map(|i| std::array::from_fn(|j| cp[j][i]))
+            .collect();
+        let err = max_abs_diff(&cp, &cp_transpose);
+        assert!(err < 1e-10, "CP is not symmetric: {err:e}");
         let trace: f64 = cp.iter().enumerate().map(|(i, row)| row[i]).sum();
-        assert!((trace - 96.0).abs() < 1e-6, "trace(CP) = {trace}");
+        assert!((trace - 96.0).abs() < 1e-8, "trace(CP) = {trace}");
+    }
+
+    /// χ² on a fixed PCG64 stream, pinned.
+    const GOLDEN_CHI_SQUARE: f64 = 100.490_414_107_250_66;
+    /// Its p-value, pinned.
+    const GOLDEN_P: f64 = 0.356_772_043_317_471_6;
+
+    #[test]
+    fn result_on_a_fixed_stream_is_pinned() {
+        let words = Pcg64::new(20_260_916, 5).collect_u32s(WORDS);
+        let chi_square = statistic(&words);
+        assert!(
+            (chi_square - GOLDEN_CHI_SQUARE).abs() < 1e-9,
+            "{chi_square:?}"
+        );
+        let result = operm5(&words);
+        assert!(
+            (result.p_value - GOLDEN_P).abs() < 1e-12,
+            "{:?}",
+            result.p_value
+        );
     }
 
     #[test]
     fn short_inputs_skip_and_constant_input_fails() {
-        assert!(operm5_dieharder(&[]).skipped());
-        assert!(operm5_dieharder(&vec![7; WORDS - 1]).skipped());
-        let r = operm5_dieharder(&vec![7; WORDS]);
+        assert!(operm5(&[]).skipped());
+        assert!(operm5(&vec![7; WORDS - 1]).skipped());
+        let r = operm5(&vec![7; WORDS]);
         assert!(!r.skipped() && !r.passed(), "{r}");
     }
 
     /// Streams from separately seeded PCG64 generators.
     const SMOKE_STREAMS: u64 = 100;
 
-    /// A small, fixed version of the null calibration in the module
-    /// documentation: over 100 PCG64 streams the p-values pass a KS test and
-    /// few fall below 0.01 (Binomial(100, 0.01) exceeds 5 with probability
-    /// 5·10⁻⁴).
+    /// Over 100 PCG64 streams the p-values pass a KS test and few fall below
+    /// 0.01 (Binomial(100, 0.01) exceeds 5 with probability 5·10⁻⁴).
     #[test]
     #[cfg_attr(
         debug_assertions,
@@ -407,7 +401,7 @@ mod tests {
         let mut p: Vec<f64> = (0..SMOKE_STREAMS)
             .map(|i| {
                 let mut rng = Pcg64::new(u128::from(i), u128::from(SMOKE_STREAMS));
-                operm5_dieharder(&rng.collect_u32s(WORDS)).p_value
+                operm5(&rng.collect_u32s(WORDS)).p_value
             })
             .collect();
         let below = p.iter().filter(|&&x| x < 0.01).count();

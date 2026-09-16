@@ -1,52 +1,22 @@
-//! DIEHARD Test 15 — Runs Test (floating-point / integer comparison).
+//! DIEHARD runs up and runs down test.
 //!
-//! Counts ascending and descending monotone runs in successive 32-bit
-//! integers from the generator.  Run lengths are binned into 6 categories
-//! (≥6 pooled).  A quadratic form in the weak inverse of the known
-//! covariance matrix gives a chi-square-like statistic with df = 6.
+//! Counts ascending and descending runs in a sequence of 10 000 successive
+//! 32-bit words, with run lengths 1 to 5 counted separately and 6 or more
+//! pooled.  A rise extends the open up-run and closes the open down-run; a
+//! fall or a tie does the reverse.  When the sequence ends both open runs are
+//! counted, so every word lies in exactly one up-run and one down-run.
 //!
-//! This is repeated 10 times, yielding 10 p-values each for up-runs and
-//! down-runs.  A final Kolmogorov-Smirnov test on each set of 10 p-values
-//! produces the reported results.
-//!
-//! Every run is counted, including the up-run and the down-run still open
-//! when a sequence ends, as Marsaglia's `udruns` does (`fortran/diehard.f`
-//! lines 529–530).  Dieharder's `diehard_runs.c` (lines 132–143) counts only
-//! one of those two, the down-run when the last word exceeds the first and
-//! the up-run otherwise, so one direction is a run short in every sequence
-//! and the statistic is inflated.  Under that rule, 48 000 null calls with
-//! MT19937 put the 10-sequence KS p-value below 0.01 in 2.72% (up) and 2.54%
-//! (down) of calls, and below 0.001 in 0.43% and 0.37%; with both runs
-//! counted the same calls give 1.02% and 0.97%, and 0.11% and 0.09%.
-//!
-//! DIEHARD's `runtest` runs the block of 10 sequences twice (`do 93
-//! ijkn=1,2`, line 450) and reports two summaries per direction; this module
-//! runs it once.  Its summary, which `tests.txt` calls a KS test, is
-//! Marsaglia's Anderson–Darling statistic (`KSTEST`, lines 1668–1709)
-//! reported as a CDF value, where this module applies a Kolmogorov–Smirnov
-//! test and reports the upper tail.  It also compares the words as
-//! single-precision `REAL`s, `jtbl()*2.328306e-10` of each word read as a
-//! signed integer (line 453).  Rounding keeps the order of the unsigned words
-//! with bit 31 flipped but merges nearby words into ties, and `udruns` counts
-//! a tie as a fall, as this module does.  For 2²⁶ random words w, the `REAL`s
-//! of w and w + 1 were equal in 96.5% of cases.  Below 2²⁴ in signed magnitude
-//! only one pair on each side of zero ties, because the constant 2.328306e-10
-//! sits just below 2⁻³²; from 2²⁴ up the untied fraction halves with each
-//! doubling of magnitude, so pairs tie 50% of the time from 2²⁴ and 99.2% from
-//! 2³⁰ up.  Rounding is monotone, so
-//! no pair compares in reverse.  A counter or other slowly stepping stream is
-//! therefore mostly falls in DIEHARD, almost entirely once its signed words
-//! exceed 2²⁷ in magnitude, where this module sees only rises.  Successive
-//! words spread as widely as MT19937's almost never tie.
-//!
-//! Covariance matrix and expected proportions from:
-//! R.G.T. Grafton, "The Runs-Up and Runs-Down Tests", *Applied Statistics*
-//! 30, Algorithm AS 157, 1981.  See also Knuth TAOCP Vol 2 §3.3.2.
+//! With counts c and n words, the quadratic form
+//! V = Σᵢⱼ (cᵢ − n·bᵢ)(cⱼ − n·bⱼ)·aᵢⱼ / n, where b holds the expected
+//! proportions of runs of each length and A the inverse of their covariance,
+//! is asymptotically χ²(6).  Ten sequences give ten p-values in each
+//! direction, and a Kolmogorov–Smirnov test of each ten is reported.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutines `runtest` and
-//! `udruns`.  [pubs/diehard-fortran-1996.tar.gz]
+//! Donald E. Knuth, *The Art of Computer Programming*, Vol. 2, §3.3.2, and
+//! R. G. T. Grafton, "Algorithm AS 157: The runs-up and runs-down tests",
+//! *Applied Statistics* 30 (1981), for A, b and the χ²(6) law.
 
 use crate::{
     math::{igamc, ks_test},
@@ -58,10 +28,8 @@ const SEQ_LEN: usize = 10_000;
 const REPEATS: usize = 10;
 const RUN_MAX: usize = 6;
 
-/// Pseudoinverse of the covariance matrix for runs-up (= runs-down), scaled
-/// by n.  Source: Grafton 1981 (AS 157), Knuth TAOCP Vol 2, as reproduced in
-/// Dieharder 3.31.1 diehard_runs.c and in `udruns` (`fortran/diehard.f`
-/// lines 487–490).
+/// Inverse covariance of the run counts, scaled by n (Knuth, TAOCP Vol. 2,
+/// §3.3.2; Grafton 1981).
 const A: [[f64; RUN_MAX]; RUN_MAX] = [
     [4529.4, 9044.9, 13568.0, 18091.0, 22615.0, 27892.0],
     [9044.9, 18097.0, 27139.0, 36187.0, 45234.0, 55789.0],
@@ -93,10 +61,8 @@ pub fn runs_float_both(rng: &mut impl Rng) -> Vec<TestResult> {
 
     for _ in 0..REPEATS {
         let (uv, dv) = runs_quad_form((0..SEQ_LEN).map(|_| rng.next_u32()));
-        // igamc(3, v/2) = p-value for χ²(6).  df=6 for 6 bins is correct per
-        // Grafton (1981) AS 157 §3: the covariance matrix has rank 6 because
-        // the constraint Σcounts=n is absorbed into the pseudoinverse, not
-        // subtracted as the usual -1 degree of freedom.
+        // igamc(3, v/2) is the upper tail of χ²(6): the run counts do not sum
+        // to a fixed total, so no degree of freedom is lost.
         up_pvals.push(igamc(3.0, uv / 2.0));
         dn_pvals.push(igamc(3.0, dv / 2.0));
     }
@@ -118,7 +84,7 @@ pub fn runs_float_both(rng: &mut impl Rng) -> Vec<TestResult> {
     ]
 }
 
-/// Backward-compatible single-result wrapper.
+/// Runs test on a slice, as one result.
 ///
 /// Combines the up-runs and down-runs KS p-values with a Bonferroni bound
 /// (valid under their dependence — both directions come from the same
@@ -167,10 +133,8 @@ type RunCounts = ([usize; RUN_MAX], [usize; RUN_MAX], usize);
 /// Count the up-runs and down-runs of one sequence; `None` if it is empty.
 ///
 /// A rise extends the open up-run and closes the open down-run; a fall or a
-/// tie does the reverse, as in Marsaglia's `udruns` (`fortran/diehard.f`
-/// lines 513–528).  When the sequence ends, both open runs are closed and
-/// counted (lines 529–530), so every word lies in exactly one up-run and one
-/// down-run.
+/// tie does the reverse.  When the sequence ends, both open runs are closed
+/// and counted, so every word lies in exactly one up-run and one down-run.
 fn run_counts(words: impl IntoIterator<Item = u32>) -> Option<RunCounts> {
     let mut words = words.into_iter();
     let mut last = words.next()?;

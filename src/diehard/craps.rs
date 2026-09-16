@@ -1,32 +1,16 @@
-//! DIEHARD Test 16 — Craps Test.
+//! DIEHARD craps test.
 //!
-//! Plays 200 000 games of craps using pairs of random integers as dice rolls.
-//! Two statistics are tested:
-//! 1. Number of wins: should be approximately normal with mean = 200 000 · p_win
-//!    and σ² = 200 000 · p_win · (1 − p_win), where p_win = 244/495.
-//! 2. Distribution of throws per game: throws can range from 1 to ∞; counts
-//!    for 1..=21 (with ≥22 pooled) are tested with chi-square.
+//! Plays 200 000 games of craps, each die a uniform integer 1 to 6 from the
+//! high bits of one word (see `uniform_bounded`).  Two statistics:
 //!
-//! Deliberate deviation from canonical DIEHARD: throws are binned into 22 cells
-//! (1..=21 individually, ≥22 pooled) where Marsaglia pools everything above 21
-//! into cell 21 (21 cells, df = 20: `m=min(21,nthrows)` and `chisq(sum,20)` in
-//! `craptest`, `fortran/diehard.f` lines 598 and 620).  The expected
-//! probabilities here are derived analytically for this exact 22-cell layout,
-//! so the statistic is self-consistent; it is simply one cell finer than the
-//! original.
-//!
-//! The wins p-value is two-sided, erfc(|z|/√2), where `craptest` reports the
-//! one-sided `phi(t)` (line 611), a CDF value, and the throws p-value is the
-//! chi-square's upper tail where it reports `chisq(sum,20)`, the CDF.
-//!
-//! Each die is `1 + gsl_rng_uniform_int(rng, 6)`, as in Dieharder's
-//! `diehard_craps.c`, so the high bits of each word pick the face (see
-//! `uniform_bounded`).
+//! 1. Wins: approximately normal with mean 200 000·p and variance
+//!    200 000·p(1 − p), p = 244/495, scored two-sided, erfc(|z|/√2).
+//! 2. Throws per game: counts for 1 to 21 throws, with 22 or more pooled,
+//!    scored with a Pearson χ² against the exact distribution computed by
+//!    `expected_throw_probs`.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutine `craptest`.
-//! [pubs/diehard-fortran-1996.tar.gz]
 
 use crate::{
     math::{erfc, igamc},
@@ -43,17 +27,12 @@ const P_WIN: f64 = 244.0 / 495.0;
 /// throws after the come-out roll, so an honest generator reaches it with
 /// probability below (27/36)^999 ≈ 1.5 × 10⁻¹²⁵ per game.  A degenerate
 /// generator that sets a point and then never rolls it or 7 (e.g. constant
-/// sum 5 after an opening 4) would otherwise spin forever — the original
-/// DIEHARD and Dieharder share that hang.  A capped game is recorded as a
-/// loss in the ≥22-throw cell.  The cap exists to guarantee termination:
+/// sum 5 after an opening 4) would otherwise spin forever.  A capped game is
+/// recorded as a loss in the ≥22-throw cell.  The cap exists to guarantee termination:
 /// each capped game moves the win and throw statistics by one count, so a
 /// stream that hits it rarely is judged by its other games, while one that
 /// hits it in every game is rejected by those counts alone.
 const MAX_THROWS: usize = 1000;
-
-// Theoretical probabilities for number of throws in a craps game.
-// P(throws = k) for k = 1..=21, P(throws ≥ 22) pooled into index 21.
-// Derived from standard craps probability theory.
 
 /// Outcome of one 200 000-game simulation, shared by both public entry points.
 struct CrapsOutcome {
@@ -184,31 +163,10 @@ fn roll_dice(rng: &mut impl Rng) -> u32 {
 
 /// Uniform integer in `0..bound` from the high bits of one word.
 ///
-/// Dieharder's `diehard_craps.c` rolls each die as
-/// `1 + gsl_rng_uniform_int(rng, 6)`.  GSL's routine (`rng/gsl_rng.h` lines
-/// 189–212, [pubs/gsl-2.8-rng-subset.tar.gz]) subtracts the generator's
-/// declared minimum from the word, divides by scale = ⌊range / n⌋, where
-/// range is the declared maximum less the minimum, and redraws while the
-/// quotient reaches n.  GSL's MT19937 (`rng/mt.c`) and Dieharder's raw-input
-/// generators (`rng_stdin_input_raw.c`, `rng_file_input_raw.c`) declare 0 and
-/// 2³² − 1, so for dice scale = 715 827 882: the face is ⌊x / 715 827 882⌋ and
-/// the top four words are redrawn.  Dieharder gives a generator with a
-/// smaller declared range a smaller scale; the crate's `Rng` trait declares
-/// no range, so every generator is treated as a 32-bit one.
-///
-/// DIEHARD's die is a different high-bit map.  Marsaglia's `craptest`
-/// (`fortran/diehard.f` lines 555–556) reads each word as a signed integer x
-/// and takes `int(6x/2³² + 3)`, which is `tests.txt`'s "floating to [0,1),
-/// multiplying by 6" with 1/2 + x/2³² as the float.  In double precision its
-/// face is GSL's face + 3 (mod 6) on every word GSL keeps except the twelve
-/// unsigned words from k · 715 827 882 up to ⌈k · 2³²/6⌉ − 1 (k = 1, …, 5),
-/// where it is GSL's + 2: words below 2³¹ roll 4, 5 or 6 and the rest 1, 2
-/// or 3.  In single precision, as gfortran evaluates `REAL`, the 191 words
-/// just below 2³¹ roll a 7, the 85 just below 2³² roll a 4 where double
-/// precision rolls a 3, and some words within 277 of DIEHARD's other face
-/// boundaries roll one face higher; 834 of the words GSL keeps then get GSL's
-/// face + 4.  Either way no word gets the same face from both maps (checked
-/// over all 2³² words).
+/// With scale = ⌊(2³² − 1)/bound⌋, the value is ⌊x/scale⌋, and a word whose
+/// quotient reaches `bound` is redrawn.  Every accepted quotient is hit by
+/// exactly `scale` words, so the result is exactly uniform; for dice the top
+/// four words are redrawn.
 fn uniform_bounded(rng: &mut impl Rng, bound: u32) -> u32 {
     let scale = u32::MAX / bound;
     // Bounded redraws.  An honest generator exhausts 16 retries with
@@ -227,8 +185,9 @@ fn uniform_bounded(rng: &mut impl Rng, bound: u32) -> u32 {
 
 /// Exact P(game takes exactly k throws) for k = 1..=22 (k=22 means ≥22).
 ///
-/// Derived from standard craps theory.  See e.g. Feller, *An Introduction
-/// to Probability Theory and Its Applications*, Vol 1.
+/// A game ends on the first throw with probability 12/36.  Otherwise it sets
+/// point x with probability pₓ and ends on each later throw with probability
+/// pₓ + p₇, so P(k throws) = Σₓ pₓ(1 − pₓ − p₇)^(k−2)(pₓ + p₇) for k ≥ 2.
 fn expected_throw_probs() -> [f64; 22] {
     let mut p = [0.0f64; 22];
 
@@ -286,9 +245,8 @@ mod tests {
     use super::*;
     use crate::rng::ConstantRng;
 
-    /// Regression: `ConstantRng::new(u32::MAX)` emits only rejection-zone
-    /// values; unbounded rejection sampling hung the battery forever here.
-    /// The test must terminate and FAIL, not hang and not pass.
+    /// `ConstantRng::new(u32::MAX)` emits only rejection-zone values; the
+    /// bounded redraw lets the test terminate and FAIL.
     #[test]
     fn craps_terminates_and_fails_on_stuck_high_generator() {
         let mut rng = ConstantRng::new(u32::MAX);
@@ -304,7 +262,7 @@ mod tests {
         throws: usize,
     }
 
-    /// GSL's divisor for a die: ⌊(2³² − 1) / 6⌋.
+    /// The divisor for a die: ⌊(2³² − 1) / 6⌋.
     const DIE_SCALE: u32 = u32::MAX / 6;
 
     impl Rng for StuckPoint {
@@ -321,9 +279,8 @@ mod tests {
         }
     }
 
-    /// Regression: `play_craps` looped forever on a stream that sets a point
-    /// and never resolves it.  The game must be cut off at `MAX_THROWS` and
-    /// scored as a loss.
+    /// A stream that sets a point and never resolves it is cut off at
+    /// `MAX_THROWS` and scored as a loss.
     #[test]
     fn play_craps_is_capped_on_unresolvable_point() {
         let mut rng = StuckPoint { throws: 0 };
@@ -357,11 +314,10 @@ mod tests {
         }
     }
 
-    /// Faces from a Python replica of GSL's `gsl_rng_uniform_int(r, 6)` for a
-    /// 32-bit generator: k = ⌊x / 715 827 882⌋.  Words 7 and 715 827 882 give
-    /// k = 1 and k = 0 under the old low-bit `x % 6`.
+    /// The face is k = ⌊x / 715 827 882⌋, from the high bits: words 7 and
+    /// 715 827 882 would give 1 and 0 from the low bits, `x % 6`.
     #[test]
-    fn die_face_is_the_gsl_quotient() {
+    fn die_face_is_the_high_bit_quotient() {
         assert_eq!(DIE_SCALE, 715_827_882);
         let cases = [
             (0, 0),
@@ -381,9 +337,9 @@ mod tests {
         }
     }
 
-    /// Words 4 294 967 292..=u32::MAX give quotient 6 and are redrawn, as in
-    /// GSL; a generator that never leaves that zone gets 16 redraws and then
-    /// the clamped quotient.
+    /// Words 4 294 967 292..=u32::MAX give quotient 6 and are redrawn; a
+    /// generator that never leaves that zone gets 16 redraws and then the
+    /// clamped quotient.
     #[test]
     fn die_redraws_the_top_words() {
         let mut rng = Script {

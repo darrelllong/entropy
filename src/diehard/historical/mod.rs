@@ -3,34 +3,28 @@
 //! Nothing here is part of [`crate::diehard::run_all`] or of `run_tests`'
 //! default battery: `run_tests --suite diehard-historical` runs [`run_all`],
 //! and no other selection does, including the default of running every
-//! suite.  Each result name carries its variant:
+//! suite.
 //!
-//! | Result name | Variant |
+//! | Result name | Test |
 //! |---|---|
-//! | `diehard_historical::operm5_dieharder` | OPERM5 as corrected in Dieharder 3.31.1 ([`operm5`]) |
-//! | `diehard_historical::overlapping_sums_fortran` | Overlapping sums as Marsaglia's `diehard.f` computes them ([`overlapping_sums`]) |
-//! | `diehard_historical::count_ones_bytes_25_fresh` | Count-the-1s on DIEHARD's 25 byte windows, fresh words per window, 25 results ([`count_ones_bytes`]) |
-//! | `diehard_historical::rank_6x8_25_fresh` | 6×8 rank on each of DIEHARD's 25 bit windows, fresh words per window, 25 results ([`rank_6x8`]) |
-//! | `diehard_historical::rank_6x8_25_fresh_summary` | Anderson–Darling summary of those 25 window p-values ([`rank_6x8`]) |
+//! | `diehard_historical::operm5` | Overlapping 5-permutations, χ² through the pseudoinverse of their covariance ([`operm5`]) |
+//! | `diehard_historical::overlapping_sums` | Decorrelated overlapping sums of uniforms, three Anderson–Darling layers ([`overlapping_sums`]) |
+//! | `diehard_historical::count_ones_bytes` | Count-the-1s on each of the 25 byte windows of a word, 25 results ([`count_ones_bytes`]) |
+//! | `diehard_historical::rank_6x8_windows` | 6×8 binary rank on each of the 25 byte windows of a word, 25 results ([`rank_6x8`]) |
+//! | `diehard_historical::rank_6x8_windows_summary` | Anderson–Darling summary of those 25 window p-values ([`rank_6x8`]) |
 //!
-//! Each module says what the test is, which reference it follows, where and
-//! why it departs from Marsaglia's `fortran/diehard.f`, the calibration
-//! evidence behind it and why it stays outside the default battery.
-//! README.md's "Historical DIEHARD Tests" section inventories them with the
-//! revision each was removed in.
+//! Each module gives its statistic, its null distribution and the evidence
+//! that its p-values are calibrated.  They stay outside the default battery
+//! because each adds result slots that the battery's other tests largely
+//! cover.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! [pubs/diehard-fortran-1996.tar.gz]
 
 pub mod count_ones_bytes;
 pub mod operm5;
-mod operm5_table;
 pub mod overlapping_sums;
 pub mod rank_6x8;
-
-#[cfg(test)]
-mod oracle;
 
 use crate::{result::TestResult, rng::Rng};
 
@@ -72,23 +66,25 @@ pub const RESULTS: usize = 2 + count_ones_bytes::WINDOWS + rank_6x8::RESULTS;
 pub fn run_all(rng: &mut impl Rng, n_u32: usize) -> Vec<TestResult> {
     let words = rng.collect_u32s(n_u32);
     let mut results = vec![
-        operm5::operm5_dieharder(&words),
-        overlapping_sums::overlapping_sums_fortran(&words),
+        operm5::operm5(&words),
+        overlapping_sums::overlapping_sums(&words),
     ];
-    results.extend(count_ones_bytes::count_ones_bytes_25_fresh(&words));
-    results.extend(rank_6x8::rank_6x8_25_fresh(&words));
+    results.extend(count_ones_bytes::count_ones_bytes(&words));
+    results.extend(rank_6x8::rank_6x8_windows(&words));
     results
 }
 
-/// Floor on each product uᵢ(1 − uₙ₊₁₋ᵢ) in Marsaglia's `KSTEST`
-/// (`fortran/diehard.f` line 1690).
+/// Floor on each product uᵢ(1 − uₙ₋₁₋ᵢ), so that a p-value of exactly 0 or 1
+/// adds a large finite term rather than an infinite one.
 const AD_PRODUCT_FLOOR: f64 = 1e-20;
 
 /// The Anderson–Darling statistic
 /// Aₙ² = −n − (1/n) Σᵢ (2i − 1) ln(uᵢ(1 − uₙ₊₁₋ᵢ)) of `u` against U(0, 1),
-/// as Marsaglia's `KSTEST` computes it (`fortran/diehard.f` lines
-/// 1668–1709, which `tests.txt` calls a Kolmogorov–Smirnov test), each
-/// product floored at 10⁻²⁰.  Sorts `u` in place.
+/// each product floored at [`AD_PRODUCT_FLOOR`].  Sorts `u` in place.
+///
+/// # Author
+/// T. W. Anderson and D. A. Darling, "A Test of Goodness of Fit", *JASA* 49
+/// (1954).
 fn anderson_darling_statistic(u: &mut [f64]) -> f64 {
     u.sort_by(f64::total_cmp);
     let n = u.len();

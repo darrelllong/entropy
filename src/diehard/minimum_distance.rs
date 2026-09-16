@@ -1,29 +1,20 @@
-//! DIEHARD Test 11 — Minimum Distance Test (2D).
+//! DIEHARD minimum distance test in two dimensions.
 //!
-//! Places 8 000 random points in a 10 000×10 000 square and finds the
-//! minimum pairwise distance d.  The quantity d² should be exponentially
-//! distributed with mean 0.995.  Repeats 100 times; 100 p-values are
-//! tested with a Kolmogorov-Smirnov test.
+//! Places n = 8 000 uniform points in a square of side 10 000 and finds the
+//! smallest distance d between two of them.  Each of the C(n, 2) pairs is
+//! within distance d with probability close to πd²/A, A the area, and the
+//! number of such pairs is approximately Poisson, so
 //!
-//! DIEHARD's `mindist` (`fortran/diehard.f` lines 342–412) combines the 100
-//! values with Marsaglia's Anderson–Darling statistic, which `tests.txt`
-//! calls a KS test (`KSTEST`, lines 1668–1709), and reports a CDF value; this
-//! module applies a Kolmogorov–Smirnov test and reports its upper tail.
+//! P(minimum > d) ≈ exp(−C(n, 2)·πd²/A),
 //!
-//! # ⚠ Known-Buggy Formula
+//! and u = 1 − exp(−C(n, 2)·πd²/A) is approximately uniform.  The mean of d²
+//! is then A/(π·C(n, 2)) ≈ 0.995.  100 repetitions give 100 values of u, and a
+//! Kolmogorov–Smirnov test of them is the result.  The boundary of the square
+//! changes the pair probability by a relative O(d/side) ≈ 10⁻⁴, below the
+//! resolution of 100 repetitions.
 //!
-//! The original DIEHARD formula `1 − exp(−d²/λ)` is **acknowledged as buggy
-//! and obsolete** by the Dieharder maintainer (`diehard_2dsphere.c` lines
-//! 28–34: "This test has a BUG in it -- the expression it uses to evaluate p
-//! is not accurate enough to withstand the demands of dieharder. ... This
-//! test is hence OBSOLETE and is left in so people can play with it and
-//! convince themselves that this is so.").  The
-//! corrected version is the Fischler formula implemented in
-//! [`crate::dieharder::minimum_distance_nd`] with `d = 2`.
-//!
-//! This module preserves the original buggy formula solely for historical
-//! comparison with legacy DIEHARD output.  **Do not use this result for
-//! genuine randomness assessment.**
+//! [`crate::dieharder::minimum_distance_nd`] generalises the test to 2 to 5
+//! dimensions.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
@@ -33,25 +24,20 @@ use crate::{
 };
 
 const SQUARE_SIDE: f64 = 10_000.0;
-const LAMBDA: f64 = 0.995; // expected mean of d²
 
-/// Run the 2D minimum distance test (legacy buggy formula — see module docs).
+/// Run the 2D minimum distance test.
 ///
 /// `quick`: use 500 points and 20 repeats instead of 8 000 × 100 to avoid the
 /// O(n²) cost during development.
-///
-/// # ⚠ Buggy Formula
-/// Uses `1 − exp(−d²/λ)`, which the Dieharder maintainer says is not accurate
-/// enough.  Use [`crate::dieharder::minimum_distance_nd`] for a correct result.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
 pub fn minimum_distance_2d(rng: &mut impl Rng, quick: bool) -> TestResult {
     let n_points = if quick { 500 } else { 8_000 };
     let repeats = if quick { 20 } else { 100 };
-    // With fewer points the nearest pair is farther apart, so λ scales as (n_ref/n)².
-    // For n=8000, side=10000: λ ≈ 0.995.  Reference: LAMBDA × (8000/n)².
-    let lambda = LAMBDA * (8_000.0 / n_points as f64).powi(2);
+    // Mean of d² under the Poisson approximation: A / (π·C(n, 2)).
+    let pairs = n_points as f64 * (n_points as f64 - 1.0) / 2.0;
+    let lambda = SQUARE_SIDE * SQUARE_SIDE / (std::f64::consts::PI * pairs);
     let mut p_values = Vec::with_capacity(repeats);
 
     for _ in 0..repeats {
@@ -69,14 +55,22 @@ pub fn minimum_distance_2d(rng: &mut impl Rng, quick: bool) -> TestResult {
     TestResult::with_note(
         "diehard::minimum_distance_2d",
         p_value,
-        format!("n={n_points}, side={SQUARE_SIDE}, repeats={repeats} [BUGGY FORMULA — see diehard_2dsphere.c; use minimum_distance_nd(d=2) instead]"),
+        format!("n={n_points}, side={SQUARE_SIDE}, repeats={repeats}"),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::minimum_distance_2d;
+    use super::{minimum_distance_2d, SQUARE_SIDE};
     use crate::rng::ConstantRng;
+
+    /// At 8 000 points the Poisson mean of d² is A/(π·C(n, 2)) ≈ 0.995.
+    #[test]
+    fn mean_squared_distance_at_full_size() {
+        let pairs = 8_000.0 * 7_999.0 / 2.0;
+        let mean = SQUARE_SIDE * SQUARE_SIDE / (std::f64::consts::PI * pairs);
+        assert!((mean - 0.995).abs() < 5e-4, "{mean}");
+    }
 
     /// Every point coincides, so d² = 0 in every repeat.
     #[test]

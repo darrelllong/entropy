@@ -1,23 +1,16 @@
-//! DIEHARD Test 6 — Bitstream Test.
+//! DIEHARD bitstream test.
 //!
-//! Views the output as a stream of bits and counts missing 20-bit words
-//! in 2²¹ overlapping 20-bit windows.  For a truly random stream the count
-//! of missing words should be approximately normal with
-//! mean = 141 909 and σ = 428.
-//!
-//! Two differences from DIEHARD.  Marsaglia's `cdbitst` (`fortran/diehard.f`
-//! lines 66–146) feeds each word into the stream from bit 0 upward
-//! (`j=lshift(and(j,2**19-1),1)+and(num,1)`, lines 122–123); this module
-//! reads each word from bit 31 down, as Dieharder's `diehard_bitstream.c`
-//! does.  And DIEHARD runs its 20 samples on one continuous stream and prints
-//! 20 `phi` values (lines 136–138) with no summary; this module scores 20
-//! disjoint chunks of 2²¹ windows two-sided and reports one
-//! Kolmogorov–Smirnov test over them.
+//! The words are read as a stream of bits, each word from bit 31 down.  Over
+//! 2²¹ overlapping 20-bit windows, the number of the 2²⁰ possible 20-bit
+//! words that never appear is approximately normal with mean 141 909 and
+//! standard deviation 428 for a random stream: the mean is close to
+//! 2²⁰·e⁻², and the standard deviation accounts for the overlap of the
+//! windows.  Each of 20 disjoint chunks of the input gives a two-sided
+//! p-value, and a Kolmogorov–Smirnov test of the 20 is the result.
 //!
 //! # Author
-//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutine `cdbitst`.
-//! [pubs/diehard-fortran-1996.tar.gz]
+//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995),
+//! which gives the mean and standard deviation.
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -116,7 +109,7 @@ mod tests {
         // Bits read MSB-first from `words` below start 1111 then zeros, so
         // the five 20-bit windows ending at bits 20..=24 are 0xF0000, 0xE0000,
         // 0xC0000, 0x80000 and 0: five words seen.  An LSB-first reader would
-        // see 24 zero bits and one word.  (Counts replicated in Python.)
+        // see 24 zero bits and one word.
         let words = [0xF000_0000u32, 0u32];
         assert_eq!(
             TOTAL_WORDS - 5,

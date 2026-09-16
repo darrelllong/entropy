@@ -1,49 +1,21 @@
-//! DIEHARD Test 1 — Birthday Spacings Test.
+//! DIEHARD birthday spacings test.
 //!
-//! Chooses m = 512 "birthdays" from a year of n = 2²⁴ days.  The number j of
-//! repeated spacings in each trial is asymptotically Poisson(λ = m³/(4n) = 2).
-//! After 500 trials per bit offset, a chi-square test of the j histogram against
-//! the Poisson(2) distribution gives one p-value.  Nine p-values (bit offsets
-//! 0..=8) are combined with a final KS test.
+//! Each trial chooses m = 512 birthdays from a year of n = 2²⁴ days: 24 bits
+//! of each of 512 words.  The birthdays are sorted, their spacings
+//! C(1) = B(1), C(i) = B(i) − B(i−1) are sorted, and j counts the i with
+//! C(i) = C(i−1), so a spacing value that occurs r times adds r − 1.  j is
+//! asymptotically Poisson with λ = m³/(4n) = 2.
 //!
-//! Each trial follows Marsaglia's `cdbday` (`fortran/diehard.f` lines
-//! 1235–1307).  The birthdays are sorted, the spacings C(1) = B(1),
-//! C(i) = B(i) − B(i−1) are sorted, and j counts the i with C(i) = C(i−1)
-//! (lines 1277–1283), so a spacing value that occurs three times adds 2.
-//! `tests.txt` words j as the number of values that occur more than once,
-//! which would add 1.  Dieharder's `diehard_birthdays.c` builds the same
-//! spacings, but its counting loop (lines 187–203) sets `m = mnext` and then
-//! increments `m` again, skipping the spacing after each run of equal values:
-//! on sorted spacings [5, 5, 7, 7] it counts 1 where DIEHARD counts 2.
-//!
-//! The histogram is scored in the cells Marsaglia's `CHSQTS` builds (lines
-//! 1312–1375): at 500 trials, j = 0 to 5 each alone and j ≥ 6 pooled,
-//! expecting 67.668, 135.335, 135.335, 90.224, 45.112, 18.045 and 8.282
-//! trials, df = 6.  Dieharder keeps `kmax` = 8 cells, j = 0 to 7, discards
-//! trials with larger j, and its `chisq_poisson` (`chisq.c`) sums all eight
-//! with df = 7, or six cells and df = 5 at its default of 100 trials.  On
-//! 12 000 null calls with MT19937 the reported p-value fell below 0.01 in
-//! 0.96% of calls and below 0.001 in 0.06%.
-//!
-//! Each of the nine bit windows reads its own 256 000 words, 2 304 000 in
-//! all.  `cdbday` instead calls `jkreset` for every window (line 1267), which
-//! rereads the file from word 1 once the current 4 096-word record is used
-//! up: run alone, five of its windows read words 1 to 256 000 and the other
-//! four read the 2 048 words after them and then words 1 to 253 952.  Its nine
-//! p-values therefore come from nearly the same words and are dependent,
-//! which a summary over them does not allow for.  Offset o reads
-//! bits o to o + 23 of each word, DIEHARD's window `kr` = o (line 1242), which
-//! it prints as bits 9 − o to 32 − o counting from the left.  DIEHARD reports
-//! each window's chi-square as its CDF (`chisq(s,j)`, line 1375) and
-//! summarizes the nine with Marsaglia's Anderson–Darling statistic, which
-//! `tests.txt` calls a KS test (`KSTEST`, lines 1668–1709); this module
-//! reports upper-tail p-values and a Kolmogorov–Smirnov summary.
+//! 500 trials per bit offset give a histogram of j, scored with a Pearson χ²
+//! against Poisson(2) in cells of at least 5 expected trials: at 500 trials,
+//! j = 0 to 5 each alone and j ≥ 6 pooled, expecting 67.668, 135.335,
+//! 135.335, 90.224, 45.112, 18.045 and 8.282 trials, df 6.  Offset o reads
+//! bits o to o + 23 of each word, for o = 0 to 8, each offset on its own
+//! 256 000 words (2 304 000 in all), so the nine p-values are independent
+//! under the null; a Kolmogorov–Smirnov test of the nine is the result.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
-//! Source: Marsaglia's `fortran/diehard.f`, subroutines `cdbday` and `CHSQTS`
-//! [pubs/diehard-fortran-1996.tar.gz]; for comparison,
-//! `dieharder-3.31.1/libdieharder/diehard_birthdays.c`.
 
 use crate::{
     math::{igamc, ks_test},
@@ -65,7 +37,7 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
         return TestResult::insufficient("diehard::birthday_spacings", "not enough words");
     }
 
-    let (cell_of, expected) = chsqts_cells(LAMBDA, SAMPLES);
+    let (cell_of, expected) = poisson_cells(LAMBDA, SAMPLES);
     let df = expected.len() - 1;
     let mut p_values: Vec<f64> = Vec::with_capacity(WINDOWS);
     let mut word_iter = words.iter().copied();
@@ -85,8 +57,7 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
             }
             birthdays.sort_unstable();
 
-            // C(1) = B(1), C(i) = B(i) − B(i−1), as in cdbday and
-            // diehard_birthdays.c.
+            // C(1) = B(1), C(i) = B(i) − B(i−1).
             spacings[0] = birthdays[0];
             for (spacing, pair) in spacings[1..].iter_mut().zip(birthdays.windows(2)) {
                 *spacing = pair[1] - pair[0];
@@ -115,15 +86,13 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
     )
 }
 
-/// The number of i with C(i) = C(i−1) in sorted spacings, `L` in `cdbday`
-/// (`fortran/diehard.f` lines 1277–1283): a value that occurs r times adds
-/// r − 1.
+/// The number of i with C(i) = C(i−1) in sorted spacings: a value that
+/// occurs r times adds r − 1.
 fn repeated_spacings(sorted: &[u32]) -> usize {
     sorted.windows(2).filter(|pair| pair[0] == pair[1]).count()
 }
 
-/// The chi-square cells of Marsaglia's `CHSQTS` (`fortran/diehard.f` lines
-/// 1312–1344) for a Poisson(`lambda`) count over `trials` trials.
+/// χ² cells for a Poisson(`lambda`) count over `trials` trials.
 ///
 /// Returns `cell_of`, the cell of each count up to the first pooled one
 /// (larger counts share the last cell), and each cell's expected number of
@@ -131,7 +100,7 @@ fn repeated_spacings(sorted: &[u32]) -> usize {
 /// it expects at least 5 trials (cell 0 needs more than 5).  As soon as fewer
 /// than 5 trials are expected above count i, count i and every larger count
 /// join the open cell, which takes the whole remaining expectation.
-fn chsqts_cells(lambda: f64, trials: usize) -> (Vec<usize>, Vec<f64>) {
+fn poisson_cells(lambda: f64, trials: usize) -> (Vec<usize>, Vec<f64>) {
     let n = trials as f64;
     let mut p = (-lambda).exp();
     let mut cumulative = p * n;
@@ -157,17 +126,17 @@ fn chsqts_cells(lambda: f64, trials: usize) -> (Vec<usize>, Vec<f64>) {
             open = 0.0;
         }
     }
-    // CHSQTS leaves this case undefined; it does not arise at λ = 2 and 500
-    // trials.  Close the open cell with the remaining expectation.
+    // Not reached at λ = 2 and 500 trials; close the open cell with the
+    // remaining expectation.
     expected.push(open + n - cumulative);
     (cell_of, expected)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{birthday_spacings, chsqts_cells, repeated_spacings, LAMBDA, M, SAMPLES, WINDOWS};
+    use super::{birthday_spacings, poisson_cells, repeated_spacings, LAMBDA, M, SAMPLES, WINDOWS};
 
-    /// A value seen r times adds r − 1, as `cdbday` counts it.
+    /// A value seen r times adds r − 1.
     #[test]
     fn repeats_count_adjacent_equal_spacings() {
         assert_eq!(repeated_spacings(&[1, 2, 3]), 0);
@@ -176,17 +145,22 @@ mod tests {
         assert_eq!(repeated_spacings(&[4, 4, 4, 4, 9]), 3);
     }
 
-    /// At λ = 2 and 500 trials CHSQTS scores counts 0 to 5 alone and pools
-    /// 6 and up: expectations 500·P(j) and 500·P(j ≥ 6), which the gfortran
-    /// build of diehard.f prints to three decimals.
+    /// At λ = 2 and 500 trials counts 0 to 5 are scored alone and 6 and up
+    /// pooled: expectations 500·e⁻²·2ʲ/j! and 500·P(j ≥ 6).
     #[test]
-    fn cells_match_chsqts() {
-        let (cell_of, expected) = chsqts_cells(LAMBDA, SAMPLES);
+    fn cells_at_lambda_two() {
+        let (cell_of, expected) = poisson_cells(LAMBDA, SAMPLES);
         assert_eq!(cell_of, [0, 1, 2, 3, 4, 5, 6]);
-        let printed = [67.668, 135.335, 135.335, 90.224, 45.112, 18.045, 8.282];
-        for (e, want) in expected.iter().zip(printed) {
-            assert!((e - want).abs() < 5e-4, "{e} vs {want}");
+        let mut term = 500.0 * (-2.0f64).exp();
+        let mut head = 0.0;
+        for (j, e) in expected[..6].iter().enumerate() {
+            if j > 0 {
+                term *= 2.0 / j as f64;
+            }
+            head += term;
+            assert!((e - term).abs() < 1e-9, "cell {j}: {e} vs {term}");
         }
+        assert!((expected[6] - (500.0 - head)).abs() < 1e-9);
         assert!((expected.iter().sum::<f64>() - 500.0).abs() < 1e-9);
     }
 

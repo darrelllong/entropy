@@ -1,133 +1,70 @@
-//! Overlapping sums, as Marsaglia's `diehard.f` computes them.  Result name:
-//! `diehard_historical::overlapping_sums_fortran`.
+//! Overlapping sums of uniforms.  Result name:
+//! `diehard_historical::overlapping_sums`.
 //!
-//! # What it is
+//! # The statistic
 //!
-//! Words are floated to uniforms U on [−√3, √3), with mean 0 and variance 1.
-//! From 199 of them the 100 overlapping sums y(j) = U(j) + … + U(j + 99) are
-//! nearly normal, with the Toeplitz covariance T(i, j) = 100 − |i − j|.  A
-//! linear map x = M y with M T Mᵀ = I, the inverse of T's Cholesky factor,
-//! whose rows have at most three nonzero entries, makes the 100 x's
-//! uncorrelated with unit variance.  Each x goes through Φ and then through
-//! Marsaglia's table f, and an Anderson–Darling statistic asks whether the
-//! 100 results are uniform.  That is one inner test.  100 inner results get
+//! Each word w becomes a uniform U on [−√3, √3), with mean 0 and variance 1,
+//! by reading it as a signed integer and scaling by 2√3/2³².  From 199 such
+//! uniforms the m = 100 overlapping sums y(j) = U(j) + … + U(j + 99),
+//! j = 1 … 100, are nearly normal with covariance T(i, j) = m − |i − j|.
+//! The linear map x = M y, with rows
+//!
+//! - x(1) = y(1)/√m,
+//! - x(2) = −(m − 1)·y(1)/√(m(2m − 1)) + √(m/(2m − 1))·y(2),
+//! - x(i) = y(1)/√(ab) − √((a − 1)/(b + 2))·y(i − 1) + √(a/b)·y(i) for
+//!   i ≥ 3, with a = 2m + 2 − i and b = 4m + 2 − 2i,
+//!
+//! satisfies M T Mᵀ = I, so the 100 x's are uncorrelated with unit variance.
+//!
+//! The x's are not normal.  For i ≥ 3, x(i) is dominated by
+//! (U(i + 99) − U(i − 1))/√2, so Φ(x) is not uniform.  Its distribution is
+//! corrected by f, the distribution function of Φ(x) pooled over the 100
+//! coordinates: f(j) = (1/m) Σᵢ P(Φ(x(i)) < j/100).  Each value passed on is
+//! f interpolated linearly at 100·Φ(x), and so is close to uniform.
+//!
+//! One inner test is the Anderson–Darling A² of those 100 values against
+//! U(0, 1), mapped through its distribution function.  100 inner results get
 //! an Anderson–Darling test of their own, ten of those a last one, and the
-//! upper tail of that last is the p-value.  199 000 words in all.
+//! p-value is the upper tail of that last.  The test reads 199 000 words:
+//! 10 × 100 × 199.
 //!
-//! # Reference followed
+//! # Computing f
 //!
-//! Marsaglia's `cdosum`, `fortran/diehard.f` lines 1386–1471
-//! [pubs/diehard-fortran-1996.tar.gz]:
+//! Each x(i) is a linear combination Σₖ cᵢₖ Uₖ of independent uniforms, so
+//! its characteristic function is φᵢ(t) = Πₖ sinc(√3 cᵢₖ t), a product of at
+//! most five distinct factors raised to their multiplicities.  By the
+//! Gil-Pelaez inversion formula, and because the pooled distribution is
+//! symmetric,
 //!
-//! - `uni()` is `jtbl()*.806549e-9` (line 1401): the word read as a signed
-//!   integer, times 2√3/2³².
-//! - 199 uniforms per inner test; y(1) = U(1) + … + U(100) and
-//!   y(j) = y(j − 1) − U(j − 1) + U(j + 99) (lines 1415–1420).
-//! - With m = 100: x(1) = y(1)/√m,
-//!   x(2) = −(m − 1)·y(1)/√(m(2m − 1)) + √(m/(2m − 1))·y(2), and for i ≥ 3,
-//!   with a = 2m + 2 − i and b = 4m + 2 − 2i,
-//!   x(i) = y(1)/√(ab) − √((a − 1)/(b + 2))·y(i − 1) + √(a/b)·y(i)
-//!   (lines 1429–1436).  The first term reads y(1), not y(i − 2).
-//! - p = Φ(x(i)), h = 100p, j = ⌊h⌋, and the value passed on is
-//!   f(j) + (h − j)(f(j + 1) − f(j)) (lines 1441–1444), with the 101-entry
-//!   table f of lines 1390–1400.
-//! - Three Anderson–Darling layers: over the 100 values (line 1446), over the
-//!   100 inner results (line 1449), and over the ten outer results
-//!   (line 1461).
+//! f(j) = ½ + (1/π) ∫₀^∞ sin(t z) φ̄(t) / t dt,  z = Φ⁻¹(j/100),
 //!
-//! # Departures from `diehard.f`
+//! with φ̄ the mean of the 100 φᵢ.  φ̄ decays fast enough that Simpson's rule
+//! on [0, 100] with step 0.05 gives every entry to better than 10⁻¹⁰
+//! (checked against step 0.01 on [0, 400]).  The table is computed once per
+//! process.  The 32-bit discreteness of U is ignored.
 //!
-//! - Arithmetic is `f64`, and the scale is 2√3/2³² exactly; the Fortran is
-//!   `REAL*4` throughout, with the scale truncated to 8.06549·10⁻¹⁰.
-//! - The Anderson–Darling distribution function is
-//!   [`crate::math::anderson_darling_cdf`] (Marsaglia and Marsaglia 2004) at
-//!   every layer.  `KSTEST` computes the same statistic, floors each product
-//!   at 10⁻²⁰ as this module does, and then maps it through Marsaglia's
-//!   older asymptotic approximation, computing a small-sample correction that
-//!   it does not return (`A=P+E` is set and `P` returned, line 1707).
-//! - The p-value is 1 − CDF of the last layer, small for a bad fit.  DIEHARD
-//!   prints the CDF value, which is near 1 for a bad fit; the note shows it.
-//!   A² is unchanged by u → 1 − u, so the inner layers are the same either
-//!   way.
-//! - j is capped at 99.  At h = 100, which needs Φ(x) = 1 (x above about 8.3
-//!   in `f64`), the Fortran reads f(101), past the end of its table; the cap
-//!   gives the value 1.
+//! # Calibration
 //!
-//! # Goldens
-//!
-//! On words 1 to 199 000 of the input the DIEHARD fidelity review gave its
-//! gfortran build of `diehard.f` (an "aligned" build, whose `jkreset` also
-//! resets `jtbl`'s buffer), these three layers with Marsaglia's `KSTEST`
-//! formula in place of `anderson_darling_cdf` reproduce the ten outer values
-//! and the last layer's value that build printed to within 6·10⁻⁵, the size of
-//! its `REAL*4` rounding.  With `anderson_darling_cdf` the ten move by up to
-//! 5.4·10⁻³: over 0.1 ≤ A² ≤ 10 the two distribution functions differ by up
-//! to 4.3·10⁻³ at n = 10 and 4·10⁻⁴ at n = 100.
-//!
-//! # Calibration evidence
-//!
-//! - **The map.**  M T Mᵀ = I to 10⁻¹² (a test below).  With Dieharder's
-//!   y(i − 2) in place of y(1) it is not: the largest off-diagonal entry is
-//!   0.068 and the diagonal reaches 1.0094 (also a test).
-//! - **The table.**  For i ≥ 3, x(i) is dominated by (U(i + 99) − U(i − 1))/√2,
-//!   a near-triangular variable, so Φ(x) is far from uniform: the table f is
-//!   the distribution of Φ(x) over the 100 x's pooled.  Simulating 10⁶ inner
-//!   tests (10⁸ x's, NumPy) gave P(Φ(x) < 0.01) = 0.001738 against
-//!   f(1) = 0.0017, and 92 of the 99 interior entries within their rounding
-//!   plus three standard errors (largest gap 0.00028, at f(68)); columns 3 to
-//!   100 alone match worse (81 of 99, P(Φ(x) < 0.01) = 0.001656).  A test
-//!   repeats the f(1) check on 2·10⁷ x's.
-//! - **Null simulation.**  100 000 streams of 199 000 words, each from a
-//!   separately seeded PCG64 generator: p < 0.01 in 997 (0.997%; binomial
-//!   standard deviation 0.031%) and p < 0.001 in 88 (0.088%; 0.010%), with
-//!   p > 0.99 in 0.98%; a Kolmogorov–Smirnov test of the 100 000 p-values gives
-//!   p = 0.65.  Rerun on the landing tree, whose `erfc` sums Marsaglia's cPhi
-//!   series and whose Anderson–Darling tail is scaled by n, another 100 000
-//!   streams gave 0.977% (0.031%) and 0.095% (0.010%), with a KS p of 0.97.  A
-//!   test below runs a fixed 400-stream version under `cargo test --release`.
-//!
-//! # Dieharder's verdict
-//!
-//! Dieharder 3.31.1 lists `diehard_sums` as "Do Not Use" (`dieharder -l`,
-//! test 14; `dieharder/list_tests.c` lines 31–36), and its source calls the
-//! test "completely useless in every sense of the word.  It is broken, and it
-//! is so broken that there is no point in trying to fix it", reporting that
-//! the final KS test "CONVERGES to a non-zero pvalue of 0.09702690 for ALL rngs
-//! tested" (`libdieharder/diehard_sums.c` lines 31–44).  That verdict is on
-//! Dieharder's transcription, which is not the computation above:
-//!
-//! - it uses y\[t − 2\] where `diehard.f` uses y(1), leaving the y\[0\] line
-//!   commented out (`diehard_sums.c` lines 249–250), so its x's are
-//!   correlated;
-//! - it drops the table f and treats Φ(x) as uniform (line 251);
-//! - it takes a Kolmogorov–Smirnov test over the 100 values (line 269), and
-//!   Dieharder's default of 100 p-samples, instead of Marsaglia's layers.
-//!
-//! This crate's module removed in commit 3b41af8 copied that transcription
-//! (y\[t − 2\], no table, 10 repeats of 200 words and KS at both levels).
-//! Simulated the same way over 200 000 streams, its final p-value fell below
-//! 0.01 in 5.03% and below 0.001 in 0.95%: it was miscalibrated.
-//!
-//! # Why it is outside the default battery
-//!
-//! Commit 3b41af8 removed the transcription on the strength of Dieharder's
-//! verdict, which does not carry over to the Fortran: as written, Marsaglia's
-//! test is calibrated at the resolution DIEHARD reports (above).  It stays out
-//! of the default battery because adding slots to that battery is a decision
-//! of its own, and because the battery already tests sums of uniforms with
-//! [`crate::dieharder::lagged_sums`], Brown's `rgb_lagged_sums`.
+//! 100 000 streams of 199 000 words, each from a separately seeded PCG64
+//! generator, gave p < 0.01 in 0.97% (binomial standard deviation 0.03%) and
+//! p < 0.001 in 0.11% (0.01%), with a Kolmogorov–Smirnov p of 0.08 over the
+//! 100 000 p-values.  A test below runs a fixed 400-stream version under
+//! `cargo test --release`.
 //!
 //! # Author
-//! George Marsaglia, DIEHARD (1995).
+//! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
+//! J. Gil-Pelaez, "Note on the inversion theorem", *Biometrika* 38 (1951),
+//! for the inversion formula.
 
 use super::anderson_darling_statistic;
 use crate::{
     math::{anderson_darling_cdf, normal_cdf},
     result::TestResult,
 };
+use std::sync::OnceLock;
 
 /// Result name.
-const NAME: &str = "diehard_historical::overlapping_sums_fortran";
+const NAME: &str = "diehard_historical::overlapping_sums";
 /// m: uniforms in each sum, and sums in each inner test.
 const M: usize = 100;
 /// Uniforms per inner test: m for the first sum and one more for each of the
@@ -139,75 +76,142 @@ const INNER_PER_OUTER: usize = 100;
 const OUTER: usize = 10;
 /// Words the test reads: 10 × 100 × 199.
 pub const WORDS: usize = OUTER * INNER_PER_OUTER * UNIFORMS_PER_INNER;
+/// Cells of the table f: f(0) … f(100).
+const TABLE_CELLS: usize = 100;
+/// Upper limit of the inversion integral.
+const INVERSION_LIMIT: f64 = 100.0;
+/// Simpson step of the inversion integral.
+const INVERSION_STEP: f64 = 0.05;
 
-/// Marsaglia's table f (`fortran/diehard.f` lines 1390–1400): f(j) is his
-/// value of P(Φ(x) < j/100) for the x's of an inner test.  Its entry 0.3180,
-/// f(31), is his datum, not an approximation to 1/π.
-#[allow(clippy::approx_constant)]
-const F_TABLE: [f64; 101] = [
-    0.0, 0.0017, 0.0132, 0.0270, 0.0406, 0.0538, 0.0665, 0.0787, 0.0905, 0.1020, 0.1133, 0.1242,
-    0.1349, 0.1454, 0.1557, 0.1659, 0.1760, 0.1859, 0.1957, 0.2054, 0.2150, 0.2246, 0.2341, 0.2436,
-    0.2530, 0.2623, 0.2716, 0.2809, 0.2902, 0.2995, 0.3087, 0.3180, 0.3273, 0.3366, 0.3459, 0.3552,
-    0.3645, 0.3739, 0.3833, 0.3928, 0.4023, 0.4118, 0.4213, 0.4309, 0.4406, 0.4504, 0.4602, 0.4701,
-    0.4800, 0.4900, 0.5000, 0.5100, 0.5199, 0.5299, 0.5397, 0.5495, 0.5593, 0.5690, 0.5787, 0.5882,
-    0.5978, 0.6073, 0.6167, 0.6260, 0.6354, 0.6447, 0.6540, 0.6632, 0.6724, 0.6817, 0.6910, 0.7003,
-    0.7096, 0.7189, 0.7282, 0.7375, 0.7468, 0.7562, 0.7657, 0.7752, 0.7848, 0.7944, 0.8041, 0.8140,
-    0.8239, 0.8340, 0.8442, 0.8545, 0.8650, 0.8757, 0.8867, 0.8980, 0.9095, 0.9214, 0.9337, 0.9464,
-    0.9595, 0.9731, 0.9868, 0.9983, 1.0,
-];
-
-/// Overlapping sums as `diehard.f` computes them, on the first [`WORDS`]
-/// words.
+/// Overlapping sums on the first [`WORDS`] words.
 ///
-/// Reports SKIP for fewer than [`WORDS`] words.  See the module
-/// documentation for the statistic and its departures from `diehard.f`.
+/// Reports SKIP for fewer than [`WORDS`] words.
 ///
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
-pub fn overlapping_sums_fortran(words: &[u32]) -> TestResult {
+pub fn overlapping_sums(words: &[u32]) -> TestResult {
     if words.len() < WORDS {
         return TestResult::insufficient(NAME, "need 199 000 words");
     }
-    let mut outer = outer_results(&words[..WORDS], anderson_darling_cdf);
+    let mut outer = outer_results(&words[..WORDS]);
     let a2 = anderson_darling_statistic(&mut outer);
-    let cdf = anderson_darling_cdf(OUTER, a2);
     TestResult::with_note(
         NAME,
-        1.0 - cdf,
-        format!("{WORDS} words, A²={a2:.4} over {OUTER} outer results, CDF={cdf:.6}"),
+        1.0 - anderson_darling_cdf(OUTER, a2),
+        format!("{WORDS} words, A²={a2:.4} over {OUTER} outer results"),
     )
 }
 
-/// The ten outer results of the first two layers on exactly [`WORDS`] words,
-/// each A² mapped through `ad_cdf(n, A²)`.
-fn outer_results(words: &[u32], ad_cdf: impl Fn(usize, f64) -> f64) -> [f64; OUTER] {
+/// The ten outer results of the first two layers on exactly [`WORDS`] words.
+fn outer_results(words: &[u32]) -> [f64; OUTER] {
     let map = Whitening::new();
+    let table = pooled_table();
     let mut blocks = words.chunks_exact(UNIFORMS_PER_INNER);
     let mut outer = [0.0; OUTER];
     for result in outer.iter_mut() {
         let mut inner = [0.0; INNER_PER_OUTER];
         for u in inner.iter_mut() {
-            let block = blocks.next().expect("layers reads exactly WORDS words");
+            let block = blocks.next().expect("exactly WORDS words");
             let uniforms: [f64; UNIFORMS_PER_INNER] = std::array::from_fn(|k| uniform(block[k]));
-            let mut values = map.apply(&uniforms).map(through_table);
-            *u = ad_cdf(M, anderson_darling_statistic(&mut values));
+            let mut values = map.apply(&uniforms).map(|x| through_table(table, x));
+            *u = anderson_darling_cdf(M, anderson_darling_statistic(&mut values));
         }
-        *result = ad_cdf(INNER_PER_OUTER, anderson_darling_statistic(&mut inner));
+        *result = anderson_darling_cdf(INNER_PER_OUTER, anderson_darling_statistic(&mut inner));
     }
     outer
 }
 
-/// `uni()` of `diehard.f` line 1401: the word as a signed integer, scaled
-/// by 2√3/2³² to a uniform on [−√3, √3) with variance 1.
+/// The word as a signed integer, scaled by 2√3/2³² to a uniform on
+/// [−√3, √3) with variance 1.
 fn uniform(word: u32) -> f64 {
     f64::from(word as i32) * (12f64.sqrt() / 4_294_967_296.0)
 }
 
-/// Φ(x) mapped through Marsaglia's table f by linear interpolation.
-fn through_table(x: f64) -> f64 {
-    let h = 100.0 * normal_cdf(x);
-    let j = (h as usize).min(M - 1);
-    F_TABLE[j] + (h - j as f64) * (F_TABLE[j + 1] - F_TABLE[j])
+/// Φ(x) mapped through the table f by linear interpolation.
+fn through_table(table: &[f64; TABLE_CELLS + 1], x: f64) -> f64 {
+    let h = TABLE_CELLS as f64 * normal_cdf(x);
+    let j = (h as usize).min(TABLE_CELLS - 1);
+    table[j] + (h - j as f64) * (table[j + 1] - table[j])
+}
+
+/// The table f, computed once (see the module documentation).
+fn pooled_table() -> &'static [f64; TABLE_CELLS + 1] {
+    static TABLE: OnceLock<[f64; TABLE_CELLS + 1]> = OnceLock::new();
+    TABLE.get_or_init(|| pooled_table_with(INVERSION_STEP, INVERSION_LIMIT))
+}
+
+/// The table f by Simpson's rule with step `step` on [0, `limit`].
+fn pooled_table_with(step: f64, limit: f64) -> [f64; TABLE_CELLS + 1] {
+    let intervals = 2 * ((limit / step) as usize).div_ceil(2);
+    let map = Whitening::new();
+    let factors: Vec<Vec<(f64, i32)>> = (0..M).map(|i| map.sinc_factors(i)).collect();
+    // Simpson weight times φ̄(t)/t at each node; the node t = 0 is handled
+    // through its limit, sin(tz)/t → z.
+    let nodes: Vec<(f64, f64)> = (0..=intervals)
+        .map(|k| {
+            let t = k as f64 * step;
+            let weight = match k {
+                0 => 1.0,
+                _ if k == intervals => 1.0,
+                _ if k % 2 == 1 => 4.0,
+                _ => 2.0,
+            };
+            let mean_cf = factors
+                .iter()
+                .map(|f| characteristic_function(f, t))
+                .sum::<f64>()
+                / M as f64;
+            (t, weight * step / 3.0 * mean_cf)
+        })
+        .collect();
+    std::array::from_fn(|j| match j {
+        0 => 0.0,
+        TABLE_CELLS => 1.0,
+        _ => {
+            let z = normal_quantile(j as f64 / TABLE_CELLS as f64);
+            let integral: f64 = nodes
+                .iter()
+                .map(|&(t, w)| {
+                    if t == 0.0 {
+                        w * z
+                    } else {
+                        w * (t * z).sin() / t
+                    }
+                })
+                .sum();
+            0.5 + integral / std::f64::consts::PI
+        }
+    })
+}
+
+/// Π sinc(√3·c·t)^multiplicity over the distinct coefficients c of one x: the
+/// characteristic function of Σ c·U with U uniform on [−√3, √3).
+fn characteristic_function(factors: &[(f64, i32)], t: f64) -> f64 {
+    factors
+        .iter()
+        .map(|&(c, multiplicity)| {
+            let a = 3f64.sqrt() * c * t;
+            if a == 0.0 {
+                1.0
+            } else {
+                (a.sin() / a).powi(multiplicity)
+            }
+        })
+        .product()
+}
+
+/// Φ⁻¹(p) for 0 < p < 1, by bisection on [`normal_cdf`] to full precision.
+fn normal_quantile(p: f64) -> f64 {
+    let (mut lo, mut hi) = (-40.0f64, 40.0f64);
+    while hi - lo > 1e-15 * hi.abs().max(1.0) {
+        let mid = 0.5 * (lo + hi);
+        if normal_cdf(mid) < p {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    0.5 * (lo + hi)
 }
 
 /// The rows of M: x(i) = first[i]·y(1) + prev[i]·y(i − 1) + own[i]·y(i),
@@ -219,7 +223,7 @@ struct Whitening {
 }
 
 impl Whitening {
-    /// The coefficients of `fortran/diehard.f` lines 1429–1436.
+    /// The coefficients given in the module documentation.
     fn new() -> Self {
         let m = M as f64;
         let mut w = Self {
@@ -231,7 +235,7 @@ impl Whitening {
         w.first[1] = -(m - 1.0) / (m * (m + m - 1.0)).sqrt();
         w.own[1] = (m / (m + m - 1.0)).sqrt();
         for idx in 2..M {
-            let i = (idx + 1) as f64; // diehard.f's 1-based i
+            let i = (idx + 1) as f64; // 1-based, as in the formula
             let a = m + m + 2.0 - i;
             let b = 4.0 * m + 2.0 - i - i;
             w.first[idx] = 1.0 / (a * b).sqrt();
@@ -239,6 +243,46 @@ impl Whitening {
             w.own[idx] = (a / b).sqrt();
         }
         w
+    }
+
+    /// The distinct coefficients of x(i) (0-based) on the uniforms
+    /// U(0) … U(198), each with its multiplicity.
+    fn sinc_factors(&self, i: usize) -> Vec<(f64, i32)> {
+        let mut c = [0.0f64; UNIFORMS_PER_INNER];
+        for (k, ck) in c.iter_mut().enumerate() {
+            if k < M {
+                *ck += self.first[i];
+            }
+            if i > 0 && (i - 1..i - 1 + M).contains(&k) {
+                *ck += self.prev[i];
+            }
+            if (i..i + M).contains(&k) {
+                *ck += self.own[i];
+            }
+        }
+        let mut factors: Vec<(f64, i32)> = Vec::new();
+        for ck in c.into_iter().filter(|&ck| ck != 0.0) {
+            match factors
+                .iter_mut()
+                .find(|(v, _)| v.to_bits() == ck.to_bits())
+            {
+                Some((_, count)) => *count += 1,
+                None => factors.push((ck, 1)),
+            }
+        }
+        factors
+    }
+
+    /// Row i of M as a dense vector over y(0) … y(m − 1).
+    #[cfg(test)]
+    fn row(&self, i: usize) -> [f64; M] {
+        let mut r = [0.0; M];
+        r[0] += self.first[i];
+        if i > 0 {
+            r[i - 1] += self.prev[i];
+        }
+        r[i] += self.own[i];
+        r
     }
 
     /// x = M y for the overlapping sums y of `u`.
@@ -259,145 +303,54 @@ impl Whitening {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{anderson_darling_statistic, oracle};
     use super::{
-        outer_results, overlapping_sums_fortran, through_table, uniform, Whitening, F_TABLE, M,
-        OUTER, UNIFORMS_PER_INNER, WORDS,
+        overlapping_sums, pooled_table, pooled_table_with, through_table, uniform, Whitening, M,
+        TABLE_CELLS, UNIFORMS_PER_INNER, WORDS,
     };
     use crate::{
         math::{ks_test, normal_cdf},
         rng::{Pcg64, Rng},
     };
 
-    /// Row i of M as a dense vector; `dieharder` moves the y(1) coefficient
-    /// to y(i − 2) for i ≥ 3, as `diehard_sums.c` line 250 does.
-    fn row(w: &Whitening, i: usize, dieharder: bool) -> [f64; M] {
-        let mut r = [0.0; M];
-        let first_col = if dieharder && i >= 2 { i - 2 } else { 0 };
-        r[first_col] += w.first[i];
-        if i > 0 {
-            r[i - 1] += w.prev[i];
-        }
-        r[i] += w.own[i];
-        r
-    }
-
-    /// M T Mᵀ with T(i, j) = m − |i − j|.
-    fn whitened_covariance(dieharder: bool) -> Vec<[f64; M]> {
-        let w = Whitening::new();
-        let rows: Vec<[f64; M]> = (0..M).map(|i| row(&w, i, dieharder)).collect();
-        let t = |j: usize, l: usize| (M - j.abs_diff(l)) as f64;
-        rows.iter()
-            .map(|ri| {
-                std::array::from_fn(|k| {
-                    let mut s = 0.0;
-                    for (j, &rij) in ri.iter().enumerate() {
-                        for (l, &rkl) in rows[k].iter().enumerate() {
-                            s += rij * t(j, l) * rkl;
-                        }
-                    }
-                    s
-                })
-            })
-            .collect()
-    }
-
+    /// Every x(i) has at most five distinct coefficients, whose squares,
+    /// weighted by multiplicity, sum to Var x(i) = 1.
     #[test]
-    fn whitening_gives_the_identity_covariance() {
-        for (i, r) in whitened_covariance(false).iter().enumerate() {
-            for (k, &v) in r.iter().enumerate() {
-                let want = if i == k { 1.0 } else { 0.0 };
-                assert!((v - want).abs() < 1e-12, "(M T Mᵀ)[{i}][{k}] = {v}");
-            }
+    fn each_coordinate_has_few_distinct_unit_variance_coefficients() {
+        let map = Whitening::new();
+        for i in 0..M {
+            let factors = map.sinc_factors(i);
+            assert!(factors.len() <= 5, "x({i}): {} factors", factors.len());
+            let variance: f64 = factors.iter().map(|&(c, m)| f64::from(m) * c * c).sum();
+            assert!((variance - 1.0).abs() < 1e-12, "Var x({i}) = {variance}");
         }
     }
 
-    /// Dieharder's y\[t − 2\] leaves the x's correlated.  NumPy on the same
-    /// matrices: largest off-diagonal 0.067577, largest diagonal 1.009416.
-    #[test]
-    fn dieharders_transcription_does_not_whiten() {
-        let k = whitened_covariance(true);
-        let (mut off, mut diag) = (0.0f64, 0.0f64);
-        for (i, r) in k.iter().enumerate() {
-            for (j, &v) in r.iter().enumerate() {
-                if i == j {
-                    diag = diag.max(v);
-                } else {
-                    off = off.max(v.abs());
-                }
-            }
-        }
-        assert!((off - 0.067577).abs() < 1e-6, "off-diagonal {off}");
-        assert!((diag - 1.009416).abs() < 1e-6, "diagonal {diag}");
-    }
-
-    /// The table runs from 0 to 1, rises, and is symmetric to within its
-    /// rounding: f(j) + f(100 − j) is within 3·10⁻⁴ of 1 (f(30) + f(70) =
-    /// 0.9997).
+    /// The table is a distribution function on 0 … 100, symmetric because
+    /// every x is, and agrees to 10⁻¹⁰ with a finer and longer integration.
     #[test]
     fn table_is_a_symmetric_distribution_function() {
-        assert_eq!((F_TABLE[0], F_TABLE[100]), (0.0, 1.0));
-        assert!(F_TABLE.windows(2).all(|p| p[0] < p[1]));
-        for j in 0..=100 {
+        let table = pooled_table();
+        assert_eq!((table[0], table[TABLE_CELLS]), (0.0, 1.0));
+        assert!(table.windows(2).all(|p| p[0] < p[1]));
+        for j in 0..=TABLE_CELLS {
             assert!(
-                (F_TABLE[j] + F_TABLE[100 - j] - 1.0).abs() <= 3.0001e-4,
+                (table[j] + table[TABLE_CELLS - j] - 1.0).abs() < 1e-12,
                 "f({j})"
             );
         }
-        assert_eq!(through_table(f64::INFINITY), 1.0);
-        assert_eq!(through_table(f64::NEG_INFINITY), 0.0);
-    }
-
-    /// The ten outer results the review's aligned gfortran build printed for
-    /// `in.bin` words 1 to 199 000 ("Test no. 1" to "Test no. 10", from
-    /// `fortran/diehard.f` line 1452), and its `KSTEST` over them (line 1461).
-    const FORTRAN_OUTER: [f64; OUTER] = [
-        0.620414, 0.072143, 0.324695, 0.401280, 0.008539, 0.250802, 0.710268, 0.998711, 0.467575,
-        0.126249,
-    ];
-    const FORTRAN_FINAL: f64 = 0.712980;
-
-    /// Fidelity: with Marsaglia's `KSTEST` formula in place of
-    /// `anderson_darling_cdf`, the three layers reproduce every value the
-    /// gfortran build printed.  The tolerance, 10⁻⁴, follows that printout, not
-    /// this code: the build prints six decimals from `REAL*4` arithmetic, and
-    /// the largest gaps are 5.9·10⁻⁵ (test 4) and 5.5·10⁻⁵ (the last layer).
-    #[test]
-    fn layers_match_the_gfortran_build_on_the_review_input() {
-        let words = oracle::words(WORDS);
-        let mut fortran = outer_results(&words, oracle::diehard_kstest_cdf);
-        for (k, (&got, &want)) in fortran.iter().zip(&FORTRAN_OUTER).enumerate() {
-            assert!((got - want).abs() < 1e-4, "test {}: {got} vs {want}", k + 1);
+        let fine = pooled_table_with(0.01, 400.0);
+        for (j, (a, b)) in table.iter().zip(&fine).enumerate() {
+            assert!((a - b).abs() < 1e-10, "f({j}): {a} vs {b}");
         }
-        let last = oracle::diehard_kstest_cdf(OUTER, anderson_darling_statistic(&mut fortran));
-        assert!((last - FORTRAN_FINAL).abs() < 1e-4, "last layer {last}");
+        assert_eq!(through_table(table, f64::INFINITY), 1.0);
+        assert_eq!(through_table(table, f64::NEG_INFINITY), 0.0);
     }
 
-    /// This module's p-value on `in.bin` words 1 to 199 000, pinned on the
-    /// landing tree, whose `erfc` sums Marsaglia's cPhi series and whose
-    /// Anderson–Darling tail is scaled by n.
-    const GOLDEN_P: f64 = 0.291_241_975_102_919_7;
-
-    /// Regression: the p-value on the review input, to 10⁻⁹.  It passes
-    /// through `normal_cdf` 10⁵ times and `anderson_darling_cdf` 1 011 times, so
-    /// a change to either moves it and must re-pin it here.
-    #[test]
-    fn p_value_on_the_review_input_is_pinned() {
-        let result = overlapping_sums_fortran(&oracle::words(WORDS));
-        assert!(
-            (result.p_value - GOLDEN_P).abs() < 1e-9,
-            "{:?} {result}",
-            result.p_value
-        );
-    }
-
-    /// Inner tests simulated for the f(1) check: 2·10⁷ x's.
+    /// Inner tests simulated for the check of f(1): 2·10⁷ x's.
     const F1_INNER_TESTS: u64 = 200_000;
 
-    /// Marsaglia's f(1) = 0.0017 is P(Φ(x) < 0.01) over the 100 x's of an
-    /// inner test: the simulated rate is within the table's rounding (5·10⁻⁵)
-    /// plus four standard errors (9.2·10⁻⁶ each).  NumPy over 10⁸ x's gave
-    /// 0.001738.
+    /// The rate at which Φ(x) < 0.01 over simulated inner tests agrees with
+    /// f(1) to within four standard errors.
     #[test]
     #[cfg_attr(
         debug_assertions,
@@ -405,6 +358,7 @@ mod tests {
     )]
     fn first_table_entry_matches_the_simulated_tail() {
         let map = Whitening::new();
+        let f1 = pooled_table()[1];
         let mut rng = Pcg64::new(u128::from(F1_INNER_TESTS), 1);
         let mut below = 0u64;
         for _ in 0..F1_INNER_TESTS {
@@ -417,28 +371,56 @@ mod tests {
         }
         let n = (F1_INNER_TESTS * M as u64) as f64;
         let rate = below as f64 / n;
-        let se = (F_TABLE[1] * (1.0 - F_TABLE[1]) / n).sqrt();
+        let se = (f1 * (1.0 - f1) / n).sqrt();
         assert!(
-            (rate - F_TABLE[1]).abs() < 5e-5 + 4.0 * se,
-            "P(Φ(x) < 0.01) = {rate}"
+            (rate - f1).abs() < 4.0 * se,
+            "P(Φ(x) < 0.01) = {rate}, f(1) = {f1}"
         );
+    }
+
+    /// p-value on a fixed PCG64 stream, pinned.
+    const GOLDEN_P: f64 = 0.120_754_929_669_773_3;
+
+    #[test]
+    fn p_value_on_a_fixed_stream_is_pinned() {
+        let words = Pcg64::new(20_260_916, 199).collect_u32s(WORDS);
+        let p = overlapping_sums(&words).p_value;
+        assert!((p - GOLDEN_P).abs() < 1e-9, "{p:?}");
+    }
+
+    /// M T Mᵀ with T(i, j) = m − |i − j|, the covariance of the sums.
+    #[test]
+    fn whitening_gives_the_identity_covariance() {
+        let w = Whitening::new();
+        let rows: Vec<[f64; M]> = (0..M).map(|i| w.row(i)).collect();
+        let t = |j: usize, l: usize| (M - j.abs_diff(l)) as f64;
+        for (i, ri) in rows.iter().enumerate() {
+            for (k, rk) in rows.iter().enumerate() {
+                let mut v = 0.0;
+                for (j, &rij) in ri.iter().enumerate() {
+                    for (l, &rkl) in rk.iter().enumerate() {
+                        v += rij * t(j, l) * rkl;
+                    }
+                }
+                let want = if i == k { 1.0 } else { 0.0 };
+                assert!((v - want).abs() < 1e-12, "(M T Mᵀ)[{i}][{k}] = {v}");
+            }
+        }
     }
 
     #[test]
     fn short_inputs_skip_and_constant_input_fails() {
-        assert!(overlapping_sums_fortran(&[]).skipped());
-        assert!(overlapping_sums_fortran(&vec![0; WORDS - 1]).skipped());
-        let r = overlapping_sums_fortran(&vec![0; WORDS]);
+        assert!(overlapping_sums(&[]).skipped());
+        assert!(overlapping_sums(&vec![0; WORDS - 1]).skipped());
+        let r = overlapping_sums(&vec![0; WORDS]);
         assert!(!r.skipped() && !r.passed(), "{r}");
     }
 
     /// Streams from separately seeded PCG64 generators.
     const SMOKE_STREAMS: u64 = 400;
 
-    /// A small, fixed version of the null calibration in the module
-    /// documentation: over 400 PCG64 streams the p-values pass a KS test and
-    /// few fall below 0.01 (Binomial(400, 0.01) exceeds 10 with probability
-    /// 0.003).
+    /// Over 400 PCG64 streams the p-values pass a KS test and few fall below
+    /// 0.01 (Binomial(400, 0.01) exceeds 10 with probability 0.003).
     #[test]
     #[cfg_attr(
         debug_assertions,
@@ -448,7 +430,7 @@ mod tests {
         let mut p: Vec<f64> = (0..SMOKE_STREAMS)
             .map(|i| {
                 let mut rng = Pcg64::new(u128::from(i), u128::from(SMOKE_STREAMS));
-                overlapping_sums_fortran(&rng.collect_u32s(WORDS)).p_value
+                overlapping_sums(&rng.collect_u32s(WORDS)).p_value
             })
             .collect();
         let below = p.iter().filter(|&&x| x < 0.01).count();
