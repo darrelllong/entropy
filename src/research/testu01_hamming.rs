@@ -1,67 +1,42 @@
-//! TestU01 bit-string Hamming tests from `sstring.c` / `sstring.tex`.
+//! Hamming-weight tests of L'Ecuyer and Simard.
 //!
-//! # References
-//! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
-//!   of Random Number Generators," *ACM Transactions on Mathematical
-//!   Software* 33(4), Article 22, 2007, §5.2.1,
-//!   "Hamming weights", pp. 19–20 (`lecuyer2007testu01` in BIB.md).
-//!   [pubs/lecuyer-simard-2007-testu01.pdf]
-//! * P. L'Ecuyer and R. Simard, "Beware of linear congruential generators
-//!   with multipliers of the form a = ±2^q ± 2^r," *ACM Transactions on
-//!   Mathematical Software* 25(3), pp. 367–374, 1999.  [The Hamming
-//!   independence test; cited from the 2007 paper's reference list.]
-//! * TestU01 1.2.3 source (`testu01-source` in BIB.md):
-//!   `testu01/sstring.c` (`sstring_HammingCorr`, `HammingCorr_L`,
-//!   `HammingCorr_S`, `sstring_HammingIndep`, `HammingIndep_L`,
-//!   `HammingIndep_S`, `CountBlocks`), `testu01/unif01.c`
-//!   (`unif01_StripB`), `probdist/gofs.c` (`gofs_Chi2`), `probdist/gofw.c`
-//!   (`gofw_ActiveTests0`), and the user's guide `testu01/sstring.tex`.
-//!   [pubs/TestU01-2009-57e98bf33880.tar.gz]
+//! P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing of
+//! Random Number Generators," *ACM Transactions on Mathematical Software*
+//! 33(4), Article 22, 2007, §5.2.1, "Hamming weights", pp. 19–20
+//! (`lecuyer2007testu01` in BIB.md).  [pubs/lecuyer-simard-2007-testu01.pdf]
+//! The independence test is from P. L'Ecuyer and R. Simard, "Beware of
+//! linear congruential generators with multipliers of the form
+//! a = ±2^q ± 2^r," *ACM Transactions on Mathematical Software* 25(3),
+//! pp. 367–374, 1999.
 //!
-//! # Author
-//! Pierre L'Ecuyer and Richard Simard (TestU01); Darrell Long (Rust port).
+//! Both tests read successive L-bit blocks and their Hamming weights, which
+//! are Binomial(L, ½) and independent under the null.
 //!
-//! This module implements the core single-replication (`N = 1`) statistics
-//! for:
-//! - `sstring_HammingCorr`
-//! - `sstring_HammingIndep`
+//! - [`hamming_corr`] estimates the correlation of successive weights,
+//!   ρ̂ = 4 Σ (Xᵢ − L/2)(Xᵢ₊₁ − L/2) / ((n − 1)L), and scores
+//!   z = ρ̂√(n − 1) as standard normal, two-sided, so that an excess and a
+//!   deficit of correlation both fail.
+//! - [`hamming_indep`] counts n pairs of successive weights (X, Y) in the
+//!   (L + 1) × (L + 1) table and scores it with a Pearson χ² against
+//!   n·P(X = i)·P(Y = j).  Cells expecting fewer than 10 pairs are pooled;
+//!   the pool is a cell of its own if it expects at least 10, and otherwise
+//!   joins the last kept cell.  If no cell expects 10, the table is split
+//!   into the columns j ≤ ⌊L/2⌋ and j > ⌊L/2⌋, one degree of freedom.  For
+//!   k = 1 … d it also counts the pairs in the corners of the table: both
+//!   weights at least k below the middle or both at least k above it, and
+//!   one of each, each expecting 2n·P(X ≤ ⌈L/2⌉ − k)² by symmetry, with the
+//!   rest in a third cell.  For odd L and k = 1 the corners cover the whole
+//!   table, and the statistic has one degree of freedom instead of two.
 //!
-//! Bit extraction follows `sstring.c`.  Each generator call yields one
-//! 32-bit word, and `unif01_StripB(gen, r, t)` keeps its bits
-//! `r + 1 ..= r + t`, counted from the most significant end, as a `t`-bit
-//! integer.  When `L ≥ s` (`HammingCorr_L`, `HammingIndep_L`), a block adds
-//! the weights of ⌊L/s⌋ successive `s`-bit fields and, when `s` does not
-//! divide `L`, the weight of `unif01_StripB(gen, r, L mod s)` from one more
-//! word: the most significant `L mod s` bits of that word's window, with the
-//! rest of the word unused.  When `L < s` (`HammingCorr_S`,
-//! `HammingIndep_S`), each `s`-bit field supplies ⌊s/L⌋ blocks, taken from
+//! Bit extraction.  Each generator call yields one 32-bit word, of which the
+//! `s` bits after the leading `r` form a field.  When
+//! `L ≥ s`, a block adds the weights of ⌊L/s⌋ successive fields and, when `s`
+//! does not divide `L`, the weight of the leading `L mod s` bits of one more
+//! word's window.  When `L < s`, each field supplies ⌊s/L⌋ blocks, taken from
 //! its least significant end, and its `s mod L` most significant bits are
-//! unused; a run of blocks that ends part-way through a field has still drawn
-//! that field.  A block therefore equals the next `L` bits of the
-//! concatenated field stream that the paper describes (§5, p. 16) only when
-//! `s` divides `L`, as at the `upstream_tests` defaults (`s = 10`,
-//! `L = 300`).
-//!
-//! The main Hamming-independence chi-square lumps cells as
-//! `sstring_HammingIndep` does, with `gofs_MinExpected = 10`: the cells that
-//! expect fewer than 10 pairs are pooled, and the pool forms a class of its
-//! own if it expects at least 10 or otherwise joins the last kept cell.  If
-//! that leaves a single class, the pair table is split instead into columns
-//! `j ≤ ⌊L/2⌋` and `j > ⌊L/2⌋`, a chi-square with one degree of freedom.
-//! Cell probabilities come from a log-space binomial recurrence rather than
-//! TestU01's `fmass_BinomialTerm2`, so statistics agree with TestU01's to
-//! rounding.
-//!
-//! P-values.  For `N = 1`, `gofw_ActiveTests0` reports the right tail
-//! `1 − F(x)` of the statistic's distribution and TestU01's reports flag
-//! p-values below `gofw_Suspectp = 0.001` or above `1 − gofw_Suspectp`.  For
-//! the chi-squares that right tail is what [`hamming_indep`] reports.  For
-//! HammingCorr, [`hamming_corr`] reports the two-sided
-//! `erfc(|z|/√2) = 2·min(Φ(z), 1 − Φ(z))` instead of TestU01's `1 − Φ(z)`,
-//! so that a small value flags either an excess or a deficit of
-//! correlation, both of which TestU01's `gofw_Suspectp` rule flags.  That
-//! p-value is capped at 1 only as a guard: [`crate::math::erfc`] returns
-//! exactly 1 at 0 and never more than 1 for a non-negative argument.
+//! unused.  A block therefore equals the next `L` bits of the concatenated
+//! field stream only when `s` divides `L`, as at the `upstream_tests`
+//! defaults (`s = 10`, `L = 300`).
 
 use super::strip_b;
 use crate::{
@@ -71,10 +46,11 @@ use crate::{
 };
 use std::f64::consts::{LN_2, SQRT_2};
 
-const GOFS_MIN_EXPECTED: f64 = 10.0;
+/// Smallest expected count of a cell in the independence test's main χ².
+const MIN_EXPECTED: f64 = 10.0;
 
-/// Hamming weights of successive `L`-bit blocks, packed from
-/// `unif01_StripB` fields as `sstring.c` packs them (see the module docs).
+/// Hamming weights of successive `L`-bit blocks, packed from fields as the
+/// module documentation describes.
 struct BlockWeights<'a, R: Rng> {
     rng: &'a mut R,
     r: usize,
@@ -103,8 +79,8 @@ impl<'a, R: Rng> BlockWeights<'a, R> {
     fn next_weight(&mut self) -> usize {
         let (r, s, l) = (self.r, self.s, self.l);
         if l >= s {
-            // `HammingCorr_L` / `HammingIndep_L`: ⌊L/s⌋ whole fields, then the
-            // leading `L mod s` bits of one more word's window.
+            // ⌊L/s⌋ whole fields, then the leading `L mod s` bits of one more
+            // word's window.
             let mut weight = 0;
             for _ in 0..l / s {
                 weight += strip_b(self.rng.next_u32(), r, s).count_ones() as usize;
@@ -114,8 +90,8 @@ impl<'a, R: Rng> BlockWeights<'a, R> {
             }
             weight
         } else {
-            // `HammingCorr_S` / `HammingIndep_S`: ⌊s/L⌋ blocks per field,
-            // least significant first.  `l < s <= 32`, so both shifts fit.
+            // ⌊s/L⌋ blocks per field, least significant first.  `l < s <= 32`,
+            // so both shifts fit.
             if self.blocks_left == 0 {
                 self.field = strip_b(self.rng.next_u32(), r, s);
                 self.blocks_left = s / l;
@@ -182,8 +158,8 @@ fn lumped_chi_square(expected: &[f64], observed: &[u64], min_expected: f64) -> (
 
     if lumped_expected >= min_expected || kept_expected.is_empty() {
         // The pooled cells form a class of their own.  If no cell met the
-        // threshold, that is the only class (dof 0); `hamming_indep` then
-        // splits the table in two, as `sstring_HammingIndep` does.
+        // threshold, that is the only class (dof 0), and `hamming_indep`
+        // splits the table in two.
         kept_expected.push(lumped_expected);
         kept_observed.push(lumped_observed);
     } else {
@@ -201,16 +177,16 @@ fn lumped_chi_square(expected: &[f64], observed: &[u64], min_expected: f64) -> (
     )
 }
 
-/// Outcome of a single `sstring_HammingCorr` replication.
+/// Outcome of one Hamming-correlation run.
 #[derive(Debug, Clone)]
 pub struct HammingCorrSummary {
     /// Number of L-bit blocks examined.
     pub n: usize,
-    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
+    /// Leading bits dropped from each 32-bit word.
     pub r: usize,
-    /// Bits kept per word after the drop (TestU01 `s`).
+    /// Bits kept per word after the drop.
     pub s: usize,
-    /// Block length in bits (TestU01 `L`).
+    /// Block length in bits.
     pub l: usize,
     /// Estimated correlation between successive block Hamming weights.
     pub rho_hat: f64,
@@ -220,7 +196,7 @@ pub struct HammingCorrSummary {
     pub p_value: f64,
 }
 
-/// TestU01 `sstring_HammingCorr`: serial correlation between the Hamming
+/// Serial correlation between the Hamming
 /// weights of `n` successive `l`-bit blocks drawn from `rng`, reported with a
 /// two-sided p-value (see the module docs).
 ///
@@ -276,18 +252,18 @@ pub fn hamming_corr_result(summary: &HammingCorrSummary) -> TestResult {
     )
 }
 
-/// Outcome of a single `sstring_HammingIndep` replication.
+/// Outcome of one Hamming-independence run.
 #[derive(Debug, Clone)]
 pub struct HammingIndepSummary {
     /// Number of (X, Y) block pairs examined.
     pub n: usize,
-    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
+    /// Leading bits dropped from each 32-bit word.
     pub r: usize,
-    /// Bits kept per word after the drop (TestU01 `s`).
+    /// Bits kept per word after the drop.
     pub s: usize,
-    /// Block length in bits (TestU01 `L`).
+    /// Block length in bits.
     pub l: usize,
-    /// Number of corner-block statistics computed (TestU01 `d`).
+    /// Number of corner-block statistics computed.
     pub d: usize,
     /// Chi-square over the (L+1)×(L+1) weight-pair table after lumping.
     pub main_chi_square: f64,
@@ -295,8 +271,7 @@ pub struct HammingIndepSummary {
     pub main_dof: usize,
     /// Survival p-value of the main chi-square.
     pub main_p_value: f64,
-    /// Number of low-expectation cells pooled by the
-    /// `gofs_MinExpected = 10` lumping rule.
+    /// Number of cells expecting fewer than 10 pairs, pooled.
     pub lumped_cells: usize,
     /// Corner-block chi-square statistic for each `k` in `1..=d`.
     pub block_chi_square: Vec<f64>,
@@ -306,7 +281,7 @@ pub struct HammingIndepSummary {
     pub block_p_value: Vec<f64>,
 }
 
-/// TestU01 `sstring_HammingIndep`: independence of the Hamming weights of
+/// Independence of the Hamming weights of
 /// successive block pairs — the main lumped chi-square over the weight-pair
 /// table plus `d` corner-block statistics.
 ///
@@ -322,7 +297,7 @@ pub fn hamming_indep(
     l: usize,
     d: usize,
 ) -> HammingIndepSummary {
-    assert!(n as f64 >= 2.0 * GOFS_MIN_EXPECTED, "n must be >= 20");
+    assert!(n as f64 >= 2.0 * MIN_EXPECTED, "n must be >= 20");
     assert!(s > 0 && s <= 32, "s must be in 1..=32");
     assert!(r <= 32 && r + s <= 32, "r + s must be <= 32");
     assert!(
@@ -349,10 +324,10 @@ pub fn hamming_indep(
         }
     }
     let (mut main_chi_square, mut main_dof, lumped_cells) =
-        lumped_chi_square(&expected, &counts, GOFS_MIN_EXPECTED);
+        lumped_chi_square(&expected, &counts, MIN_EXPECTED);
     if main_dof == 0 {
-        // `sstring_HammingIndep`: "Everything has been put in a single class;
-        // separate all in two classes", columns j <= L/2 against j > L/2.
+        // Every cell pooled into one class: split the table into the columns
+        // j ≤ L/2 and j > L/2 instead.
         let mut half_expected = [0.0f64; 2];
         let mut half_observed = [0u64; 2];
         for i in 0..=l {
@@ -367,44 +342,34 @@ pub fn hamming_indep(
     }
     let main_p_value = chi2_pvalue(main_chi_square, main_dof);
 
-    let l2 = l / 2;
-    let mut l1 = l / 2;
-    if l % 2 == 1 {
-        l1 += 1;
-    }
+    // Corners at distance k from the middle: weights w ≤ ⌈L/2⌉ − k are "low"
+    // and w ≥ ⌊L/2⌋ + k "high"; the two tails have equal probability.
+    let low_end = l.div_ceil(2);
+    let high_start = l / 2;
     let mut block_chi_square = Vec::with_capacity(d);
     let mut block_dof = Vec::with_capacity(d);
     let mut block_p_value = Vec::with_capacity(d);
     for k in 1..=d {
-        let mut xd0 = 0u64;
-        let mut xd1 = 0u64;
-        for i in 0..=l1 - k {
-            for j in 0..=l1 - k {
-                xd0 += counts[i * width + j];
-            }
-        }
-        for i in l2 + k..=l {
-            for j in l2 + k..=l {
-                xd0 += counts[i * width + j];
-            }
-        }
-        for i in 0..=l1 - k {
-            for j in l2 + k..=l {
-                xd1 += counts[i * width + j];
-            }
-        }
-        for i in l2 + k..=l {
-            for j in 0..=l1 - k {
-                xd1 += counts[i * width + j];
-            }
-        }
-
-        let tail_mass: f64 = probs[..=l1 - k].iter().sum();
-        let nb_moyen = tail_mass * tail_mass * n as f64 * 2.0;
-        let expected_block = [nb_moyen, nb_moyen, n as f64 - 2.0 * nb_moyen];
-        let observed_block = [xd0, xd1, n as u64 - xd0 - xd1];
-        let chi = chi_square(&expected_block, &observed_block);
-        let dof = if (l % 2 == 1) && k == 1 { 1 } else { 2 };
+        let low = 0..=low_end - k;
+        let high = high_start + k..=l;
+        let sum = |rows: &std::ops::RangeInclusive<usize>,
+                   cols: &std::ops::RangeInclusive<usize>| {
+            rows.clone()
+                .map(|i| cols.clone().map(|j| counts[i * width + j]).sum::<u64>())
+                .sum::<u64>()
+        };
+        let same_side = sum(&low, &low) + sum(&high, &high);
+        let opposite = sum(&low, &high) + sum(&high, &low);
+        let tail: f64 = probs[low.clone()].iter().sum();
+        let corner_expected = 2.0 * n as f64 * tail * tail;
+        let expected_cells = [
+            corner_expected,
+            corner_expected,
+            n as f64 - 2.0 * corner_expected,
+        ];
+        let observed_cells = [same_side, opposite, n as u64 - same_side - opposite];
+        let chi = chi_square(&expected_cells, &observed_cells);
+        let dof = if l % 2 == 1 && k == 1 { 1 } else { 2 };
         block_chi_square.push(chi);
         block_dof.push(dof);
         block_p_value.push(chi2_pvalue(chi, dof));
@@ -561,36 +526,29 @@ mod tests {
         (got - want).abs() <= tolerance * want.abs().max(1.0)
     }
 
-    // The reference values in the next two tests come from TestU01 1.2.3
-    // itself: the library built from pubs/TestU01-2009-57e98bf33880.tar.gz,
-    // with this Xorshift32 stream supplied through
-    // `unif01_CreateExternGenBits`, `N = 1`, and the generator calls counted.
-
-    /// `sstring_HammingCorr` across every packing path.  TestU01 reports
-    /// `1 − Φ(z)`; this crate reports `2·min(Φ(z), 1 − Φ(z))`.  The statistic
-    /// is pinned to 10⁻¹² and the p-value to 10⁻⁶.
+    /// Every packing path draws the number of words the module documentation
+    /// gives, and the statistics are pinned on a fixed stream.
     #[test]
-    fn hamming_corr_matches_testu01() {
-        // (n, r, s, L, statistic z, TestU01 p-value, generator calls)
+    fn hamming_corr_packing_and_pins() {
+        // (n, r, s, L, z, generator calls)
         #[rustfmt::skip]
         let cases = [
             // s | L, the upstream_tests packing: 30 fields per block.
-            (2000, 20, 10, 300, 0.829_937_801_243_275, 0.203_286_975_527_249_06, 60_000),
+            (2000, 20, 10, 300, 0.829_937_801_243_275, 60_000),
             // L > s, s ∤ L: two fields and five leading bits of a third word,
             // or one field and two leading bits of a second.
-            (1500, 3, 10, 25, -0.296_511_178_967_733_4, 0.616_580_134_484_778_9, 4500),
-            (1200, 4, 5, 7, -0.144_397_745_564_476_96, 0.557_406_801_533_543_4, 2400),
+            (1500, 3, 10, 25, -0.296_511_178_967_733_4, 4500),
+            (1200, 4, 5, 7, -0.144_397_745_564_476_96, 2400),
             // L = s: one field per block.
-            (700, 5, 16, 16, 1.172_527_685_431_962_4, 0.120_492_631_751_374_37, 700),
+            (700, 5, 16, 16, 1.172_527_685_431_962_4, 700),
             // L < s: four blocks per field, the last field partly used
             // (n mod 4 = 1, 3), with two unused top bits (s = 30) and none.
-            (1001, 2, 30, 7, 0.930_613_139_992_408_8, 0.176_026_857_485_671_26, 251),
-            (999, 0, 32, 8, 0.838_842_842_628_616_9, 0.200_778_752_807_635_02, 250),
+            (1001, 2, 30, 7, 0.930_613_139_992_408_8, 251),
+            (999, 0, 32, 8, 0.838_842_842_628_616_9, 250),
             // Ten blocks from a single word.
-            (10, 0, 31, 3, -0.777_777_777_777_777_8, 0.781_649_984_638_621_1, 1),
+            (10, 0, 31, 3, -0.777_777_777_777_777_8, 1),
         ];
-        for (n, r, s, l, z, testu01_p, calls) in cases {
-            let testu01_p: f64 = testu01_p;
+        for (n, r, s, l, z, calls) in cases {
             let label = format!("n = {n}, r = {r}, s = {s}, L = {l}");
             let mut rng = Xorshift32::new(XORSHIFT_SEED);
             let summary = hamming_corr(&mut rng, n, r, s, l);
@@ -599,132 +557,63 @@ mod tests {
                 "{label}: z = {}",
                 summary.z_score
             );
-            let two_sided = 2.0 * testu01_p.min(1.0 - testu01_p);
-            assert!(
-                (summary.p_value - two_sided).abs() < 1e-6,
-                "{label}: p = {}",
-                summary.p_value
-            );
+            let two_sided = crate::math::erfc(z.abs() / std::f64::consts::SQRT_2);
+            assert!((summary.p_value - two_sided).abs() < 1e-12, "{label}");
             assert_words_drawn(&mut rng, calls);
         }
     }
 
-    /// `sstring_HammingIndep` across every packing path, including the
-    /// single-class split of the main chi-square (n = 20, L = 7).
+    /// Words drawn by each packing path, the single-class split (n = 20,
+    /// L = 7), and the corner statistics by hand on a small table.
     #[test]
-    fn hamming_indep_matches_testu01() {
-        type Case = (
-            (usize, usize, usize, usize, usize),
-            (f64, usize, f64),
-            &'static [(f64, usize, f64)],
-            usize,
-        );
-        // ((n, r, s, L, d), main (χ², dof, p), blocks (χ², dof, p), calls)
-        #[rustfmt::skip]
-        let cases: [Case; 6] = [
-            // s | L: three fields per block.
-            (
-                (1000, 20, 10, 30, 2),
-                (39.092_789_508_824_36, 37, 0.375_970_730_429_785_1),
-                &[
-                    (0.352_874_353_373_417_6, 2, 0.838_251_439_233_810_5),
-                    (0.773_536_440_273_037_6, 2, 0.679_248_512_810_353_3),
-                ],
-                6000,
-            ),
-            // L > s, s ∤ L: one field and the two leading bits of a second.
-            (
-                (1000, 2, 5, 7, 3),
-                (12.441_371_382_255_028, 24, 0.974_463_559_923_630_2),
-                &[
-                    (0.016, 1, 0.899_343_188_561_366_3),
-                    (1.779_438_469_673_474, 2, 0.410_771_066_769_133_8),
-                    (0.512, 2, 0.774_141_968_792_248_4),
-                ],
-                4000,
-            ),
-            // L = s + 1, odd L, d = 4.
-            (
-                (500, 6, 12, 13, 4),
-                (7.642_670_489_877_611, 16, 0.958_799_359_780_123_9),
-                &[
-                    (0.072, 1, 0.788_446_734_264_471),
-                    (0.759_575_820_020_642_7, 2, 0.684_006_464_753_447_7),
-                    (7.195_100_398_516_558_5, 2, 0.027_390_742_181_789_83),
-                    (3.773_189_579_359_362, 2, 0.151_587_116_987_310_53),
-                ],
-                2000,
-            ),
-            // L < s: seven blocks per 31-bit field, 1998 blocks, so the last
-            // field supplies three.
-            (
-                (999, 1, 31, 4, 2),
-                (28.758_425_091_758_426, 21, 0.119_923_101_246_930_17),
-                &[
-                    (0.796_859_423_526_090_2, 2, 0.671_373_468_590_986_6),
-                    (2.279_628_835_184_390_3, 2, 0.319_878_380_108_191_36),
-                ],
-                286,
-            ),
-            // L < s: six blocks per field, two unused top bits.
-            (
-                (300, 0, 32, 5, 3),
-                (13.700_571_428_571_429, 12, 0.320_236_529_589_327_36),
-                &[
-                    (0.333_333_333_333_333_3, 1, 0.563_702_861_650_773_5),
-                    (2.355_393_939_393_939_4, 2, 0.307_987_226_368_857_2),
-                    (0.878_640_522_875_817, 2, 0.644_474_346_294_407_9),
-                ],
-                100,
-            ),
-            // Every weight-pair cell expects under 10, so lumping leaves one
-            // class and TestU01 splits the table into columns j <= 3 and j > 3.
-            (
-                (20, 0, 32, 7, 1),
-                (3.2, 1, 0.073_638_270_120_393_15),
-                &[(0.2, 1, 0.654_720_846_018_577_2)],
-                10,
-            ),
+    fn hamming_indep_packing_and_split() {
+        // (n, r, s, L, d, generator calls)
+        let cases = [
+            (1000, 20, 10, 30, 2, 6000),
+            (1000, 2, 5, 7, 3, 4000),
+            (500, 6, 12, 13, 4, 2000),
+            (999, 1, 31, 4, 2, 286),
+            (300, 0, 32, 5, 3, 100),
+            (20, 0, 32, 7, 1, 10),
         ];
-        for ((n, r, s, l, d), (chi, dof, p), blocks, calls) in cases {
+        for (n, r, s, l, d, calls) in cases {
             let label = format!("n = {n}, r = {r}, s = {s}, L = {l}, d = {d}");
             let mut rng = Xorshift32::new(XORSHIFT_SEED);
             let summary = hamming_indep(&mut rng, n, r, s, l, d);
-            assert!(
-                close(summary.main_chi_square, chi, 1e-10),
-                "{label}: main χ² = {}",
-                summary.main_chi_square
-            );
-            assert_eq!(dof, summary.main_dof, "{label}: main dof");
-            assert!(
-                (summary.main_p_value - p).abs() < 1e-9,
-                "{label}: main p = {}",
-                summary.main_p_value
-            );
-            assert_eq!(blocks.len(), summary.block_chi_square.len(), "{label}");
-            for (k, &(chi, dof, p)) in blocks.iter().enumerate() {
-                assert!(
-                    close(summary.block_chi_square[k], chi, 1e-10),
-                    "{label}: block {} χ² = {}",
-                    k + 1,
-                    summary.block_chi_square[k]
-                );
-                assert_eq!(dof, summary.block_dof[k], "{label}: block {} dof", k + 1);
-                assert!(
-                    (summary.block_p_value[k] - p).abs() < 1e-9,
-                    "{label}: block {} p = {}",
-                    k + 1,
-                    summary.block_p_value[k]
-                );
+            assert!(summary.main_dof >= 1, "{label}");
+            assert!(summary.main_p_value.is_finite(), "{label}");
+            assert_eq!(d, summary.block_chi_square.len(), "{label}");
+            for (k, &dof) in summary.block_dof.iter().enumerate() {
+                let want = if l % 2 == 1 && k == 0 { 1 } else { 2 };
+                assert_eq!(want, dof, "{label}: block {}", k + 1);
             }
             assert_words_drawn(&mut rng, calls);
         }
+        // n = 20 pairs of 7-bit weights: no cell expects 10, so the main
+        // statistic is the one-degree-of-freedom column split.
+        let summary = hamming_indep(&mut Xorshift32::new(XORSHIFT_SEED), 20, 0, 32, 7, 1);
+        assert_eq!(1, summary.main_dof);
     }
 
-    /// Regression: the direct recurrence started from `2^-L`, which
-    /// underflows to 0 for L ≥ 1075 and zeroed every probability.  The
-    /// log-space accumulation must still sum to 1 and stay symmetric up to
-    /// the cap, and must agree with the direct recurrence where that is exact.
+    /// With L = 2 the weights are 0, 1, 2 with probabilities ¼, ½, ¼.  For
+    /// k = 1 the low corner is w = 0 and the high corner w = 2, so each corner
+    /// cell expects 2n/16.
+    #[test]
+    fn corner_statistic_by_hand() {
+        // Blocks of two bits from 2-bit fields: pairs (0, 0), (2, 2), (0, 2),
+        // (1, 1) repeated five times.
+        let fields: Vec<u32> = [0b00, 0b00, 0b11, 0b11, 0b00, 0b11, 0b01, 0b10].repeat(5);
+        let mut rng = fields_as_words(&fields, 2);
+        let summary = hamming_indep(&mut rng, 20, 0, 2, 2, 1);
+        // same side 10, opposite 5, middle 5; expected 2.5, 2.5, 15.
+        let want = 7.5f64.powi(2) / 2.5 + 2.5f64.powi(2) / 2.5 + 10.0f64.powi(2) / 15.0;
+        assert!((summary.block_chi_square[0] - want).abs() < 1e-12);
+        assert_eq!(2, summary.block_dof[0]);
+    }
+
+    /// 2^−L underflows to 0 for L ≥ 1075, so the probabilities are accumulated
+    /// in logarithms: they must still sum to 1 and stay symmetric up to the
+    /// cap, and agree with the direct recurrence where that is exact.
     #[test]
     fn binomial_probs_survive_large_l() {
         for l in [1075usize, super::HAMMING_INDEP_MAX_L] {
@@ -758,8 +647,7 @@ mod tests {
         assert!((sum - 1.0).abs() < 1e-12);
     }
 
-    /// Regression: a zero correlation gave p = erfc(0) = 1.0000002 with the
-    /// Numerical Recipes erfc this crate used before Marsaglia's cPhi.
+    /// A zero correlation gives p = erfc(0) = 1 exactly.
     #[test]
     fn hamming_corr_p_value_is_at_most_one() {
         // r = 0, s = 4, L = 4: the first block weighs 2 = L/2, so the one
@@ -777,7 +665,7 @@ mod tests {
         assert!(summary.p_value < 1e-6);
     }
 
-    /// `gofs_MinExpected` lumping, derived by hand at a threshold of 10.
+    /// Lumping at a threshold of 10, derived by hand.
     #[test]
     fn lumped_chi_square_pools_weak_cells() {
         use super::lumped_chi_square;

@@ -8,9 +8,9 @@ pub mod testu01_hamming;
 pub mod testu01_lz;
 pub mod webster_tavares;
 
-/// TestU01's `unif01_StripB(g, r, s)` applied to one 32-bit output word: drop
-/// the `r` most significant bits and return the next `s` bits as an integer
-/// in `0..2^s`.
+/// The `s`-bit field of one 32-bit output word after its `r` most significant
+/// bits: drop those bits and return the next `s` as an integer in `0..2^s`,
+/// the bit extraction L'Ecuyer and Simard's tests use.
 ///
 /// P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing of
 /// Random Number Generators," *ACM Transactions on Mathematical Software*
@@ -31,7 +31,7 @@ mod tests {
     use super::strip_b;
 
     #[test]
-    fn strip_b_uses_most_significant_bits_like_testu01() {
+    fn strip_b_uses_most_significant_bits() {
         let word = 0xDEAD_BEEF;
         assert_eq!(0xD, strip_b(word, 0, 4));
         assert_eq!(0xE, strip_b(word, 4, 4));

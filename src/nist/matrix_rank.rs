@@ -14,9 +14,6 @@
 //! * G. Marsaglia and L. H. Tsay, "Matrices and the structure of random
 //!   number sequences," *Linear Algebra and its Applications* 67,
 //!   pp. 147–156, 1985.  [Same result, as cited in §3.5]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/rank.c` and `src/matrix.c`.
-//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [p₃₂ and p₃₁ from the same
-//!   product, matrices filled row by row (`def_matrix`), P = exp(−χ²/2)]
 
 use crate::{
     math::{chi2_pvalue, gf2_rank},

@@ -7,7 +7,7 @@
 //! | [`nist`] | NIST SP 800-22 Rev 1a \[`nist800-22`\] |
 //! | [`diehard`] | DIEHARD (Marsaglia, 1995) \[`marsaglia1995diehard`\] |
 //! | [`dieharder`] | DIEHARDER (Brown, 2004) \[`brown2004dieharder`\] |
-//! | [`research`] | Research-grade tests: Knuth TAOCP, Marsaglia–Tsang, TestU01, PractRand |
+//! | [`research`] | Research tests after Knuth, Marsaglia–Tsang, L'Ecuyer–Simard and Doty-Humphrey |
 //! | [`rng`] | The generators under test, all implementing [`rng::Rng`] |
 //! | [`math`] | Special functions: erfc, igamc, KS, Anderson–Darling, chi-square, FFT, GF(2) rank |
 //! | [`seed`] | Deterministic seed-expansion helpers and fixed cipher test keys |

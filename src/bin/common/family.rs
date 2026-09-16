@@ -1,6 +1,5 @@
 //! The fourteen seeded generators that `bib_tests`, `gorilla`, `testu01_lz`
-//! and `upstream_tests` run, with the labels and seeds those binaries print
-//! and have always used.
+//! and `upstream_tests` run, with the labels and seeds those binaries print.
 //!
 //! Each binary includes this file (and `cli.rs`) with `#[path]`.  A binary
 //! supplies a [`Visit`] implementation; generators reach it one at a time, as

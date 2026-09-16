@@ -203,11 +203,10 @@ mod tests {
         assert!(skipped.skipped(), "{skipped}");
     }
 
-    /// Regression: rounding could leave ∇²ψ² a hair below zero, where
-    /// `igamc` returns NaN, so the entry skipped on valid input and
-    /// `serial()` returned that skip even when ∇ψ² failed.  This 12-bit
-    /// periodic pattern makes ∇²ψ² exactly 0, so P-value2 must be 1; MT19937
-    /// seed 37 at n = 1040 hit the same skip.
+    /// Rounding can leave ∇²ψ² a hair below zero, where `igamc` returns NaN;
+    /// such a value is scored as 0, not skipped.  This 12-bit periodic pattern
+    /// makes ∇²ψ² exactly 0, so P-value2 must be 1, and MT19937 seed 37 at
+    /// n = 1040 produces a slightly negative one.
     #[test]
     fn rounding_below_zero_does_not_skip_a_scored_entry() {
         let pattern: Vec<u8> = (0..12).map(|i| ((0b101001u32 >> i) & 1) as u8).collect();

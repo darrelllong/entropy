@@ -1,32 +1,30 @@
-//! PractRand FPF core test from `src/tests.cpp`.
+//! Floating-point-format frequency (FPF) test.
 //!
-//! # References
-//! * C. Doty-Humphrey, "PractRand: Practically Random — A C++ Library of
-//!   Statistical Tests for RNGs," 2018 (`practrand` in BIB.md; not in
-//!   `pubs/`).  This port follows the pre-0.95 source:
-//!   `include/PractRand/Tests/FPF.h` and `src/tests.cpp`
-//!   (`PractRand::Tests::FPF`).
+//! The design is C. Doty-Humphrey's FPF test in PractRand ("PractRand:
+//! Practically Random", 2018; `practrand` in BIB.md): read the bit stream as
+//! floating-point numbers, each a run of zeros (the exponent) ended by a stop
+//! bit, followed by a fixed-width significand, and test that
+//!
+//! - the exponents follow their geometric law, P(e) = 2^−(e+1), with the last
+//!   exponent collecting the capped runs (the "cross" test), and
+//! - within each exponent (a "platter"), the significands are uniform.
+//!
+//! This implementation reads the words least significant bit first and
+//! parses disjoint codewords, so under the null the samples are independent
+//! and the G statistics have their asymptotic χ² laws.  Each platter tests
+//! only the low b bits of its significands, with b the largest width, at
+//! most the configured significand width, for which every bin expects at
+//! least 16 samples; platters with fewer than two bins
+//! are skipped.  Exponent cells are merged from the rare end until each
+//! expects at least 10 samples.
 //!
 //! # Author
-//! Chris Doty-Humphrey (PractRand and its FPF test); Darrell Long (Rust port).
-//!
-//! This ports the core bucketing/test logic:
-//! - parse the LSB-first bitstream into FPF codewords: a run of zeros
-//!   terminated by a stop bit (the geometric exponent, capped at `max_exp`),
-//!   then `sig_bits` of significand
-//! - apply PractRand's intra-platter truncation rule and G-test
-//! - apply a grouped exponent-distribution G-test (`:cross`)
-//!
-//! Deliberate deviation from PractRand: upstream slides its sample window a
-//! fixed 16-bit stride, so successive samples share examined bits whenever
-//! the exponent is ≥ 2 — a dependence its empirical calibration tables absorb.
-//! This port has no calibration tables, so it parses *disjoint* codewords
-//! instead: samples are iid, the asymptotic chi-square/G law it quotes is
-//! actually valid, and mean consumption (≈ 16 bits per sample at the default
-//! `sig_bits = 14`) matches upstream's stride.  Suspicion scores are not
-//! reproduced.
+//! Chris Doty-Humphrey (the FPF design).
 
 use crate::{math::chi2_pvalue, result::TestResult, rng::Rng};
+
+/// Smallest expected count per significand bin in a platter's G-test.
+const MIN_EXPECTED_PER_BIN: f64 = 16.0;
 
 fn truncate_table_bits(counts: &mut [u64], probs: &mut [f64], old_bits: usize, new_bits: usize) {
     let ns = 1usize << new_bits;
@@ -76,7 +74,8 @@ impl Default for FpfConfig {
 pub struct FpfPlatterSummary {
     /// Codeword exponent (leading-zero run length) this platter collects.
     pub exponent: usize,
-    /// Significand bits actually tested after PractRand's truncation rule.
+    /// Significand bits tested: the widest whose bins each expect at least
+    /// 16 samples.
     pub effective_sig_bits: usize,
     /// G-test statistic over the `2^effective_sig_bits` significand bins.
     pub chi_square: f64,
@@ -183,9 +182,8 @@ fn grouped_tail_g_test(counts: &[u64], probs: &[f64], min_expected: f64) -> (f64
     (g_test(&merged_probs, &merged_counts, total), dof)
 }
 
-/// Run the PractRand FPF test over `total_bits` bits drawn LSB-first from
-/// `rng`, parsing disjoint codewords (see the module docs for the
-/// deliberate deviation from upstream's sliding window).
+/// Run the FPF test over `total_bits` bits drawn LSB-first from `rng`,
+/// parsing disjoint codewords (see the module docs).
 ///
 /// # Panics
 /// Panics if `config.sig_bits` is outside `1..=20` or `total_bits` cannot
@@ -233,13 +231,12 @@ pub fn fpf_test(rng: &mut impl Rng, total_bits: usize, config: &FpfConfig) -> Fp
     for e in 0..=max_exp {
         let expected =
             2f64.powi(-(e as i32 + 1 + if e == max_exp { -1 } else { 0 })) * samples as f64;
-        let ebits_float = expected.log2() - 4.0;
-        let mut ebits = (ebits_float * 0.75 + 0.1).floor() as isize;
-        if ebits < 1 {
+        let ebits = (expected / MIN_EXPECTED_PER_BIN)
+            .log2()
+            .floor()
+            .min(config.sig_bits as f64);
+        if ebits < 1.0 {
             continue;
-        }
-        if ebits as usize > config.sig_bits {
-            ebits = config.sig_bits as isize;
         }
         let ebits = ebits as usize;
         let bins = 1usize << ebits;
@@ -382,9 +379,8 @@ mod tests {
         );
     }
 
-    /// Pins the port's intra-platter truncation: bin `i` folds onto
-    /// `i mod 2^new_bits`, derived by hand.  (PractRand's source is not in
-    /// `pubs/`, so this pins the port, not upstream.)
+    /// Intra-platter truncation: bin `i` folds onto `i mod 2^new_bits`,
+    /// derived by hand.
     #[test]
     fn truncate_table_bits_folds_high_bins_onto_low_bits() {
         use super::truncate_table_bits;
@@ -401,7 +397,7 @@ mod tests {
         assert_eq!([0.25, 0.25, 0.25, 0.25, 0.0, 0.0, 0.0, 0.0], probs);
     }
 
-    /// Exponent-cell merging derived by hand; G values from Python,
+    /// Exponent-cell merging derived by hand; G values are
     /// `2 Σ o ln(o / (N p))` over the merged cells.
     #[test]
     fn grouped_tail_g_test_merges_runs_until_min_expected() {

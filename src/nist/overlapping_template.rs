@@ -14,9 +14,6 @@
 //!   Matching Test Included in NIST Randomness Test Suite," *IEICE
 //!   Transactions on Fundamentals of Electronics, Communications and Computer Sciences*
 //!   E90-A(9), pp. 1788–1792, 2007.  [Source of the π values, per §3.8]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/overlappingTemplateMatchings.c`.
-//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same M, N and block counts;
-//!   scores §3.8's compound-Poisson probabilities, see `PI`]
 
 use crate::{math::chi2_pvalue, result::TestResult};
 
@@ -30,10 +27,7 @@ use crate::{math::chi2_pvalue, result::TestResult};
 /// P-value = 0.110434 with the compound-Poisson values (π₀ = e^{−η} ≈
 /// 0.367879 for η = 1), and χ² ≈ 7.949747 with the values below.
 ///
-/// STS 2.1.2's `overlappingTemplateMatchings.c` declares these values (with
-/// π₄ = 0.0704323) but overwrites π₀, …, π₄ with the compound-Poisson
-/// `Pr(u, η)` before scoring, and π₅ with 1 − Σ.  It therefore still reports
-/// the §2.8.8 figures: P-value = 0.110434 on 10⁶ bits of e, where this module
+/// On 10⁶ bits of e the §2.8.8 figure is P-value = 0.110434; this module
 /// gives 0.159027.
 const PI: [f64; 6] = [0.364091, 0.185659, 0.139381, 0.100571, 0.070432, 0.139865];
 
@@ -114,7 +108,7 @@ mod tests {
 
     /// P(U = u) for u = 0, …, 4 from the compound-Poisson formula of
     /// SP 800-22 §3.8 with η = λ/2 = 1, and 1 − Σ for u ≥ 5, evaluated term
-    /// by term as `Pr` in STS 2.1.2's `overlappingTemplateMatchings.c` does.
+    /// by term in logarithms.
     fn compound_poisson_pi() -> [f64; 6] {
         let eta = 1.0_f64;
         let mut pi = [0.0; 6];

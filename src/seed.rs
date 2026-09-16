@@ -6,12 +6,11 @@
 //!
 //! [`seed_material`] converts a `u64` seed into an arbitrary-width byte array
 //! using [`splitmix64`].  The XOR with [`SEED_MATERIAL_MASK`], wyhash's first
-//! Weyl-sequence prime `_wyp[0]` (Wang Yi, 2019), ensures that seed = 0 does
+//! Weyl-sequence prime (Wang Yi, 2019), ensures that seed = 0 does
 //! not produce the all-zeros splitmix64 state.
 //!
-//! Seed derivation is part of experimental reproducibility: having one
-//! definition, one comment, and one set of tests reduces the risk that a
-//! future bug fix lands in some probe binaries but not others.
+//! Seed derivation is part of experimental reproducibility, so every probe
+//! binary derives its seeds from this one definition.
 //!
 //! ## Cipher test keys
 //!

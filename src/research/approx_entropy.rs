@@ -93,9 +93,8 @@ pub fn approx_entropy_profile(bits: &[u8], m_values: &[usize]) -> Vec<ApproxEntr
 mod tests {
     use super::{approx_entropy_profile, phi};
 
-    /// Regression: the gate first admitted any `2^m ≤ n/10`, then dropped
-    /// the floor.  §2.12.7 reads "m < ⌊log2 n⌋ − 5", so n = 2^(m+6) − 1 is
-    /// the last length that must be skipped (n = 129 rules out m = 2).
+    /// §2.12.7 reads "m < ⌊log2 n⌋ − 5", so n = 2^(m+6) − 1 is the last length
+    /// that must be skipped (n = 129 rules out m = 2).
     #[test]
     fn m_gate_follows_sp800_22_input_size_recommendation() {
         for m in [2usize, 3, 6] {

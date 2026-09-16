@@ -15,16 +15,16 @@
 //! no explicit counter.  Simpler than SFC64 but equally fast.
 //!
 //! # References
-//! C. Doty-Humphrey, "PractRand" (SFC64 source), 2014.
-//! <http://pracrand.sourceforge.net/>
+//! C. Doty-Humphrey, "PractRand", 2014, <http://pracrand.sourceforge.net/>:
+//! SFC64 with shifts 11, 3 and 24, rotation 24, counter increment 1 and 18
+//! warm-up rounds.
 //!
 //! B. Jenkins, "A small noncryptographic PRNG", 2007.
 //! <http://burtleburtle.net/bob/rand/smallprng.html>
 //! [pubs/jenkins-2007-smallprng.html]
 //!
 //! # Author
-//! Chris Doty-Humphrey (SFC64); Bob Jenkins (JSF64);
-//! Darrell Long (Rust port).
+//! Chris Doty-Humphrey (SFC64); Bob Jenkins (JSF64).
 
 use super::{OsRng, Rng};
 
@@ -212,9 +212,8 @@ mod tests {
         assert_eq!(a.next_u32(), (b.next_u64() >> 32) as u32);
     }
 
-    // Known-answer test: first three outputs of Sfc64::new(1, 2, 3),
-    // cross-checked against an independent Python replica of PractRand's
-    // sfc64 (sfc.cpp: shifts 11/3/24, counter = 1, 18 warm-up rounds).
+    // Known-answer test: first three outputs of Sfc64::new(1, 2, 3) (shifts
+    // 11/3/24, counter = 1, 18 warm-up rounds).
     #[test]
     fn sfc64_known_answer() {
         let mut rng = Sfc64::new(1, 2, 3);
@@ -228,12 +227,8 @@ mod tests {
         }
     }
 
-    // Known-answer test: first three outputs of Jsf64::new(JSF64_TEST_SEED),
-    // cross-checked against an independent Python replica of Jenkins'
-    // smallprng (64-bit rot 7/13/37 variant, a = Jsf64::INITIAL_A, 20 warm-ups)
-    // and against the page's 64-bit `raninit`/`ranval` compiled from
-    // pubs/jenkins-2007-smallprng.html (5000 outputs at seeds JSF64_TEST_SEED,
-    // 0 and 1).
+    // Known-answer test: first three outputs of Jsf64::new(JSF64_TEST_SEED)
+    // (rotations 7/13/37, a = Jsf64::INITIAL_A, 20 warm-up rounds).
     #[test]
     fn jsf64_known_answer() {
         let mut rng = Jsf64::new(JSF64_TEST_SEED);

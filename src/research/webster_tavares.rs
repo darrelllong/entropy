@@ -283,8 +283,9 @@ mod tests {
         assert!(report.mean_bic_abs_corr.is_nan());
     }
 
-    /// Regression: a zero-variance avalanche variable used to score ρ = 0,
-    /// so GF(2)-linear Xorshift32 printed BICmax = 0.0000, the ideal value.
+    /// A GF(2)-linear map such as Xorshift32 has zero-variance avalanche
+    /// variables; its pairs are counted as degenerate, not scored as the
+    /// ideal ρ = 0.
     #[test]
     fn linear_map_reports_degenerate_pairs_not_ideal_bic() {
         // f(x) ⊕ f(x ⊕ e_j) = f(e_j) for every sampled x: every pair is 0/0.

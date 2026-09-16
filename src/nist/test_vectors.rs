@@ -21,19 +21,11 @@ pub(crate) fn bits(s: &str) -> Vec<u8> {
 /// §2.8.8, §2.10.8, §2.11.8, §2.14.8 and §2.15.8 examples and of the second
 /// table of Appendix B.
 ///
-/// Source: member `sts-2.1.2/data/data.e` of
-/// [pubs/NIST-STS-2.1.2-src-and-constants.zip], whose sha256 is
-/// `b4b49e2987dacdbd5fe75a8ad767f4139e7be7d8f0ff9ddfb23e6081a5feed2d`.  That
-/// file holds 1 004 882 ASCII `0` and `1` digits on space-indented lines,
-/// starting with the `10` of e's integer part, as written by the Mathematica
-/// program of SP 800-22 Appendix F.3 (`RealDigits[N[E, d], 2]`).  STS reads it
-/// one digit at a time with `fscanf(fp, "%1d", &bit)`, which skips the
-/// whitespace (`readBinaryDigitsInASCIIFormat` in `src/utilities.c`).
-///
-/// Packing: the first 10⁶ digits, in order, most significant bit first.
-/// Digit j is bit 7 − (j mod 8) of byte ⌊j/8⌋, so the file is 125 000 bytes;
-/// its sha256 is
-/// `7ae61691f949a9a92d5ed8b65722bfcf0179964064d5f2c7e2a971b32ac97d49`.
+/// The digits start with the `10` of e's integer part, e = 10.1011011111…₂,
+/// and are packed most significant bit first: digit j is bit 7 − (j mod 8) of
+/// byte ⌊j/8⌋, so the file is 125 000 bytes.  Equivalently, the file is the
+/// big-endian binary representation of ⌊e·2^(10⁶ − 2)⌋, which a test
+/// recomputes.
 const E_FIXTURE: &[u8] = include_bytes!("../../tests/data/e_1e6_bits.bin");
 
 /// Number of bits in the e fixture.
@@ -47,37 +39,39 @@ pub(crate) fn e_bits(n: usize) -> Vec<u8> {
         .collect()
 }
 
-#[cfg(all(test, feature = "cryptography"))]
+#[cfg(test)]
 mod tests {
     use super::{e_bits, E_BITS, E_FIXTURE};
-    use cryptography::vt::BigUint;
+    use rump::BigUint;
 
-    /// Leading fixture bits compared with e computed from its series.
-    const CROSS_CHECKED_BITS: usize = 1 << 14;
-
-    /// ⌊e·2^(k−2)⌋, whose k binary digits are the first k digits of e's
-    /// expansion 10.1011011111100001… (e lies in [2, 4)).
-    ///
-    /// Sums ⌊2^(k−2+G)/i!⌋ over i ≥ 0 with G guard bits, each term the floor
-    /// of the previous one over i.  Every floor loses less than one unit and
-    /// the terms left out after the first zero total less than two, so the
-    /// sum falls short of e·2^(k−2+G) by less than i_max + 2, about 2 000
-    /// units here; dropping the G = 64 guard bits then gives ⌊e·2^(k−2)⌋
-    /// unless e·2^(k−2) is within 2^−53 of an integer.
-    fn e_prefix(k: usize) -> BigUint {
-        const GUARD_BITS: usize = 64;
-        let scale = k - 2 + GUARD_BITS;
-        let mut term = BigUint::one();
-        term.shl_bits(scale);
-        let mut sum = term.clone();
-        let mut i = 1u64;
-        while !term.is_zero() {
-            term = term.div_rem_u64(i).0;
-            sum += &term;
-            i += 1;
+    /// Σ_{i=a+1..b} a!/i! as P/Q with Q = (a + 1)(a + 2)…b, by binary splitting:
+    /// P(a, b) = P(a, m)·Q(m, b) + P(m, b) and Q(a, b) = Q(a, m)·Q(m, b).
+    fn split(a: u64, b: u64) -> (BigUint, BigUint) {
+        if b == a + 1 {
+            return (BigUint::one(), BigUint::from_u64(b));
         }
-        sum.shr_bits(GUARD_BITS);
-        sum
+        let m = (a + b) / 2;
+        let (p_am, q_am) = split(a, m);
+        let (p_mb, q_mb) = split(m, b);
+        (p_am.mul(&q_mb).add(&p_mb), q_am.mul(&q_mb))
+    }
+
+    /// ⌊e·2^(k−2)⌋, whose k binary digits are the first k digits of e.
+    ///
+    /// e = 1 + Σ_{i≥1} 1/i!, cut at i = K with K! > 2^(k+64), so the omitted
+    /// tail is below 2^−(k+63) and cannot change the floor unless e·2^(k−2) is
+    /// that close to an integer.
+    fn e_digits(k: usize) -> BigUint {
+        let mut terms = 1u64;
+        let mut log2_factorial = 0.0f64;
+        while log2_factorial < (k + 64) as f64 {
+            terms += 1;
+            log2_factorial += (terms as f64).log2();
+        }
+        let (p, q) = split(0, terms);
+        let mut numerator = p.add(&q);
+        numerator.shl_bits(k - 2);
+        numerator.div_rem(&q).0
     }
 
     /// SP 800-22 prints no digits of e, but §2.11.8 prints the symbol counts
@@ -97,15 +91,25 @@ mod tests {
         assert_eq!(pairs, [250_116, 249_855, 249_855, 250_174]);
     }
 
-    /// The fixture's first 2¹⁴ bits are those of e computed with rump's
-    /// `BigUint`.
+    /// The first 2¹² bits against e computed here, in every build.
     #[test]
-    fn e_fixture_prefix_matches_e_computed_with_biguint() {
-        let prefix = e_prefix(CROSS_CHECKED_BITS);
-        assert_eq!(prefix.bits(), CROSS_CHECKED_BITS);
-        for (j, &b) in e_bits(CROSS_CHECKED_BITS).iter().enumerate() {
-            let want = prefix.bit(CROSS_CHECKED_BITS - 1 - j);
-            assert_eq!(b == 1, want, "bit {j} of e");
+    fn e_fixture_prefix_is_e() {
+        let k = 1 << 12;
+        let digits = e_digits(k);
+        assert_eq!(digits.bits(), k);
+        for (j, &b) in e_bits(k).iter().enumerate() {
+            assert_eq!(b == 1, digits.bit(k - 1 - j), "bit {j} of e");
         }
+    }
+
+    /// The whole fixture is ⌊e·2^(10⁶ − 2)⌋.
+    #[test]
+    #[cfg_attr(
+        debug_assertions,
+        ignore = "10⁶-bit arithmetic; runs under cargo test --release"
+    )]
+    fn e_fixture_is_e() {
+        let digits = e_digits(E_BITS);
+        assert_eq!(digits.to_be_bytes_padded(E_FIXTURE.len()), E_FIXTURE);
     }
 }

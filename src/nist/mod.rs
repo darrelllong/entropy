@@ -4,13 +4,10 @@
 //! Pseudorandom Number Generators for Cryptographic Applications*,
 //! NIST SP 800-22 Rev 1a (2010).  `pubs/NIST-SP-800-22r1a.pdf`
 //!
-//! Each sub-module corresponds to one section of the document.
-//!
-//! The reference implementation is NIST's Statistical Test Suite 2.1.2,
-//! [pubs/NIST-STS-2.1.2-src-and-constants.zip]; each module names the source
-//! files it was checked against.  The unit tests run the publication's worked
-//! examples on e from that archive's `data/data.e`, packed into
-//! `tests/data/e_1e6_bits.bin`.
+//! Each sub-module corresponds to one section of the document.  The unit
+//! tests run the publication's worked examples, including those on the first
+//! 10⁶ binary digits of e (`tests/data/e_1e6_bits.bin`, which a test
+//! recomputes).
 
 pub mod approximate_entropy; // §2.12
 pub mod block_frequency; // §2.2
@@ -81,8 +78,8 @@ pub fn run_all(rng: &mut impl Rng, n: usize) -> Vec<TestResult> {
     // Serial has two p-values; emit both rather than collapsing to min.
     // m = 3 is a fixed, size-independent default (unlike `universal`, which
     // scales L with n): the publication permits m up to ⌊log₂ n⌋ − 2 ≈ 21 at
-    // this n, and a larger m would catch some weak linear generators STS misses
-    // at its own defaults, but a fixed m keeps the slot comparable across runs
+    // this n, and a larger m would catch some weak linear generators, but a
+    // fixed m keeps the slot comparable across runs
     // and sample sizes.  Callers wanting higher power can invoke
     // `serial::serial_both` directly with a larger m.
     results.extend(serial::serial_both(&bits, 3));
@@ -106,8 +103,7 @@ mod tests {
     /// SP 800-22 Appendix B, second table: the P-values for the first 10⁶
     /// bits of e, with the parameters the table names.  Appendix B prints the
     /// cumulative sums as 0.669887 and 0.724266, within 10⁻⁶ of the 0.6698865
-    /// and 0.7242653 this crate computes; STS 2.1.2 prints 0.669886 and
-    /// 0.724265.  The other rows are pinned beside their modules' §2.x.8
+    /// and 0.7242653 this crate computes.  The other rows are pinned beside their modules' §2.x.8
     /// examples or differ for reasons given there: overlapping template
     /// (§2.8.8), universal and linear complexity (their Appendix B tests),
     /// random excursions for x = +1 (§2.14.8) and the variant for x = −1

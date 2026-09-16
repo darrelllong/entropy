@@ -10,10 +10,6 @@
 //! # References
 //! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.14 and §3.14.
 //!   [pubs/NIST-SP-800-22r1a.pdf]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/randomExcursions.c`.
-//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same cycles, J gate and
-//!   probabilities; below the gate it writes P-value 0 for every state, where
-//!   this module reports a skip]
 
 use crate::{math::chi2_pvalue, result::TestResult};
 
@@ -88,7 +84,7 @@ fn state_chi_squares(bits: &[u8]) -> Result<(usize, [f64; 8]), String> {
     // Build the random walk partial sums S' = 0, S₁, …, Sₙ, 0.  Append the
     // closing zero only when Sₙ ≠ 0: if the walk already ends at zero, an
     // unconditional append would create a spurious empty cycle, inflating J
-    // and every state's ν₀ by 1 relative to the STS reference.
+    // and every state's ν₀ by 1.
     let walk: Vec<i32> = {
         let mut s = 0i32;
         let mut w = vec![0i32];
@@ -137,8 +133,7 @@ fn state_chi_squares(bits: &[u8]) -> Result<(usize, [f64; 8]), String> {
 /// Theoretical probability π_k(x) for exactly k visits to state x in a cycle.
 ///
 /// The formulas of SP 800-22 §3.14, which also prints them to four decimals
-/// for x = 1..7.  STS 2.1.2's `randomExcursions.c` tabulates |x| = 1..4 to
-/// ten digits, and these formulas reproduce that table.
+/// for x = 1..7.
 fn pi_k(x: i32, k: usize) -> f64 {
     let ax = x.unsigned_abs() as f64;
     match k {
@@ -195,10 +190,10 @@ mod tests {
         assert!(below.iter().all(TestResult::skipped));
     }
 
-    /// STS 2.1.2's χ² and P-value for x = −4, …, −1, +1, …, +4 on 10⁶ bits of e,
-    /// where J = 1490.  The x < 0 rows are also the ones SP 800-22 §2.14.8
-    /// prints, and Appendix B prints the x = +1 P-value.
-    const STS_ON_E: [(f64, f64); 8] = [
+    /// χ² and P-value for x = −4, …, −1, +1, …, +4 on 10⁶ bits of e, where
+    /// J = 1490.  The x < 0 rows are the ones SP 800-22 §2.14.8 prints, and
+    /// Appendix B prints the x = +1 P-value; the x > 0 rows are pinned.
+    const ON_E: [(f64, f64); 8] = [
         (3.835698, 0.573306),
         (7.318707, 0.197996),
         (7.861927, 0.164011),
@@ -209,27 +204,26 @@ mod tests {
         (2.488767, 0.778186),
     ];
 
-    /// On 10⁶ bits of e this module's J, eight χ² and eight P-values are those
-    /// STS 2.1.2's `randomExcursions.c` prints for the same bits.
+    /// On 10⁶ bits of e: J, eight χ² and eight P-values.
     #[test]
-    fn matches_sts_on_e() {
+    fn values_on_e() {
         let e = e_bits(1_000_000);
         let Ok((j, chi_squares)) = state_chi_squares(&e) else {
             panic!("the walk on e has enough cycles");
         };
         assert_eq!(j, 1490);
         let results = random_excursions_all(&e);
-        for ((r, chi_sq), (sts_chi_sq, sts_p)) in results.iter().zip(chi_squares).zip(STS_ON_E) {
-            assert!((chi_sq - sts_chi_sq).abs() < 1e-6, "{r}: χ² = {chi_sq}");
-            assert!((r.p_value - sts_p).abs() < 1e-6, "{r}");
+        for ((r, chi_sq), (want_chi_sq, want_p)) in results.iter().zip(chi_squares).zip(ON_E) {
+            assert!((chi_sq - want_chi_sq).abs() < 1e-6, "{r}: χ² = {chi_sq}");
+            assert!((r.p_value - want_p).abs() < 1e-6, "{r}");
             assert!(r.note.as_deref().unwrap().contains("J=1490"), "{r}");
         }
     }
 
     /// Explains SP 800-22 §2.14.8's rows for x = +1, …, +4, which print
     /// χ² = 2.485906, 5.429381, 2.404171 and 2.393928 (P-values 0.778616,
-    /// 0.365752, 0.790853 and 0.792378) where this module and STS give the
-    /// values in `STS_ON_E`.  The walk on e returns to zero for the last time
+    /// 0.365752, 0.790853 and 0.792378) where this module gives the values in
+    /// `ON_E`.  The walk on e returns to zero for the last time
     /// at step 991 028, after 1 489 cycles, and ends at S_n = +58.  Counting
     /// that final excursion toward J but dropping its visits reproduces the
     /// printed rows; the negative states cannot tell, because the excursion

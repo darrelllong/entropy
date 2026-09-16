@@ -91,8 +91,6 @@ mod tests {
     /// Seed 1 through Marsaglia's 32-bit xorshift with the (13, 17, 5) triple
     /// used here.  Values from an independent replica of the generator; the
     /// first four also match the fixed-seed `dump_rng xorshift32` output.
-    /// Marsaglia's `xor()` compiled with `y^=(y>>17)` agrees for 5000 outputs
-    /// at seeds 1 and 2463534242.
     #[test]
     fn xorshift32_seed_1_kat() {
         let expected: [u32; 8] = [

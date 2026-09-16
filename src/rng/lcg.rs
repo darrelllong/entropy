@@ -1,8 +1,8 @@
 //! Linear Congruential Generators — several parameter sets, some notoriously weak.
 //!
 //! LCGs have the form `x_(n+1) = (a*x_n + c) mod m`.
-//! These are parameterized mathematical generators, not necessarily faithful
-//! libc APIs. Historical Unix libc wrappers live in [`super::c_stdlib`].
+//! These are parameterized mathematical generators, not emulations of libc
+//! APIs.  Historical Unix libc wrappers live in [`super::c_stdlib`].
 //!
 //! # References
 //! * K. Thompson and D. M. Ritchie, *Unix Programmer's Manual*, 7th Edition,
@@ -10,10 +10,6 @@
 //!   [`rand(3)` describes a congruential generator with period 2³² and 15-bit
 //!   output but does not print a=1103515245, c=12345; those are the C
 //!   standard's sample `rand()` parameters]
-//! * The GNU C Library 2.40, `__random_r` in `stdlib/random_r.c`.
-//!   [pubs/glibc-2.40-random_r.c]  [Its TYPE_0 generator,
-//!   `((state[0] * 1103515245U) + 12345U) & 0x7fffffff`, is `AnsiC` for the
-//!   seeds `LcgVariant::AnsiC` names]
 //! * S. K. Park and K. W. Miller, "Random number generators: good ones are
 //!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
 //!   DOI: 10.1145/63039.63042.
@@ -29,17 +25,12 @@ pub enum LcgVariant {
     /// `x = x * 1103515245 + 12345 (mod 2^31)`.
     ///
     /// This is the parameter set widely printed in manuals and sample code,
-    /// but it is not glibc's actual `rand()` implementation.  It is glibc's
-    /// TYPE_0 `random_r`, the generator `initstate` selects for a state of 8
-    /// to 31 bytes, for every seed whose low 32 bits are nonzero: `next_raw`
-    /// then matches `__random_r` seeded with those 32 bits, the `unsigned int`
-    /// glibc takes, which covers every seed in `1..=u32::MAX`.  (Checked
-    /// against `__random_r` compiled from glibc 2.40's `stdlib/random_r.c` for
-    /// at least 1000 outputs at seeds 1, 5, 12345, 2³¹, 3 000 000 000,
-    /// 2³² − 1, 2³² + 5, 2³² + 2³¹ and 2⁶⁴ − 1.)  When the low 32 bits are
-    /// zero, as for seeds 0 and 2³², glibc seeds with 1 and first returns
-    /// 1103527590, while this variant starts from state 0 and first returns
-    /// 12345.
+    /// but it is not glibc's `rand()`.  It is the generator glibc's
+    /// `random()` uses with a state of 8 to 31 bytes, seeded with the low 32
+    /// bits of the seed, for every seed whose low 32 bits are nonzero.  When
+    /// they are zero, as for seeds 0 and 2³², glibc seeds with 1 and first
+    /// returns 1103527590, while this variant starts from state 0 and first
+    /// returns 12345.
     AnsiC,
     /// MINSTD (Park & Miller, 1988): a = 16_807, c = 0, m = 2³¹ − 1.
     /// Passes some tests but fails spectral and serial tests.
@@ -164,9 +155,8 @@ impl Rng for Lcg32 {
             return self.next_raw();
         }
         // Pack raw_bits-wide raws into 32-bit words to keep the `next_u32`
-        // contract (a 32-bit pseudo-random word).  Without this path a
-        // 15-bit Borland/MSVC raw would leave the high 17 bits permanently
-        // zero — the bug callers were hitting before this fix.
+        // contract (a 32-bit pseudo-random word); a 15-bit Borland/MSVC raw
+        // alone would leave the high 17 bits zero.
         while self.bits.bits < 32 {
             let raw = self.next_raw();
             self.bits.push(raw, self.raw_bits);
@@ -183,7 +173,7 @@ mod tests {
 
     #[test]
     fn msvc_raw_matches_known_seed_1_prefix() {
-        // C-API faithfulness: 15-bit values from Microsoft Visual C `rand()`.
+        // 15-bit values of Microsoft Visual C `rand()`.
         let mut rng = Lcg32::new(LcgVariant::Msvc, 1);
         let got = MSVC_RAND_SEED_1_PREFIX.map(|_| rng.next_raw());
         assert_eq!(got, MSVC_RAND_SEED_1_PREFIX);
@@ -281,8 +271,8 @@ mod tests {
 mod minstd_seed_tests {
     use super::*;
 
-    /// Regression: a seed that is a nonzero multiple of 2³¹−1 reduced to
-    /// state 0, and with c = 0 the generator was stuck at zero forever.
+    /// A seed that is a multiple of 2³¹ − 1 must not reduce to state 0, the
+    /// fixed point of c = 0.
     #[test]
     fn minstd_never_seeds_to_the_zero_fixed_point() {
         for seed in [0u64, 2_147_483_647, 2 * 2_147_483_647] {

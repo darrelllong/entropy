@@ -339,9 +339,8 @@ mod tests {
         assert_eq!(max_outlen(&cryptography::vt::p521()), 504);
     }
 
-    /// Regression: `new` accepted any positive multiple of 8 for `outlen`,
-    /// then `next_u32` panicked on the first draw for `outlen < 32`, and
-    /// nothing stopped `outlen` from exceeding the standard's `max_outlen`.
+    /// `outlen` must be a multiple of 8, at least 32 so that one output word
+    /// fits, and at most the standard's `max_outlen`.
     #[test]
     fn outlen_bounds_enforced_at_construction() {
         for bad in [0usize, 8, 12, 16, 24, 248, 256, 264] {

@@ -14,15 +14,12 @@
 //! # References
 //! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.7 and Appendix E.
 //!   [pubs/NIST-SP-800-22r1a.pdf]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/nonOverlappingTemplateMatchings.c`
-//!   and `templates/template9`.  [pubs/NIST-STS-2.1.2-src-and-constants.zip]
-//!   [Same N = 8, μ, σ² and scan]
 
 use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Template lengths accepted by the single-template entry points.
 ///
-/// The NIST STS ships aperiodic template files for m = 2..=21 only, and
+/// SP 800-22 Appendix E lists aperiodic templates for m = 2..=21 only, and
 /// §2.7.7 recommends m = 9 or 10.  The range also keeps `1u64 << m` well
 /// away from its overflow at m ≥ 64 and rules out the empty template, which
 /// would match at every position without advancing the scan.
@@ -36,8 +33,7 @@ const TEMPLATE_LEN_NOTE: &str = "template length m must be in 2..=21";
 ///
 /// A template is aperiodic if it has no period p with 1 ≤ p < m such that
 /// T[i] = T[i+p] for all i in 0..m-p.  This generates the same set as
-/// Appendix E of SP 800-22 Rev 1a (2010), in the order of STS 2.1.2's
-/// `templates/template9`.
+/// Appendix E of SP 800-22 Rev 1a (2010), in increasing numeric order.
 fn aperiodic_templates_9() -> Vec<Vec<u8>> {
     let m = 9usize;
     (0u16..512)
@@ -182,10 +178,9 @@ mod tests {
         assert_eq!(count_non_overlapping(&[1, 1, 1, 1], &[1, 1]), 2);
     }
 
-    /// Regression: m = 0 indexed `template[m - 1]`, m ≥ 64 overflowed
-    /// `1u64 << m`, and an empty raw template never advanced the matcher.
-    /// Out-of-range lengths and non-binary symbols must now return a skipped
-    /// result instead of panicking, hanging, or fabricating a rejection.
+    /// Out-of-range template lengths (0, or large enough to overflow a shift),
+    /// empty templates and non-binary symbols return a skipped result rather
+    /// than panicking, hanging, or fabricating a rejection.
     #[test]
     fn degenerate_templates_are_skipped() {
         let bits = vec![1u8; 1024];

@@ -1,75 +1,45 @@
-//! Marsaglia–Tsang "difficult tests" research implementations.
-//!
-//! This module currently implements the Gorilla test described in:
+//! The Gorilla test of Marsaglia and Tsang.
 //!
 //! George Marsaglia and Wai Wan Tsang, "Some difficult-to-pass tests of
-//! randomness", Journal of Statistical Software 7(3), 2002
-//! (`marsaglia2002difficult` in BIB.md).
-//! [pubs/marsaglia-tsang-2002-difficult-tests.pdf]  The article's attached
-//! C code is `gorilla()` and `ad32()` in `tuftests.c`.
-//! [pubs/marsaglia-tsang-2002-tuftests.c]
+//! randomness", *Journal of Statistical Software* 7(3), 2002
+//! (`marsaglia2002difficult` in BIB.md), pp. 5–6.
+//! [pubs/marsaglia-tsang-2002-difficult-tests.pdf]
 //!
-//! The paper's Gorilla test (pp. 5–6):
-//! - selects one bit position from each 32-bit output word
-//! - forms a bit stream of length 2^26 + 25
-//! - counts how many 26-bit words are missing from the 2^26 overlapping windows
-//! - compares the missing-word count to a normal approximation with
-//!   mean 24,687,971 and standard deviation 4,170
-//! - then applies an Anderson–Darling–Kolmogorov–Smirnov ("ADKS") test to
-//!   the 32 per-bit p-values, to catch generators whose problem is collective
-//!   non-uniformity across bit positions rather than one spectacularly bad bit
+//! For each bit position of the 32-bit words, the test:
+//! - forms a bit stream of length 2²⁶ + 25 from that position of successive
+//!   words;
+//! - counts how many 26-bit words are missing from its 2²⁶ overlapping
+//!   windows;
+//! - compares the count with a normal distribution of mean 24 687 971 and
+//!   standard deviation 4 170, the values the paper gives.
 //!
-//! The paper does not define ADKS.  `tuftests.c` computes the Anderson–Darling
-//! statistic A₃₂ of the 32 p-values, with each product uᵢ(1 − u₃₁₋ᵢ) floored
-//! at 10⁻³⁰ before its logarithm, and prints Pr(A₃₂ < A), labelled a KS test.
-//! [`gorilla_aggregate_ad`] computes that statistic.  It converts the statistic
-//! with [`crate::math::anderson_darling_cdf`], the Anderson–Darling
-//! distribution the first author published two years later (Marsaglia and
-//! Marsaglia 2004), rather than `tuftests.c`'s four-piece fit `ad32()` for
-//! n = 32, which departs from that distribution by up to 0.0056 (at A = 1).
-//! From the per-bit values printed on p. 6, this reproduces the ADKS printed
-//! for KISS (0.115), SHR3 (0.937, which only the floor allows), LFIB4 (0.724,
-//! where `ad32()` gives 0.727) and both congruential generators (1.000), to
-//! within the four-decimal rounding of those inputs.  A Kolmogorov–Smirnov
-//! test would give 0.052 for KISS and 0.587 for LFIB4.
+//! The 32 per-position p-values then get an Anderson–Darling test of
+//! uniformity, the paper's "ADKS" check, which catches non-uniformity spread
+//! across positions rather than one bad bit.  [`gorilla_aggregate_ad`]
+//! computes A₃₂ with each product uᵢ(1 − u₃₁₋ᵢ) floored at 10⁻³⁰, and
+//! converts it with [`crate::math::anderson_darling_cdf`], the distribution
+//! of Marsaglia and Marsaglia (2004).  From the per-bit values printed on p. 6
+//! this reproduces the printed ADKS for KISS (0.115), SHR3 (0.937, which only
+//! the floor allows), LFIB4 (0.724) and both congruential generators (1.000),
+//! to within the four-decimal rounding of those inputs.
 //!
-//! `tuftests.c` works in single precision and evaluates Φ with a three-term
-//! rational approximation; this module uses double precision and
-//! [`crate::math::normal_cdf`].  The reproduction above holds for the per-bit
-//! values the paper prints, not for every z.  In single precision Φ(z) rounds
-//! to 1 once z exceeds about 5.4, and the product it enters meets the 10⁻³⁰
-//! floor, whereas this module's double-precision p-values saturate only
-//! beyond |z| ≈ 8.3.  With SHR3's bits 2 and 31 at z = +6 and −6, for example,
-//! `tuftests.c` gives A = 2.302 and ADKS 0.937, and this module gives
-//! A = 1.439 and ADKS 0.808.
-//!
-//! Word use also departs from `tuftests.c`.  [`gorilla_all`] reads all 32 bit
-//! positions from the same 2²⁶ + 25 words, whereas `gorilla()` in
-//! `tuftests.c` calls the generator inside its loop over bit positions, so
-//! each position gets 2²⁶ + 25 fresh numbers, 32 · (2²⁶ + 25) ≈ 2.15·10⁹ in
-//! all.  Sharing words divides the generator output a test needs, and the
-//! time to produce it, by 32; the `gorilla` binary holds its words at once,
-//! which would otherwise take 8 GiB.  Under the null hypothesis the choice
-//! changes nothing.  The words are iid uniform, so the bits at different
-//! positions of one word are independent, and the 32 per-position bit
-//! streams are independent whether or not they share words.  The 32
-//! missing-word counts, and so the per-bit p-values the Anderson–Darling
-//! aggregate treats as independent, have the same joint null distribution
-//! as with fresh words.  The aggregate's null distribution is unchanged.
-//! Under an alternative the schemes do differ: dependence between the bits
-//! of one word correlates this module's per-position results, and the
-//! generator is judged on one stretch of output rather than 32.  Results are
-//! therefore not comparable with `tuftests.c`'s run for run.
+//! [`gorilla_all`] reads all 32 bit positions from the same 2²⁶ + 25 words.
+//! The words are iid uniform under the null, so the bits at different
+//! positions of one word are independent, and the 32 per-position streams,
+//! their missing-word counts and the aggregate have the same joint null
+//! distribution as they would with fresh words for each position.  Under an
+//! alternative, dependence between the bits of one word correlates the
+//! per-position results.
 
-use crate::math::{anderson_darling_cdf, ks_test, normal_cdf};
+use crate::math::{anderson_darling_cdf, normal_cdf};
 
 const GORILLA_WORD_BITS: usize = 26;
 const GORILLA_WINDOWS: usize = 1 << GORILLA_WORD_BITS;
 const GORILLA_STREAM_BITS: usize = GORILLA_WINDOWS + GORILLA_WORD_BITS - 1;
 const GORILLA_MISSING_MEAN: f64 = 24_687_971.0;
 const GORILLA_MISSING_STDDEV: f64 = 4_170.0;
-/// Floor `tuftests.c` puts under each product uᵢ(1 − uₙ₋₁₋ᵢ) before taking
-/// its logarithm, so that a p-value of exactly 0 or 1 cannot make A infinite.
+/// Floor under each product uᵢ(1 − uₙ₋₁₋ᵢ) before its logarithm, so that a
+/// p-value of exactly 0 or 1 cannot make A infinite.
 const GORILLA_AD_PRODUCT_FLOOR: f64 = 1e-30;
 
 fn bit_is_set(words: &[u32], word_index: usize, bit_position_from_msb: usize) -> bool {
@@ -147,13 +117,10 @@ pub fn gorilla_all(words: &[u32]) -> Vec<GorillaBitResult> {
                 bit_position,
                 missing_words,
                 z_score,
-                // Upper-tail (one-sided) p-value: the test targets generators
-                // with too many missing words (sparse coverage); over-uniform
-                // generators (z << 0) pass silently.  Note the paper itself
-                // reports the LOWER tail Φ(z) — failures there approach 1;
-                // the 1 − Φ(z) flip adapts it to this crate's small-p-fails
-                // convention (the Anderson–Darling aggregate is invariant
-                // under p ↦ 1 − p).
+                // Upper tail: too many missing words fails.  The paper prints
+                // Φ(z); 1 − Φ(z) follows this crate's small-p-fails
+                // convention, and the Anderson–Darling aggregate is invariant
+                // under p ↦ 1 − p.
                 p_value: 1.0 - normal_cdf(z_score),
             }
         })
@@ -164,7 +131,7 @@ pub fn gorilla_all(words: &[u32]) -> Vec<GorillaBitResult> {
 #[derive(Debug, Clone, Copy)]
 pub struct GorillaAggregate {
     /// Anderson–Darling statistic Aₙ of the `n` per-bit p-values, with each
-    /// product floored at 10⁻³⁰ as in `tuftests.c`.
+    /// product floored at 10⁻³⁰.
     pub statistic: f64,
     /// Pr(Aₙ < `statistic`), the value the paper prints as ADKS: near 1 when
     /// the per-bit p-values are far from uniform.  NaN for fewer than eight
@@ -214,20 +181,6 @@ pub fn gorilla_aggregate_ad(results: &[GorillaBitResult]) -> GorillaAggregate {
         adks,
         p_value: 1.0 - adks,
     }
-}
-
-/// Kolmogorov–Smirnov uniformity check on the per-bit p-values from
-/// [`gorilla_all`], the aggregate this crate reported before
-/// [`gorilla_aggregate_ad`].  Kept, deprecated, so code written against 0.5.0
-/// still compiles.
-///
-/// Returns the two-sided KS p-value of the `p_value` fields
-/// ([`crate::math::ks_test`]), which is not the paper's Anderson–Darling
-/// ("ADKS") aggregate (see the module docs).
-#[deprecated(note = "use gorilla_aggregate_ad, Marsaglia and Tsang's Anderson-Darling aggregate")]
-pub fn gorilla_aggregate_ks(results: &[GorillaBitResult]) -> f64 {
-    let mut pvals: Vec<f64> = results.iter().map(|r| r.p_value).collect();
-    ks_test(&mut pvals)
 }
 
 #[cfg(test)]
@@ -286,12 +239,8 @@ mod tests {
 
     /// From the per-bit values printed on p. 6 the aggregate reproduces each
     /// printed ADKS to within 10⁻³, the slack the four-decimal rounding of
-    /// the inputs allows.  The statistic and Pr(A₃₂ < A) are also pinned to
-    /// `tuftests.c`'s computation [pubs/marsaglia-tsang-2002-tuftests.c],
-    /// redone in double precision and converted by ADinf + errfix from the
-    /// attachments `ADinf.c` [pubs/marsaglia-marsaglia-2004-ADinf.c] and
-    /// `AnDarl.c` [pubs/marsaglia-marsaglia-2004-AnDarl.c]; the two
-    /// congruential generators' statistics exceed 30, where ADinf is 1.
+    /// the inputs allows.  The statistic and Pr(A₃₂ < A) are also pinned; the
+    /// two congruential generators' statistics exceed 30, where ADinf is 1.
     #[test]
     fn aggregate_reproduces_the_adks_values_printed_in_the_paper() {
         for (name, table, printed, statistic, adks) in [
@@ -364,33 +313,6 @@ mod tests {
         }
     }
 
-    /// `tuftests.c` stores Φ(z) in a float, which is 1 above z ≈ 5.4; this
-    /// module's p-values are doubles.  SHR3's printed values with bits 2 and
-    /// 31 at z = +6 and −6: `tuftests.c`'s float path, redone in C, gives
-    /// A = 2.302 and ADKS 0.937 (like the printed 1.0000 and 0.0000), and a
-    /// double-precision replica gives the values pinned here.
-    #[test]
-    fn aggregate_departs_from_single_precision_beyond_z_5_4() {
-        assert!((normal_cdf(5.3) as f32) < 1.0);
-        assert_eq!(1.0, normal_cdf(5.5) as f32);
-        let mut results = bit_results(&SHR3.map(|phi| 1.0 - phi));
-        for (bit, z) in [(2, 6.0), (31, -6.0)] {
-            results[bit].z_score = z;
-            results[bit].p_value = 1.0 - normal_cdf(z);
-        }
-        let aggregate = gorilla_aggregate_ad(&results);
-        assert!(
-            (aggregate.statistic - 1.439_24).abs() < 1e-4,
-            "A = {}",
-            aggregate.statistic
-        );
-        assert!(
-            (aggregate.adks - 0.808_295).abs() < 1e-4,
-            "Pr(A < z) = {}",
-            aggregate.adks
-        );
-    }
-
     /// This crate's per-bit p-values are 1 − Φ(z), the paper's Φ(z).  Aₙ is
     /// unchanged by u ↦ 1 − u, floor included.
     #[test]
@@ -418,37 +340,6 @@ mod tests {
         assert!(aggregate.statistic.is_nan());
         assert!(aggregate.adks.is_nan());
         assert!(aggregate.p_value.is_nan());
-    }
-
-    /// The aggregate is an exact two-sided KS test on the `p_value` fields;
-    /// z-scores play no part.  Reference from R 4.2.0,
-    /// `ks.test(((0:31) + 0.5)^2 / 1024, "punif", exact = TRUE)`:
-    /// D = 0.265380859375, p = 0.01768314058013587.  Reflecting every p-value
-    /// to 1 − p gives the same D and p in R.
-    #[test]
-    #[allow(deprecated)]
-    fn deprecated_ks_aggregate_is_exact_ks_on_per_bit_p_values() {
-        let results = |reflect: bool| -> Vec<GorillaBitResult> {
-            (0..32)
-                .map(|bit_position| {
-                    let u = (bit_position as f64 + 0.5) / 32.0;
-                    let p = u * u;
-                    GorillaBitResult {
-                        bit_position,
-                        missing_words: 0,
-                        z_score: f64::NAN,
-                        p_value: if reflect { 1.0 - p } else { p },
-                    }
-                })
-                .collect()
-        };
-        for reflect in [false, true] {
-            let p = super::gorilla_aggregate_ks(&results(reflect));
-            assert!(
-                (p - 0.017_683_140_580_135_87).abs() < 1e-9,
-                "reflect = {reflect}: p = {p}"
-            );
-        }
     }
 
     #[test]

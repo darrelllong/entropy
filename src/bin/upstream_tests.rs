@@ -1,6 +1,6 @@
-//! Upstream-suite research probes: PractRand FPF (platter + cross) and
-//! TestU01 `sstring_HammingCorr` / `sstring_HammingIndep`, run across the
-//! seeded RNG family.
+//! Research probes from other batteries' designs, run across the seeded RNG
+//! family: L'Ecuyer and Simard's Hamming-weight correlation and independence
+//! tests, and Doty-Humphrey's floating-point-format frequency (FPF) test.
 //!
 //! # References
 //! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
@@ -17,12 +17,6 @@
 //! Hamming test draws depends on its `s` and `L` (see
 //! `entropy::research::testu01_hamming`), so changing `--hc-s`, `--hc-l`,
 //! `--hi-s` or `--hi-l` also changes the words FPF reads and every FPF line.
-//! When the Hamming tests moved to TestU01's exact block packing, the
-//! defaults drew the same words as before and printed identical output.
-//! Other settings did not: with `--hc-l 7 --hc-s 5 --hi-l 3 --hi-s 16
-//! --hc-r 0 --hi-r 0 --fpf-bits 100000`, all eight FPF lines changed for
-//! MT19937, Xorshift32 and AES-128-CTR, and MT19937's FPF sample count went
-//! from 6246 to 6240.
 
 use entropy::research::{
     practrand_fpf::{fpf_cross_result, fpf_platter_result, fpf_test, FpfConfig},
@@ -145,11 +139,11 @@ fn print_usage() {
                       [--hi-n N] [--hi-r N] [--hi-s N] [--hi-l N] [--hi-d N]\n\
                       [--fpf-bits N]\n\
          \n\
-         Runs one honest TestU01 bit-string slice and one honest PractRand slice:\n\
-         - TestU01 sstring_HammingCorr  (--hc-n blocks, r/s bit window, L bits)\n\
-         - TestU01 sstring_HammingIndep (--hi-n pairs,  r/s bit window, L bits, d)\n\
-         - PractRand FPF(4,14,6) core   (--fpf-bits total bits), parsing disjoint\n\
-           codewords rather than upstream's stride-overlapped windows\n\
+         Runs three research probes on each seeded generator:\n\
+         - Hamming-weight correlation  (--hc-n blocks, r/s bit window, L bits)\n\
+         - Hamming-weight independence (--hi-n pairs,  r/s bit window, L bits, d)\n\
+         - FPF with 14 significand bits (--fpf-bits total bits), disjoint\n\
+           codewords\n\
          \n\
          Defaults (moderate-size runs suitable for development checks):\n\
            hc-n=500000 hc-r=20 hc-s=10 hc-l=300\n\
@@ -190,7 +184,7 @@ fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
     println!();
 }
 
-/// Runs the upstream probes on each selected generator.
+/// Runs the probes on each selected generator.
 struct Runner<'a>(&'a Args);
 
 impl family::Visit for Runner<'_> {

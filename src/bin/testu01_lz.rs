@@ -1,5 +1,5 @@
-//! TestU01 `scomp_LempelZiv` compressibility test run across the seeded RNG
-//! family, with configurable `k`, bit-extraction window, and replications.
+//! The Lempel–Ziv compressibility test run across the seeded RNG family, with
+//! configurable `k`, bit-extraction window, and replications.
 //!
 //! # References
 //! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
@@ -76,8 +76,8 @@ fn print_usage() {
     eprintln!(
         "Usage: testu01_lz [--rng <label>] [--replications N] [--k K] [--r R] [--s S]\n\
          \n\
-         Runs the exact TestU01 1.2.3 Lempel-Ziv core statistic using the\n\
-         official empirical calibration tables from scomp.c.\n\
+         Runs the Lempel-Ziv phrase-count test, standardised by the mean\n\
+         and standard deviation in entropy::research::testu01_lz.\n\
          \n\
          Example:\n\
            cargo run --release --bin testu01_lz -- --rng AES\n\

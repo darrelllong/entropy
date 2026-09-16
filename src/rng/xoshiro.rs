@@ -21,11 +21,9 @@
 //!   [Figs. 1 and 4 give the xoroshiro128 and xoshiro256 code, Table 2 their
 //!   engine parameters (A, B, C) = (24, 16, 37) and (A, B) = (17, 45), and
 //!   Table 3 the `**` scrambler's (S, R, T) = (5, 7, 9)]
-//! * D. Blackman and S. Vigna, reference C: `next()` in
-//!   [pubs/vigna-xoshiro256starstar.c] and [pubs/vigna-xoroshiro128starstar.c]
 //!
 //! # Author
-//! David Blackman, Sebastiano Vigna (algorithm); Darrell Long (Rust port).
+//! David Blackman and Sebastiano Vigna (algorithm).
 
 use super::{OsRng, Rng};
 
@@ -168,10 +166,7 @@ mod tests {
     }
 
     // Known-answer test: first three outputs of xoshiro256** with state
-    // {1, 2, 3, 4}, cross-checked against an independent Python replica of
-    // Vigna's C reference implementation and against `next()` compiled from
-    // pubs/vigna-xoshiro256starstar.c (5000 outputs).  In decimal the prefix
-    // is 11520, 0, 1509978240.
+    // {1, 2, 3, 4}.  In decimal they are 11520, 0, 1509978240.
     #[test]
     fn xoshiro256_reference() {
         let mut rng = Xoshiro256::new(1, 2, 3, 4);
@@ -182,9 +177,7 @@ mod tests {
     }
 
     // Known-answer test: first three outputs of xoroshiro128** with state
-    // {1, 2}, cross-checked against an independent Python replica of Vigna's
-    // C reference implementation and against `next()` compiled from
-    // pubs/vigna-xoroshiro128starstar.c (5000 outputs).
+    // {1, 2}.
     #[test]
     fn xoroshiro128_reference() {
         let mut rng = Xoroshiro128::new(1, 2);

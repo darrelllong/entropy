@@ -6,22 +6,18 @@
 //! excellent avalanche; the generator passes BigCrush, PractRand > 8 TiB, and
 //! NIST SP 800-22 at typical sample sizes.
 //!
-//! [`WyRand::INCREMENT`] and [`WyRand::MIX`] are the constants `wyrand` uses in
-//! `old_versions/wyhash_final2.h` and `old_versions/wyhash_final4.h` of the
-//! wyhash repository.  The repository's current `wyhash.h`, final version
-//! 4.3, switched to `0x2d358dccaa6c78a5` / `0x8bb84b93962eacc9`; that variant
-//! is deliberately not used here.
+//! [`WyRand::INCREMENT`] and [`WyRand::MIX`] are the constants of wyrand in
+//! wyhash final versions 2 and 4.  Final version 4.3 changed them to
+//! `0x2d358dccaa6c78a5` and `0x8bb84b93962eacc9`; that variant is not the one
+//! implemented here.
 //!
 //! Not cryptographically secure; state is trivially invertible.
 //!
 //! # References
-//! Wang Yi, "wyhash and wyrand", <https://github.com/wangyi-fudan/wyhash>,
-//! commit e4764a0b637d.  [pubs/wyhash-e4764a0b637d.tar.gz]
-//! [`wyrand` in `old_versions/wyhash_final2.h` and
-//! `old_versions/wyhash_final4.h`]
+//! Wang Yi, "wyhash and wyrand", <https://github.com/wangyi-fudan/wyhash>.
 //!
 //! # Author
-//! Wang Yi (algorithm); Darrell Long (Rust port).
+//! Wang Yi (algorithm).
 
 use super::{OsRng, Rng};
 
@@ -33,14 +29,12 @@ pub struct WyRand {
 }
 
 impl WyRand {
-    /// `_wyp[0]` in wyhash_final2.h and wyhash_final4.h: the Weyl-sequence
-    /// increment `wyrand` adds to its state.
+    /// The Weyl-sequence increment wyrand adds to its state.
     /// [`SEED_MATERIAL_MASK`](crate::seed::SEED_MATERIAL_MASK) holds the same
     /// value as a separate constant with a different role, so changing this
-    /// one leaves seeding alone.  [pubs/wyhash-e4764a0b637d.tar.gz]
+    /// one leaves seeding alone.
     pub const INCREMENT: u64 = 0xa076_1d64_78bd_642f;
-    /// `_wyp[1]` there: the constant `wyrand` XORs into the second `_wymix`
-    /// operand.
+    /// The constant wyrand XORs into the second operand of its multiply-fold.
     pub const MIX: u64 = 0xe703_7ed1_a0b4_28db;
 
     /// Construct from an explicit 64-bit seed.
@@ -117,11 +111,8 @@ mod tests {
         assert_eq!(a.next_u32(), (b.next_u64() >> 32) as u32);
     }
 
-    // Known-answer test: first three outputs cross-checked against an
-    // independent Python replica of wyrand
-    // (seed += INCREMENT; wymix(seed, seed ^ MIX)) and
-    // against `wyrand` compiled from wyhash_final2.h and wyhash_final4.h in
-    // pubs/wyhash-e4764a0b637d.tar.gz (5000 outputs at seeds 0, 42 and 12345).
+    // Known-answer test: first three outputs of
+    // seed += INCREMENT; fold(seed · (seed ⊕ MIX)) at seeds 12345 and 0.
     #[test]
     fn wyrand_known_answer() {
         let mut rng = WyRand::new(12345);

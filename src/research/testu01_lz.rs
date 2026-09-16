@@ -1,40 +1,31 @@
-//! TestU01 Lempel-Ziv compression test core statistic.
+//! Lempel–Ziv compressibility test.
 //!
-//! This ports the core of `scomp_LempelZiv` from TestU01 1.2.3:
-//! - the exact `LZ78` trie walk over a bit stream assembled via `unif01_StripB`
-//! - the official empirical `LZMu` / `LZSigma` tables for `n = 2^k`, `3 <= k <= 28`
+//! P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing of
+//! Random Number Generators," *ACM Transactions on Mathematical Software*
+//! 33(4), Article 22, 2007, §5.1, "Lempel-Ziv complexity", p. 17
+//! (`lecuyer2007testu01` in BIB.md).  [pubs/lecuyer-simard-2007-testu01.pdf]
+//! J. Ziv and A. Lempel, "Compression of individual sequences via
+//! variable-rate coding," *IEEE Transactions on Information Theory* 24(5),
+//! pp. 530–536, 1978.
 //!
-//! Both follow `scomp.c`: the walk matches `LZ78` step by step, including
-//! its end-of-stream rule and the ⌈2^k/s⌉ words each replication draws, and
-//! the tables match digit for digit.  The tests pin phrase counts and
-//! generator calls against TestU01 1.2.3 itself.
+//! A replication forms a stream of n = 2^k bits from successive `s`-bit
+//! fields of the words and counts W, the phrases of
+//! its LZ78 parse: each phrase is the shortest prefix of the rest of the
+//! stream not already a phrase, and a final partial phrase counts only if it
+//! is a proper prefix of some phrase.  W is approximately normal, and
+//! z = (W − μₖ)/σₖ is its standardised value, with μₖ and σₖ from
+//! `LZ_MEAN_SD`.
 //!
-//! The full TestU01 post-processing runs a goodness-of-fit battery over the
-//! normalized observations. This module exposes the exact per-replication
-//! normalized scores and a lightweight summary, but does not claim to
-//! reproduce TestU01's entire reporting layer.  In particular, for `N > 1`
-//! TestU01 reports the right tail `1 − Φ(Σz/√N)` of the sum statistic
-//! (`sres_GetNormalSumStat` in `testu01/sres.c`) and applies its active
-//! empirical-distribution tests to the values `Φ(z)` (`gofw_ActiveTests2`
-//! in `probdist/gofw.c`).  [`lempel_ziv_summary`] reports a two-sided normal
-//! p-value for the sum and a two-sided Kolmogorov–Smirnov p-value instead.
+//! [`lempel_ziv_summary`] reports a two-sided normal p-value for Σz/√N over
+//! N replications and a Kolmogorov–Smirnov test of the values Φ(z).
 //!
-//! # References
-//! * P. L'Ecuyer and R. Simard, "TestU01: A C Library for Empirical Testing
-//!   of Random Number Generators," *ACM Transactions on Mathematical
-//!   Software* 33(4), Article 22, 2007, §5.1,
-//!   "Lempel-Ziv complexity", p. 17 (`lecuyer2007testu01` in BIB.md).
-//!   [pubs/lecuyer-simard-2007-testu01.pdf]
-//! * J. Ziv and A. Lempel, "Compression of individual sequences via
-//!   variable-rate coding," *IEEE Transactions on Information Theory* 24(5),
-//!   pp. 530–536, 1978.  [LZ78; cited from the 2007 paper's reference list.]
-//! * TestU01 1.2.3 source (`testu01-source` in BIB.md): `testu01/scomp.c`
-//!   (`scomp_LempelZiv`, `LZ78`, and the `LZMu` and `LZSigma` tables) and
-//!   `testu01/unif01.c` (`unif01_StripB`).
-//!   [pubs/TestU01-2009-57e98bf33880.tar.gz]
+//! # The mean and standard deviation of W
 //!
-//! # Author
-//! Pierre L'Ecuyer and Richard Simard (TestU01); Darrell Long (Rust port).
+//! No closed form is accurate at these lengths, so `LZ_MEAN_SD` holds
+//! estimates from `examples/lz78_table.rs`: for each k, the sample mean and
+//! standard deviation of W over independent replications on PCG64 streams,
+//! 100 032 replications for k ≤ 20 and 10 000 above.  The standard error of
+//! each mean is at most 0.01σₖ, and of each σₖ about 0.7%.
 
 use super::strip_b;
 use crate::{
@@ -44,36 +35,58 @@ use crate::{
 };
 use std::f64::consts::SQRT_2;
 
-const LZ_MU: [f64; 29] = [
-    0.0, 0.0, 0.0, 4.44, 7.64, 12.5, 20.8, 34.8, 58.9, 101.1, 176.0, 310.0, 551.9, 992.3, 1799.0,
-    3286.2, 6041.5, 11171.5, 20761.8, 38760.4, 72654.0, 136677.0, 257949.0, 488257.0, 926658.0,
-    1762965.0, 3361490.0, 6422497.0, 12293930.0,
+/// (μₖ, σₖ), the mean and standard deviation of the LZ78 phrase count of 2^k
+/// fair random bits, k = 3 … 28 (entries 0 … 2 unused).
+const LZ_MEAN_SD: [(f64, f64); 29] = [
+    (0.0, 0.0),
+    (0.0, 0.0),
+    (0.0, 0.0),
+    (4.434, 0.496),         // k = 3, 100032 replications
+    (7.641, 0.505),         // k = 4, 100032 replications
+    (12.508, 0.631),        // k = 5, 100032 replications
+    (20.783, 0.728),        // k = 6, 100032 replications
+    (34.757, 0.781),        // k = 7, 100032 replications
+    (58.888, 0.845),        // k = 8, 100032 replications
+    (101.149, 0.927),       // k = 9, 100032 replications
+    (176.018, 1.050),       // k = 10, 100032 replications
+    (310.011, 1.219),       // k = 11, 100032 replications
+    (552.009, 1.437),       // k = 12, 100032 replications
+    (992.358, 1.734),       // k = 13, 100032 replications
+    (1799.143, 2.115),      // k = 14, 100032 replications
+    (3286.182, 2.629),      // k = 15, 100032 replications
+    (6041.573, 3.276),      // k = 16, 100032 replications
+    (11171.365, 4.169),     // k = 17, 100032 replications
+    (20761.977, 5.297),     // k = 18, 100032 replications
+    (38760.635, 6.763),     // k = 19, 100032 replications
+    (72653.958, 8.768),     // k = 20, 100032 replications
+    (136676.172, 11.420),   // k = 21, 10000 replications
+    (257949.059, 14.843),   // k = 22, 10000 replications
+    (488257.934, 19.612),   // k = 23, 10000 replications
+    (926658.580, 25.127),   // k = 24, 10000 replications
+    (1762966.211, 33.567),  // k = 25, 10000 replications
+    (3361487.892, 43.893),  // k = 26, 10000 replications
+    (6422496.089, 58.491),  // k = 27, 10000 replications
+    (12293926.846, 78.164), // k = 28, 10000 replications
 ];
 
-const LZ_SIGMA: [f64; 29] = [
-    0.0, 0.0, 0.0, 0.49, 0.51, 0.62, 0.75, 0.78, 0.86, 0.94, 1.03, 1.19, 1.43, 1.68, 2.09, 2.46,
-    3.36, 4.2, 5.4, 6.8, 9.1, 10.9, 14.7, 19.1, 25.2, 33.5, 44.546, 58.194, 75.513,
-];
-
-/// Reservation factor applied to `LZ_MU[k]` by [`trie_reservation`].
-const TRIE_RESERVE_FACTOR: f64 = 9.0 / 8.0;
-
-/// Trie nodes reserved for an `n_bits`-bit stream: `LZ_MU[k] · 9/8 + 2` for
-/// `n_bits = 2^k`, a multiple of the expected phrase count.
+/// Trie nodes that a parse of `n_bits` bits can need: the root plus the
+/// largest possible phrase count.
 ///
-/// The trie holds the root plus one node per inserted phrase, and inserted
-/// phrases are distinct non-empty strings whose lengths sum to at most
-/// `n_bits`.  No stream can therefore need more nodes than one plus the
-/// number of shortest distinct strings that fit in `n_bits` bits.  The
-/// reservation ⌊9/8 · `LZ_MU[k]`⌋ + 2 covers that worst case plus the root
-/// for every `k` in the table, checked k by k: at k = 3 with no slack (five
-/// phrases, six nodes reserved), and with room to spare for k ≥ 4, where the
-/// worst case stays under 1.05 · `LZ_MU[k]`.  Lengths that are not a power of two
-/// (tests only) use the entry for ⌊log2 n_bits⌋ and let the vector grow.
+/// Phrases are distinct non-empty strings whose lengths sum to at most
+/// `n_bits`, so the count is largest when every string of length 1, then of
+/// length 2, and so on, is used while they fit.
 fn trie_reservation(n_bits: usize) -> usize {
-    let k = n_bits.checked_ilog2().map_or(0, |k| k as usize);
-    let mu = LZ_MU.get(k).copied().unwrap_or(0.0);
-    (mu * TRIE_RESERVE_FACTOR) as usize + 2
+    let (mut count, mut len, mut rem) = (0usize, 1u32, n_bits);
+    loop {
+        let available = 1usize.checked_shl(len).unwrap_or(usize::MAX);
+        let fit = rem / len as usize;
+        if fit <= available {
+            return count + fit + 1;
+        }
+        count += available;
+        rem -= available * len as usize;
+        len += 1;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -87,13 +100,13 @@ struct TrieNode {
 pub struct LempelZivReplication {
     /// log2 of the bit-stream length (`n = 2^k`, `k` in `3..=28`).
     pub k: usize,
-    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
+    /// Leading bits dropped from each 32-bit word.
     pub r: usize,
-    /// Bits kept per word after the drop (TestU01 `s`).
+    /// Bits kept per word after the drop.
     pub s: usize,
     /// Number of `s`-bit words drawn to assemble the stream.
     pub words: usize,
-    /// Normalized phrase count, `(phrase_count − LZMu[k]) / LZSigma[k]`.
+    /// Standardised phrase count, `(phrase_count − μₖ) / σₖ`.
     pub z_score: f64,
     /// Raw LZ78 phrase count.
     pub phrase_count: usize,
@@ -104,9 +117,9 @@ pub struct LempelZivReplication {
 pub struct LempelZivSummary {
     /// log2 of the per-replication stream length.
     pub k: usize,
-    /// Leading bits dropped from each 32-bit word (TestU01 `r`).
+    /// Leading bits dropped from each 32-bit word.
     pub r: usize,
-    /// Bits kept per word after the drop (TestU01 `s`).
+    /// Bits kept per word after the drop.
     pub s: usize,
     /// Number of replications aggregated.
     pub replications: usize,
@@ -187,8 +200,8 @@ fn lz78_count_blocks(blocks: &[u32], n_bits: usize, s: usize) -> usize {
     phrases
 }
 
-/// One `scomp_LempelZiv` replication: the LZ78 phrase count over `2^k` bits
-/// drawn from `rng`, normalized by the official `LZMu`/`LZSigma` tables.
+/// One replication: the LZ78 phrase count over `2^k` bits drawn from `rng`,
+/// standardised by the simulated mean and standard deviation.
 ///
 /// # Panics
 /// Panics if `k` is outside `3..=28`, `s` is outside `1..=32`, or
@@ -210,7 +223,8 @@ pub fn lempel_ziv_replication(
         blocks.push(strip_b(rng.next_u32(), r, s));
     }
     let phrase_count = lz78_count_blocks(&blocks, n_bits, s);
-    let z_score = (phrase_count as f64 - LZ_MU[k]) / LZ_SIGMA[k];
+    let (mean, sd) = LZ_MEAN_SD[k];
+    let z_score = (phrase_count as f64 - mean) / sd;
 
     LempelZivReplication {
         k,
@@ -297,47 +311,24 @@ pub fn lempel_ziv_ks_result(summary: &LempelZivSummary) -> TestResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        lempel_ziv_replication, lempel_ziv_summary, lz78_count_blocks, trie_reservation, LZ_MU,
-    };
+    use super::{lempel_ziv_replication, lempel_ziv_summary, lz78_count_blocks, trie_reservation};
     use crate::rng::{Rng, Xorshift32};
 
     /// Marsaglia's example xorshift32 seed; any non-zero seed would do.
     const XORSHIFT_SEED: u32 = 2_463_534_242;
 
-    /// Worst-case LZ78 phrase count for an `n`-bit string: take every
-    /// distinct string of length 1, then of length 2, and so on, while they
-    /// fit in `n` bits.
-    fn max_lz78_phrases(n: usize) -> usize {
-        let (mut count, mut len, mut rem) = (0usize, 1usize, n);
-        loop {
-            let avail = 1usize << len;
-            let fit = rem / len;
-            if fit <= avail {
-                return count + fit;
-            }
-            count += avail;
-            rem -= avail * len;
-            len += 1;
-        }
-    }
-
-    /// Regression: the trie reserved `n_bits/4 + 1` nodes (256 MiB at
-    /// k = 25, 2 GiB at k = 28).  The reservation now tracks `LZ_MU` and must
-    /// still hold the root plus the worst-case phrase count.
+    /// The reservation for tiny streams, counted by hand: 2 bits hold "0"
+    /// and "1"; 7 bits hold them and two 2-bit phrases; 10 bits hold them and
+    /// all four 2-bit phrases.  The root adds one node.
     #[test]
-    fn trie_reservation_tracks_lz_mu_and_covers_worst_case() {
-        for (k, &mu) in LZ_MU.iter().enumerate().skip(3) {
+    fn trie_reservation_is_the_worst_case_plus_the_root() {
+        assert_eq!(trie_reservation(1), 2);
+        assert_eq!(trie_reservation(2), 3);
+        assert_eq!(trie_reservation(7), 5);
+        assert_eq!(trie_reservation(10), 7);
+        for k in 3..=28 {
             let n = 1usize << k;
-            let reserve = trie_reservation(n);
-            assert!(
-                reserve > max_lz78_phrases(n),
-                "k = {k}: {reserve} nodes cannot hold the worst case"
-            );
-            assert!(
-                (reserve as f64) < 1.2 * mu + 2.0,
-                "k = {k}: {reserve} nodes over-reserve"
-            );
+            assert!(trie_reservation(n) < n, "k = {k}");
         }
     }
 
@@ -361,10 +352,8 @@ mod tests {
 
     /// Pins words drawn and phrase counts for Xorshift32 streams, including
     /// `s` that does not divide `2^k`, so a change to the trie cannot change
-    /// the statistic.  Reference: an independent Python LZ78 counter over the
-    /// same `unif01_StripB` bit stream, built on a set of phrase strings
-    /// rather than a trie.  TestU01 1.2.3's `scomp_LempelZiv` gives the same
-    /// counts and generator calls for all three.
+    /// the statistic.  The counts were checked with a separate LZ78 counter
+    /// built on a set of phrase strings rather than a trie.
     #[test]
     fn replication_phrase_counts_match_independent_replica() {
         for (k, r, s, words, phrases) in [
@@ -379,14 +368,10 @@ mod tests {
         }
     }
 
-    /// Phrase counts and generator calls from TestU01 1.2.3 itself: the
-    /// library built from pubs/TestU01-2009-57e98bf33880.tar.gz, running
-    /// `scomp_LempelZiv` on this Xorshift32 stream through
-    /// `unif01_CreateExternGenBits`, with `swrite_Counters` printing each
-    /// replication's phrase count.  Replications continue one stream, each
-    /// drawing ⌈2^k/s⌉ words.
+    /// Replications continue one stream, each drawing ⌈2^k/s⌉ words; phrase
+    /// counts pinned.
     #[test]
-    fn summary_phrase_counts_match_testu01() {
+    fn summary_replications_continue_one_stream() {
         for (replications, k, r, s, phrases, calls) in [
             (3, 12, 5, 9, &[556usize, 552, 554][..], 1368),
             (2, 13, 3, 7, &[989usize, 992][..], 2342),

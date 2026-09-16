@@ -12,10 +12,6 @@
 //! # References
 //! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.15 and §3.15.
 //!   [pubs/NIST-SP-800-22r1a.pdf]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/randomExcursionsVariant.c`.
-//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same J, J gate and
-//!   statistic; below the gate it writes P-value 0 for every state, where
-//!   this module reports a skip]
 
 use crate::{math::erfc, result::TestResult};
 
@@ -99,7 +95,7 @@ pub fn random_excursions_variant_all(bits: &[u8]) -> Vec<TestResult> {
             let count = visit_counts[(x + MAX_STATE) as usize] as f64;
             let numer = (count - j as f64).abs();
             let denom = (2.0 * j as f64 * (4.0 * x.unsigned_abs() as f64 - 2.0)).sqrt();
-            // STS 2.1.2 randomExcursionsVariant.c: erfc(|ξ(x)-J|/√(2J(4|x|-2))).
+            // §2.15.4 step (5): erfc(|ξ(x) − J|/√(2J(4|x| − 2))).
             let p_value = erfc(numer / denom);
             TestResult::with_note(
                 "nist::random_excursions_variant",

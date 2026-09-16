@@ -374,8 +374,8 @@ mod tests {
         runs_above_below_median_test,
     };
 
-    /// Regression: the median sort used `partial_cmp().unwrap()` and
-    /// panicked on a NaN sample.
+    /// A NaN sample has no median rank, so the statistics are unavailable
+    /// rather than a panic.
     #[test]
     fn runs_median_rejects_nan_samples() {
         let samples = [0.1, f64::NAN, 0.9, 0.2, 0.8];

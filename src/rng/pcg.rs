@@ -15,22 +15,18 @@
 //!   College Technical Report HMC-CS-2014-0905, 2014.
 //!   [pubs/oneill-2014-pcg.pdf]  [§6.3.1 defines the PCG-XSH-RR output
 //!   function, §6.3.3 PCG-XSL-RR]
-//! * M. E. O'Neill, pcg-c, the reference C implementation, commit
-//!   83252d9c23df.  <https://github.com/imneme/pcg-c>
-//!   [pubs/pcg-c-83252d9c23df.tar.gz]  [In `include/pcg_variants.h`,
-//!   `pcg32_random_r` is `pcg_setseq_64_xsh_rr_32_random_r` and
-//!   `pcg64_random_r` is `pcg_setseq_128_xsl_rr_64_random_r`, seeded by
-//!   `pcg_setseq_64_srandom_r` and `pcg_setseq_128_srandom_r`;
-//!   `test-high/expected` holds the known answers pinned below]
+//! * M. E. O'Neill, <https://www.pcg-random.org>: the default multipliers,
+//!   the stream seeding (state 0, advance, add the seed, advance) and the
+//!   published outputs for seed (42, 54) that the tests pin.
 //!
 //! # Author
-//! Melissa E. O'Neill (algorithm); Darrell Long (Rust port).
+//! Melissa E. O'Neill (algorithm).
 
 use super::{OsRng, Rng};
 
 // ── PCG32 (64-bit LCG, XSH-RR output → 32 bits) ─────────────────────────────
 
-// PCG_DEFAULT_MULTIPLIER_64 in pcg_variants.h.
+/// The default 64-bit LCG multiplier of PCG32.
 const PCG32_MULT: u64 = 6_364_136_223_846_793_005;
 
 /// 32-bit PCG using a 64-bit LCG with XSH-RR output permutation.
@@ -50,11 +46,7 @@ impl Pcg32 {
     pub fn new(state: u64, seq: u64) -> Self {
         let inc = (seq << 1) | 1;
         let mut rng = Self { state: 0, inc };
-        // Mirror pcg_setseq_64_srandom_r in pcg_variants.h exactly:
-        //   rng->state = 0U;  rng->inc = (initseq << 1u) | 1u;
-        //   pcg_setseq_64_step_r(rng);  // advance from 0
-        //   rng->state += initstate;
-        //   pcg_setseq_64_step_r(rng);  // mix in the seed
+        // Start from state 0, advance, add the seed, advance again.
         rng.step();
         rng.state = rng.state.wrapping_add(state);
         rng.step();
@@ -94,9 +86,8 @@ impl Rng for Pcg32 {
 
 // ── PCG64 (128-bit LCG, XSL-RR output → 64 bits) ────────────────────────────
 
-// PCG_DEFAULT_MULTIPLIER_128 in pcg_variants.h, written there as
-// PCG_128BIT_CONSTANT(2549297995355413924ULL, 4865540595714422341ULL): the
-// multiplier of pcg64 (XSL-RR).
+/// The default 128-bit LCG multiplier of PCG64, whose high and low 64 bits are
+/// 2549297995355413924 and 4865540595714422341.
 const PCG64_MULT: u128 = 47_026_247_687_942_121_848_144_207_491_837_523_525;
 
 /// 64-bit PCG using a 128-bit LCG with XSL-RR output permutation.
@@ -105,8 +96,7 @@ const PCG64_MULT: u128 = 47_026_247_687_942_121_848_144_207_491_837_523_525;
 /// increment is `(seq << 1) | 1`, so `seq` and `seq + 2¹²⁷` coincide).
 ///
 /// Each output permutes the state *after* the LCG advance, as O'Neill's
-/// reference 128-bit generator (`pcg_setseq_128_xsl_rr_64_random_r` in
-/// pcg-c) does; [`Pcg32`] permutes the state before it, as its reference does.
+/// 128-bit generator does; [`Pcg32`] permutes the state before it.
 pub struct Pcg64 {
     state: u128,
     inc: u128,
@@ -167,12 +157,8 @@ impl Rng for Pcg64 {
 mod tests {
     use super::*;
 
-    /// pcg-c's published output: `test-high/check-pcg32.c` seeds
-    /// `pcg32_srandom_r(&rng, 42u, 54u)`, and round 1 of
-    /// `test-high/expected/check-pcg32.out` lists these six values.  That
-    /// check, built from [pubs/pcg-c-83252d9c23df.tar.gz], reproduces its
-    /// expected file, and the tarball's `pcg32_random_r` agrees with this
-    /// generator for 5000 outputs.
+    /// The first six outputs O'Neill publishes for PCG32 seeded with state 42
+    /// and stream 54.
     #[test]
     fn pcg32_reference_sequence() {
         let mut rng = Pcg32::new(42, 54);
@@ -191,14 +177,9 @@ mod tests {
         assert_ne!(a.next_u32(), b.next_u32());
     }
 
-    /// pcg-c's published output: `test-high/check-pcg64.c` seeds
-    /// `pcg64_srandom_r(&rng, 42u, 54u)`, and round 1 of
-    /// `test-high/expected/check-pcg64.out` lists these six values.  That
-    /// check, built from [pubs/pcg-c-83252d9c23df.tar.gz], reproduces its
-    /// expected file, and the tarball's `pcg64_random_r` agrees with this
-    /// generator for 5000 outputs at seeds (42, 54) and (1, 1).  Permuting the
-    /// state before the advance instead emits one extra value first and shifts
-    /// the whole stream by one.
+    /// The first six outputs O'Neill publishes for PCG64 seeded with state 42
+    /// and stream 54.  Permuting the state before the advance instead would
+    /// emit one extra value first and shift the whole stream by one.
     #[test]
     fn pcg64_reference_sequence() {
         let expected: [u64; 6] = [

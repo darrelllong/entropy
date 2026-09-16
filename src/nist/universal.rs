@@ -19,9 +19,6 @@
 //!   [pubs/maurer-1992-universal-test.pdf]
 //!   [Table I: expected value of f_TU and variance of log₂ Aₙ for L = 1..16;
 //!   eq. (13): c(L, K)]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/universal.c`.
-//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same L table, Q, K and
-//!   c(L, K); μ and σ² to the printed digits]
 
 use crate::{math::erfc, result::TestResult};
 use std::f64::consts::SQRT_2;
@@ -43,9 +40,9 @@ use std::f64::consts::SQRT_2;
 /// (`constants_match_maurer_series`) μ is within 4 × 10⁻¹¹ and σ² within
 /// 6 × 10⁻¹⁰, the worst of each at L = 16, and σ² is off by more than 10⁻¹¹
 /// at every L ≥ 11.  That test holds each entry to twice its own gap.
-/// STS 2.1.2's `universal.c` uses the printed digits instead (6.1962507 and
-/// 3.125 for L = 7), which is why STS and SP 800-22 Appendix B report
-/// P-value = 0.282568 for 10⁶ bits of e where this module gives 0.282591.
+/// SP 800-22 Appendix B's P-value = 0.282568 for 10⁶ bits of e follows from
+/// the printed digits (6.1962507 and 3.125 for L = 7); this module gives
+/// 0.282591.
 const EXPECTED_LOG_GAP_STATS: [(f64, f64); 17] = [
     (0.0, 0.0), // L=0 unused
     (0.7326495, 0.690),
@@ -134,8 +131,9 @@ pub fn universal(bits: &[u8]) -> TestResult {
 /// 1 059 061 760 for L = 16), and Maurer (1992) gives K = 1000·2^L as his
 /// example.  L = 5 follows the same rule and needs 161 600 bits.
 ///
-/// This preserves the legacy NIST-shaped single result above while exposing the
-/// more sensitive higher-L settings discussed in Maurer (1992).
+/// The single SP 800-22 result above picks one L for the input length; this
+/// family also reports the more sensitive higher-L settings discussed in
+/// Maurer (1992).
 pub fn universal_parametric_all(bits: &[u8]) -> Vec<TestResult> {
     PARAMETRIC_LS
         .into_iter()
@@ -203,7 +201,6 @@ fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {
 /// prints the later Coron–Naccache approximation
 /// c(L, K) = 0.7 − 0.8/L + (1.6 + 12.8/L)·K^(−4/L) (its reference [2], SAC '98)
 /// but says it is not embedded in the test suite code, so it is not used here.
-/// STS 2.1.2's `universal.c` computes this c(L, K).
 fn universal_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
     let l = l as f64;
     let k = k as f64;
@@ -391,8 +388,8 @@ mod tests {
     }
 
     /// σ for L = 7, K = 1000 with §2.9.4's c(L, K), from an independent
-    /// Python evaluation of the formula.  The Coron–Naccache form in §3.9
-    /// gives 0.036445141413707395 here, which the old code returned.
+    /// evaluation of the formula.  The Coron–Naccache form in §3.9 would give
+    /// 0.036445141413707395 here.
     #[test]
     fn uses_nist_correction_factor() {
         let sigma = universal_sigma(7, 1_000, EXPECTED_LOG_GAP_STATS[7].1);
@@ -426,10 +423,10 @@ mod tests {
     }
 
     /// SP 800-22 Appendix B prints P-value = 0.282568 for 10⁶ bits of e, where
-    /// L = 7, Q = 1280 and K = 141 577.  STS 2.1.2 reports sum = 877 667.758407
-    /// and reaches that P-value with the printed μ = 6.1962507 and σ² = 3.125;
-    /// the 12-digit table entries this module uses give 0.282591 for the same
-    /// sum.
+    /// L = 7, Q = 1280 and K = 141 577.  The sum of log₂ gaps is
+    /// 877 667.758407; the printed μ = 6.1962507 and σ² = 3.125 give that
+    /// P-value, and the 12-digit table entries this module uses give 0.282591
+    /// for the same sum.
     #[test]
     fn matches_appendix_b_e_row() {
         let e = e_bits(1_000_000);

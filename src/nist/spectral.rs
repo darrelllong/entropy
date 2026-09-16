@@ -12,9 +12,8 @@
 //! references.  Their §3.1 (eqs. (9)–(12), p. 9) derives
 //! T = √(2.995732274·n) from the exponential tail of |Sⱼ|²/n in place of
 //! √(3n).  Their §3.2 (p. 10) replaces the variance n·0.95·0.05/2 with
-//! n·0.95·0.05/4, since the n/2 peaks are not independent trials.  STS 2.1.2's
-//! `discreteFourierTransform.c` uses both, and it counts the zero frequency
-//! and the next n/2 − 1 magnitudes, as this module does.
+//! n·0.95·0.05/4, since the n/2 peaks are not independent trials.  This module
+//! uses both, and counts the zero frequency and the next n/2 − 1 magnitudes.
 //!
 //! Minimum recommended sequence length: n ≥ 1 000.
 //!
@@ -28,8 +27,6 @@
 //! * W. Killmann, J. Schüth, W. Thumser and I. Uludag, "A Note Concerning the
 //!   DFT Test in NIST Special Publication 800-22," T-Systems, Systems
 //!   Integration, July 2004.  [Cited in §3.6]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/discreteFourierTransform.c`.
-//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]
 
 use crate::{
     math::{erfc, fft_magnitudes},
@@ -113,16 +110,16 @@ mod tests {
     use crate::nist::test_vectors::{bits, EPSILON_100};
 
     /// SP 800-22 §2.6.8: n = 100 and N₀ = 47.5.  The publication prints
-    /// N₁ = 46, d = −1.376494 and P-value = 0.168669, but STS 2.1.2 finds 48
-    /// of the first 50 magnitudes below T = 17.308 on this input and prints
-    /// d = 0.458831 and P-value = 0.646355, as this code does.  The count is
-    /// also 48 over frequencies 1 to 50 instead of 0 to 49, with ≤ for <, and
-    /// with the threshold √(3n) that predates §2.6.4's, so none of those
-    /// explains the printed 46.  The printed d and P-value do follow from 46
-    /// by steps (7) and (8).  The example is below `spectral`'s n ≥ 1000
-    /// gate, so it runs through the statistic directly.
+    /// N₁ = 46, d = −1.376494 and P-value = 0.168669, but 48 of the first 50
+    /// magnitudes lie below T = 17.308 on this input, giving d = 0.458831 and
+    /// P-value = 0.646355.  The count is also 48 over frequencies 1 to 50
+    /// instead of 0 to 49, with ≤ for <, and with the threshold √(3n) that
+    /// predates §2.6.4's, so none of those explains the printed 46.  The
+    /// printed d and P-value do follow from 46 by steps (7) and (8).  The
+    /// example is below `spectral`'s n ≥ 1000 gate, so it runs through the
+    /// statistic directly.
     #[test]
-    fn section_2_6_8_example_counts_as_sts_does() {
+    fn section_2_6_8_example_counts() {
         let dft = dft_statistic(&bits(EPSILON_100));
         assert!((dft.n0 - 47.5).abs() < 1e-12, "N₀ = {}", dft.n0);
         assert_eq!(dft.n1, 48);

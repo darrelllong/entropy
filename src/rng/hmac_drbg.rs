@@ -333,12 +333,11 @@ mod tests {
         assert_eq!(returned, expected);
     }
 
-    /// Regression: `drbg_update` used a fixed 128-byte stack scratch, so any
-    /// personalization string longer than 47 bytes or additional input longer
-    /// than 95 bytes panicked in release builds.  SP 800-90A permits up to
-    /// 2³⁵ bits of each.  The golden outputs come from an independent
-    /// from-spec HMAC_DRBG replica (Python `hmac`/`hashlib`), so a fix that
-    /// silently truncated the input to the old budget would fail here.
+    /// Personalization strings and additional input longer than the stack
+    /// buffer for short messages (SP 800-90A permits up to 2³⁵ bits of each).
+    /// The golden outputs come from an independent from-spec HMAC_DRBG replica
+    /// (Python `hmac`/`hashlib`), so silently truncating either input would
+    /// fail here.
     #[test]
     fn hmac_drbg_long_personalization_and_additional_input_kat() {
         let long_pers = [0xa5u8; 200];

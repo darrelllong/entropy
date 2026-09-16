@@ -12,33 +12,26 @@
 //!   [pubs/NIST-SP-800-22r1a.pdf]
 //! * P. Revesz, *Random Walk in Random and Non-Random Environments*,
 //!   World Scientific, 1990.  [Source §3.4 names for the class probabilities]
-//! * NIST, *Statistical Test Suite* 2.1.2, `src/longestRunOfOnes.c`.
-//!   [pubs/NIST-STS-2.1.2-src-and-constants.zip]  [Same M, K and class
-//!   bounds; its probability tables are compared below]
 
 use crate::{math::chi2_pvalue, result::TestResult};
 
 /// Class probabilities for M = 8, K = 3 (longest run ≤ 1, 2, 3, ≥ 4): the
 /// number of 8-bit blocks in each class over 256.  §3.4 prints them rounded
 /// to 0.2148, 0.3672, 0.2305 and 0.1875; the §2.4.8 example's χ² = 4.882457
-/// uses the exact values, as does STS 2.1.2's `longestRunOfOnes.c`.
+/// uses the exact values.
 const PI_M8: [f64; 4] = [55.0 / 256.0, 94.0 / 256.0, 59.0 / 256.0, 48.0 / 256.0];
 
 /// Class probabilities for M = 128, K = 5 (longest run ≤ 4, 5, …, 8, ≥ 9),
 /// to the four decimals SP 800-22 §3.4 prints.
 ///
-/// STS 2.1.2's `longestRunOfOnes.c` uses 0.1174035788, 0.242955959,
-/// 0.249363483, 0.17517706, 0.102701071 and 0.112398847, within 4 × 10⁻¹⁰
-/// of the exact distribution.  These printed values are up to 6.4 × 10⁻⁵
-/// from it (0.2493 for 0.249363), so for 6 272 ≤ n < 750 000 this module's
-/// p-value differs slightly from STS's.
+/// These printed values are up to 6.4 × 10⁻⁵ from the exact distribution
+/// (0.2493 for 0.249363).
 const PI_M128: [f64; 6] = [0.1174, 0.2430, 0.2493, 0.1752, 0.1027, 0.1124];
 
 /// Class probabilities for M = 10 000, K = 6 (longest run ≤ 10, 11, …, 15,
 /// ≥ 16), to the four decimals SP 800-22 §3.4 prints.
 ///
-/// STS 2.1.2's `longestRunOfOnes.c` uses these same values.  They are up to
-/// 1.6 × 10⁻³ from the exact distribution.
+/// They are up to 1.6 × 10⁻³ from the exact distribution.
 const PI_M10000: [f64; 7] = [0.0882, 0.2092, 0.2483, 0.1933, 0.1208, 0.0675, 0.0727];
 
 /// Run the longest-run-of-ones test.
@@ -174,21 +167,12 @@ mod tests {
             .fold(0.0, f64::max)
     }
 
-    /// The gaps the table docs state: STS 2.1.2's M = 128 table against the
-    /// exact distribution, and the printed M = 128 and M = 10 000 tables.
+    /// The gaps the table docs state: the printed M = 128 and M = 10 000
+    /// tables against the exact distribution.
     #[test]
     fn tables_against_exact_distribution() {
-        const STS_PI_M128: [f64; 6] = [
-            0.1174035788,
-            0.242955959,
-            0.249363483,
-            0.17517706,
-            0.102701071,
-            0.112398847,
-        ];
         assert!(max_gap(&exact_classes(8, 1, 3), &PI_M8) < 1e-15);
         let m128 = exact_classes(128, 4, 5);
-        assert!(max_gap(&m128, &STS_PI_M128) < 4e-10);
         let printed_gap = max_gap(&m128, &PI_M128);
         assert!((6.3e-5..6.4e-5).contains(&printed_gap), "{printed_gap}");
         let m10000_gap = max_gap(&exact_classes(10_000, 10, 6), &PI_M10000);

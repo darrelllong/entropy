@@ -34,7 +34,7 @@ pub fn runs(bits: &[u8]) -> TestResult {
 
     let numer = (v_n as f64 - 2.0 * n as f64 * pi * (1.0 - pi)).abs();
     let denom = 2.0 * (2.0 * n as f64).sqrt() * pi * (1.0 - pi);
-    // NIST STS runs.c: erfc_arg = |V_n - 2nπ(1-π)| / (2π(1-π)√(2n)); p = erfc(erfc_arg).
+    // §2.3.4 step (4): p = erfc(|Vₙ − 2nπ(1 − π)| / (2√(2n)·π(1 − π))).
     let p_value = erfc(numer / denom);
 
     TestResult::with_note(

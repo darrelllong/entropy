@@ -1,17 +1,10 @@
 //! Golden p-values for every DIEHARD and DIEHARDER test at a fixed seed.
 //!
-//! These are regression values.  Each one was produced by this crate's own
-//! code in a debug build on aarch64-apple-darwin, reproduced within the
-//! tolerances below by debug and release builds on aarch64-apple-darwin and
-//! x86_64-apple-darwin, and pinned here so that a change to any statistic,
-//! sample layout or p-value routine fails a test.  They also pass on x86_64
-//! Linux with glibc (rustc 1.95): the first version of this file in debug
-//! and release builds with `--include-ignored`, and the version with the
-//! 31×31 tolerance and the two-level monobit2 golden in debug and release
-//! builds.  They are not reference values from
-//! Marsaglia's DIEHARD or Brown's Dieharder C, and passing says nothing about
-//! whether a statistic is right, only that it has not moved.  An intended
-//! change to a statistic must update this table and say so in its commit.
+//! These are regression values produced by this crate's own code and pinned
+//! so that a change to any statistic, sample layout or p-value routine fails
+//! a test.  Passing says nothing about whether a statistic is right, only
+//! that it has not moved.  An intended change to a statistic must update this
+//! table and say so in its commit.
 //!
 //! Every test reads MT19937 seeded with 5489.  Tests over a word slice take
 //! the first N words of one stream, N being the smallest length the test's
@@ -39,12 +32,12 @@ const SEED: u32 = 5489;
 /// some expected cell counts pass through `exp`, `ln`, `cos`, `sin` and
 /// `powf`, which Rust takes from the platform libm, and CI runs on both glibc
 /// (Linux x86-64) and Apple's libm (macOS arm64), which can differ by an ulp
-/// or so per call.  An adversarial review shifted every such result one ulp
-/// up, then one ulp down, then by ±1 ulp at random on 1%, 3% and 10% of calls
-/// over 60 seeds each.  Every golden but `binary_rank_31x31` stayed within
-/// 1e-12 throughout, and that one moved by up to 3.7e-10 (see
-/// `RANK_31X31_TOL`).  1e-12 therefore holds for the others under those
-/// perturbations and still catches any change a real edit makes.  Notes are
+/// or so per call.  Shifting every such result one ulp up, then one ulp down,
+/// then by ±1 ulp at random on 1%, 3% and 10% of calls over 60 seeds each
+/// left every golden but `binary_rank_31x31` within 1e-12, and moved that one
+/// by up to 3.7e-10 (see `RANK_31X31_TOL`).  1e-12 therefore holds for the
+/// others under those perturbations and still catches any change a real edit
+/// makes.  Notes are
 /// compared exactly: they print statistics to four decimals, and the same
 /// perturbations left every other golden's note unchanged.
 const TOL: f64 = 1e-12;
@@ -52,10 +45,10 @@ const TOL: f64 = 1e-12;
 /// Tolerance for `binary_rank_31x31` only.  Its cell probabilities come from
 /// `gf2_rank_probability`, which sums about 90 `ln` terms, and its tail cell
 /// is 1 − P(31) − P(30) − P(29), so its p-value is far more sensitive to libm
-/// rounding than the others.  An adversarial review shifted every `exp`,
-/// `ln`, `cos`, `sin` and `powf` result by one ulp: this p-value moved 8.2e-11
-/// with upward shifts and 3.7e-10 with downward ones, while every other
-/// golden stayed within 1e-12.  1e-8 is about 27 times the larger move.
+/// rounding than the others.  Shifting every `exp`, `ln`, `cos`, `sin` and
+/// `powf` result by one ulp moved this p-value 8.2e-11 upward and 3.7e-10
+/// downward, while every other golden stayed within 1e-12.  1e-8 is about 27
+/// times the larger move.
 const RANK_31X31_TOL: f64 = 1e-8;
 
 /// 9 bit offsets × 500 trials × 512 birthdays, the hungriest slice test.
@@ -86,8 +79,7 @@ const BYTE_DISTRIBUTION_WORDS: usize = 3 * 5 * 256;
 const DCT_WORDS: usize = 5_000 * 256;
 /// The fewest words that give monobit2 one block size (pairs of words).
 const MONOBIT2_WORDS: usize = 404;
-/// The fewest words that give monobit2 two block sizes (2 and 4 words), so
-/// the flat layout's second segment and level 1's short first block are used.
+/// The fewest words that give monobit2 two block sizes (2 and 4 words).
 const MONOBIT2_TWO_LEVEL_WORDS: usize = 1_140;
 /// Eight words per trial for 100 000 trials.
 const FILL_TREE_WORDS: usize = 8 * 100_000;
@@ -151,7 +143,7 @@ fn birthday_spacings() {
         )],
         &[Golden {
             name: "diehard::birthday_spacings",
-            p: 0.1680300499666213,
+            p: 0.16803004996661564,
             note: "m=512, year=2^24, samples=500",
         }],
     );
@@ -166,7 +158,7 @@ fn binary_rank_32x32() {
         )],
         &[Golden {
             name: "diehard::binary_rank_32x32",
-            p: 0.49409980407450105,
+            p: 0.49409984519437,
             note: "32×32, N=40000, χ²=2.3975",
         }],
     );
@@ -181,7 +173,7 @@ fn binary_rank_31x31() {
         )],
         &[Golden {
             name: "diehard::binary_rank_31x31",
-            p: 0.5968570813626384,
+            p: 0.5968570813626386,
             note: "31×31, N=40000, χ²=1.8839",
         }],
         RANK_31X31_TOL,
@@ -197,7 +189,7 @@ fn binary_rank_6x8() {
         )],
         &[Golden {
             name: "diehard::binary_rank_6x8",
-            p: 0.6443334492990849,
+            p: 0.6443334492990846,
             note: "N=100000, χ²=0.8791",
         }],
     );
@@ -209,7 +201,7 @@ fn bitstream() {
         &[at_gate(diehard::bitstream::bitstream, BITSTREAM_WORDS)],
         &[Golden {
             name: "diehard::bitstream",
-            p: 0.8116127766486784,
+            p: 0.8116127766486776,
             note: "window=20-bit, stream=2^21, repeats=20",
         }],
     );
@@ -260,7 +252,7 @@ fn count_ones_stream() {
         )],
         &[Golden {
             name: "diehard::count_ones_stream",
-            p: 0.20400116068475269,
+            p: 0.20400116144378103,
             note: "n=256000, Q5=3248.43, Q4=658.62, Q5-Q4=2589.82, Z=1.2702",
         }],
     );
@@ -272,7 +264,7 @@ fn runs_float() {
         &[at_gate(diehard::runs_float::runs_float, RUNS_WORDS)],
         &[Golden {
             name: "diehard::runs_up_down",
-            p: 0.2905887267470235,
+            p: 0.2905887267470262,
             note: "seq_len=10000, repeats=10, covariance-form (Bonferroni)",
         }],
     );
@@ -284,7 +276,7 @@ fn parking_lot() {
         &[diehard::parking_lot::parking_lot(&mut fresh(), true)],
         &[Golden {
             name: "diehard::parking_lot",
-            p: 0.40760122144338407,
+            p: 0.4076012214433825,
             note: "attempts=12000, mean=3523, σ=21.9, repeats=5",
         }],
     );
@@ -293,11 +285,14 @@ fn parking_lot() {
 #[test]
 fn minimum_distance_2d() {
     check(
-        &[diehard::minimum_distance::minimum_distance_2d(&mut fresh(), true)],
+        &[diehard::minimum_distance::minimum_distance_2d(
+            &mut fresh(),
+            true,
+        )],
         &[Golden {
             name: "diehard::minimum_distance_2d",
-            p: 0.938980583643824,
-            note: "n=500, side=10000, repeats=20 [BUGGY FORMULA — see diehard_2dsphere.c; use minimum_distance_nd(d=2) instead]",
+            p: 0.9369405368555558,
+            note: "n=500, side=10000, repeats=20",
         }],
     );
 }
@@ -308,7 +303,7 @@ fn spheres_3d() {
         &[diehard::spheres_3d::spheres_3d(&mut fresh(), true)],
         &[Golden {
             name: "diehard::spheres_3d",
-            p: 0.5021128704436922,
+            p: 0.5076875459955872,
             note: "n=500, cube=1000, repeats=10",
         }],
     );
@@ -320,8 +315,8 @@ fn squeeze() {
         &[diehard::squeeze::squeeze(&mut fresh())],
         &[Golden {
             name: "diehard::squeeze",
-            p: 0.7621246631600135,
-            note: "trials=100000, cells=43, df=38, χ²=31.5159",
+            p: 0.7620955667523143,
+            note: "trials=100000, cells=43, df=38, χ²=31.5167",
         }],
     );
 }
@@ -333,12 +328,12 @@ fn runs_float_both() {
         &[
             Golden {
                 name: "diehard::runs_up",
-                p: 0.8866855045941457,
+                p: 0.886685504594146,
                 note: "seq_len=10000, repeats=10, covariance-form",
             },
             Golden {
                 name: "diehard::runs_down",
-                p: 0.14529436337351176,
+                p: 0.1452943633735131,
                 note: "seq_len=10000, repeats=10, covariance-form",
             },
         ],
@@ -357,7 +352,7 @@ fn craps_both() {
             },
             Golden {
                 name: "diehard::craps_throws",
-                p: 0.04288633711185231,
+                p: 0.04288633711188088,
                 note: "games=200000, df=21, χ²=33.3104",
             },
         ],
@@ -370,7 +365,7 @@ fn craps() {
         &[diehard::craps::craps(&mut fresh())],
         &[Golden {
             name: "diehard::craps",
-            p: 0.08577267422370462,
+            p: 0.08577267422376177,
             note: "games=200000, wins=98475, p_wins=0.6200, p_throws=0.0429 (Bonferroni)",
         }],
     );
@@ -384,7 +379,7 @@ fn ks_uniform() {
         &[at_gate(dieharder::ks_uniform::ks_uniform, KS_UNIFORM_WORDS)],
         &[Golden {
             name: "dieharder::ks_uniform",
-            p: 0.6116987847701205,
+            p: 0.611698784770077,
             note: "tsamples=1000",
         }],
     );
@@ -399,7 +394,7 @@ fn byte_distribution() {
         )],
         &[Golden {
             name: "dieharder::byte_distribution",
-            p: 0.7253991774566579,
+            p: 0.7253991774073503,
             note: "tsamples=1280, streams=9, expected/cell=5.0, χ²=2254.0000",
         }],
     );
@@ -415,7 +410,7 @@ fn dct() {
         &[at_gate(dieharder::dct::dct, DCT_WORDS)],
         &[Golden {
             name: "dieharder::dct",
-            p: 0.677127153200413,
+            p: 0.6771271531620839,
             note: "ntuple=256, tsamples=5000, χ²=244.1088",
         }],
     );
@@ -448,8 +443,8 @@ fn monobit2() {
         &[at_gate(dieharder::monobit2::monobit2, MONOBIT2_WORDS)],
         &[Golden {
             name: "dieharder::monobit2",
-            p: 0.7238532376063103,
-            note: "tsamples=404, ntuple=1, block_sizes=2..2",
+            p: 0.5309875859302622,
+            note: "tsamples=404, levels=1, block_sizes=2..2",
         }],
     );
 }
@@ -463,7 +458,7 @@ fn monobit2_two_block_sizes() {
             .note
             .as_deref()
             .unwrap_or_default()
-            .contains("ntuple=1"),
+            .contains("levels=1"),
         "{fewer}"
     );
     check(
@@ -472,8 +467,8 @@ fn monobit2_two_block_sizes() {
         )],
         &[Golden {
             name: "dieharder::monobit2",
-            p: 0.4668723553694596,
-            note: "tsamples=1140, ntuple=2, block_sizes=2..4",
+            p: 0.07204798568266976,
+            note: "tsamples=1140, levels=2, block_sizes=2..4",
         }],
     );
 }
@@ -488,12 +483,12 @@ fn fill_tree_both() {
         &[
             Golden {
                 name: "dieharder::fill_tree_count",
-                p: 0.8748424089110636,
-                note: "trials=100000, χ²=4.5090, start=4, end=14",
+                p: 0.9183130678415875,
+                note: "trials=100000, cells=11, χ²=4.5645",
             },
             Golden {
                 name: "dieharder::fill_tree_position",
-                p: 0.16416894356764905,
+                p: 0.16416894356765557,
                 note: "trials=100000, χ²=20.2061",
             },
         ],
@@ -506,8 +501,8 @@ fn fill_tree() {
         &[at_gate(dieharder::fill_tree::fill_tree, FILL_TREE_WORDS)],
         &[Golden {
             name: "dieharder::fill_tree",
-            p: 0.3283378871352981,
-            note: "p_fill=0.8748, p_pos=0.1642 (Bonferroni)",
+            p: 0.32833788713531115,
+            note: "p_fill=0.9183, p_pos=0.1642 (Bonferroni)",
         }],
     );
 }
@@ -528,32 +523,32 @@ fn bit_distribution_all() {
         &[
             Golden {
                 name: "dieharder::bit_distribution",
-                p: 0.03675577352995328,
+                p: 0.036755773526763784,
                 note: "width=1, pattern=0, tsamples=728, bsamples=64, df=13, χ²=23.4338",
             },
             Golden {
                 name: "dieharder::bit_distribution",
-                p: 0.0367557735299589,
+                p: 0.036755773526765415,
                 note: "width=1, pattern=1, tsamples=728, bsamples=64, df=13, χ²=23.4338",
             },
             Golden {
                 name: "dieharder::bit_distribution",
-                p: 0.18220814857916404,
+                p: 0.18220814856939846,
                 note: "width=2, pattern=0, tsamples=364, bsamples=64, df=9, χ²=12.5869",
             },
             Golden {
                 name: "dieharder::bit_distribution",
-                p: 0.7911180556492672,
+                p: 0.7911180556424718,
                 note: "width=2, pattern=1, tsamples=364, bsamples=64, df=9, χ²=5.4747",
             },
             Golden {
                 name: "dieharder::bit_distribution",
-                p: 0.7606496630727532,
+                p: 0.7606496630664719,
                 note: "width=2, pattern=2, tsamples=364, bsamples=64, df=9, χ²=5.7909",
             },
             Golden {
                 name: "dieharder::bit_distribution",
-                p: 0.22095889780490743,
+                p: 0.22095889779646985,
                 note: "width=2, pattern=3, tsamples=364, bsamples=64, df=9, χ²=11.8662",
             },
         ],
@@ -569,7 +564,7 @@ fn bit_distribution() {
         )],
         &[Golden {
             name: "dieharder::bit_distribution",
-            p: 0.4547009917740806,
+            p: 0.45470099177940826,
             note: "Bonferroni over 510 patterns; worst: width=8, pattern=229, tsamples=91, bsamples=64, df=1, χ²=11.0402",
         }],
     );
@@ -585,22 +580,22 @@ fn minimum_distance_nd() {
         &[
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.9296794972228319,
+                p: 0.9296794972228317,
                 note: "d=2, n=500, repeats=20",
             },
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.738421815878596,
+                p: 0.7384218158785949,
                 note: "d=3, n=500, repeats=20",
             },
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.6743886858318967,
+                p: 0.6743886858318953,
                 note: "d=4, n=500, repeats=20",
             },
             Golden {
                 name: "dieharder::minimum_distance_nd",
-                p: 0.7250557630778836,
+                p: 0.7250557630778823,
                 note: "d=5, n=500, repeats=20",
             },
         ],
@@ -613,7 +608,7 @@ fn permutations() {
         &[dieharder::permutations::permutations(&mut fresh(), 5)],
         &[Golden {
             name: "dieharder::permutations",
-            p: 0.8349574841956197,
+            p: 0.8349574841841122,
             note: "t=5, n=100000, χ²=103.9832",
         }],
     );
@@ -632,13 +627,13 @@ fn gcd_both() {
         &[
             Golden {
                 name: "dieharder::gcd_distribution",
-                p: 0.6591561083913493,
+                p: 0.65915610839112,
                 note: "pairs=100000, gtblsize=24, χ²=17.8392",
             },
             Golden {
                 name: "dieharder::gcd_step_counts",
-                p: 0.3918532684339412,
-                note: "pairs=100000, χ²=27.3366",
+                p: 0.3925067476039136,
+                note: "pairs=100000, χ²=27.3239",
             },
         ],
     );
