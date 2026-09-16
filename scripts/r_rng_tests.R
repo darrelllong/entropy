@@ -265,8 +265,26 @@ counts <- tabulate(bin, nbins = 10L)
 exp_each <- length(Pn) / 10
 chi2 <- sum((counts - exp_each)^2 / exp_each)
 p_chi <- pchisq(chi2, df = 9, lower.tail = FALSE)
-# Cumulative spectral KS test against Exp(1).
+# Distribution of the periodogram heights: KS of the unordered Pn against
+# Exp(1).  Sorting discards frequency order, so this tests the marginal law
+# of the heights, not where along the spectrum the power lies.  It is also
+# conservative for uniform data: by Parseval the heights sum to a multiple of
+# sum(y^2), whose variance for uniform y is 2/5 of the Gaussian value, so the
+# heights are more evenly spread than iid Exp(1).  On R's Mersenne Twister it
+# rejected 0.15% of 2 000 streams of 10^6 words at 0.01, and none of 1 000
+# streams of 5*10^6 words.
 ks <- safe(stats::ks.test(Pn, "pexp", rate = 1))
+# Bartlett's cumulative periodogram: with iid Exp(1) heights, the partial
+# sums C_j = (Pn_1 + ... + Pn_j) / sum(Pn), j = 1 ... m - 1, in frequency
+# order, are distributed as the order statistics of m - 1 independent
+# Uniform(0, 1) values, so a KS test of them against Uniform(0, 1) detects
+# power concentrated in any band.  M. S. Bartlett, "An Introduction to
+# Stochastic Processes", Cambridge University Press, 1955.
+cum <- cumsum(Pn)
+# The same null runs rejected at 0.01 in 1.30% (10^6 words, 2 000 streams)
+# and 0.90% (5*10^6 words, 1 000 streams); KS of those p-values against
+# uniformity gave 0.16 and 0.19.
+bartlett <- if (cum[m] > 0) safe(stats::ks.test(cum[-m] / cum[m], "punif")) else NULL
 
 cat("| Metric | Value |\n|--------|-------|\n")
 cat(sprintf("| Periodogram bins tested (m = N/2 - 1) | %s |\n",
@@ -282,7 +300,13 @@ if (is.na(flatness)) {
 cat(sprintf("| Theoretical flatness for white noise | %.6f |\n", exp(-0.5772156649)))
 cat(sprintf("| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=%.3f, p=%s |\n",
             chi2, fmt(p_chi)))
-cat(sprintf("| Periodogram KS vs Exp(1) | D=%.6f, p=%s |\n",
+cat(sprintf("| Periodogram height KS vs Exp(1) | D=%.6f, p=%s |\n",
             as.numeric(ks$statistic), fmt(ks$p.value)))
+if (is.null(bartlett)) {
+  cat("| Cumulative periodogram KS (Bartlett) | NA (all-zero periodogram) |\n")
+} else {
+  cat(sprintf("| Cumulative periodogram KS (Bartlett) | D=%.6f, p=%s |\n",
+              as.numeric(bartlett$statistic), fmt(bartlett$p.value)))
+}
 
 cat("\n")
