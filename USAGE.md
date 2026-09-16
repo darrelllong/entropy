@@ -134,7 +134,7 @@ non-random sequences. They must fail every test. Use them as negative controls.
 | Type | Notes |
 |------|-------|
 | `Lcg32::ansi_c()` | ANSI C sample LCG (multiplier 1103515245, addend 12345); the 31-bit raw output is deliberately zero-extended by `next_u32` (bit 31 always 0) as a documented negative control |
-| `Lcg32::minstd()` | MINSTD (Park–Miller); trivially invertible; 31-bit raw output zero-extended like `AnsiC` (negative control); seeds ≡ 0 (mod 2³¹−1) are remapped to 1 to avoid the zero fixed point |
+| `Lcg32::minstd()` | MINSTD (Park–Miller–Stockmeyer, a = 48271, C++ `minstd_rand`; `LcgVariant::Minstd0` is the original a = 16807); trivially invertible; 31-bit raw output zero-extended like `AnsiC` (negative control); seeds ≡ 0 (mod 2³¹−1) are remapped to 1 to avoid the zero fixed point |
 | `Lcg32::new(LcgVariant::Borland, seed)` | Borland C++ `rand()`: a=22695477, c=1, m=2³²; the 15-bit raws (`(state >> 16) & 0x7FFF`) are packed into full 32-bit words by `next_u32` (same rule as MSVC); the raw C-API value is available via `next_raw()` |
 | `SystemVRand`, `Rand48`, `BsdRandom`, `LinuxLibcRandom`, `BsdRandCompat` | Historical Unix libc variants; various short periods and low-bit weaknesses |
 | `WindowsMsvcRand`, `WindowsVb6Rnd`, `WindowsDotNetRandom` | Historical Windows-family generators; included as negative controls |

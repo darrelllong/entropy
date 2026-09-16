@@ -114,7 +114,9 @@ arithmetic creates glaring lattice and serial structure. The battery results in
 #### `LCG MINSTD (seed=1)`
 
 MINSTD is the Park-Miller multiplicative congruential generator
-$x_{n+1} = 16807\times x_n \pmod{2^{31}-1}$.
+$x_{n+1} = 48271\times x_n \pmod{2^{31}-1}$, the multiplier Park, Miller and
+Stockmeyer recommended in 1993 in place of the original 16807, and C++'s
+`minstd_rand`.
 Historically it was a serious improvement over many older LCGs, and it is a
 nice clean mathematical benchmark, but it is still a small-state linear
 generator and still not remotely cryptographic. The throughput is unremarkable

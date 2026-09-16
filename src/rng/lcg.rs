@@ -14,6 +14,14 @@
 //!   hard to find," *Communications of the ACM* 31(10), pp. 1192–1201, 1988.
 //!   DOI: 10.1145/63039.63042.
 //!   [MINSTD: a=16807, c=0, m=2³¹−1]
+//! * S. K. Park, K. W. Miller and P. K. Stockmeyer, "Technical
+//!   Correspondence: Response," *Communications of the ACM* 36(7),
+//!   pp. 108–110, 1993.
+//!   [a=48271 recommended in place of 16807]
+//! * ISO/IEC 14882:2011, *Programming languages — C++*, §26.5.5
+//!   [rand.predef]: `minstd_rand0` is a=16807 and `minstd_rand` a=48271,
+//!   each with c=0, m=2³¹−1 and default seed 1; the 10 000th output of a
+//!   default-constructed generator is 1043618065 and 399268537.
 
 use super::c_stdlib::PackedBits;
 use super::Rng;
@@ -32,9 +40,12 @@ pub enum LcgVariant {
     /// returns 1103527590, while this variant starts from state 0 and first
     /// returns 12345.
     AnsiC,
-    /// MINSTD (Park & Miller, 1988): a = 16_807, c = 0, m = 2³¹ − 1.
-    /// Passes some tests but fails spectral and serial tests.
+    /// MINSTD with the multiplier Park, Miller and Stockmeyer recommended in
+    /// 1993: a = 48_271, c = 0, m = 2³¹ − 1, C++ `minstd_rand`.
     Minstd,
+    /// MINSTD as first published (Park & Miller, 1988): a = 16_807, c = 0,
+    /// m = 2³¹ − 1, C++ `minstd_rand0`.
+    Minstd0,
     /// Borland C++ `rand()`: a = 22_695_477, c = 1, m = 2³².
     Borland,
     /// Microsoft Visual C `rand()`: a = 214_013, c = 2_531_011, m = 2³².
@@ -87,7 +98,7 @@ impl Lcg32 {
                 0,
                 u32::MAX,
             ),
-            LcgVariant::Minstd => (
+            LcgVariant::Minstd | LcgVariant::Minstd0 => (
                 // Reduce BEFORE the zero guard: MINSTD has c = 0, so a state
                 // of 0 (any seed ≡ 0 mod 2³¹−1, not just seed == 0) would be
                 // a permanent fixed point.
@@ -95,7 +106,11 @@ impl Lcg32 {
                     0 => 1,
                     s => s,
                 },
-                16_807,
+                if matches!(variant, LcgVariant::Minstd) {
+                    48_271
+                } else {
+                    16_807
+                },
                 0,
                 2_147_483_647,
                 0,
@@ -130,7 +145,7 @@ impl Lcg32 {
         Self::new(LcgVariant::AnsiC, 1)
     }
 
-    /// Convenience: MINSTD with seed 1.
+    /// Convenience: MINSTD (a = 48 271) with seed 1.
     pub fn minstd() -> Self {
         Self::new(LcgVariant::Minstd, 1)
     }
@@ -281,8 +296,21 @@ mod minstd_seed_tests {
             let b = rng.next_u32();
             assert!(a != 0 || b != 0, "stuck at zero for seed {seed}");
         }
-        // Known first step from state 1: 16807.
+        // Known first step from state 1: the multiplier.
         let mut rng = Lcg32::new(LcgVariant::Minstd, 2_147_483_647);
-        assert_eq!(rng.next_u32(), 16_807);
+        assert_eq!(rng.next_u32(), 48_271);
+    }
+
+    /// The C++ standard's check values: the 10 000th output from seed 1.
+    #[test]
+    fn minstd_ten_thousandth_outputs() {
+        for (variant, want) in [
+            (LcgVariant::Minstd, 399_268_537),
+            (LcgVariant::Minstd0, 1_043_618_065),
+        ] {
+            let mut rng = Lcg32::new(variant, 1);
+            let last = (0..10_000).map(|_| rng.next_u32()).last();
+            assert_eq!(last, Some(want), "{variant:?}");
+        }
     }
 }
