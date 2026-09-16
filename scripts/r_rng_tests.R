@@ -37,6 +37,10 @@ if (file.info(path)$size %% 4L != 0L)
 # in numeric (double) precision, where 0..2^32-1 is exact.
 fi <- file(path, "rb")
 sz <- file.info(path)$size
+# readBin counts bytes as an integer, so a stream of 2^31 bytes or more
+# (536 870 912 words) cannot be read in one call.
+if (is.na(sz) || sz %% 4 != 0 || sz > .Machine$integer.max)
+  stop(sprintf("%s: need a whole number of words and fewer than 2^31 bytes", path))
 n  <- as.integer(sz / 4L)
 raw_bytes <- readBin(fi, what = "raw", n = sz)
 close(fi)
