@@ -93,7 +93,6 @@ are noise, not structure.
 | PCG64 (OsRng seed) | 739 | 701 | 6 | 32 |
 | Xoshiro256 (OsRng seed) | 739 | 720 | 13 | 6 |
 | Xoroshiro128 (OsRng seed) | 739 | 728 | 5 | 6 |
-| WyRand (OsRng seed) | 739 | 718 | 15 | 6 |
 | SFC64 (OsRng seed) | 739 | 727 | 6 | 6 |
 | JSF64 (OsRng seed) | 739 | 722 | 11 | 6 |
 | ChaCha20 CSPRNG (OsRng key) | 739 | 727 | 6 | 6 |
@@ -613,7 +612,6 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
 - **Xoshiro256 (OsRng seed)**: 13/739 — `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `nist::non_overlapping_template` (×3)
 - **Xoroshiro128 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::random_excursions`
-- **WyRand (OsRng seed)**: 15/739 — `dieharder::bit_distribution` (×11), `maurer::universal_l06`, `nist::non_overlapping_template` (×3)
 - **SFC64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
 - **JSF64 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×4)
 - **ChaCha20 CSPRNG (OsRng key)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
@@ -627,7 +625,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **2** (`SpongeBob (SHA3-512 chain, OsRng seed)`) and the highest is **15** (`WyRand (OsRng seed)`).
+- Among non-trivial generators, the lowest FAIL count is **2** (`SpongeBob (SHA3-512 chain, OsRng seed)`) and the highest is **13** (`Xorshift32 (seed=1)`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
 
 ## Auxiliary Probes

@@ -197,16 +197,6 @@ Papers that define the RNG algorithms implemented in `src/rng/`.
              whose middle step is misprinted as y=(y>>17) without the xor, and xor64() with [13,7,17]. [pubs/marsaglia-2003-xorshift-rngs.pdf]}
 }
 
-@misc{wangyi2022wyhash,
-  author = {Wang, Yi},
-  title  = {wyhash and wyrand},
-  year   = {2022},
-  url    = {https://github.com/wangyi-fudan/wyhash},
-  note   = {Weyl-sequence counter with 128-bit
-             multiply-xorfolded finaliser; passes BigCrush and PractRand > 8 TiB.  src/rng/wyrand.rs uses the
-             wyrand constants of final versions 2 and 4, not those of 4.3.}
-}
-
 @misc{jenkins2007smallprng,
   author = {Jenkins, Bob},
   title  = {A Small Noncryptographic {PRNG}},

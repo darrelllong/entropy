@@ -37,12 +37,9 @@ pub fn splitmix64(state: &mut u64) -> u64 {
 /// [`splitmix64`] step, so that seed = 0 does not start from the all-zeros
 /// state.
 ///
-/// Its value is wyhash's `_wyp[0]` (Wang Yi, 2019), the same number as
-/// [`WyRand::INCREMENT`](crate::rng::WyRand::INCREMENT), but it is a different
-/// concept and is fixed here independently of
-/// [`WyRand`](crate::rng::WyRand): seeding must stay reproducible even if that
-/// generator's constants ever change.  `seed_material_pinned_bytes` fails if
-/// this mask or the derivation moves.
+/// Any fixed nonzero value serves; this one is wyhash's `_wyp[0]` (Wang Yi,
+/// 2019).  `seed_material_pinned_bytes` fails if this mask or the derivation
+/// moves.
 pub const SEED_MATERIAL_MASK: u64 = 0xa076_1d64_78bd_642f;
 
 /// Derive `N` bytes of seed material from a single 64-bit seed.

@@ -58,7 +58,7 @@ use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
     CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom,
     Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
-    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32,
+    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32,
     Xorshift64, Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, K16, K32};
@@ -577,7 +577,6 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     run!("PCG64 (OsRng seed)", Pcg64::from_os_rng());
     run!("Xoshiro256 (OsRng seed)", Xoshiro256::from_os_rng());
     run!("Xoroshiro128 (OsRng seed)", Xoroshiro128::from_os_rng());
-    run!("WyRand (OsRng seed)", WyRand::from_os_rng());
     run!("SFC64 (OsRng seed)", Sfc64::from_os_rng());
     run!("JSF64 (OsRng seed)", Jsf64::from_os_rng());
     run!("ChaCha20 CSPRNG (OsRng key)", ChaCha20Rng::from_os_rng());

@@ -33,7 +33,6 @@ pub mod squidward;
 #[cfg(feature = "cryptography")]
 pub mod stream_rng;
 pub mod views;
-pub mod wyrand;
 pub mod xorshift;
 pub mod xoshiro;
 
@@ -68,7 +67,6 @@ pub use squidward::Squidward;
 #[cfg(feature = "cryptography")]
 pub use stream_rng::StreamRng;
 pub use views::{BitReversed, FullWord, HighHalf, LowHalf};
-pub use wyrand::WyRand;
 pub use xorshift::{Xorshift32, Xorshift64};
 pub use xoshiro::{Xoroshiro128, Xoshiro256};
 

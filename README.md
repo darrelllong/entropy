@@ -155,7 +155,7 @@ The default runner compares 43 built-in generators across six categories:
 **Quality simulation generators**
 - `MT19937`, `Xorshift32`, `Xorshift64`
 - `PCG32`, `PCG64`, `Xoshiro256`, `Xoroshiro128`
-- `WyRand`, `SFC64`, `JSF64`
+- `SFC64`, `JSF64`
 
 **Cipher-based CSPRNGs** (block-CTR mode, from the `cryptography` crate)
 - AES-128-CTR, Camellia-128-CTR, Twofish-128-CTR, Serpent-128-CTR

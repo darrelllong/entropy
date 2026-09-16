@@ -152,7 +152,7 @@ These generators have no cryptographic claims but perform well on all three
 batteries and are appropriate for Monte Carlo simulation and statistical testing.
 
 **Do not use any generator in this section in any adversarial context.**
-PCG, Xoshiro, Xoroshiro, WyRand, SFC64, JSF64, and Xorshift are all
+PCG, Xoshiro, Xoroshiro, SFC64, JSF64, and Xorshift are all
 invertible: an adversary who can observe output can reconstruct the internal
 state and predict all future (and past) values. "Not for keys" is the minimum
 caveat; the correct rule is: do not use any of these anywhere an adversary can
@@ -163,7 +163,6 @@ experiment assignments in adversarial environments.
 | Type | Construction | State |
 |------|-------------|-------|
 | `Mt19937`             | `Mt19937::new(seed)`              | 19968 bits |
-| `WyRand`              | `WyRand::from_os_rng()`           | 64 bits |
 | `Sfc64`               | `Sfc64::from_os_rng()`            | 256 bits |
 | `Jsf64`               | `Jsf64::from_os_rng()`            | 256 bits |
 | `Pcg32`               | `Pcg32::from_os_rng()`            | 128 bits (64 state + 64 stream) |
@@ -320,7 +319,7 @@ DIEHARDER runs prohibitively slow.
 
 | Goal | Generator | Notes |
 |------|-----------|-------|
-| Fast simulation, no reproducibility requirement | `WyRand` or `Sfc64` | Fastest generators in the suite |
+| Fast simulation, no reproducibility requirement | `Sfc64` or `Jsf64` | Among the fastest generators in the suite |
 | Reproducible statistical testing | `Pcg64` or `Xoshiro256` | Seed with `seed_material(n)`; deterministic across runs |
 | Cryptographic-quality output | `ChaCha20Rng` or `CryptoCtrDrbg` (AES-256) | Seed from `OsRng`; rotate `ChaCha20Rng` before 256 GiB output; no reseed API exists |
 | OS entropy directly | `OsRng` | Wraps `/dev/urandom`; not buffered |

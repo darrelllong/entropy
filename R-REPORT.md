@@ -1301,63 +1301,6 @@ Mean = 0.500050  Var = 0.083362  Min = 0.000000  Max = 0.999999
 | Periodogram KS vs Exp(1) | D=0.000428, p=0.748401 |
 
 
-## WyRand
-
-Sample size: 5,000,000 u32 words (19.07 MB)
-
-Mean = 0.500017  Var = 0.083338  Min = 0.000000  Max = 1.000000
-
-### Tests (alpha = 0.001 reject threshold)
-
-| Test | Statistic | p-value | Verdict |
-|------|-----------|---------|---------|
-| randtests::runs.test (median) | 0.069765 | 0.944380 | pass |
-| randtests::bartels.rank.test | 0.414681 | 0.678376 | pass |
-| randtests::cox.stuart.test (trend) | 1251433.000000 | 0.069988 | pass |
-| randtests::difference.sign.test | 0.394270 | 0.693382 | pass |
-| randtests::turning.point.test | 1.209153 | 0.226604 | pass |
-| randtests::rank.test (Mann-Kendall, n=5000) | -0.214849 | 0.829885 | pass |
-| randtoolbox::freq.test (16 bins) | 20.267142 | 0.161923 | pass |
-| randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16) | 20.459635 | 0.200228 | pass |
-| randtoolbox::serial.test (d=8) | 61.948467 | 0.513835 | pass |
-| randtoolbox::poker.test (5-hand) | 2.842826 | 0.584463 | pass |
-| randtoolbox::order.test (d=4) | 23.236557 | 0.447030 | pass |
-| stats::ks.test vs U(0,1) | 0.000296 | 0.774704 | pass |
-| stats::chisq.test (256 bins) | 221.930086 | 0.933590 | pass |
-| stats::Box.test (Ljung-Box, lag 25) | 27.287789 | 0.341662 | pass |
-| tseries::runs.test (binary) | 0.069765 | 0.944380 | pass |
-| tseries::jarque.bera.test (vs Normal*) | 300006.715444 | 0.000000 | REJECT |
-
-*Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.
-
-### Raw moments E[U^k] vs theoretical 1/(k+1)
-
-| k | observed | theoretical | abs error |
-|---|----------|-------------|-----------|
-| 1 | 0.50001689 | 0.50000000 | 1.69e-05 |
-| 2 | 0.33335485 | 0.33333333 | 2.15e-05 |
-| 3 | 0.25001431 | 0.25000000 | 1.43e-05 |
-| 4 | 0.20000608 | 0.20000000 | 6.08e-06 |
-| 5 | 0.16666666 | 0.16666667 | 8.58e-09 |
-| 6 | 0.14285328 | 0.14285714 | 3.86e-06 |
-| 7 | 0.12499396 | 0.12500000 | 6.04e-06 |
-| 8 | 0.11110402 | 0.11111111 | 7.09e-06 |
-| 9 | 0.09999258 | 0.10000000 | 7.42e-06 |
-| 10 | 0.09090177 | 0.09090909 | 7.32e-06 |
-
-### Fourier / spectral analysis (centred series y_t = u_t - 1/2)
-
-| Metric | Value |
-|--------|-------|
-| Periodogram bins tested (m = N/2 - 1) | 2,499,999 |
-| max normalized periodogram (P_max) | 14.530347 |
-| Max-spike exact p (no spike) | 0.705707 |
-| Spectral flatness (Wiener entropy) | 0.561280 |
-| Theoretical flatness for white noise | 0.561459 |
-| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=6.126, p=0.727220 |
-| Periodogram KS vs Exp(1) | D=0.000366, p=0.890261 |
-
-
 ## SFC64
 
 Sample size: 5,000,000 u32 words (19.07 MB)

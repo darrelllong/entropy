@@ -51,21 +51,20 @@ MACHINES = [
 #   labels     — list of (text-anchor, dx, dy) per spoke
 #
 # Scale calibration (Dyson numbers):
-#   fast chart: sysv_rand (~441) → r=70, WyRand (~3120) → r=270
+#   fast chart: slowest measured (~250 MW/s) → r=40, fastest (~1366) → r=280
 #   slow chart: OsRng (~1.191) → r=70, Squidward (~240) → r=270
 
 CHARTS = [
     {
         "title":    "Throughput — Simulation Generators (log-normalized)",
         "out":      "benchmarks-radar-fast.svg",
-        # sysv_rand(441) → r=70, WyRand(3120) → r=270
-        "A": 235.3, "B": -552.1,
+        # 250 MW/s → r=40, 1366 MW/s → r=280
+        "A": 325.4, "B": -740.3,
         # Spokes clockwise from top.
         # mrand48 included as the fastest "BAD" generator — it beats several
         # modern designs, which is the whole point.
         # sysv_rand is the floor reference for the classic 15-bit LCG.
         "generators": [
-            ("WyRand",         3120.0, "wyrand.bench"),
             ("JSF64",          1314.0, "jsf64.bench"),
             ("SFC64",          1262.0, "sfc64.bench"),
             ("Xoshiro256",     1287.0, "xoshiro256.bench"),
@@ -79,18 +78,17 @@ CHARTS = [
             ("sysv_rand",       441.4, "sysv_rand.bench"),
         ],
         "labels": [
-            ("middle",  0, -42),  #0°   WyRand
-            ("start",  18, -24),  #30°  JSF64
-            ("start",  22, -20),  #60°  SFC64
-            ("start",   8, -10),  #90°  Xoshiro256
-            ("start",  22,  14),  #120° PCG32
-            ("start",  18,  16),  #150° Xoroshiro128
-            ("middle",  0,  28),  #180° mrand48
-            ("end",   -18,  16),  #210° PCG64
-            ("end",   -22,   7),  #240° MT19937
-            ("end",    -8, -10),  #270° Xorshift64
-            ("end",   -22, -20),  #300° Xorshift32
-            ("end",   -18, -28),  #330° sysv_rand
+            ("middle",  0, -42),  #0°    JSF64
+            ("start",  18, -24),  #33°   SFC64
+            ("start",  22, -14),  #65°   Xoshiro256
+            ("start",  12,   8),  #98°   PCG32
+            ("start",  22,  16),  #131°  Xoroshiro128
+            ("start",   8,  28),  #164°  mrand48
+            ("end",    -8,  28),  #196°  PCG64
+            ("end",   -22,  16),  #229°  MT19937
+            ("end",   -12,   8),  #262°  Xorshift64
+            ("end",   -22, -14),  #295°  Xorshift32
+            ("end",   -18, -24),  #327°  sysv_rand
         ],
     },
     {

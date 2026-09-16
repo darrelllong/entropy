@@ -78,7 +78,6 @@ fallback points if some benchmark files are still missing.
 | `PCG64 (state=1, seq=1)` | 845 | ±1.897 | 580.3 | ±2.532 | 655.9 | ±3.002 | 661.2 | ±1.78 | 704.8 | ±3.841 |
 | `Xoshiro256 (seeds=1,2,3,4)` | 1291 | ±3.565 | 927.5 | ±2.207 | 781.5 | ±1.939 | 685.8 | ±1.727 | 1038 | ±57.32 |
 | `Xoroshiro128 (seeds=1,2)` | 907.1 | ±1.877 | 730.4 | ±1.964 | 623 | ±1.44 | 488.2 | ±0.9319 | 1004 | ±44.68 |
-| `WyRand (seed=42)` | 3119 | ±11.75 | 940.7 | ±3.277 | 1024 | ±2.185 | 1924 | ±6.197 | 2201 | ±117.6 |
 | `SFC64 (seeds=1,2,3)` | 1268 | ±3.177 | 1001 | ±2.452 | 859.8 | ±1.911 | 882.3 | ±33.84 | 1366 | ±18.51 |
 | `JSF64 (seed=0xdeadbeef)` | 1320 | ±3.305 | 870.6 | ±2.447 | 831.1 | ±1.713 | 865.4 | ±2.453 | 1234 | ±67.68 |
 | `ChaCha20 CSPRNG (OsRng key)` | 173.2 | ±0.3477 | 87.78 | ±1.53 | 89.83 | ±0.1971 | 120.6 | ±0.3759 | 160.5 | ±0.3082 |
@@ -324,20 +323,6 @@ Dyson).  Its battery results are statistically indistinguishable from
 Xoshiro256's (6 vs 7 FAILs in the 2026-03 run in [TESTS.md](TESTS.md) —
 within run-to-run noise).  Not cryptographic; all-zero seed forbidden.
 
-#### `WyRand (seed=42)`
-
-WyRand (Wang Yi, wyhash v4.2, 2022) advances a 64-bit Weyl counter by a fixed
-odd increment
-$s_{n+1} = s_n + \mathtt{a0761d6478bd642f}_{16}$
-then passes the result through the wyhash 128-bit multiply-xorfold mixer:
-$\mathrm{wymix}(a,b) = \bigl((a\cdot b \bmod 2^{128}) \gg 64\bigr) \oplus (a\cdot b \bmod 2^{64})$.
-The multiplication provides strong avalanche in a single instruction on
-architectures with 64×64→128-bit multiply support.  Period: $2^{64}$.  Not
-cryptographic; the state is trivially invertible from the output.  WyRand's
-3119 MW/s on Dyson reflects Apple Silicon's high-throughput 64×64→128-bit
-multiply pipeline; the `wyhash` mixer reduces to two multiply-accumulate
-operations per word, which the M4 handles in one or two cycles.
-
 #### `SFC64 (seeds=1,2,3)`
 
 SFC64 (Small Fast Counting, Chris Doty-Humphrey, PractRand) is a counter-assisted
@@ -350,7 +335,7 @@ with the counter incremented by one each step to guarantee a period of at least
 $2^{64}$.  Eighteen warm-up steps are applied after seeding per Doty-Humphrey's
 recommendation.  The chaotic recurrence passes BigCrush and PractRand, and its
 1268 MW/s throughput on Dyson makes it one of the fastest generators in the
-suite after WyRand and the trivial ceiling fixtures.
+suite after the trivial ceiling fixtures.
 
 #### `JSF64 (seed=0xdeadbeef)`
 

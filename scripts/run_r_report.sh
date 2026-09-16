@@ -89,7 +89,6 @@ RNGS=(
   "PCG64|pcg64"
   "Xoshiro256|xoshiro256"
   "Xoroshiro128|xoroshiro128"
-  "WyRand|wyrand"
   "SFC64|sfc64"
   "JSF64|jsf64"
   # Block-CTR cipher CSPRNGs

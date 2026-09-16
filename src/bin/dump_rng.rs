@@ -27,7 +27,7 @@ use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
     CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom,
     Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
-    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, WyRand, Xoroshiro128, Xorshift32,
+    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32,
     Xorshift64, Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
@@ -68,7 +68,6 @@ pub const NAMES: &[&str] = &[
     "pcg64",
     "xoshiro256",
     "xoroshiro128",
-    "wyrand",
     "sfc64",
     "jsf64",
     "chacha20",
@@ -130,7 +129,6 @@ fn dispatch(name: &str, n: u64) -> Result<io::Result<()>, ()> {
         "pcg64" => dump(Pcg64::new(1, 1), n),
         "xoshiro256" => dump(Xoshiro256::new(1, 2, 3, 4), n),
         "xoroshiro128" => dump(Xoroshiro128::new(1, 2), n),
-        "wyrand" => dump(WyRand::new(42), n),
         "sfc64" => dump(Sfc64::new(1, 2, 3), n),
         "jsf64" => dump(Jsf64::new(JSF64_PROBE_SEED), n),
         "chacha20" => dump(ChaCha20Rng::from_os_rng(), n),

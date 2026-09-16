@@ -1,8 +1,8 @@
 //! Projections of a generator's output onto the 32-bit words the tests read.
 //!
 //! The 64-bit generators ([`super::Pcg64`], [`super::Xoshiro256`],
-//! [`super::Xoroshiro128`], [`super::Sfc64`], [`super::Jsf64`],
-//! [`super::WyRand`] and [`super::Xorshift64`]) return the high half of each
+//! [`super::Xoroshiro128`], [`super::Sfc64`], [`super::Jsf64`] and
+//! [`super::Xorshift64`]) return the high half of each
 //! 64-bit output from `next_u32` and discard the low half, so the batteries
 //! see only that projection.  A defect confined to the low bits is invisible
 //! to them.  These adapters choose the view explicitly:
