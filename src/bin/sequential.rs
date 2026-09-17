@@ -8,6 +8,8 @@ use entropy::rng::Rng;
 mod cli;
 #[path = "common/family.rs"]
 mod family;
+#[path = "common/outcome.rs"]
+mod outcome;
 
 struct Args {
     words: usize,
@@ -55,18 +57,21 @@ fn print_usage() {
     );
 }
 
-struct Runner<'a>(&'a Args);
+struct Runner<'a>(&'a Args, outcome::Outcome);
 
 impl family::Visit for Runner<'_> {
     fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
         let result = markov_mixture(&mut make(), self.0.words, self.0.max_order);
         println!("{label}\n  {result}\n");
+        self.1.record(label, &result);
     }
 }
 
 fn main() {
     let args = cli::parse_or_exit(Args::parse_from, print_usage);
-    if family::visit_matching(&args.rng, &mut Runner(&args)) == 0 {
+    let mut runner = Runner(&args, outcome::Outcome::default());
+    if family::visit_matching(&args.rng, &mut runner) == 0 {
         cli::die_no_rng_matched();
     }
+    runner.1.exit_if_incomplete();
 }

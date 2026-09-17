@@ -32,8 +32,9 @@
 //! Exit codes: 0 = ran to completion; 1 = usage error (including a
 //! `--rng`/`--suite`/`--test` selection that runs no RNG), or FAILs under
 //! `--fail-on-fail`; 2 = an RNG task panicked (results incomplete); 3 = a
-//! test computed a p-value that is not a probability, or was given parameters
-//! outside its domain (results incomplete).
+//! test computed a p-value that is not a probability, was given parameters
+//! outside its domain, or was selected and produced no result (results
+//! incomplete).
 //! ```
 //!
 //! Examples:
@@ -97,6 +98,9 @@ const _: () = assert!(DIEHARD_HISTORICAL_N >= diehard::historical::WORDS_NEEDED)
 /// 500 000 words, DIEHARD about 21.8 million (its live-drawing tests vary),
 /// DIEHARDER 20.7 million and the historical suite 16 million.
 const NIST_START: u64 = 0;
+/// Name suffix of the result that reports a suite's input, e.g.
+/// `nist::input_segment`.
+const SEGMENT_SUFFIX: &str = "::input_segment";
 const DIEHARD_START: u64 = 1 << 20;
 const DIEHARDER_START: u64 = DIEHARD_START + (1 << 25);
 const HISTORICAL_START: u64 = DIEHARDER_START + (1 << 25);
@@ -410,6 +414,26 @@ impl Args {
             .is_none_or(|pat| name.contains(pat.as_str()))
     }
 
+    /// Whether to print `t`: a result `--test` selects, and whatever says a
+    /// selected result is missing or wrong, which no filter hides: a suite's
+    /// input status, an ERROR and an UNSUPPORTED.
+    fn shows(&self, t: &TestResult) -> bool {
+        self.matches(t.name)
+            || t.name.ends_with(SEGMENT_SUFFIX)
+            || t.errored()
+            || t.is_unsupported()
+    }
+
+    /// The `--test` pattern when no computed result of `results` matches it:
+    /// the selected test did not run, and the input status says why.
+    fn missing<'a>(&self, results: impl IntoIterator<Item = &'a TestResult>) -> Option<&str> {
+        let pat = self.test_filter.as_deref()?;
+        let found = results
+            .into_iter()
+            .any(|t| !t.name.ends_with(SEGMENT_SUFFIX) && self.matches(t.name));
+        (!found).then_some(pat)
+    }
+
     /// Case-insensitive substring match of `label` against any `--rng` filter.
     fn matches_rng(&self, label: &str) -> bool {
         let label = label.to_lowercase();
@@ -475,7 +499,8 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
  --fail-on-fail); 1 = usage error (including a selection that runs no RNG),
  or FAILs with --fail-on-fail; 2 = an RNG task panicked and its results are
  missing; 3 = a test reported ERROR, a p-value that is not a probability,
- or UNSUPPORTED, parameters outside its domain.
+ or UNSUPPORTED, parameters outside its domain, or a test selected with
+ --test produced no result (MISSING).
 
  Examples:
   run_tests                              # full battery, all RNGs
@@ -1027,8 +1052,8 @@ fn main() {
     }
     if total_error > 0 {
         eprintln!(
-            "error: {total_error} test(s) computed a p-value that is not a probability \
-             or were given unsupported parameters"
+            "error: {total_error} result(s) incomplete: a p-value that is not a probability, \
+             unsupported parameters, or a selected test that produced no result"
         );
         std::process::exit(3);
     }
@@ -1069,7 +1094,7 @@ fn print_json_results(r: &RngResults, args: &Args) -> (usize, usize) {
             &r.diehard_historical,
         ),
     ] {
-        for t in results.iter().filter(|t| args.matches(t.name)) {
+        for t in results.iter().filter(|t| args.shows(t)) {
             fail += usize::from(t.failed());
             error += usize::from(t.errored() || t.is_unsupported());
             let context = [
@@ -1079,6 +1104,21 @@ fn print_json_results(r: &RngResults, args: &Args) -> (usize, usize) {
             ];
             println!("{}", t.to_json(&context));
         }
+    }
+    let all = r
+        .nist
+        .iter()
+        .chain(&r.diehard)
+        .chain(&r.dieharder)
+        .chain(&r.diehard_historical);
+    if let Some(pat) = args.missing(all) {
+        error += 1;
+        println!(
+            "{{\"generator\":{},\"name\":{},\"status\":\"missing\",\"p_value\":null,\
+             \"note\":\"the selected test produced no result; see its suite's input_segment\"}}",
+            json_string(r.name),
+            json_string(pat)
+        );
     }
     (fail, error)
 }
@@ -1091,9 +1131,16 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
         .chain(&r.diehard)
         .chain(&r.dieharder)
         .chain(&r.diehard_historical)
-        .filter(|t| args.matches(t.name))
+        .filter(|t| args.shows(t))
         .collect();
-    if matching.is_empty() {
+    let missing = args.missing(
+        r.nist
+            .iter()
+            .chain(&r.diehard)
+            .chain(&r.dieharder)
+            .chain(&r.diehard_historical),
+    );
+    if matching.is_empty() && missing.is_none() {
         return (0, 0);
     }
 
@@ -1102,7 +1149,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
     println!("{banner}");
 
     if !r.nist.is_empty() {
-        let shown: Vec<&TestResult> = r.nist.iter().filter(|t| args.matches(t.name)).collect();
+        let shown: Vec<&TestResult> = r.nist.iter().filter(|t| args.shows(t)).collect();
         if !shown.is_empty() {
             println!(
                 "\n  ── NIST SP 800-22 ({} bits) ──",
@@ -1114,7 +1161,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
         }
     }
     if !r.diehard.is_empty() {
-        let shown: Vec<&TestResult> = r.diehard.iter().filter(|t| args.matches(t.name)).collect();
+        let shown: Vec<&TestResult> = r.diehard.iter().filter(|t| args.shows(t)).collect();
         if !shown.is_empty() {
             println!(
                 "\n  ── DIEHARD unique tests ({} words) ──",
@@ -1126,11 +1173,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
         }
     }
     if !r.dieharder.is_empty() {
-        let shown: Vec<&TestResult> = r
-            .dieharder
-            .iter()
-            .filter(|t| args.matches(t.name))
-            .collect();
+        let shown: Vec<&TestResult> = r.dieharder.iter().filter(|t| args.shows(t)).collect();
         if !shown.is_empty() {
             println!(
                 "\n  ── DIEHARDER unique tests ({} words) ──",
@@ -1146,7 +1189,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
         let shown: Vec<&TestResult> = r
             .diehard_historical
             .iter()
-            .filter(|t| args.matches(t.name))
+            .filter(|t| args.shows(t))
             .collect();
         if !shown.is_empty() {
             println!(
@@ -1172,14 +1215,20 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
     let skip = matching.iter().filter(|t| t.skipped()).count();
     let error = matching.iter().filter(|t| t.errored()).count();
     let unsupported = matching.iter().filter(|t| t.is_unsupported()).count();
-    if unsupported > 0 {
+    if let Some(pat) = missing {
         println!(
-            "\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP, {error} ERROR, \
-             {unsupported} UNSUPPORTED"
+            "\n  [MISSING] {pat:<45}  (the selected test produced no result; \
+             its suite's input_segment says why)"
         );
-    } else {
-        println!("\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP, {error} ERROR");
     }
+    let mut summary = format!("{pass} PASS, {fail} FAIL, {skip} SKIP, {error} ERROR");
+    if unsupported > 0 {
+        summary += &format!(", {unsupported} UNSUPPORTED");
+    }
+    if missing.is_some() {
+        summary += ", 1 MISSING";
+    }
+    println!("\n  Summary: {summary}");
     let n_run = pass + fail;
     if n_run > 0 {
         // Many slots share a name: the 148 non-overlapping templates and the
@@ -1204,7 +1253,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
             n_run as f64 * 0.01
         );
     }
-    (fail, error + unsupported)
+    (fail, error + unsupported + usize::from(missing.is_some()))
 }
 
 #[cfg(test)]
@@ -1499,6 +1548,23 @@ mod tests {
         assert!(rng
             .suite(false, "diehard::input_segment", 4, 8, |_| unreachable!())
             .is_empty());
+    }
+
+    /// A suite's input status, an ERROR and an UNSUPPORTED are shown whatever
+    /// `--test` selects, and a selection with no computed result is MISSING.
+    #[test]
+    fn integrity_results_survive_the_test_filter() {
+        let a = run_args(&["--test", "nist::frequency"]);
+        let segment = TestResult::insufficient("nist::input_segment", "short");
+        let error = TestResult::new("dieharder::gcd_distribution", f64::NAN);
+        let unsupported = TestResult::unsupported("nist::linear_complexity", "M");
+        let other = TestResult::new("nist::runs", 0.5);
+        let selected = TestResult::new("nist::frequency", 0.5);
+        assert!(a.shows(&segment) && a.shows(&error) && a.shows(&unsupported));
+        assert!(!a.shows(&other) && a.shows(&selected));
+        assert_eq!(a.missing([&segment, &other]), Some("nist::frequency"));
+        assert_eq!(a.missing([&segment, &selected]), None);
+        assert_eq!(run_args(&[]).missing([&segment]), None);
     }
 
     /// `--corpus` schedules only the file, labeled with its length, and

@@ -19,6 +19,8 @@ use entropy::rng::Rng;
 mod cli;
 #[path = "common/family.rs"]
 mod family;
+#[path = "common/outcome.rs"]
+mod outcome;
 
 use family::Visit;
 
@@ -87,13 +89,19 @@ impl Visit for Skip {
 }
 
 /// Runs the Gorilla test on a generator and prints its row.
-struct Row;
+struct Row(outcome::Outcome);
 
 impl Visit for Row {
     fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
         let results = with_rng(make());
+        for result in &results {
+            let name = format!("gorilla bit {}", result.bit_position);
+            self.0.record_p(label, &name, result.p_value);
+        }
         let (min_p, max_p, worst_bit, worst_abs_z) = summarize(&results);
         let aggregate = gorilla_aggregate_ad(&results);
+        self.0
+            .record_p(label, "gorilla aggregate", aggregate.p_value);
         println!(
             "{:<40} {:>9.6} {:>9.6} {:>9} {:>10.3} {:>10.4} {:>10.6}",
             label, min_p, max_p, worst_bit, worst_abs_z, aggregate.statistic, aggregate.p_value
@@ -116,5 +124,7 @@ fn main() {
     );
     println!("{}", "-".repeat(106));
 
-    family::visit_matching(&args.rng, &mut Row);
+    let mut row = Row(outcome::Outcome::default());
+    family::visit_matching(&args.rng, &mut row);
+    row.0.exit_if_incomplete();
 }

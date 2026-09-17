@@ -102,6 +102,8 @@ def parse_log(text: str) -> list[dict]:
             elif "  [ERROR]" in raw:
                 # A p-value that is not a probability: listed with the failures.
                 fail_lines.append(stripped.removeprefix("[ERROR]").strip())
+            elif "  [MISSING]" in raw:
+                fail_lines.append(stripped.removeprefix("[MISSING]").strip())
             elif "  [UNSUPPORTED]" in raw:
                 # Parameters outside a test's domain: listed with the failures.
                 fail_lines.append(stripped.removeprefix("[UNSUPPORTED]").strip())
@@ -114,7 +116,7 @@ def parse_log(text: str) -> list[dict]:
             m = re.search(r"(\d+) PASS.*?(\d+) FAIL.*?(\d+) SKIP", summary)
             if m:
                 n_pass, n_fail, n_skip = int(m.group(1)), int(m.group(2)), int(m.group(3))
-            for kind in ("ERROR", "UNSUPPORTED"):
+            for kind in ("ERROR", "UNSUPPORTED", "MISSING"):
                 e = re.search(rf"(\d+) {kind}", summary)
                 if e:
                     n_fail += int(e.group(1))

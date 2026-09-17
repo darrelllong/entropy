@@ -20,6 +20,8 @@ use entropy::rng::Rng;
 mod cli;
 #[path = "common/family.rs"]
 mod family;
+#[path = "common/outcome.rs"]
+mod outcome;
 
 struct Args {
     replications: usize,
@@ -92,7 +94,7 @@ fn print_usage() {
     );
 }
 
-fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
+fn run_case(label: &str, mut rng: impl Rng, args: &Args, outcome: &mut outcome::Outcome) {
     let (reps, summary) = lempel_ziv_summary(
         &mut rng,
         args.replications,
@@ -102,8 +104,13 @@ fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
         args.pit_seed,
     );
     println!("{label}");
-    println!("  {}", lempel_ziv_sum_result(&summary));
-    println!("  {}", lempel_ziv_ks_result(&summary));
+    for result in [
+        lempel_ziv_sum_result(&summary),
+        lempel_ziv_ks_result(&summary),
+    ] {
+        println!("  {result}");
+        outcome.record(label, &result);
+    }
     for (i, rep) in reps.iter().enumerate() {
         println!(
             "  [INFO] testu01::lzw_rep{:02}                    W={} U={:.6} z={:.4}",
@@ -117,17 +124,19 @@ fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
 }
 
 /// Runs the Lempel-Ziv replications on each selected generator.
-struct Runner<'a>(&'a Args);
+struct Runner<'a>(&'a Args, outcome::Outcome);
 
 impl family::Visit for Runner<'_> {
     fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
-        run_case(label, make(), self.0);
+        run_case(label, make(), self.0, &mut self.1);
     }
 }
 
 fn main() {
     let args = cli::parse_or_exit(Args::parse_from, print_usage);
-    if family::visit_matching(&args.rng, &mut Runner(&args)) == 0 {
+    let mut runner = Runner(&args, outcome::Outcome::default());
+    if family::visit_matching(&args.rng, &mut runner) == 0 {
         cli::die_no_rng_matched();
     }
+    runner.1.exit_if_incomplete();
 }

@@ -31,6 +31,8 @@ use entropy::rng::Rng;
 mod cli;
 #[path = "common/family.rs"]
 mod family;
+#[path = "common/outcome.rs"]
+mod outcome;
 
 struct Args {
     rng: cli::RngFilter,
@@ -156,24 +158,32 @@ fn print_usage() {
     );
 }
 
-fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
+fn run_case(label: &str, mut rng: impl Rng, args: &Args, outcome: &mut outcome::Outcome) {
     println!("{label}");
+    let mut show = |result: entropy::result::TestResult| {
+        println!("  {result}");
+        outcome.record(label, &result);
+    };
 
     let hc = hamming_corr(&mut rng, args.hc_n, args.hc_r, args.hc_s, args.hc_l);
-    println!("  {}", hamming_corr_result(&hc));
+    show(hamming_corr_result(&hc));
 
     let hi = hamming_indep(
         &mut rng, args.hi_n, args.hi_r, args.hi_s, args.hi_l, args.hi_d,
     );
-    println!("  {}", hamming_indep_main_result(&hi));
+    show(hamming_indep_main_result(&hi));
     for k in 1..=args.hi_d {
-        println!("  {}", hamming_indep_block_result(&hi, k));
+        show(hamming_indep_block_result(&hi, k));
     }
 
     let fpf = fpf_test(&mut rng, args.fpf_bits, &FpfConfig::default());
-    println!("  {}", fpf_cross_result(&fpf));
+    show(fpf_cross_result(&fpf));
     for platter in fpf.platter_results.iter().take(8) {
-        println!("  {}", fpf_platter_result(platter, &fpf));
+        show(fpf_platter_result(platter, &fpf));
+    }
+    // The platters not printed still count toward completion.
+    for platter in fpf.platter_results.iter().skip(8) {
+        outcome.record(label, &fpf_platter_result(platter, &fpf));
     }
     if fpf.platter_results.len() > 8 {
         println!(
@@ -185,17 +195,19 @@ fn run_case(label: &str, mut rng: impl Rng, args: &Args) {
 }
 
 /// Runs the probes on each selected generator.
-struct Runner<'a>(&'a Args);
+struct Runner<'a>(&'a Args, outcome::Outcome);
 
 impl family::Visit for Runner<'_> {
     fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
-        run_case(label, make(), self.0);
+        run_case(label, make(), self.0, &mut self.1);
     }
 }
 
 fn main() {
     let args = cli::parse_or_exit(Args::parse_from, print_usage);
-    if family::visit_matching(&args.rng, &mut Runner(&args)) == 0 {
+    let mut runner = Runner(&args, outcome::Outcome::default());
+    if family::visit_matching(&args.rng, &mut runner) == 0 {
         cli::die_no_rng_matched();
     }
+    runner.1.exit_if_incomplete();
 }

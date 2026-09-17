@@ -13,6 +13,8 @@ use entropy::rng::Rng;
 mod cli;
 #[path = "common/family.rs"]
 mod family;
+#[path = "common/outcome.rs"]
+mod outcome;
 
 struct Args {
     float_samples: usize,
@@ -64,16 +66,17 @@ fn collect_case(
     (floats, bits)
 }
 
-fn print_case(label: &str, floats: &[f64], bits: &[u8]) {
+fn print_case(label: &str, floats: &[f64], bits: &[u8], outcome: &mut outcome::Outcome) {
     let permutation = permutation_test(floats, 5);
     let gap = gap_test(floats, 0.25, 0.5, 15);
     let runs = runs_above_below_median_test(floats);
     let apen = approx_entropy_profile(bits, &[2, 3, 4, 5, 6]);
 
     println!("{label}");
-    println!("  {permutation}");
-    println!("  {gap}");
-    println!("  {runs}");
+    for result in [&permutation, &gap, &runs] {
+        println!("  {result}");
+        outcome.record(label, result);
+    }
     for point in apen {
         println!(
             "  [INFO] approx_entropy_m{:02}   ApEn={:.6} (phi_m={:.6}, phi_m1={:.6})",
@@ -84,18 +87,20 @@ fn print_case(label: &str, floats: &[f64], bits: &[u8]) {
 }
 
 /// Collects each selected generator's samples and prints its probes.
-struct Runner<'a>(&'a Args);
+struct Runner<'a>(&'a Args, outcome::Outcome);
 
 impl family::Visit for Runner<'_> {
     fn case<R: Rng>(&mut self, label: &'static str, make: impl FnOnce() -> R) {
         let (floats, bits) = collect_case(make(), self.0.float_samples, self.0.bit_samples);
-        print_case(label, &floats, &bits);
+        print_case(label, &floats, &bits, &mut self.1);
     }
 }
 
 fn main() {
     let args = cli::parse_or_exit(Args::parse_from, print_usage);
-    if family::visit_matching(&args.rng, &mut Runner(&args)) == 0 {
+    let mut runner = Runner(&args, outcome::Outcome::default());
+    if family::visit_matching(&args.rng, &mut runner) == 0 {
         cli::die_no_rng_matched();
     }
+    runner.1.exit_if_incomplete();
 }

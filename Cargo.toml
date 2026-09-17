@@ -89,6 +89,11 @@ name = "registry"
 path = "tests/registry.rs"
 required-features = ["cryptography"]
 
+[[test]]
+name = "completion"
+path = "tests/completion.rs"
+required-features = ["cryptography"]
+
 [lib]
 name = "entropy"
 path = "src/lib.rs"
