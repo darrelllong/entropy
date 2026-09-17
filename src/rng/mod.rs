@@ -35,6 +35,8 @@ pub mod spongebob;
 pub mod squidward;
 #[cfg(feature = "cryptography")]
 pub mod stream_rng;
+#[cfg(feature = "cryptography")]
+pub mod thread_rng;
 pub mod views;
 pub mod xorshift;
 pub mod xoshiro;
@@ -71,6 +73,8 @@ pub use spongebob::SpongeBob;
 pub use squidward::Squidward;
 #[cfg(feature = "cryptography")]
 pub use stream_rng::StreamRng;
+#[cfg(feature = "cryptography")]
+pub use thread_rng::{thread_rng, try_thread_rng, FastKeyErasureRng, ThreadRng};
 pub use views::{BitReversed, FullWord, HighHalf, LowHalf};
 pub use xorshift::{Xorshift32, Xorshift64};
 pub use xoshiro::{Xoroshiro128, Xoshiro256};

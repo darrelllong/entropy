@@ -59,10 +59,10 @@ use cryptography::{
 use entropy::rng::alternatives::{Biased, LaggedMsb, RepeatedBlocks, ShortPeriod, StuckLowBits};
 use entropy::rng::{
     AesCtr, BitReversed, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, Corpus,
-    CounterRng, CryptoCtrDrbg, DualEcDrbg, FullWord, HashDrbg, HighHalf, HmacDrbg, Jsf64, Lcg32,
-    LcgVariant, LinuxLibcRandom, LowHalf, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64,
-    SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
-    WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
+    CounterRng, CryptoCtrDrbg, DualEcDrbg, FastKeyErasureRng, FullWord, HashDrbg, HighHalf,
+    HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom, LowHalf, Mt19937, OsRng, Pcg32, Pcg64,
+    Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom,
+    WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
 use entropy::{
@@ -689,6 +689,10 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     run!("SFC64 (OsRng seed)", Sfc64::from_os_rng());
     run!("JSF64 (OsRng seed)", Jsf64::from_os_rng());
     run!("ChaCha20 CSPRNG (OsRng key)", ChaCha20Rng::from_os_rng());
+    run!(
+        "FastKeyErasureRng ChaCha20 (key=00..1f)",
+        FastKeyErasureRng::new(K32)
+    );
     run!("HMAC_DRBG SHA-256 (OsRng seed)", HmacDrbg::from_os_rng());
     run!("Hash_DRBG SHA-256 (OsRng seed)", HashDrbg::from_os_rng());
     run!(

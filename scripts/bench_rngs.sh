@@ -189,6 +189,7 @@ measure xoroshiro128  "Xoroshiro128 (seeds=1,2)"                      50000000
 measure sfc64         "SFC64 (seeds=1,2,3)"                           50000000
 measure jsf64         "JSF64 (seed=0xdeadbeef)"                       50000000
 measure chacha20      "ChaCha20 CSPRNG (OsRng key)"                   50000000
+measure fast_key_erasure "FastKeyErasureRng ChaCha20 (key=00..1f)"      50000000
 measure hmac_drbg     "HMAC_DRBG SHA-256 (OsRng seed)"                 1000000
 measure hash_drbg     "Hash_DRBG SHA-256 (OsRng seed)"                 5000000
 measure crypto_ctr_drbg "cryptography::CtrDrbgAes256 (seed=00..2f)"    1000000

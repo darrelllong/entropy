@@ -25,10 +25,10 @@ use cryptography::{
 };
 use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
-    CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom,
-    Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
-    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64,
-    Xoshiro256,
+    CryptoCtrDrbg, DualEcDrbg, FastKeyErasureRng, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant,
+    LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward,
+    StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128,
+    Xorshift32, Xorshift64, Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
 
@@ -71,6 +71,7 @@ pub const NAMES: &[&str] = &[
     "sfc64",
     "jsf64",
     "chacha20",
+    "fast_key_erasure",
     "hmac_drbg",
     "hash_drbg",
     "crypto_ctr_drbg",
@@ -132,6 +133,7 @@ fn dispatch(name: &str, n: u64) -> Result<io::Result<()>, ()> {
         "sfc64" => dump(Sfc64::new(1, 2, 3), n),
         "jsf64" => dump(Jsf64::new(JSF64_PROBE_SEED), n),
         "chacha20" => dump(ChaCha20Rng::from_os_rng(), n),
+        "fast_key_erasure" => dump(FastKeyErasureRng::new(K32), n),
         "hmac_drbg" => dump(HmacDrbg::from_os_rng(), n),
         "hash_drbg" => dump(HashDrbg::from_os_rng(), n),
         "crypto_ctr_drbg" => dump(CryptoCtrDrbg::with_test_seed(), n),

@@ -116,6 +116,7 @@ RNGS=(
   "ZUC-128|zuc128"
   # Hash- and HMAC-based DRBGs
   "ChaCha20|chacha20"
+  "FastKeyErasureRng|fast_key_erasure"
   "SpongeBob (SHA3-512)|spongebob"
   "Squidward (SHA-256)|squidward"
   "HmacDrbg|hmac_drbg"
