@@ -1,178 +1,120 @@
-# Entropy suggestions — 2026-09-17
+# Entropy suggestions — what to build next
 
-> **Motto:** better that, better algorithms
+> **Motto:** better data, better algorithms
 >
 > **Creed:** Experiment is asking God for peer review.
 
-Current evidence and limitations are in [AUDIT.md](AUDIT.md). Each proposal below
-has an acceptance experiment. Predicted improvements are not measured speedups.
-
-## How to compete with rand
-
-Keep entropy's strengths: explicit reproducible stream views, exact discrete
-sampling and experiments tied to mathematical null laws. Close the measured bulk
-and matched-ChaCha gaps first. More generator names will not fix the byte interface,
-portable seeding, feature footprint or numerical-tail failures.
+Each proposal says what would be built and the experiment that would accept
+it. Predicted improvements are not measurements. What is already wrong or
+unmeasured is in [AUDIT.md](AUDIT.md).
 
 | Order | Work | Acceptance experiment |
 |---|---|---|
-| 1 | Correct large-shape gamma and the normal half-subnormal endpoint | Independent central/tail references and adversarial word streams |
-| 2 | Native bulk output with an explicit stream contract | Word/byte/tail/mixed-access vectors; paired scalar and bulk benchmarks |
-| 3 | Batched ChaCha in cryptography | Same round count/output layout; complete RNG and erasure costs |
-| 4 | Fallible portable OS/TLS access and compatible secure adapters | Backend/failure/reseed/fork tests; no weak-generator substitution |
-| 5 | Separate RNG, statistics and batteries by feature | Minimal consumers avoid FFT and cryptographic multiprecision when unused |
-| 6 | Calibrate complete decisions and measure power | Independent null and alternative campaigns at the actual thresholds |
+| 1 | Finish the calibration campaigns and publish the rates at 0.001 | Per-slot, per-family and whole-battery null rates from held-out streams, with intervals |
+| 2 | Separate RNG, statistics and batteries by feature | A consumer compiles `Sample` and `math` with no FFT and no cryptography, and its tests pass |
+| 3 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
+| 4 | A ziggurat normal with tables derived here | Exact acceptance regions, tail correctness to the smallest subnormal, and a paired cost comparison against inversion |
+| 5 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
+| 6 | Reproducible parallel streams | Scheduling invariance, counter exhaustion, stream identity, and statistical quality of the partition |
 
-## A bulk interface that preserves meaning
+## Calibration and power
 
-`Rng::next_u32` currently defines a battery projection for native 64-bit PRNGs.
-Keep it. Add an overridable byte primitive or a separately named native-byte
-interface, and let concrete generators exploit their natural word/block size.
-Do not keep the only fill implementation in a blanket extension trait that
-prevents specialization.
+Retain raw statistics, seeds, sample sizes, views, table digests and exact
+family membership; fit and validate on different streams. `battery_null`
+accumulates per-slot status counts, rejection counts at 0.05, 0.01 and 0.001,
+a twenty-bin p-value histogram, and each family's and the whole battery's
+Bonferroni decision; it snapshots as it runs, so a campaign can be read early.
+Multiplicity correction cannot repair a miscalibrated marginal, so a slot whose
+histogram is not flat is a finding about that test, not about the correction.
 
-Specify partial-word retention, endianness, mixing 32/64-bit reads, stream seeking
-and block boundaries. Decide whether a native-byte stream remains continuous
-across any partition of a requested fill; test that property if promised. Keep
-the named high-half/low-half/full-word views for statistical experiments. If an
-API changes output order, give it an explicit version or name and retain the
-prior stream's known answers.
+For count-ones, derive or empirically validate the finite-window tail. For LZ
+and minimum distance, cover the supported parameter cells and the thresholds
+actually used, and record each empirical table's training size, discrete-tail
+convention and out-of-domain behaviour.
 
-Give ThreadRng a bulk operation that performs its TLS/reseed check at a defined
-boundary, accounts for the whole request and cannot cross a required reseed limit
-unnoticed. Measure cached-handle and fresh-handle calls separately. Price 4/8-byte,
-480/512-byte and long fills, cold setup, OS reads and reseeding. The audit's
-~2× noncryptographic fill gain is a diagnostic result; it is not a measurement of
-this future TLS API.
+## Features and platforms
 
-For ChaCha, coordinate with cryptography's block/vector work. Rand's current
-StdRng uses ChaCha12; choosing fewer rounds is a separate construction decision.
-Use the retained 20-round comparison to evaluate implementation progress without
-changing that variable. Test x86 and ARM before changing portable dispatch.
+Split the crate so that a consumer can take the application RNG and the
+probability functions without the batteries: `math` is always on, the
+generators and `Sample` next, the suites and their FFT behind features, and
+cryptography optional as now. Factoring is the first consumer that wants the
+minimal build; its compile is the test.
 
-## Make application contracts complete
+For Windows, either implement a documented platform API — which needs FFI, and
+the crate has none — or depend on a maintained backend abstraction, or state
+that the target is unsupported. That is a dependency-policy decision, distinct
+from the rule against deriving code from other implementations. Test supported
+targets, short and interrupted reads, permanent and transient failures, real
+fork behaviour and high-volume reseeding.
 
-The new `Seedable`, `CryptoRng`, fallible `OsRng` and `thread_rng` APIs are already
-present. Build on them. Document which output sequences are value-stable and
-which system-seeded handles are deliberately nondeterministic. A u64 seed
-expanded by SplitMix has at most 64 bits of uncertainty; application cryptographic
-examples should use OS seeding or adequately entropic secret seeds.
+## Application interface
 
-Add named adapters for cryptography's `Csprng` and, if desired, the public rand
-traits. Keep any ecosystem adapter behind an optional dependency. Conformance
-comes from published API contracts and black-box tests, not copying another
-crate's implementation. Define whether an error leaves the destination unchanged,
-partially filled or unusable, and keep that rule through reseeding.
+`Seedable`, `CryptoRng`, fallible `OsRng`, `thread_rng` with its bulk fallible
+fill, and `Rng::fill_native` are in place; keep documenting which sequences are
+value-stable and which system-seeded handles are deliberately not.
 
-Implement OS backends from their documented APIs, or deliberately depend on a
-maintained backend abstraction if the dependency policy permits it. That is a
-library-use decision, separate from the policy against deriving code from other
-implementations. Test supported targets, short/interrupted reads, permanent and
-transient failures, actual fork behavior and high-volume reseeding. Do not cache a
-recoverable initialization failure forever without an explicit reason.
+Benchmark bounded integers, shuffles and the variates separately from raw
+generation, as `fill_throughput` does for bytes. Lemire's method is already
+exact; preserve its accepted-preimage invariant. A ziggurat is a candidate for
+`normal()` only with independently derived acceptance regions and a verified
+tail; the current inversion reaches |z| ≈ 38.49 and is the reference the
+replacement must match.
 
-Benchmark bounded integers, shuffles and normal/exponential draws separately from
-raw generation. Lemire's multiply/reject method is already implemented; preserve
-its exact accepted-preimage invariant. The new normal inverse solves iteratively,
-so it needs its own cost comparison. Faster rejection/table methods are candidates
-only with independently derived acceptance regions and verified tail behavior.
-[Lemire's paper](https://arxiv.org/abs/1805.10941) is the mathematical reference
-for bounded integers.
+Adapters for cryptography's `Csprng` and, if wanted, the public rand traits
+belong behind an optional dependency, with conformance from published API
+contracts and black-box tests, never from another crate's implementation.
+Define whether an error leaves the destination unchanged, partially filled or
+unusable, and keep that rule through reseeding.
 
 For reproducible parallel simulations, evaluate counter-based indexing or a
-proved jump/stream partition. Seeds assigned by worker scheduling do not define
-a reproducible task stream. Derive a design from
-[Salmon et al., *Parallel Random Numbers*](https://users.cs.utah.edu/~hari/teaching/bigdata/random123sc11.pdf),
-then test scheduling invariance, counter exhaustion, stream identifiers and
-statistical power. No need to add it before resolving the measured bulk path.
+proved jump partition, deriving the design from
+[Salmon et al., *Parallel Random Numbers*](https://users.cs.utah.edu/~hari/teaching/bigdata/random123sc11.pdf).
+It need not precede the feature split.
 
-## Numerical acceptance
+## Numerical work
 
-For gamma, implement the large-shape central regime from
-[DLMF §8.12](https://dlmf.nist.gov/8.12) with stable evaluation near `x/a=1`.
-Choose switches by an error target, test both sides, and retain direct small-tail
-or log-tail evaluation. Include central and asymmetric shapes, subnormals,
-near-zero and near-one probabilities, finite extremes and iteration failure.
-A value in [0,1] is not an accuracy certificate.
+`igamc` now has a stable large-shape prefactor and Temme's uniform expansion,
+and `normal_quantile_ln` works from a log probability; the incomplete beta,
+Student's t and ln Γ have moved here from rump with their references and
+scripts. What remains is to keep the contracts coherent as they are used
+together: state each function's domain, representation and invariant, retain
+published known answers and independent identities, and test boundary strata
+and algorithm switches as well as ordinary inputs.
 
-For the normal sampler, carry the lower-tail argument as `ln(u)-ln(2)` when
-halving would underflow; this also requires a quantile evaluator that works from
-a log probability rather than first rounding its CDF to zero. Test all tiny
-subnormal endpoints with crafted word streams and high-precision quantiles.
-State whether sampling approximates a continuous law or promises a particular
-rounded law. A finite 53-bit uniform grid and dense floating sampling have
-different distributions and tail ranges.
+Factoring's Student consumer must keep its contenders when numerical
+evaluation fails, and its tests should use its actual degrees of freedom and
+probabilities rather than symmetric beta fixtures.
 
-Move shared floating probability functions from rump into a statistics feature
-here, with coherent domain/error/accuracy contracts. Factoring's Student consumer
-must keep contenders when numerical evaluation fails. Test its actual degrees of
-freedom and probabilities, not only symmetric beta fixtures.
+## Cross-repository boundaries
 
-## Calibrate the decision that users receive
+The resolved graph is `cryptography → rump`, `entropy → cryptography` when the
+cryptographic generators are enabled, `entropy → rump` only for tests, and
+`factoring → rump + entropy` with the features it needs. Rump depends on
+neither consumer.
 
-Retain raw statistics, seeds, sample sizes, views, table/script digests and exact
-family membership. Use independent fitting and validation streams. At alpha
-0.001, about 384,000 independent null trials are needed for an ordinary 95%
-normal-approximation interval with a half-width of 10% of alpha; rarer corrected
-thresholds and simultaneous claims need more. Three thousand streams cannot
-resolve that tail precisely.
-
-For count-ones, derive or empirically validate the finite-window tail. For DCT,
-compare the transform output with an exactly multinomial control before assigning
-the discrepancy to position bias. For LZ and minimum distance, cover supported
-parameter cells and the thresholds actually used. An empirical table should
-carry its training size, discrete-tail convention and out-of-domain behavior.
-
-Run the whole configured battery repeatedly under its null, including selection,
-skips and completion rules. Then measure power over defect strength and sample
-size with intervals. Do not tune and report power on the same streams. For the
-sequential test, retain u64 counts and capacity checks, qualify transcendental
-rounding, and allocate error across multiple generators and restarts explicitly.
-
-## Cross-repository ownership
-
-Keep the four repositories, with a focused boundary refactor. The desired graph
-is `cryptography → rump`, `entropy → cryptography` when crypto generators are
-enabled, and `factoring → rump + entropy` with only the RNG/statistics features
-it needs. Rump must not depend on either consumer.
-
-| Owner | Keep here | Boundary change |
+| Owner | Keeps | State |
 |---|---|---|
-| rump | BigInt, modular arithmetic, primality, exact polynomial/finite-field/GF(2)/lattice support, caller-driven BigInt sampling | Move floating probability kernels out; retain reusable arithmetic without factoring policy or OS entropy |
-| cryptography | Ciphers, hashes, authenticated schemes, DRBG mechanisms, cryptographic state evolution and erasure | Own Hash_DRBG, HMAC_DRBG and fast-key-erasure cores; entropy supplies their adapters |
-| entropy | Noncryptographic PRNGs, OS seeding, sampling, stream views, thread-local access, probability functions and test batteries | Separate application RNG, statistics and batteries by features; make FFT/battery dependencies optional |
-| factoring | Rho/ECM/QS/GNFS orchestration, relation/cofactor policy, polynomial selection and size/cost dispatch | Reuse native modular arithmetic; keep schedule, graph forecasting and algorithm selection here |
+| rump | BigInt, modular arithmetic, primality, exact polynomial, finite-field, GF(2) and lattice support | Deletes its probability functions once factoring has switched |
+| cryptography | Ciphers, hashes, authenticated schemes, DRBG mechanisms, key erasure and state wiping | Owns Hash_DRBG, HMAC_DRBG and fast key erasure; entropy adapts them |
+| entropy | Noncryptographic generators, OS seeding, sampling, stream views, thread-local access, probability functions, batteries | Feature split outstanding |
+| factoring | Rho, ECM, QS and GNFS orchestration, relation and cofactor policy, polynomial selection, cost dispatch | Switching its Student's t and ln Γ to `entropy::math` |
 
-Generic exact algebra in rump is supporting mathematics, not a reason to move
-QS/GNFS policy there. `ln_gamma`, incomplete beta and Student quantiles are
-floating statistical functions; entropy already owns most probability kernels
-and factoring already depends on entropy. Move them in a coordinated API release
-with reference fixtures. A rump forwarding wrapper that calls entropy would
-create a dependency cycle and is unsuitable.
-
-Preserve the distinction between rump's quality-neutral `RandomSource`,
-cryptography's byte-oriented `Csprng`, and entropy's generator/`CryptoRng`
-interfaces. Add explicit adapters with documented security and byte-stream
-contracts; never blanket-implement a cryptographic contract for every test RNG.
-A marker describes a construction, not the entropy in a caller-supplied seed.
-
-Cryptography enables rump's additive `wipe` feature. Entropy default inherits it;
-entropy minimal and standalone factoring do not. Record the resolved graph in
-benchmarks: compiling factoring alongside a consumer that enables wipe can change
-its arithmetic costs. Separate processes/packages may be needed when measuring
-that configuration. Optional features should remove unwanted dependencies, not
-silently weaken a cryptographic build's erasure contract.
+Keep the distinction between rump's quality-neutral `RandomSource`,
+cryptography's byte-oriented `Csprng` and entropy's generator and `CryptoRng`
+interfaces. Adapters are explicit and documented; a cryptographic contract is
+never blanket-implemented for every test generator, because a marker describes
+a construction, not the entropy in a caller's seed.
 
 ## Standard for accepting changes
 
-Derive the formula and state its domain, representation and invariant. Retain
-published known answers, independent mathematical identities and reproducible
-coefficient/table generation. Test boundary strata and algorithm switches as
-well as ordinary inputs. Source comments should explain the invariant, assumption
-or non-obvious choice and cite the relevant paper section when useful.
+Derive the formula and state its domain, representation and invariant. Name
+every constant and say where it comes from: a specification section, an
+equation, a measurement, or a stated policy and its reason. Retain published
+known answers, independent identities and reproducible table generation. Test
+the boundary strata and the algorithm switches, not only ordinary inputs.
 
-Use paired measurements with fixed inputs, seeds, compiler, target, features and
-sibling revisions. Record wall time, total process-tree CPU, memory and work
-counters. Separate the cost of setup, steady-state work and teardown, then report
-the complete operation too. Statistical acceptance, semantic security, exact
-factorization and performance are separate claims with separate evidence.
+Measure with fixed inputs, seeds, compiler, target, features and sibling
+revisions; record wall time, process-tree CPU, memory and work counters;
+separate setup, steady state and teardown, then report the whole operation
+too. Statistical acceptance, semantic security, exact factorisation and
+performance are separate claims with separate evidence.

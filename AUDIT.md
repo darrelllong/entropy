@@ -1,253 +1,91 @@
-# Entropy audit — 2026-09-17
+# Entropy audit — open work
 
-> **Motto:** better that, better algorithms
->
-> **Creed:** Experiment is asking God for peer review.
+What is known to be wrong, unmeasured or unfinished, with the evidence that
+says so. A finding that has been fixed moves to [Closed this round](#closed-this-round)
+with the commit that closed it, so the list stays short.
 
-## Scope and evidence
+The third external review (2026-09-17) raised E1–E7 against entropy `63592e0`;
+its evidence, benchmark driver and logs are kept outside the repository, under
+`review/2026-09-17/`, and are not release qualification.
 
-This review covers the captured sibling combination below on Apple M4 Pro,
-`aarch64-apple-darwin`, rustc/Cargo 1.93.1, with separate Rust 1.87 checks.
+## Open
 
-| Repository | Captured HEAD |
-|---|---|
-| cryptography | `0242a217f1d79ab01bd43d4e5b79fc2a7be7a88f` |
-| entropy | `63592e02ab50a494499a87c3abe0ab406ab01bf5` |
-| rump | `ae7566b1b100239e1b511a9b05ff8229ea6613bd` |
-| factoring | `732801274f7a27640b3616995b7503855a870e99` |
+### A1 — Calibration at the thresholds decisions actually use
 
-The reviewed-file manifest for this repository has SHA-256
-`aa2d0d9dcb11da46f8e05c9d8bc355548def1519db29d4d91d954e2f03111340` (393 files).
-[The manifest](review/2026-09-17/reviewed-files.sha256) contains sorted
-`SHA256(file)  relative/path` lines; its own digest identifies the capture.
-It covers tracked and nonignored regular files, excluding these two review
-documents and the review artifacts added afterward. Entropy's final capture includes its new
-seeding, sampling, thread-local and `CryptoRng` APIs through `63592e0`.
+Most calibration is measured at 0.01 on thousands of streams. At 0.001 an
+ordinary 95% interval of half-width 10% of alpha needs about 384 000
+independent null trials, and rarer corrected thresholds need more.
 
-The review distinguishes reproduced results, source inspection, retained
-measurements and proposed experiments. The files record current findings and
-acceptance criteria; they do not implement the proposed changes. Implementation
-references are papers, standards and mathematics. External libraries were called
-through public APIs for comparison; their implementation source was not used.
-
-## Assessment
-
-Entropy now provides exact bounded-integer/Bernoulli sampling, 53-bit and dense
-float sampling, a common seeding interface, fallible OS reads, fast key erasure,
-a thread-local generator and a `CryptoRng` marker. These additions substantially
-change the application surface. Its remaining competition with rand concerns
-bulk execution, platform/error contracts, interoperability and measured sampling
-cost—not simply the number of generator names.
-
-Two fresh numerical counterexamples remain: large-shape incomplete gamma returns
-an inaccurate central probability, and the dense normal sampler can return
-infinity from a positive representable draw. The release suites pass despite
-these boundary failures.
-
-## Findings
-
-### E1 — High: incomplete gamma loses central accuracy for large shapes
-
-**Reproduced through the public API.** In [src/math.rs](src/math.rs),
-`igamc(a,a)` computes `a*ln(a) - a - lgamma(a)` by subtracting large rounded
-terms. The resulting normalization error survives convergence of the series.
-
-| a = x | Computed Q(a,a) | R `pgamma(a,a,lower.tail=FALSE)` |
-|---:|---:|---:|
-| 10^8 | 0.4999868085568120 | 0.4999867019239859 |
-| 10^10 | 0.4999950657431844 | 0.4999986701923987 |
-| 10^12 | 0.4990662586865413 | 0.4999998670192399 |
-| 10^14 | 0.5902894209603868 | 0.4999999867019240 |
-
-The independent large-a expansion starts
-`Q(a,a) = 1/2 - 1/(3*sqrt(2*pi*a)) + O(a^(-3/2))`, consistent with the reference
-column. [DLMF §8.12](https://dlmf.nist.gov/8.12) gives the expansion and its
-central coefficients. Increasing the iteration budget does not recover digits
-lost in the prefactor. Use a stable central normalization and an appropriate
-uniform expansion, with tested transitions to the other regimes.
-
-The [retained numerical client](../rump/review/2026-09-17/numerical-probe/src/main.rs)
-also exercises tiny shapes and rump's beta/Student functions. Tiny-shape gamma
-returns finite positive tails in the tested cases. No ordinary battery run
-reaching the largest shapes above was demonstrated; this is a public-domain
-accuracy failure, not a reproduced false verdict for every battery.
-
-### E2 — Medium: dense normal sampling can halve a positive draw to zero
-
-**Reproduced.** [src/rng/sample.rs](src/rng/sample.rs), `Sample::normal`, checks
-`u > 0` and then calls `normal_quantile(0.5*u)`. At
-`u = f64::from_bits(1) = 2^-1074`, that multiplication rounds to zero and the
-quantile returns negative infinity. The random sign can return either infinity.
-
-A deterministic word source with sixteen zero u64s, then `1 << 14`, then zero
-produces exactly that positive value in `unit_f64_dense`. With sign word zero,
-`normal()` returns `-inf`. The same client retained for E1 reproduces it.
-This event is extremely rare for ideal random words, but the explicitly claimed
-subnormal-tail domain includes it. Evaluate the half probability in log space
-or derive another finite-tail representation; do not erase the failure by
-clamping all tails or silently narrowing the advertised domain.
-
-### E3 — Medium: generic byte filling wastes native 64-bit output
-
-**Source inspection and fresh experiment.** `Sample::fill_bytes` calls
-`next_u32` once per four bytes. For Jsf64 and xoshiro256**, each such call advances
-a native 64-bit generator and keeps only its high half. The blanket `Sample`
-implementation supplies no concrete-generator bulk override. This is the right
-legacy battery projection, but it is costly as an application byte API.
-
-| Generator/path | u64 MiB/s | Bulk MiB/s |
-|---|---:|---:|
-| Entropy Jsf64 | 9,791.3 | 4,844.1 |
-| Entropy xoshiro256** | 10,018.9 | 4,972.4 |
-| rand `SmallRng` (xoshiro256++ here) | 10,635.5 | 10,562.8 |
-| Entropy ChaCha20 | 753.0 | 719.4 |
-| `chacha20` 0.10.2 ChaCha20 RNG | 1,359.9 | 1,564.3 |
-| `rand_chacha` 0.10.0 ChaCha20 RNG | 809.0 | 869.4 |
-| rand `StdRng` (ChaCha12) | 2,202.7 | 2,720.4 |
-
-An experimental loop writing all eight bytes of each native u64 reaches
-9,972.0 MiB/s for Jsf64 and 10,126.6 for xoshiro: 2.06× and 2.04× their current
-byte-fill paths. It changes the emitted stream, so this cannot silently replace
-the documented four-byte projection.
-
-The [benchmark source, lockfile and raw records](review/2026-09-17/README.md)
-use rand 0.10.2 and public APIs only. These are medians from seven measured rounds
-after one warm-up, with alternating implementation order, fixed seeds,
-20 million scalar calls and 64 MiB fills. They use process CPU time on a heavily
-loaded M4 Pro; wall time is also retained. Setup is excluded. Initial generator
-sources were captured at `84dc79b`; the final capture adds APIs but preserves the
-measured implementations and fill loop. This experiment does not price TLS,
-OS reads, reseeding, fast-key erasure or distributions.
-
-Rand is not uniformly faster by a large factor: native noncryptographic scalar
-performance is close here. Its bulk interface and the matched ChaCha20 backend
-show the substantial gaps. StdRng's 12 versus 20 rounds and SmallRng's ++ versus
-** output functions are different algorithms. Current choices are documented by
-[rand's StdRng](https://docs.rs/rand/0.10.2/rand/rngs/struct.StdRng.html) and
-[SmallRng](https://docs.rs/rand/0.10.2/rand/rngs/struct.SmallRng.html); neither
-comparison alone establishes a like-for-like algorithm speedup.
-
-### E4 — Medium: calibration remains local to the tested null and decision
-
-**Retained evidence, not rerun campaigns.** The current records support these
-more specific limits:
-
-| Area | Evidence | Remaining question |
+| Area | Measured | Missing |
 |---|---|---|
-| Count-ones Q5−Q4 | 300,000 xoshiro windows reject at 0.01 in 1.060%; 100,000 PCG windows in 1.045% | Finite-window tail versus the chi-square approximation |
-| DCT position/Pearson | 1,000,000 runs: 0.104%, 1.015%, 5.029% at 0.001, 0.01, 0.05 | Distinguish coefficient-position law from finite-cell Pearson approximation |
-| Exactly multinomial control, 256 cells, 5,000 draws | 0.1046% at 0.001 and 1.013% at 0.01; quoted SE at 0.001 about 0.003 percentage points | Approximation error at this cell count; no universal direction of bias for every Pearson test |
-| R report | Many rows use 3,000 null streams; runs uses 20,000 and rejects in 0.135% at 0.001 | Enough independent trials at the actual deciding threshold |
-| Minimum distance / LZ78 | Selected modes/thresholds calibrated; held-out LZ cases above k=20 have only 80–300 runs | Tail accuracy at 0.001 and across supported parameter cells |
-| Whole battery and alternatives | A Bonferroni family/power driver exists | Repeated complete-family null and power curves for the exact procedure |
+| Whole battery, every slot | A 200 000-stream campaign over the four suites on PCG64, Xoshiro256 and SFC64 is running on the island (`examples/battery_null.rs`) | Its results: per-slot and per-family rates at 0.001, and the battery's own false-alarm rate |
+| Count-ones Q5−Q4 | 300 000 xoshiro windows reject at 0.01 in 1.060%, 100 000 PCG windows in 1.045% | The finite-window tail at 0.001, which that campaign measures |
+| DCT position law | 10⁶ runs: 0.104%, 1.015%, 5.029%; an exactly multinomial control gives 0.1046% and 1.013% | Nothing at this resolution: the residual is the Pearson approximation, not the transform |
+| R report | Most rows use 3 000 null streams; runs uses 20 000 and rejects in 0.135% at 0.001 | Streams at the deciding threshold for the other tests |
+| LZ78 above k = 20 | Cells at k = 21 … 25 with 80–600 runs; a 3 000-run campaign at k = 21, 22, 23 and 25 on xoshiro and SFC64 is running | Its results, and the tail at 0.001 |
+| Minimum distance | Selected modes and thresholds calibrated | The supported parameter cells, at the thresholds used |
 
-The DCT control makes the finite-cell approximation a concrete candidate;
-matching empirical rates does not prove exact exchangeability of transformed
-coefficients. Bonferroni does not require independent tests, but it does require
-valid marginal tail probabilities. Multiplicity correction cannot repair a
-miscalibrated marginal.
+Power is measured for the NIST families in [POWER.md](POWER.md): 100 streams
+per cell, ten defect settings, three sample sizes, a Bonferroni decision per
+family. Nothing equivalent exists for DIEHARD, DIEHARDER or the research
+probes. Null and power are measured on separate streams, as they must be.
 
-### E5 — Medium: the sequential numerical bound assumes more than Rust promises
+### A2 — OS entropy is Unix-only
 
-**Source inspection; no fresh counterexample.**
-[src/research/sequential.rs](src/research/sequential.rs) uses u64 counts, a checked
-stream limit and a lower log-wealth estimate with accumulated rounding error.
-The transcendental error allowance assumes accuracy of `ln`/`exp` that is not a
-portable bound supplied by Rust's f64 API. Rust documents
-[unspecified precision for `ln`](https://doc.rust-lang.org/std/primitive.f64.html#method.ln).
-State the numerical assumptions, qualify each supported math library, or use
-outward certified evaluation before calling the floating result a portable
-anytime guarantee. Generator selection, multiple streams and restarts require
-their own testing budget.
+`OsRng` reads `/dev/urandom`, and `os_random` waits on `/dev/random` on Linux
+first. Windows has no path here, and no other target gains native entropy
+merely by compiling. The choice is to implement a documented platform API
+(Windows has none without FFI), to depend on a maintained backend abstraction,
+or to leave the target unsupported and say so. Darrell is finding a Windows
+machine to test against.
 
-### E6 — Medium: platform and bulk-access contracts remain narrower than rand's
+### A3 — The crate is one feature block
 
-**Source inspection.** OS reads now return `io::Result`, with Linux initialization
-checking, and the thread generator checks PID changes and reseeds by output
-volume. OS acquisition still uses Unix device paths; other targets do not gain
-native entropy support merely because the crate compiles. `try_thread_rng`
-handles initial acquisition, while later draws can still panic on reseed failure.
-The one-time Linux readiness cell retains an initial error permanently.
+Enabling the statistics or the application RNG pulls in the FFT and, by
+default, cryptography. A consumer that wants `Sample` and `math` should not
+compile the batteries; factoring will want exactly that. The split needs
+feature names, a documented minimal surface and a consumer test that compiles
+it.
 
-Per-word `ThreadRng` calls also repeat TLS/PID work; generic byte filling repeats
-that once per four bytes. Add an explicit bulk/fallible access contract and
-exercise transient failure recovery. Compare this with the documented supported
-backends of [getrandom](https://docs.rs/getrandom/0.4.3/getrandom/) without using
-its implementation source as a template. The new fork and erasure choices are
-useful design properties, not yet a measured universal advantage over rand.
+### A4 — Sampling performance is unmeasured against alternatives
 
-### E7 — Medium: nearest-pair pruning retains a quadratic input family
+`fill_native` is measured (`examples/fill_throughput.rs`): about 10 GiB/s for
+Xoshiro256 and JSF64, two to four times `fill_bytes`, with the cryptographic
+generators cipher-bound. Bounded integers, shuffles and the exponential and
+normal variates have no such comparison, and `normal()` costs a Newton solve
+per draw. A ziggurat with tables derived here is the obvious candidate and
+needs its own acceptance test, the tail included.
 
-**Source inspection.** [src/diehard/nearest_pair.rs](src/diehard/nearest_pair.rs)
-selects the widest coordinate and stops at zero distance. Many distinct points
-can still share that coordinate, forcing pairwise comparisons within the tied
-slab. Distant outliers can make that coordinate globally widest. Measure this
-family as well as uniform and duplicate-heavy data before choosing a grid or
-multidimensional partition; such a replacement also needs dimension/scale bounds.
+### A5 — No reproducible parallel stream partition
 
-## Fresh verification
+Seeds handed out by worker scheduling do not define a reproducible task
+stream. A counter-based design or a proved jump function would, and needs
+tests for scheduling invariance, counter exhaustion and stream identity.
 
-| Check | Result |
-|---|---|
-| Final capture: release, offline/locked, all targets | 493 passed; 1 ignored |
-| Final capture: no default features, same suite | 363 passed; 1 ignored |
-| Final release doctests | 6 passed |
-| Rust 1.87 all-target check | Passed |
-| `r_rng_tests.R --self-test` | Passed |
-| Empty corpus plus `--fail-on-fail` | Exit 3, insufficient input and missing requested result |
-| LZ k=6, 10,001 replications | Exit 3, unsupported result |
-| Public numerical boundary client | E1 and E2 reproduced |
-| Matched ChaCha20 stream | 100,000 u64s identical across three paths |
+### A6 — Cross-repository work in flight
 
-[Validation records](review/2026-09-17/validation.json) identify commands and
-logs. No new million-stream calibration, full power campaign, real-fork campaign,
-Windows/WASM/Linux runtime qualification or large geometric stress benchmark was
-run. Keep those gaps separate from the passing functional suite.
+`ln_gamma`, `regularized_incomplete_beta`, `student_t_quantile` and
+`NumericalError` now live in `entropy::math` (19fb7fc); factoring has still to
+switch to them, and only then does rump delete its copies. The Hash_DRBG,
+HMAC_DRBG and fast-key-erasure cores now live in cryptography, with entropy
+adapting them (ab1b7e5). Rump is only a dev-dependency here, so a minimal
+entropy build links neither sibling.
 
-## Cross-repository ownership
+## Closed this round
 
-Keep the four repositories, with a focused boundary refactor. The desired graph
-is `cryptography → rump`, `entropy → cryptography` when crypto generators are
-enabled, and `factoring → rump + entropy` with only the RNG/statistics features
-it needs. Rump must not depend on either consumer.
-
-| Owner | Keep here | Boundary change |
+| Finding | What was wrong | Closed by |
 |---|---|---|
-| rump | BigInt, modular arithmetic, primality, exact polynomial/finite-field/GF(2)/lattice support, caller-driven BigInt sampling | Move floating probability kernels out; retain reusable arithmetic without factoring policy or OS entropy |
-| cryptography | Ciphers, hashes, authenticated schemes, DRBG mechanisms, cryptographic state evolution and erasure | Own Hash_DRBG, HMAC_DRBG and fast-key-erasure cores; entropy supplies their adapters |
-| entropy | Noncryptographic PRNGs, OS seeding, sampling, stream views, thread-local access, probability functions and test batteries | Separate application RNG, statistics and batteries by features; make FFT/battery dependencies optional |
-| factoring | Rho/ECM/QS/GNFS orchestration, relation/cofactor policy, polynomial selection and size/cost dispatch | Reuse native modular arithmetic; keep schedule, graph forecasting and algorithm selection here |
+| E1 | `igamc(a, a)` subtracted terms of size a·ln a: Q(10¹⁴, 10¹⁴) came out 0.59 against 0.5 | A Stirling prefactor from a = 20 and Temme's uniform expansion from a = 10⁵, within 2·10⁻¹⁴ of R's pgamma from a = 20 to 10¹⁴ (f8be8e5) |
+| E2 | `normal()` returned ±∞ at U = 2⁻¹⁰⁷⁴, whose half rounds to zero | `math::normal_quantile_ln` solves ln Φ(x) = ln p from Mills' ratio; the sampler carries ln U − ln 2 where halving would round (9365070) |
+| E3 | The only byte interface was four-byte `next_u32` words, half a 64-bit generator's output | `Rng::fill_native`, overridden by every buffered generator, beside the unchanged battery projection (5ebe60e) |
+| E5 | The anytime-valid bound assumed an accuracy of `ln` that Rust does not specify | `ROUNDING_EPSILONS` names the assumption, both error terms are charged against it, and a test measures exp(ln q) over the estimator's own values (ceabc3f) |
+| E6, in part | Per-word thread-local and process-id work, a panic on reseed failure, and a permanently cached readiness error | `ThreadRng::try_fill`, `fill` and `try_next_u64`: one check per request, split at the reseed limit; `pool_ready` remembers only success (ceabc3f) |
+| E7 | Points sharing the sweep axis were compared pairwise, and outliers make that axis the widest | A tied run is swept on the widest coordinate it has not used: 162 times faster on the slab family, unchanged on uniform points (acea67a) |
 
-Generic exact algebra in rump is supporting mathematics, not a reason to move
-QS/GNFS policy there. `ln_gamma`, incomplete beta and Student quantiles are
-floating statistical functions; entropy already owns most probability kernels
-and factoring already depends on entropy. Move them in a coordinated API release
-with reference fixtures. A rump forwarding wrapper that calls entropy would
-create a dependency cycle and is unsuitable.
+## Standard of evidence
 
-Preserve the distinction between rump's quality-neutral `RandomSource`,
-cryptography's byte-oriented `Csprng`, and entropy's generator/`CryptoRng`
-interfaces. Add explicit adapters with documented security and byte-stream
-contracts; never blanket-implement a cryptographic contract for every test RNG.
-A marker describes a construction, not the entropy in a caller-supplied seed.
-
-Cryptography enables rump's additive `wipe` feature. Entropy default inherits it;
-entropy minimal and standalone factoring do not. Record the resolved graph in
-benchmarks: compiling factoring alongside a consumer that enables wipe can change
-its arithmetic costs. Separate processes/packages may be needed when measuring
-that configuration. Optional features should remove unwanted dependencies, not
-silently weaken a cryptographic build's erasure contract.
-
-## Standard for accepting changes
-
-Derive the formula and state its domain, representation and invariant. Retain
-published known answers, independent mathematical identities and reproducible
-coefficient/table generation. Test boundary strata and algorithm switches as
-well as ordinary inputs. Source comments should explain the invariant, assumption
-or non-obvious choice and cite the relevant paper section when useful.
-
-Use paired measurements with fixed inputs, seeds, compiler, target, features and
-sibling revisions. Record wall time, total process-tree CPU, memory and work
-counters. Separate the cost of setup, steady-state work and teardown, then report
-the complete operation too. Statistical acceptance, semantic security, exact
-factorization and performance are separate claims with separate evidence.
+A finding stays open until an experiment at the threshold in question closes
+it. Retain the raw statistics, seeds, sample sizes, views and table digests;
+calibrate on streams other than those used to fit; never report power and null
+from the same streams. A result in [0, 1] is not an accuracy certificate, and
+matching empirical rates do not prove an exact null law.
