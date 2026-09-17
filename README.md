@@ -67,6 +67,11 @@ Use this repository when you want to:
 - compare obviously bad generators against stronger ones
 - inspect the test code directly instead of treating a binary as a black box
 - experiment with classic randomness batteries in one codebase
+- draw random values in an application: exact integer ranges and Bernoulli
+  trials, dense floats, normal and exponential variates, shuffles and weighted
+  choices, a per-thread generator reseeded from the operating system, and
+  reproducible parallel streams — see [USAGE.md](USAGE.md), and take the crate
+  with `--no-default-features` for that alone
 
 Do not use it as the sole basis for claiming a generator is cryptographically secure.
 
@@ -81,9 +86,11 @@ cargo test
 
 The test runner lives in [src/main.rs](src/main.rs) and the library entrypoints are split across:
 
-- [src/nist](src/nist)
-- [src/diehard](src/diehard)
-- [src/dieharder](src/dieharder)
+- [src/nist](src/nist), [src/diehard](src/diehard), [src/dieharder](src/dieharder)
+  and [src/research](src/research): the batteries, behind the `batteries` feature
+- [src/rng](src/rng): the generators, `Sample`, `Seedable` and the thread-local handle
+- [src/math](src/math.rs): erfc, the incomplete gamma and beta, ln Γ, Student's t,
+  Kolmogorov–Smirnov, Anderson–Darling and the FFT
 
 ## Running
 
