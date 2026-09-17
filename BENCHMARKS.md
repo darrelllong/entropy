@@ -4,12 +4,18 @@ Throughput measured with `pilot-bench` `run_program --preset normal`.
 
 > **Provenance.**  `tolkien` and `baase` were measured on 2026-07-22 and are
 > the reference columns.  Four `baase` rows were remeasured on 2026-09-17 at
-> the same preset and confidence level, because their implementations moved:
-> ChaCha20 (162, from 160.5), the new `FastKeyErasureRng` (96.36), Hash_DRBG
-> (23.54, from 27.79) and HMAC_DRBG (2.833, from 3.228).  The two DRBGs lost
-> 12–15% when their mechanisms moved into cryptography; that is a measurement
-> of the two implementations, not of the adapter, which adds one buffered
-> Generate call per 256 or 32 bytes as before.  `Dyson`, `dmz` and `moore` are older measurements of
+> the same preset and confidence level, because their implementations moved
+> into cryptography: ChaCha20 162, the new `FastKeyErasureRng` 96.36,
+> Hash_DRBG 23.54 and HMAC_DRBG 2.833.
+>
+> Those four are not comparable with the July figures in the same column,
+> which were built with a different compiler and sibling revisions.  A paired
+> run settles what the move cost: entropy at `19fb7fc`, with its own DRBG
+> code, and at `962af9a`, over cryptography's mechanisms, built against the
+> same rump and cryptography revisions and measured on the same machine
+> within the hour — ChaCha20 158.9 against 162, HMAC_DRBG 2.821 against
+> 2.833, Hash_DRBG 22.3 against 23.54.  The move cost nothing; a Hash_DRBG
+> refill is nine SHA-256 compressions either way.  `Dyson`, `dmz` and `moore` are older measurements of
 > earlier builds, kept for cross-architecture comparison; their `OsRng`
 > figures were taken with one `read` syscall per word rather than per 64 words,
 > and Dyson's `Squidward` figure with a hardware SHA-256 path the current crate
