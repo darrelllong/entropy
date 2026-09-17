@@ -47,6 +47,10 @@ fn c_coron(l: f64, k: f64) -> f64 {
     0.7 - 0.8 / l + (1.6 + 12.8 / l) * k.powf(-4.0 / l)
 }
 
+/// What one setting accumulates: streams, Σz, Σz² and the rejections at each
+/// level.
+type Moments = (u64, f64, f64, [u64; LEVELS.len()]);
+
 /// The z values one stream produces, by test name.
 fn stream_z(index: usize, bits: usize) -> Vec<(&'static str, f64)> {
     let seed = index as u128 + 1;
@@ -66,11 +70,11 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     let streams: usize = args[1].parse().expect("streams");
     let threads: usize = args[2].parse().expect("threads");
-    let bits: usize = args.get(3).map_or(DEFAULT_BITS, |v| v.parse().expect("bits"));
+    let bits: usize = args
+        .get(3)
+        .map_or(DEFAULT_BITS, |v| v.parse().expect("bits"));
     let next = Arc::new(AtomicUsize::new(0));
-    // name -> (count, Σz, Σz², rejections per level)
-    let tally: Arc<Mutex<BTreeMap<&'static str, (u64, f64, f64, [u64; LEVELS.len()])>>> =
-        Arc::new(Mutex::new(BTreeMap::new()));
+    let tally: Arc<Mutex<BTreeMap<&'static str, Moments>>> = Arc::new(Mutex::new(BTreeMap::new()));
     let handles: Vec<_> = (0..threads)
         .map(|_| {
             let (next, tally) = (next.clone(), tally.clone());
