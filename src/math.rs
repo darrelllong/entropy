@@ -391,6 +391,7 @@ const C1_CANCELLED_TERMS: usize = 3;
 ///
 /// - c₀ = 1/μ − 1/η = −Σ_{n≥1} gₙ μⁿ⁻¹ with α = −½, and
 /// - c₁ = 1/η³ − 1/μ³ − 1/μ² − 1/(12μ) = Σ_{n≥3} hₙ μⁿ⁻³ with α = −3/2,
+///   the closed forms being Temme (3.3) and (3.2),
 ///
 /// the lower terms cancelling exactly because h₀ = h₁ = 1 and h₂ = 1/12.
 fn uniform_coefficient_series() -> &'static [Vec<f64>; 2] {
@@ -426,10 +427,13 @@ fn uniform_coefficient_series() -> &'static [Vec<f64>; 2] {
 ///
 /// Q(a, x) = ½ erfc(η√(a/2)) + e^{−aη²/2}/√(2πa) · (c₀(η) + c₁(η)/a + …),
 ///
-/// with λ = x/a, μ = λ − 1, ½η² = μ − ln(1 + μ) and η taking the sign of μ.
-/// c₀ and c₁ are DLMF 8.12.8 and its successor, summed as power series in μ
-/// near μ = 0, where their closed forms cancel.  The first omitted term is
-/// c₂(η)/a² with c₂(0) = 25/6048, below 2·10⁻¹⁸ of e^{−aη²/2} at a = 10⁵.
+/// with λ = x/a, μ = λ − 1, ½η² = μ − ln(1 + μ) and η taking the sign of μ:
+/// Temme's eq. (1.4), whose coefficients are his (3.3), c₀ = 1/μ − 1/η and
+/// c₁ = 1/η³ − (1 + μ + μ²/12)/μ³.  Near μ = 0 those closed forms cancel, so
+/// they are summed as power series in μ instead; §3 of the paper puts the
+/// radius of convergence of such a series at 1, the logarithm's singularity
+/// at μ = −1, and `SERIES_MU` stays well inside it.  The first omitted term
+/// is c₂(η)/a² with c₂(0) = 25/6048, below 2·10⁻¹⁸ of e^{−aη²/2} at a = 10⁵.
 fn uniform_upper_gamma(a: f64, x: f64) -> f64 {
     let mu = (x - a) / a;
     let half_eta_squared = log1p_deficit(mu);

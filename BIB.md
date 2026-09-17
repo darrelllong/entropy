@@ -748,7 +748,7 @@ previously missing from this bibliography.
   pages   = {757--766},
   year    = {1979},
   doi     = {10.1137/0510071},
-  note    = {The uniform expansion behind math::igamc for a $\geq 10^5$; the c$_0$ and c$_1$ power series in $\mu$ were derived here. [not in pubs/]}
+  note    = {The uniform expansion behind math::igamc for a $\geq 10^5$: eq. (1.4) for Q, (3.2) for c$_1$ and (3.3) for the c$_k$. The power series in $\mu$ for c$_0$ and c$_1$ were derived here; §3 notes that such series converge for $|\mu| < 1$. [pubs/temme-1979-asymptotic-expansion-incomplete-gamma.pdf]}
 }
 
 @article{stephens1974edf,
