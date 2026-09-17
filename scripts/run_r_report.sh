@@ -156,36 +156,41 @@ about the generator either way.
 `tseries::jarque.bera.test` tests Normality and is **expected to fail** for a
 uniform stream; it is included as a sanity check.
 
-Calibration: 3 000 null streams of 5 000 000 xoshiro256** words rejected, at
-0.01 and 0.001, in these percentages (binomial standard deviation 0.18 and
-0.058 points).  The two runs tests, which gave 1.57% at 0.01 on those
-streams, were rerun on 20 000 more: 1.09% and 0.135%.  The periodogram height
-tests are
-conservative because the heights sum to a fixed multiple of Σy²; the gap test
-is scored against expected counts built from the observed number of gaps
-(a second 3 000 streams).  No row has been calibrated beyond these counts.
+Calibration: 3 170 held-out null streams of 5 000 000 xoshiro256** words,
+rejected at 0.01 and 0.001 in these percentages (binomial standard deviation
+0.18 and 0.056 points).  The two runs tests were also run on 20 000 streams,
+giving 1.09% and 0.135%.  The gap test is scored against expected counts built
+from the observed number of gaps.  No row has been calibrated beyond these
+counts, so none resolves the 0.001 column to better than about half its value.
 
 | Test | < 0.01 | < 0.001 |
 |---|---|---|
 | randtests::runs.test (median), 20 000 streams | 1.09 | 0.14 |
-| randtests::bartels.rank.test | 1.27 | 0.17 |
-| randtests::cox.stuart.test | 1.00 | 0.13 |
-| randtests::difference.sign.test | 0.60 | 0.07 |
-| randtests::turning.point.test | 1.20 | 0.20 |
-| randtests::rank.test (n = 5 000) | 0.93 | 0.07 |
-| randtoolbox::freq.test | 1.13 | 0.17 |
-| randtoolbox::gap.test (geometric) | 1.13 | 0.13 |
-| randtoolbox::serial.test | 1.10 | 0.07 |
-| randtoolbox::poker.test | 0.83 | 0.03 |
-| randtoolbox::order.test | 0.90 | 0.20 |
-| stats::ks.test | 1.17 | 0.20 |
-| stats::chisq.test | 0.87 | 0.10 |
-| stats::Box.test | 1.07 | 0.03 |
+| randtests::bartels.rank.test | 1.17 | 0.10 |
+| randtests::cox.stuart.test | 0.79 | 0.03 |
+| randtests::difference.sign.test | 0.69 | 0.10 |
+| randtests::turning.point.test | 0.79 | 0.06 |
+| randtests::rank.test (n = 5 000) | 0.82 | 0.06 |
+| randtoolbox::freq.test | 1.17 | 0.16 |
+| randtoolbox::gap.test (geometric) | 1.07 | 0.19 |
+| randtoolbox::serial.test | 0.85 | 0.06 |
+| randtoolbox::poker.test | 1.10 | 0.03 |
+| randtoolbox::order.test | 0.76 | 0.10 |
+| stats::ks.test | 0.88 | 0.10 |
+| stats::chisq.test | 0.98 | 0.13 |
+| stats::Box.test | 0.79 | 0.10 |
 | tseries::runs.test, 20 000 streams | 1.09 | 0.14 |
-| Max-spike exact p | 0.80 | 0.07 |
-| Periodogram height χ² | 0.77 | 0.03 |
-| Periodogram height KS | 0.13 | 0.00 |
-| Cumulative periodogram KS (Bartlett) | 1.20 | 0.10 |
+| Periodogram height χ² | 0.50 | 0.00 |
+| Periodogram height KS | 0.03 | 0.00 |
+| Cumulative periodogram KS (Bartlett) | 1.17 | 0.10 |
+
+Fifteen of those rows are within two standard deviations of 1%.  The two
+periodogram-height rows are conservative, rejecting 0.50% and 0.03% at 0.01,
+because the heights they read are estimated from the same stream and sum to a
+fixed multiple of Σy²: a REJECT from either is evidence, a pass weaker than
+its level suggests.  `tseries::jarque.bera.test` rejects every null stream, as
+it must: it tests normality of a uniform sample, and its row is marked invalid
+rather than counted against a generator.
 
 The moment table reports the empirical raw moments E[U^k] for k = 1..10 and
 the absolute error against the theoretical value 1/(k+1) for U(0,1).
