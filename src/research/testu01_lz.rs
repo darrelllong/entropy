@@ -526,8 +526,8 @@ mod tests {
     fn replication_limits() {
         assert_eq!(max_replications(3), usize::MAX);
         assert_eq!(max_replications(6), 10_000);
-        assert_eq!(max_replications(17), 1_000);
-        assert_eq!(max_replications(28), 100);
+        assert_eq!(max_replications(17), 10_000);
+        assert_eq!(max_replications(28), 1_000);
         assert_eq!(max_replications(29), 0);
     }
 

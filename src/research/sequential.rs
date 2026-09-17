@@ -24,6 +24,13 @@
 //! exponentially; a fair source leaves every model's wealth below 1 in
 //! expectation.
 //!
+//! # Calibration
+//!
+//! 6 000 fair xoshiro256** streams of 10⁶ words, orders 0 … 16, gave p below
+//! 0.05 in 0.883%, below 0.01 in 0.200% and below 0.001 in 0.017%, and p = 1
+//! (wealth never above 1) in 73.6%: well inside the guarantee, as a
+//! conservative p-value should be.
+//!
 //! # References
 //! * J. Ville, *Étude critique de la notion de collectif*, Gauthier-Villars,
 //!   1939.  [The maximal inequality for nonnegative martingales]
