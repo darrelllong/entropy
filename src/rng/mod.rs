@@ -28,6 +28,7 @@ pub mod mt19937;
 pub mod os;
 pub mod pcg;
 pub mod sample;
+pub mod seedable;
 pub mod sfc;
 #[cfg(feature = "cryptography")]
 pub mod spongebob;
@@ -66,6 +67,7 @@ pub use mt19937::Mt19937;
 pub use os::{os_random, OsRng};
 pub use pcg::{Pcg32, Pcg64};
 pub use sample::Sample;
+pub use seedable::Seedable;
 pub use sfc::{Jsf64, Sfc64};
 #[cfg(feature = "cryptography")]
 pub use spongebob::SpongeBob;
