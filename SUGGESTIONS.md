@@ -12,7 +12,7 @@ unmeasured is in [AUDIT.md](AUDIT.md).
 |---|---|---|
 | 1 | Finish the calibration campaigns and publish the rates at 0.001 | Per-slot, per-family and whole-battery null rates from held-out streams, with intervals |
 | 2 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
-| 3 | A ziggurat normal with tables derived here | Exact acceptance regions, tail correctness to the smallest subnormal, and a paired cost comparison against inversion |
+| 3 | A ziggurat exponential, as the normal has | Exact acceptance regions, tail correctness, and a paired cost comparison against −ln U |
 | 4 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
 | 5 | One parallel-stream interface across the generators | Scheduling invariance, counter exhaustion, stream identity, and the segments' statistical independence |
 
@@ -48,10 +48,10 @@ value-stable and which system-seeded handles are deliberately not.
 
 Benchmark bounded integers, shuffles and the variates separately from raw
 generation, as `fill_throughput` does for bytes. Lemire's method is already
-exact; preserve its accepted-preimage invariant. A ziggurat is a candidate for
-`normal()` only with independently derived acceptance regions and a verified
-tail; the current inversion reaches |z| ≈ 38.49 and is the reference the
-replacement must match.
+exact; preserve its accepted-preimage invariant. `normal()` is a ziggurat whose table is derived at run time, and
+`normal_inverse()` is the inversion it is checked against. The exponential is
+still −ln U; a ziggurat for it needs the same treatment, and its tail must
+keep reaching about 744.
 
 Adapters for cryptography's `Csprng` and, if wanted, the public rand traits
 belong behind an optional dependency, with conformance from published API

@@ -39,15 +39,27 @@ merely by compiling. The choice is to implement a documented platform API
 or to leave the target unsupported and say so. Darrell is finding a Windows
 machine to test against.
 
-### A4 — The fast normal is not the default, and nothing is measured against rand
+### A4 — The exponential is half rand's speed
 
-Every sampling method is now measured here (`examples/variate_throughput.rs`,
-millions of draws per second on one PCG64): `next_u64` 311, `range` 315,
-`below` 302, `unit_f64` 313, dense uniform 218, Bernoulli 110, exponential 78,
-`normal_ziggurat` 271, and `normal` by inversion 0.1. The inversion is three
-orders of magnitude slower than the ziggurat that samples the same law, but it
-is the value-stable method callers have, so swapping it is a decision, not a
-patch. Nothing here is measured against another crate's sampling.
+Every sampling method is measured here (`examples/variate_throughput.rs`), and
+against rand 0.10.2 through public APIs on this Mac, best of seven rounds of
+five million draws, in millions per second:
+
+| Draw | entropy | rand 0.10.2 |
+|---|--:|--:|
+| `next_u64`, PCG64 | 763 | 763 |
+| `next_u64`, xoshiro256\*\* / SmallRng | 1 344 | 1 393 |
+| uniform double | 760 | 760 |
+| integer in 1 … 6 | 314 | 317 |
+| normal | 270 | 286 |
+| exponential | 143 | 276 |
+| shuffle of 1 000 | 701 | 771 |
+
+The generators, the bounded integers and the uniform doubles match. The normal
+is within 6% since the ziggurat landed. The exponential is inversion, −ln U
+from a dense uniform, against rand's ziggurat: exact to the smallest subnormal
+and half the speed. A ziggurat for it would need the same treatment the normal
+had, tail included. The shuffle is 9% behind and unexplained.
 
 ### A5 — Parallel streams exist only for the linear generators
 
