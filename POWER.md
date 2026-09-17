@@ -3,7 +3,7 @@
 How often each NIST test family detects a specified defect, and how often it
 raises a false alarm when there is none.  Run with
 `cargo run --release --example power_curves <streams> <threads>` and tabulated by
-`scripts/power_report.py stats/power/nist-100-streams.txt POWER.md`.
+`scripts/power_report.py stats/nist-power-100-streams.txt POWER.md`.
 
 ## Procedure
 
@@ -23,7 +23,7 @@ gross miscalibration only, not the tail.  Power counts are likewise
 binomial: a count c of 100 has a 95% interval about ±2√(c(100 − c)/100).
 
 Run of 2026-09-17 on dyson, `examples/power_curves.rs` at 84dc79b, 100
-streams per cell.  The raw output is in `stats/power/nist-100-streams.txt`.
+streams per cell.  The raw output is in `stats/nist-power-100-streams.txt`.
 
 ## Rejections
 
