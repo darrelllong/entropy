@@ -94,7 +94,7 @@ impl Ziggurat {
         // to x[LAYERS - 2] and its next step must land exactly there.
         for i in 1..LAYERS - 1 {
             let y = table.f[i - 1] + area / table.x[i - 1];
-            if !(y < 1.0) {
+            if y >= 1.0 || y.is_nan() {
                 // The pieces are too tall: r is below the solution.
                 return (table, y - 1.0);
             }
