@@ -119,13 +119,25 @@ operating system: ChaCha20 whose key is replaced by the first 32 bytes of
 each refill and whose served bytes are erased, so a captured state reveals no
 earlier output (Bernstein, "Fast-key-erasure random-number generators",
 2017).  It takes a fresh key after every 2³⁰ bytes and whenever the process id
-changes, so a forked child never repeats its parent.  `try_thread_rng()`
-returns the operating system's error instead of panicking.
+changes, so a forked child never repeats its parent.  `try_thread_rng()`,
+`ThreadRng::try_fill` and `ThreadRng::try_next_u64` return the operating
+system's error instead of panicking.
+
+`ThreadRng::fill(&mut bytes)` (and its fallible `try_fill`) serves a whole
+request with one thread-local lookup, one process-id check and one reseed
+check, instead of one of each per word, and charges the whole request against
+the reseed interval; a request that would cross 2³⁰ bytes is split there, so
+the bytes after the limit come from the new key.  Its bytes are the
+generator's keystream in order — the same sequence `next_u32` delivers
+little-endian — while `Sample::fill_bytes`, which every generator shares,
+is defined as little-endian `next_u32` words so that the battery's stream
+projection stays fixed.
 
 **OS entropy.** `os_random(&mut bytes)`, `OsRng::try_new()` and
 `OsRng::try_fill` return `io::Result`.  On Linux the first use reads a byte
 from `/dev/random`, which blocks until the kernel pool is initialized, so
-`/dev/urandom` is never read unseeded.  `OsRng` is Unix-only: without FFI or
+`/dev/urandom` is never read unseeded.  Only a successful check is
+remembered: a failure can be transient, so the next call tries again.  `OsRng` is Unix-only: without FFI or
 a dependency there is no portable system call for Windows.
 
 **Seeding.** `Seedable` is implemented by PCG32, PCG64, Xoshiro256,

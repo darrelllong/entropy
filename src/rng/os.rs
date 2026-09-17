@@ -47,32 +47,32 @@ const BUF_LEN: usize = 256;
 /// initialized and then never again, and older kernels release once the pool
 /// holds enough entropy: after it returns, `/dev/urandom` is seeded, as
 /// `getrandom(2)` with no flags would guarantee.  The check runs once per
-/// process.  [`OsRng::try_new`], [`OsRng::try_fill`] and [`os_random`] report
-/// errors instead of panicking.
+/// process once it succeeds; a failed check is retried, since it can come from
+/// a transient condition.  [`OsRng::try_new`], [`OsRng::try_fill`] and
+/// [`os_random`] report errors instead of panicking.
 pub struct OsRng {
     file: File,
     buf: [u8; BUF_LEN],
     pos: usize, // index of next unread byte; BUF_LEN = exhausted
 }
 
-/// Wait, once per process, until the kernel's pool is initialized: on Linux
-/// by reading one byte from `/dev/random`; elsewhere `/dev/urandom` itself
-/// blocks until seeded.
+/// Wait until the kernel's pool is initialized: on Linux by reading one byte
+/// from `/dev/random`; elsewhere `/dev/urandom` itself blocks until seeded.
+///
+/// Only success is remembered, because the pool is initialized once and stays
+/// so.  A failure is not: it can be a descriptor limit, an interrupted read or
+/// a device not yet visible in a starting container, all of which the next
+/// call may find gone.  So a failed check costs one open and one read per
+/// attempt, and a caller that retries gets a fresh answer.
 fn pool_ready() -> io::Result<()> {
-    static READY: OnceLock<Result<(), (io::ErrorKind, String)>> = OnceLock::new();
-    let outcome = READY.get_or_init(|| {
-        if cfg!(target_os = "linux") {
-            let mut byte = [0u8; 1];
-            File::open("/dev/random")
-                .and_then(|mut f| f.read_exact(&mut byte))
-                .map_err(|e| (e.kind(), e.to_string()))
-        } else {
-            Ok(())
-        }
-    });
-    outcome
-        .clone()
-        .map_err(|(kind, message)| io::Error::new(kind, message))
+    static READY: OnceLock<()> = OnceLock::new();
+    if READY.get().is_some() || !cfg!(target_os = "linux") {
+        return Ok(());
+    }
+    let mut byte = [0u8; 1];
+    File::open("/dev/random").and_then(|mut f| f.read_exact(&mut byte))?;
+    let _ = READY.set(());
+    Ok(())
 }
 
 /// Fill `bytes` from the operating system's entropy source, once its pool is

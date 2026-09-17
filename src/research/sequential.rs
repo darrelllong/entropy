@@ -51,6 +51,27 @@ use std::f64::consts::LN_2;
 /// count plus ½, is exactly representable in `f64`.
 pub const MAX_BITS: u64 = 1 << 52;
 
+/// Assumed accuracy of `f64::ln`, in units of ε of its result, and the error
+/// budget the wealth bound charges for every rounded operation.
+///
+/// Rust leaves the precision of `ln` and `exp` to the platform: its
+/// documentation says the precision is not specified, and the result may
+/// differ between platforms and library versions.  Everything else here is
+/// exact arithmetic or a correctly rounded quotient, so the guarantee rests on
+/// this one assumption.  `transcendentals_are_within_the_assumed_accuracy`
+/// checks it on the build platform through the round trip exp(ln q) over the
+/// estimator's own values; the libms tested here (macOS, glibc, musl) stay
+/// within one ε.  On a platform whose `ln` is worse by a factor f, every error
+/// term below, and so the gap between the reported p-value and the exact one,
+/// grows by f; the p-value stays conservative as long as the true error is
+/// within this many ε.
+const ROUNDING_EPSILONS: f64 = 2.0;
+
+/// Error charged to the mixture's averaging, in units of ε: one ε each for the
+/// subtraction, `exp`, the sum, the division and `ln`, doubled for
+/// second-order terms.
+const AVERAGING_EPSILONS: f64 = 4.0;
+
 /// Markov models of orders 0 … `max_order` and their log-wealth.
 pub struct MarkovMixture {
     /// counts[k][context] = [zeros, ones] seen after that k-bit context.
@@ -102,10 +123,11 @@ impl MarkovMixture {
             let ln_q = q.ln();
             let term = LN_2 + ln_q;
             *log_w += term;
-            // Rounding the quotient moves ln q by at most about ε; rounding
-            // ln, ln 2, the term and the running sum each by at most ε of
-            // their magnitudes.  Twice that sum covers second-order terms.
-            *log_err += 2.0 * f64::EPSILON * (2.0 + ln_q.abs() + term.abs() + log_w.abs());
+            // Rounding the quotient moves ln q by at most about ε; `ln`, the
+            // sum with ln 2 and the running sum each add at most ε of their
+            // magnitudes, `ln` under the assumption of ROUNDING_EPSILONS.
+            *log_err +=
+                ROUNDING_EPSILONS * f64::EPSILON * (2.0 + ln_q.abs() + term.abs() + log_w.abs());
             cell[x] += 1;
         }
         self.history = (self.history << 1) | x as u64;
@@ -139,7 +161,7 @@ impl MarkovMixture {
         let sum: f64 = lower().map(|w| (w - top).exp()).sum();
         let models = self.log_wealth.len() as f64;
         let value = top + (sum / models).ln();
-        value - 4.0 * f64::EPSILON * (value.abs() + top.abs() + 2.0 * models + 2.0)
+        value - AVERAGING_EPSILONS * f64::EPSILON * (value.abs() + top.abs() + 2.0 * models + 2.0)
     }
 
     /// The order whose wealth is largest.
@@ -159,10 +181,10 @@ impl MarkovMixture {
 /// for stopping after any word; wealth is not inspected inside a word.
 ///
 /// Log-wealth is a sum of one rounded logarithm per model per bit.  Each model
-/// carries a bound on that sum's floating-point error, under the standard
-/// model of rounding (every operation, including `ln`, within one relative ε
-/// of its exact value), and the supremum is taken over the mixture's lower
-/// bound, so p is conservative in floating-point arithmetic as well.
+/// carries a bound on that sum's floating-point error, and the supremum is
+/// taken over the mixture's lower bound, so p is conservative in
+/// floating-point arithmetic as well — as far as [`ROUNDING_EPSILONS`], the
+/// assumed accuracy of the platform's `ln`, holds.
 #[must_use]
 pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> TestResult {
     if words as u64 > MAX_BITS / 32 {
@@ -203,8 +225,40 @@ pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> Tes
 
 #[cfg(test)]
 mod tests {
-    use super::{markov_mixture, MarkovMixture};
+    use super::{markov_mixture, MarkovMixture, ROUNDING_EPSILONS};
     use crate::rng::{alternatives::Biased, ConstantRng, Pcg64};
+
+    /// The platform's `ln` and `exp` are within the assumed accuracy on the
+    /// estimator's own values.  Rust specifies neither, and the wealth bound
+    /// charges `ROUNDING_EPSILONS` ε per rounded operation, so this is the
+    /// assumption the guarantee rests on.  q = (n₁ + ½)/(n + 1) covers the
+    /// range the models visit, from the first bit (½) to a long run's extreme.
+    ///
+    /// exp(ln q) returns q with a relative error of about `ln`'s absolute
+    /// error plus `exp`'s relative one, and `ln`'s absolute error is its
+    /// assumed ε per unit of |ln q|, so the round trip divided by
+    /// ε·(1 + |ln q|) bounds both functions' accuracy from above.
+    #[test]
+    fn transcendentals_are_within_the_assumed_accuracy() {
+        let mut worst = 0.0f64;
+        for log_n in 0..52 {
+            let n = (1u64 << log_n) as f64;
+            for ones in [0.0, 1.0, 0.5 * n, n - 1.0, n] {
+                let q = (ones + 0.5) / (n + 1.0);
+                if q <= 0.0 {
+                    continue;
+                }
+                let ln_q = q.ln();
+                let round_trip = (ln_q.exp() / q - 1.0).abs() / (f64::EPSILON * (1.0 + ln_q.abs()));
+                worst = worst.max(round_trip);
+            }
+        }
+        assert!(
+            worst <= ROUNDING_EPSILONS,
+            "exp(ln q) is off by {worst} ε per unit of 1 + |ln q|, above the \
+             assumed {ROUNDING_EPSILONS}"
+        );
+    }
 
     /// Averaged over all 2¹² bit strings, each model's final wealth and the
     /// mixture's are exactly 1: the martingale property, by enumeration.

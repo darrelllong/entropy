@@ -84,7 +84,10 @@ thread_local! {
 
 /// Run `f` on this thread's generator, charging `bytes` of output, after
 /// seeding it if it has none, if `pid` is not the one it was seeded under, or
-/// if it has served [`RESEED_BYTES`].
+/// if it has served [`RESEED_BYTES`].  A scalar draw is charged after the
+/// check, so it can carry the count up to 7 bytes past the limit before the
+/// next call reseeds; [`ThreadRng::try_fill`] splits a longer request at the
+/// limit, so no bulk request crosses it.
 fn with_generator<T>(
     pid: u32,
     bytes: u64,
@@ -116,6 +119,16 @@ fn with_generator<T>(
     })
 }
 
+/// What is left of this thread's reseed interval, in bytes, or
+/// [`RESEED_BYTES`] if it has no generator yet.
+fn until_reseed() -> u64 {
+    STATE.with(|cell| {
+        cell.borrow()
+            .as_ref()
+            .map_or(RESEED_BYTES, |s| RESEED_BYTES - s.served.min(RESEED_BYTES))
+    })
+}
+
 /// A handle to this thread's generator.  It cannot leave the thread.
 #[derive(Clone)]
 pub struct ThreadRng {
@@ -129,7 +142,7 @@ pub struct ThreadRng {
 /// [`try_thread_rng`].
 #[must_use]
 pub fn thread_rng() -> ThreadRng {
-    try_thread_rng().expect("thread_rng: the operating system's entropy source failed")
+    try_thread_rng().expect(OS_FAILED)
 }
 
 /// This thread's generator, with any failure to seed it reported.
@@ -143,15 +156,65 @@ pub fn try_thread_rng() -> io::Result<ThreadRng> {
     })
 }
 
+impl ThreadRng {
+    /// Fill `bytes` from this thread's generator: the thread-local lookup,
+    /// process-id check and reseed check happen once per request rather than
+    /// once per word, and the whole request is charged against the reseed
+    /// interval.
+    ///
+    /// The bytes are the generator's keystream in order, the same sequence
+    /// `next_u32` would deliver little-endian, and a request that would cross
+    /// the reseed limit is split there, so no byte is served past it.
+    ///
+    /// # Errors
+    /// Any error from [`os_random`], from seeding or from a reseed.  On a
+    /// failure the bytes already written stay written and the rest are
+    /// untouched; the generator is left usable and the next call retries.
+    pub fn try_fill(&mut self, bytes: &mut [u8]) -> io::Result<()> {
+        let pid = std::process::id();
+        let mut rest = bytes;
+        while !rest.is_empty() {
+            let take = usize::try_from(until_reseed().max(1))
+                .unwrap_or(usize::MAX)
+                .min(rest.len());
+            let (now, later) = rest.split_at_mut(take);
+            with_generator(pid, take as u64, |rng| rng.fill(now))?;
+            rest = later;
+        }
+        Ok(())
+    }
+
+    /// Fill `bytes`, as [`try_fill`](Self::try_fill).
+    ///
+    /// # Panics
+    /// Panics if the operating system's entropy source fails.
+    pub fn fill(&mut self, bytes: &mut [u8]) {
+        self.try_fill(bytes).expect(OS_FAILED);
+    }
+
+    /// One word, with a seeding or reseeding failure reported.
+    ///
+    /// # Errors
+    /// Any error from [`os_random`].
+    pub fn try_next_u64(&mut self) -> io::Result<u64> {
+        let mut word = [0u8; size_of::<u64>()];
+        self.try_fill(&mut word)?;
+        Ok(u64::from_le_bytes(word))
+    }
+}
+
+/// What a panicking `ThreadRng` call reports.
+const OS_FAILED: &str = "thread_rng: the operating system's entropy source failed";
+
 impl Rng for ThreadRng {
     fn next_u32(&mut self) -> u32 {
-        with_generator(std::process::id(), 4, FastKeyErasureRng::next_u32)
-            .expect("thread_rng: the operating system's entropy source failed")
+        let charge = size_of::<u32>() as u64;
+        with_generator(std::process::id(), charge, FastKeyErasureRng::next_u32).expect(OS_FAILED)
     }
 
     fn next_u64(&mut self) -> u64 {
-        with_generator(std::process::id(), 8, FastKeyErasureRng::next_u64)
-            .expect("thread_rng: the operating system's entropy source failed")
+        let charge = size_of::<u64>() as u64;
+        with_generator(std::process::id(), charge, FastKeyErasureRng::next_u64).expect(OS_FAILED)
     }
 }
 
@@ -195,6 +258,41 @@ mod tests {
         let last = hex(LAST);
         assert_eq!(out[..first.len()], first[..]);
         assert_eq!(out[out.len() - last.len()..], last[..]);
+    }
+
+    /// A bulk fill is one thread-local visit per request, and a request that
+    /// would cross the reseed limit is split at it: the bytes before the limit
+    /// come from the old key, the rest from the new one.
+    #[test]
+    fn bulk_fills_split_at_the_reseed_limit() {
+        const BEFORE: usize = 8;
+        const AFTER: usize = 24;
+        let pid = std::process::id();
+        let seedings = || STATE.with(|c| c.borrow().as_ref().map_or(0, |s| s.seedings));
+        let served = || STATE.with(|c| c.borrow().as_ref().map_or(0, |s| s.served));
+        let mut handle = thread_rng();
+        // Leave BEFORE bytes of the interval.
+        STATE.with(|c| c.borrow_mut().as_mut().unwrap().served = RESEED_BYTES - BEFORE as u64);
+        let before = seedings();
+        let mut bytes = [0u8; BEFORE + AFTER];
+        handle.fill(&mut bytes);
+        assert_eq!(seedings(), before + 1, "the limit forces one reseed");
+        assert_eq!(
+            served(),
+            AFTER as u64,
+            "only the tail is charged to the new key"
+        );
+        assert!(bytes.iter().any(|&b| b != 0));
+
+        // A fill inside the interval reseeds nothing and charges its length.
+        let charged = served();
+        handle.fill(&mut bytes);
+        assert_eq!(seedings(), before + 1);
+        assert_eq!(served(), charged + bytes.len() as u64);
+        let mut again = [0u8; BEFORE + AFTER];
+        handle.fill(&mut again);
+        assert_ne!(bytes, again);
+        assert!(with_generator(pid, 0, |_| ()).is_ok());
     }
 
     /// A new process id or a full reseed interval takes a fresh key.
