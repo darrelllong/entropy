@@ -27,6 +27,18 @@ use std::{
     thread,
 };
 
+/// Family-level significance level.
+const ALPHA: f64 = 0.01;
+
+/// PCG64 initial state shared by every stream ("powercur" in ASCII); streams
+/// differ by sequence.
+const STATE: u128 = 0x706f_7765_7263_7572;
+
+/// Bit positions of the defect and size indices in a stream's sequence
+/// number; the stream index takes the bits below `SIZE_SHIFT`.
+const DEFECT_SHIFT: u32 = 80;
+const SIZE_SHIFT: u32 = 64;
+
 /// Streams rejected, by (defect, size, family).
 type Tally = BTreeMap<(usize, usize, &'static str), usize>;
 
@@ -53,8 +65,8 @@ impl Defect {
         }
     }
 
-    fn run(self, seed: u128, bits: usize) -> Vec<TestResult> {
-        let base = Pcg64::new(0x706f_7765_7263_7572, seed);
+    fn run(self, sequence: u128, bits: usize) -> Vec<TestResult> {
+        let base = Pcg64::new(STATE, sequence);
         match self {
             Defect::None => nist::run_all(&mut { base }, bits),
             Defect::Biased(k) => nist::run_all(&mut Biased::new(base, k), bits),
@@ -95,8 +107,9 @@ fn main() {
             thread::spawn(move || loop {
                 let j = next.fetch_add(1, Ordering::Relaxed);
                 let Some(&(d, s, i)) = jobs.get(j) else { break };
-                let seed = ((d as u128) << 80) | ((s as u128) << 64) | i as u128;
-                let results = defects[d].run(seed, sizes[s]);
+                let sequence =
+                    ((d as u128) << DEFECT_SHIFT) | ((s as u128) << SIZE_SHIFT) | i as u128;
+                let results = defects[d].run(sequence, sizes[s]);
                 // (results, smallest p) per family, over scored results.
                 let mut families: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();
                 for r in results.iter().filter(|r| r.passed() || r.failed()) {
@@ -106,7 +119,7 @@ fn main() {
                 }
                 let mut tally = tally.lock().expect("tally");
                 for (family, (m, smallest)) in families {
-                    let rejected = m as f64 * smallest < 0.01;
+                    let rejected = m as f64 * smallest < ALPHA;
                     *tally.entry((d, s, family)).or_insert(0) += usize::from(rejected);
                 }
             })
