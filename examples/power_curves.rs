@@ -3,9 +3,11 @@
 //! `power_curves <streams> <threads>` runs the NIST suite on `streams`
 //! independently seeded PCG64 generators through each defect of
 //! `entropy::rng::alternatives`, at several strengths and sample sizes, and
-//! prints, for each test family, the fraction of streams in which any of its
-//! results fell below 0.01.  A family's own false-alarm rate on the
-//! undefected generator is printed under the defect `none`.
+//! prints, for each test family, the fraction of streams in which the family
+//! rejected at 0.01: m times its smallest p-value below 0.01, for a family of
+//! m results (Bonferroni's bound, valid under any dependence).  A family's
+//! own false-alarm rate on the undefected generator is printed under the
+//! defect `none`.
 //! Output lines: `defect strength bits family rejected/streams`.
 
 use entropy::{
@@ -95,13 +97,16 @@ fn main() {
                 let Some(&(d, s, i)) = jobs.get(j) else { break };
                 let seed = ((d as u128) << 80) | ((s as u128) << 64) | i as u128;
                 let results = defects[d].run(seed, sizes[s]);
-                let mut families: BTreeMap<&'static str, bool> = BTreeMap::new();
-                for r in &results {
-                    let rejected = families.entry(r.name).or_insert(false);
-                    *rejected |= r.failed();
+                // (results, smallest p) per family, over scored results.
+                let mut families: BTreeMap<&'static str, (usize, f64)> = BTreeMap::new();
+                for r in results.iter().filter(|r| r.passed() || r.failed()) {
+                    let (m, smallest) = families.entry(r.name).or_insert((0, 1.0));
+                    *m += 1;
+                    *smallest = smallest.min(r.p_value);
                 }
                 let mut tally = tally.lock().expect("tally");
-                for (family, rejected) in families {
+                for (family, (m, smallest)) in families {
+                    let rejected = m as f64 * smallest < 0.01;
                     *tally.entry((d, s, family)).or_insert(0) += usize::from(rejected);
                 }
             })
