@@ -709,6 +709,158 @@ previously missing from this bibliography.
   doi     = {10.1016/0024-3795(85)90192-2},
   note    = {The rank distribution of random binary matrices behind diehard::binary\_rank and nist::matrix\_rank. [not in pubs/]}
 }
+@article{lemire2019interval,
+  author  = {Lemire, Daniel},
+  title   = {Fast Random Integer Generation in an Interval},
+  journal = {ACM Transactions on Modeling and Computer Simulation},
+  volume  = {29},
+  number  = {1},
+  pages   = {Article 3},
+  year    = {2019},
+  doi     = {10.1145/3230636},
+  note    = {Algorithm 5, the multiply-and-reject method behind rng::Sample::below. [pubs/lemire-2019-fast-random-integer-in-interval.pdf]}
+}
+
+@article{durstenfeld1964permutation,
+  author  = {Durstenfeld, Richard},
+  title   = {Algorithm 235: Random Permutation},
+  journal = {Communications of the ACM},
+  volume  = {7},
+  number  = {7},
+  pages   = {420},
+  year    = {1964},
+  doi     = {10.1145/364520.364540},
+  note    = {The in-place shuffle behind rng::Sample::shuffle and partial\_shuffle. [not in pubs/: the ACM Digital Library refuses automated download]}
+}
+
+@article{bentley1987sample,
+  author  = {Bentley, Jon and Floyd, Robert},
+  title   = {Programming Pearls: A Sample of Brilliance},
+  journal = {Communications of the ACM},
+  volume  = {30},
+  number  = {9},
+  pages   = {754--757},
+  year    = {1987},
+  doi     = {10.1145/30401.315746},
+  note    = {Floyd's algorithm for distinct samples, behind rng::Sample::sample\_indices. [not in pubs/: the ACM Digital Library refuses automated download]}
+}
+
+@article{vitter1985reservoir,
+  author  = {Vitter, Jeffrey Scott},
+  title   = {Random Sampling with a Reservoir},
+  journal = {ACM Transactions on Mathematical Software},
+  volume  = {11},
+  number  = {1},
+  pages   = {37--57},
+  year    = {1985},
+  doi     = {10.1145/3147.3165},
+  note    = {Algorithm R, behind rng::Sample::choose\_from\_iter and sample\_from\_iter. [pubs/vitter-1985-reservoir-sampling.pdf]}
+}
+
+@misc{bernstein2017fastkeyerasure,
+  author = {Bernstein, Daniel J.},
+  title  = {Fast-key-erasure random-number generators},
+  year   = {2017},
+  month  = jul,
+  url    = {https://blog.cr.yp.to/20170723-random.html},
+  note   = {The design of rng::FastKeyErasureRng and thread\_rng. [pubs/bernstein-2017-fast-key-erasure-rng.html]}
+}
+
+@inproceedings{steele2014splittable,
+  author    = {Steele, Guy L., Jr. and Lea, Doug and Flood, Christine H.},
+  title     = {Fast Splittable Pseudorandom Number Generators},
+  booktitle = {Proceedings of the 2014 ACM International Conference on Object Oriented Programming Systems Languages \& Applications (OOPSLA)},
+  pages     = {453--472},
+  year      = {2014},
+  doi       = {10.1145/2660193.2660195},
+  note      = {SplitMix64, behind seed::splitmix64 and rng::Seedable::seed\_from\_u64. [not in pubs/: the ACM Digital Library refuses automated download]}
+}
+
+@article{marsaglia2000ziggurat,
+  author  = {Marsaglia, George and Tsang, Wai Wan},
+  title   = {The Ziggurat Method for Generating Random Variables},
+  journal = {Journal of Statistical Software},
+  volume  = {5},
+  number  = {8},
+  year    = {2000},
+  doi     = {10.18637/jss.v005.i08},
+  note    = {The ziggurat method. [pubs/marsaglia-tsang-2000-ziggurat.pdf]}
+}
+
+@phdthesis{ville1939collectif,
+  author = {Ville, Jean},
+  title  = {{\'E}tude critique de la notion de collectif},
+  school = {Universit{\'e} de Paris},
+  year   = {1939},
+  note   = {Published by Gauthier-Villars.  The maximal inequality for nonnegative martingales behind research::sequential. [pubs/ville-1939-etude-critique-collectif.pdf]}
+}
+
+@article{howard2021timeuniform,
+  author  = {Howard, Steven R. and Ramdas, Aaditya and McAuliffe, Jon and Sekhon, Jasjeet},
+  title   = {Time-uniform, nonparametric, nonasymptotic confidence sequences},
+  journal = {Annals of Statistics},
+  volume  = {49},
+  number  = {2},
+  pages   = {1055--1080},
+  year    = {2021},
+  doi     = {10.1214/20-AOS1991},
+  note    = {Anytime-valid inference, research::sequential. [pubs/howard-ramdas-mcauliffe-sekhon-2021-time-uniform-confidence-sequences.pdf]}
+}
+
+@article{krichevsky1981universal,
+  author  = {Krichevsky, Raphail E. and Trofimov, Victor K.},
+  title   = {The performance of universal encoding},
+  journal = {IEEE Transactions on Information Theory},
+  volume  = {27},
+  number  = {2},
+  pages   = {199--207},
+  year    = {1981},
+  doi     = {10.1109/TIT.1981.1056331},
+  note    = {The estimator (n\_1 + 1/2)/(n + 1) behind research::sequential. [not in pubs/: IEEE Xplore requires a subscription]}
+}
+
+@article{willems1995ctw,
+  author  = {Willems, Frans M. J. and Shtarkov, Yuri M. and Tjalkens, Tjalling J.},
+  title   = {The context-tree weighting method: basic properties},
+  journal = {IEEE Transactions on Information Theory},
+  volume  = {41},
+  number  = {3},
+  pages   = {653--664},
+  year    = {1995},
+  doi     = {10.1109/18.382012},
+  note    = {Mixtures of context models, research::sequential. [not in pubs/: IEEE Xplore requires a subscription]}
+}
+
+@article{makhoul1980fastcosine,
+  author  = {Makhoul, John},
+  title   = {A fast cosine transform in one and multiple dimensions},
+  journal = {IEEE Transactions on Acoustics, Speech, and Signal Processing},
+  volume  = {28},
+  number  = {1},
+  pages   = {27--34},
+  year    = {1980},
+  doi     = {10.1109/TASSP.1980.1163351},
+  note    = {The DCT-II through one FFT, behind dieharder::dct. [not in pubs/: IEEE Xplore requires a subscription]}
+}
+
+@book{bartlett1955stochastic,
+  author    = {Bartlett, M. S.},
+  title     = {An Introduction to Stochastic Processes},
+  publisher = {Cambridge University Press},
+  year      = {1955},
+  note      = {The cumulative periodogram test in scripts/r\_rng\_tests.R. [not in pubs/: in copyright, no open copy]}
+}
+
+@article{park1993response,
+  author  = {Park, Stephen K. and Miller, Keith W. and Stockmeyer, Paul K.},
+  title   = {Technical Correspondence: Response},
+  journal = {Communications of the ACM},
+  volume  = {36},
+  number  = {7},
+  pages   = {108--110},
+  year    = {1993},
+  note    = {The MINSTD multiplier 48271 behind rng::LcgVariant::Minstd. [not in pubs/: the ACM Digital Library refuses automated download]}
+}
 ```
 
 ---

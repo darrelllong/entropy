@@ -27,3 +27,9 @@ park-miller-1988-good-ones-hard-to-find.pdf	https://web.archive.org/web/20251128
 lecuyer-simard-1999-beware-lcg-multipliers.pdf	https://web.archive.org/web/20200602195746id_/https://dl.acm.org/doi/pdf/10.1145/326147.326156?download=true (the ACM Digital Library PDF as the Internet Archive captured it)	2026-09-11
 hellekalek-wegenkittl-2003-empirical-evidence-aes.pdf	https://web.archive.org/web/20200603131544id_/https://dl.acm.org/doi/pdf/10.1145/945511.945515?download=true (the ACM Digital Library PDF as the Internet Archive captured it)	2026-09-11
 pincus-1991-approximate-entropy.pdf	https://europepmc.org/articles/PMC51218?pdf=render (PNAS scan deposited in PubMed Central, PMC51218)	2026-09-11
+lemire-2019-fast-random-integer-in-interval.pdf	https://arxiv.org/pdf/1805.10941 (arXiv v4, the author's version of the ACM TOMACS article) (sha256 cb44ca2d854cd2603e3d7054a0f8a7fc9a0b0a0967fe7800d29539fd988b7882)	2026-09-17
+howard-ramdas-mcauliffe-sekhon-2021-time-uniform-confidence-sequences.pdf	https://arxiv.org/pdf/1810.08240 (arXiv v9) (sha256 eb3efd547349adfbff25514ae0854c142cd29b96b398be38c9000d69a2f64ca8)	2026-09-17
+bernstein-2017-fast-key-erasure-rng.html	https://blog.cr.yp.to/20170723-random.html (sha256 5e20540f869e04a3b776aa4bb54a73ec00a948e67d932ad1341956890ebaadf3)	2026-09-17
+vitter-1985-reservoir-sampling.pdf	https://www.ittc.ku.edu/~jsv/Papers/Vit85.Reservoir.pdf (the author's copy) (sha256 dba2241b478a46b49ec90cd95f85a8bc3cdf2c12b8c6de03134b99a754a5803b)	2026-09-17
+marsaglia-tsang-2000-ziggurat.pdf	https://www.jstatsoft.org/index.php/jss/article/view/v005i08/623 (sha256 264fccedf10cf60cbf120a645a7e9581983eb6da8e4fa2ab366dbeef1084e018)	2026-09-17
+ville-1939-etude-critique-collectif.pdf	http://www.numdam.org/item/THESE_1939__218__1_0.pdf (Numdam, Thèses de l'entre-deux-guerres) (sha256 0f825b917142e210ead10696713f69cbca767288efd451c6ad62eacba3002c4d)	2026-09-17
