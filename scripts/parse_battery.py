@@ -285,6 +285,13 @@ The battery has **{FULL_SLOTS} test slots** at this sample size:
 roughly 1% of tests by chance.  With {FULL_SLOTS - MAURER_SKIPS_16MBIT - EXCURSION_TOTAL}–{FULL_SLOTS - MAURER_SKIPS_16MBIT} scored tests per generator
 (the rest report SKIP), the expected false-fail count is approximately 7.  Isolated failures below that threshold
 are noise, not structure.
+
+**The battery is not one test.**  Measured on null streams
+(`examples/battery_null.rs`), a Bonferroni decision per test family holds each
+family at or below its level, but some family rejects 94% of null streams at
+0.05, 42% at 0.01 and 5% at 0.001, because there are about sixty families.  A
+verdict on a generator needs its own correction, or a reading of which
+families failed and whether they share an input; AUDIT.md records the rates.
 """
 
 
