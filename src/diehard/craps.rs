@@ -41,6 +41,13 @@ const P_WIN: f64 = 244.0 / 495.0;
 /// hits it in every game is rejected by those counts alone.
 const MAX_THROWS: usize = 1000;
 
+/// Cells of the throw-count distribution: k = 1 … 21 individually, and k ≥ 22
+/// pooled into the last.
+const THROW_CELLS: usize = 22;
+
+/// The roll that loses after a point is set, and wins on the first throw.
+const SEVEN: u32 = 7;
+
 /// Outcome of one 200 000-game simulation, shared by both public entry points.
 struct CrapsOutcome {
     wins: usize,
@@ -53,14 +60,15 @@ struct CrapsOutcome {
 
 fn simulate(rng: &mut impl Rng) -> CrapsOutcome {
     let mut wins = 0usize;
-    let mut throw_counts = [0u32; 22]; // index k-1 for k throws (≥22 pooled into index 21)
+    // Index k − 1 for k throws; k ≥ THROW_CELLS pools into the last cell.
+    let mut throw_counts = [0u32; THROW_CELLS];
 
     for _ in 0..N_GAMES {
         let (won, throws) = play_craps(rng);
         if won {
             wins += 1;
         }
-        let idx = (throws - 1).min(21);
+        let idx = (throws - 1).min(THROW_CELLS - 1);
         throw_counts[idx] += 1;
     }
 
@@ -155,7 +163,7 @@ fn play_craps(rng: &mut impl Rng) -> (bool, usize) {
                 if r == point {
                     return (true, throws);
                 }
-                if r == 7 {
+                if r == SEVEN {
                     return (false, throws);
                 }
             }
@@ -238,8 +246,7 @@ fn expected_throw_probs() -> [f64; 22] {
             let prob_resolve = stay.powi(k as i32 - 2) * resolve;
             prob += px * prob_resolve;
         }
-        // k=1..=21 → individual cells; k≥22 pooled into index 21.
-        let idx = if k <= 22 { k - 1 } else { 21 };
+        let idx = (k - 1).min(THROW_CELLS - 1);
         p[idx] += prob;
     }
 

@@ -124,6 +124,12 @@ fn psi_sq(bits: &[u8], l: usize, n: usize) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    /// A ψ² this test computes exactly from small counts.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// SP 800-22 quotes its example values to six decimals.
+    const PUBLISHED: f64 = 1e-6;
+
     use super::*;
     use crate::nist::test_vectors::e_bits;
     use crate::rng::{Mt19937, Rng};
@@ -133,9 +139,9 @@ mod tests {
 
     #[test]
     fn psi_sq_matches_nist_worked_example() {
-        assert!((psi_sq(&EXAMPLE, 3, 10) - 2.8).abs() < 1e-12);
-        assert!((psi_sq(&EXAMPLE, 2, 10) - 1.2).abs() < 1e-12);
-        assert!((psi_sq(&EXAMPLE, 1, 10) - 0.4).abs() < 1e-12);
+        assert!((psi_sq(&EXAMPLE, 3, 10) - 2.8).abs() < CLOSED_FORM);
+        assert!((psi_sq(&EXAMPLE, 2, 10) - 1.2).abs() < CLOSED_FORM);
+        assert!((psi_sq(&EXAMPLE, 1, 10) - 0.4).abs() < CLOSED_FORM);
     }
 
     /// The publication's P-values for the worked example (n = 10, m = 3):
@@ -148,10 +154,10 @@ mod tests {
     #[test]
     fn p_value_pairing_matches_nist_worked_example() {
         let [(del1, p1), (del2, p2)] = statistics(&EXAMPLE, 3);
-        assert!((del1 - 1.6).abs() < 1e-12, "∇ψ² = {del1}");
-        assert!((del2 - 0.8).abs() < 1e-12, "∇²ψ² = {del2}");
-        assert!((p1 - 0.808792).abs() < 1e-6, "p1 = {p1}");
-        assert!((p2 - 0.670320).abs() < 1e-6, "p2 = {p2}");
+        assert!((del1 - 1.6).abs() < CLOSED_FORM, "∇ψ² = {del1}");
+        assert!((del2 - 0.8).abs() < CLOSED_FORM, "∇²ψ² = {del2}");
+        assert!((p1 - 0.808792).abs() < PUBLISHED, "p1 = {p1}");
+        assert!((p2 - 0.670320).abs() < PUBLISHED, "p2 = {p2}");
     }
 
     /// SP 800-22 §2.11.8 on 10⁶ bits of e with m = 2: ψ²₂ = 0.343128,
@@ -161,13 +167,21 @@ mod tests {
     fn matches_section_2_11_8_example() {
         let e = e_bits(1_000_000);
         let (psi_2, psi_1) = (psi_sq(&e, 2, e.len()), psi_sq(&e, 1, e.len()));
-        assert!((psi_2 - 0.343128).abs() < 1e-6, "ψ²₂ = {psi_2}");
-        assert!((psi_1 - 0.003364).abs() < 1e-6, "ψ²₁ = {psi_1}");
-        assert!((psi_2 - psi_1 - 0.339764).abs() < 1e-6);
-        assert!((psi_2 - 2.0 * psi_1 - 0.336400).abs() < 1e-6);
+        assert!((psi_2 - 0.343128).abs() < PUBLISHED, "ψ²₂ = {psi_2}");
+        assert!((psi_1 - 0.003364).abs() < PUBLISHED, "ψ²₁ = {psi_1}");
+        assert!((psi_2 - psi_1 - 0.339764).abs() < PUBLISHED);
+        assert!((psi_2 - 2.0 * psi_1 - 0.336400).abs() < PUBLISHED);
         let both = serial_both(&e, 2);
-        assert!((both[0].p_value - 0.843764).abs() < 1e-6, "{}", both[0]);
-        assert!((both[1].p_value - 0.561915).abs() < 1e-6, "{}", both[1]);
+        assert!(
+            (both[0].p_value - 0.843764).abs() < PUBLISHED,
+            "{}",
+            both[0]
+        );
+        assert!(
+            (both[1].p_value - 0.561915).abs() < PUBLISHED,
+            "{}",
+            both[1]
+        );
     }
 
     #[test]
@@ -215,7 +229,7 @@ mod tests {
         let bits: Vec<u8> = pattern.iter().cycle().take(1000).copied().collect();
         let both = serial_both(&bits, 2);
         assert!(!both[1].skipped(), "{}", both[1]);
-        assert!((both[1].p_value - 1.0).abs() < 1e-12, "{}", both[1]);
+        assert!((both[1].p_value - 1.0).abs() < CLOSED_FORM, "{}", both[1]);
         assert!(!both[0].passed(), "{}", both[0]);
         let one = serial(&bits, 2);
         assert!(!one.skipped() && !one.passed(), "{one}");

@@ -131,6 +131,15 @@ fn longest_run_of_ones(block: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
+    /// A probability summed from exact rational counts.
+    const EXACT_PROBABILITY: f64 = 1e-15;
+
+    /// An identity that holds exactly, up to floating rounding.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// SP 800-22 quotes its example values to six decimals.
+    const PUBLISHED: f64 = 1e-6;
+
     use super::*;
     use crate::nist::test_vectors::bits;
 
@@ -147,7 +156,7 @@ mod tests {
     #[test]
     fn matches_section_2_4_8_example() {
         let r = longest_run(&bits(SECTION_2_4_8_EPSILON));
-        assert!((r.p_value - 0.180609).abs() < 1e-6, "{r}");
+        assert!((r.p_value - 0.180609).abs() < PUBLISHED, "{r}");
         assert!(r.note.as_deref().unwrap().contains("χ²=4.8825"), "{r}");
     }
 
@@ -161,7 +170,7 @@ mod tests {
         }
         assert_eq!(counts, [55, 94, 59, 48]);
         for (count, p) in counts.into_iter().zip(class_probabilities(8, 1, 3)) {
-            assert!((count as f64 / 256.0 - p).abs() < 1e-15);
+            assert!((count as f64 / 256.0 - p).abs() < EXACT_PROBABILITY);
         }
     }
 
@@ -178,7 +187,10 @@ mod tests {
         }
         for (k, &c) in at_most.iter().enumerate() {
             let want = f64::from(c) / 65_536.0;
-            assert!((longest_run_at_most(16, k) - want).abs() < 1e-15, "k = {k}");
+            assert!(
+                (longest_run_at_most(16, k) - want).abs() < EXACT_PROBABILITY,
+                "k = {k}"
+            );
         }
     }
 
@@ -197,11 +209,11 @@ mod tests {
             .map(|(&c, p)| (c as f64 - 100.0 * p).powi(2) / (100.0 * p))
             .sum();
         assert!(
-            (chi2_pvalue(chi, 6) - 0.718945).abs() < 1e-6,
+            (chi2_pvalue(chi, 6) - 0.718945).abs() < PUBLISHED,
             "{}",
             chi2_pvalue(chi, 6)
         );
-        assert!((longest_run(&e).p_value - 0.718366).abs() < 1e-6);
+        assert!((longest_run(&e).p_value - 0.718366).abs() < PUBLISHED);
     }
 
     fn max_gap(a: &[f64], b: &[f64]) -> f64 {
@@ -229,7 +241,7 @@ mod tests {
             class_probabilities(10_000, 10, 6),
         ] {
             let total: f64 = pi.iter().sum();
-            assert!((total - 1.0).abs() < 1e-12, "Σ π = {total}");
+            assert!((total - 1.0).abs() < CLOSED_FORM, "Σ π = {total}");
         }
     }
 }

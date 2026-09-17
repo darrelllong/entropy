@@ -203,8 +203,12 @@ fn characteristic_function(factors: &[(f64, i32)], t: f64) -> f64 {
 
 /// Φ⁻¹(p) for 0 < p < 1, by bisection on [`normal_cdf`] to full precision.
 fn normal_quantile(p: f64) -> f64 {
-    let (mut lo, mut hi) = (-40.0f64, 40.0f64);
-    while hi - lo > 1e-15 * hi.abs().max(1.0) {
+    /// Bracket: Φ(−40) is below the smallest normal double and Φ(40) is 1.
+    const BRACKET: f64 = 40.0;
+    /// Relative width at which the bisection stops, a few ε.
+    const TOLERANCE: f64 = 1e-15;
+    let (mut lo, mut hi) = (-BRACKET, BRACKET);
+    while hi - lo > TOLERANCE * hi.abs().max(1.0) {
         let mid = 0.5 * (lo + hi);
         if normal_cdf(mid) < p {
             lo = mid;

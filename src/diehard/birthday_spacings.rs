@@ -103,27 +103,35 @@ fn repeated_spacings(sorted: &[u32]) -> usize {
 /// than 5 trials are expected above count i, count i and every larger count
 /// join the open cell, which takes the whole remaining expectation.
 fn poisson_cells(lambda: f64, trials: usize) -> (Vec<usize>, Vec<f64>) {
+    /// Trials a cell must expect before it closes: the conventional lower
+    /// bound for a χ² cell (W. G. Cochran, "The χ² test of goodness of fit,"
+    /// *Annals of Mathematical Statistics* 23(3), 1952).
+    const MIN_EXPECTED: f64 = 5.0;
+    /// Standard deviations of the Poisson count the loop covers before the
+    /// remaining expectation is pooled: √λ each, so the tail left out is
+    /// below 10⁻⁴ of the trials.
+    const TAIL_SIGMAS: f64 = 4.0;
     let n = trials as f64;
     let mut p = (-lambda).exp();
     let mut cumulative = p * n;
     let mut open = p * n;
     let mut cell_of = vec![0];
     let mut expected = Vec::new();
-    if open > 5.0 {
+    if open > MIN_EXPECTED {
         expected.push(open);
         open = 0.0;
     }
-    let last = (lambda + 4.0 * lambda.sqrt()) as usize;
+    let last = (lambda + TAIL_SIGMAS * lambda.sqrt()) as usize;
     for i in 1..=last {
         p = lambda * p / i as f64;
         cumulative += p * n;
         open += p * n;
         cell_of.push(expected.len());
-        if cumulative > n - 5.0 {
+        if cumulative > n - MIN_EXPECTED {
             expected.push(open + n - cumulative);
             return (cell_of, expected);
         }
-        if open >= 5.0 {
+        if open >= MIN_EXPECTED {
             expected.push(open);
             open = 0.0;
         }

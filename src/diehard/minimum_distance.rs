@@ -25,6 +25,17 @@ use crate::{
 
 const SQUARE_SIDE: f64 = 10_000.0;
 
+/// Points per repetition, as DIEHARD specifies.
+const POINTS: usize = 8_000;
+
+/// Repetitions whose u values the Kolmogorov–Smirnov test reads.
+const REPEATS: usize = 100;
+
+/// Points and repetitions in a `quick` run, which trades sensitivity for the
+/// O(n²) cost during development.
+const QUICK_POINTS: usize = 500;
+const QUICK_REPEATS: usize = 20;
+
 /// Run the 2D minimum distance test.
 ///
 /// `quick`: use 500 points and 20 repeats instead of 8 000 × 100 to avoid the
@@ -33,8 +44,11 @@ const SQUARE_SIDE: f64 = 10_000.0;
 /// # Author
 /// George Marsaglia, DIEHARD (1995).
 pub fn minimum_distance_2d(rng: &mut impl Rng, quick: bool) -> TestResult {
-    let n_points = if quick { 500 } else { 8_000 };
-    let repeats = if quick { 20 } else { 100 };
+    let (n_points, repeats) = if quick {
+        (QUICK_POINTS, QUICK_REPEATS)
+    } else {
+        (POINTS, REPEATS)
+    };
     let pairs = n_points as f64 * (n_points as f64 - 1.0) / 2.0;
     let mut p_values = Vec::with_capacity(repeats);
 

@@ -164,6 +164,12 @@ pub fn berlekamp_massey(s: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
+    /// A value this test computes exactly, up to floating rounding.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// SP 800-22 quotes its example values to six decimals.
+    const PUBLISHED: f64 = 1e-6;
+
     use super::*;
     use crate::nist::test_vectors::{bits, e_bits};
     use crate::rng::{Mt19937, Rng};
@@ -188,10 +194,13 @@ mod tests {
     #[test]
     fn mean_for_even_block_length() {
         let mu = mean(500);
-        assert!((mu - (250.0 + 8.0 / 36.0)).abs() < 1e-12, "μ = {mu}");
+        assert!((mu - (250.0 + 8.0 / 36.0)).abs() < CLOSED_FORM, "μ = {mu}");
         for l in 247..=253 {
             let t = (l as f64 - mu) + 2.0 / 9.0;
-            assert!((t - (l as f64 - 250.0)).abs() < 1e-12, "L = {l}: T = {t}");
+            assert!(
+                (t - (l as f64 - 250.0)).abs() < CLOSED_FORM,
+                "L = {l}: T = {t}"
+            );
         }
     }
 
@@ -205,7 +214,7 @@ mod tests {
         let e = e_bits(100_000);
         assert_eq!(class_counts(&e, 500), NU);
         let r = linear_complexity(&e, 500);
-        assert!((r.p_value - 0.751963).abs() < 1e-6, "{r}");
+        assert!((r.p_value - 0.751963).abs() < PUBLISHED, "{r}");
         assert!(
             r.note.as_deref().unwrap().contains("N=200, χ²=3.4398"),
             "{r}"
@@ -227,13 +236,13 @@ mod tests {
         let e = e_bits(1_000_000);
         assert_eq!(class_counts(&e, 1000), PRINTED_NU);
         let r = linear_complexity(&e, 1000);
-        assert!((r.p_value - 0.844721).abs() < 1e-6, "{r}");
-        assert!((chi_square(PRINTED_NU, PI) - 2.706147).abs() < 1e-6);
+        assert!((r.p_value - 0.844721).abs() < PUBLISHED, "{r}");
+        assert!((chi_square(PRINTED_NU, PI) - 2.706147).abs() < PUBLISHED);
         let mut worked_pi = PI;
         worked_pi[0] = WORKED_PI0;
         let printed = chi_square(PRINTED_NU, worked_pi);
-        assert!((printed - 2.700348).abs() < 1e-6, "χ² = {printed}");
-        assert!((chi2_pvalue(printed, 6) - 0.845406).abs() < 1e-6);
+        assert!((printed - 2.700348).abs() < PUBLISHED, "χ² = {printed}");
+        assert!((chi2_pvalue(printed, 6) - 0.845406).abs() < PUBLISHED);
     }
 
     /// SP 800-22 Appendix B prints P-value = 0.826335 for 10⁶ bits of e with
@@ -251,12 +260,12 @@ mod tests {
         let e = e_bits(1_000_000);
         assert_eq!(class_counts(&e, 500), NU);
         let r = linear_complexity(&e, 500);
-        assert!((r.p_value - 0.826194).abs() < 1e-6, "{r}");
+        assert!((r.p_value - 0.826194).abs() < PUBLISHED, "{r}");
         let mut worked_pi = PI;
         worked_pi[0] = WORKED_PI0;
         let worked = chi_square(NU, worked_pi);
-        assert!((worked - 2.858915).abs() < 1e-6, "χ² = {worked}");
-        assert!((chi2_pvalue(worked, 6) - 0.826335).abs() < 1e-6);
+        assert!((worked - 2.858915).abs() < PUBLISHED, "χ² = {worked}");
+        assert!((chi2_pvalue(worked, 6) - 0.826335).abs() < PUBLISHED);
     }
 
     /// Berlekamp–Massey written plainly, cloning C(D) on every discrepancy.
@@ -296,9 +305,9 @@ mod tests {
     fn matches_section_2_10_4_example() {
         assert_eq!(berlekamp_massey(&bits("1101011110001")), 4);
         let mu = mean(13);
-        assert!((mu - 6.777222).abs() < 1e-6, "μ = {mu}");
+        assert!((mu - 6.777222).abs() < PUBLISHED, "μ = {mu}");
         let t = -(4.0 - mu) + 2.0 / 9.0;
-        assert!((t - 2.999444).abs() < 1e-6, "T = {t}");
+        assert!((t - 2.999444).abs() < PUBLISHED, "T = {t}");
     }
 
     /// The scratch-buffer loop returns what the cloning loop returned, on

@@ -107,6 +107,12 @@ fn dft_statistic(bits: &[u8]) -> Dft {
 
 #[cfg(test)]
 mod tests {
+    /// A count this test computes exactly, up to floating rounding.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// SP 800-22 quotes its example values to six decimals.
+    const PUBLISHED: f64 = 1e-6;
+
     use super::*;
     use crate::nist::test_vectors::{bits, EPSILON_100};
 
@@ -122,12 +128,16 @@ mod tests {
     #[test]
     fn section_2_6_8_example_counts() {
         let dft = dft_statistic(&bits(EPSILON_100));
-        assert!((dft.n0 - 47.5).abs() < 1e-12, "N₀ = {}", dft.n0);
+        assert!((dft.n0 - 47.5).abs() < CLOSED_FORM, "N₀ = {}", dft.n0);
         assert_eq!(dft.n1, 48);
-        assert!((dft.d - 0.458831).abs() < 1e-6, "d = {}", dft.d);
-        assert!((dft.p_value - 0.646355).abs() < 1e-6, "p = {}", dft.p_value);
+        assert!((dft.d - 0.458831).abs() < PUBLISHED, "d = {}", dft.d);
+        assert!(
+            (dft.p_value - 0.646355).abs() < PUBLISHED,
+            "p = {}",
+            dft.p_value
+        );
         let printed_d = (46.0 - dft.n0) / (100.0 * 0.95 * 0.05 / 4.0_f64).sqrt();
-        assert!((printed_d + 1.376494).abs() < 1e-6, "d = {printed_d}");
-        assert!((erfc(printed_d.abs() / SQRT_2) - 0.168669).abs() < 1e-6);
+        assert!((printed_d + 1.376494).abs() < PUBLISHED, "d = {printed_d}");
+        assert!((erfc(printed_d.abs() / SQRT_2) - 0.168669).abs() < PUBLISHED);
     }
 }
