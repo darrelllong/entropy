@@ -54,8 +54,9 @@ generators or restarts.
 
 ## Cost
 
-### A7 — Nearest pair is quadratic when many points share a first coordinate
+### A7 — Nearest pair is quadratic when many points share the axis value
 
-[nearest_pair.rs](src/diehard/nearest_pair.rs).  The sweep stops at a zero
-distance, but distinct points on one first coordinate still visit every pair.
-A grid or multidimensional partition would bound that case.
+[nearest_pair.rs](src/diehard/nearest_pair.rs).  The sweep runs along the
+widest coordinate and stops at a zero distance, but many distinct points with
+one value on that coordinate still visit every pair among themselves.  A grid
+or multidimensional partition would bound that case.

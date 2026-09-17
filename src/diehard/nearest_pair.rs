@@ -7,33 +7,35 @@
 
 /// Smallest squared Euclidean distance between two of `points`.
 ///
-/// The points are sorted by their first coordinate and swept in that order.
-/// For each point the scan moves to later points only while the square of the
-/// first-coordinate gap is at most the smallest squared distance found so far.
-/// Every squared distance is summed in coordinate order,
-/// (Δ₀² + Δ₁²) + Δ₂² and so on, so the first term is that square.  Rounded
-/// subtraction and squaring are monotone and adding a non-negative term never
-/// lowers a rounded sum, so every pair the sweep skips has a computed squared
+/// The points are sorted on the coordinate with the largest range, the axis,
+/// and swept in that order.  For each point the scan moves to later points
+/// only while the square of their gap on the axis is at most the smallest
+/// squared distance found so far, and it returns as soon as that distance is
+/// zero.  Every squared distance is summed in coordinate order,
+/// (Δ₀² + Δ₁²) + Δ₂² and so on.  Rounded subtraction and squaring are monotone
+/// and adding a non-negative term never lowers a rounded sum, so the sum is at
+/// least its axis term, and every pair the sweep skips has a computed squared
 /// distance above the minimum: the result is bit for bit the minimum over all
 /// pairs, which the tests check against a scan of every pair.
 ///
-/// The scan returns as soon as it meets a squared distance of zero.
-///
 /// Each point is compared with about n·r later points, where r is the
 /// nearest-pair scale; for n uniform points in the unit d-cube r ≈ n^(−2/d),
-/// against n/2 for a scan of every pair.
+/// against n/2 for a scan of every pair.  Points that share a value on the
+/// axis are not pruned; taking the widest coordinate makes that the case only
+/// when all of them share values on every coordinate's range.
 ///
 /// Callers that need the distance take one square root of the result:
 /// correctly rounded `sqrt` is monotone non-decreasing, so that root equals
 /// the smallest per-pair root bit for bit.  Returns `f64::MAX` for fewer than
 /// two points; every caller passes at least 500.
 pub(crate) fn min_squared_distance<const D: usize>(points: &[[f64; D]]) -> f64 {
+    let axis = widest_coordinate(points);
     let mut sorted = points.to_vec();
-    sorted.sort_unstable_by(|p, q| p[0].total_cmp(&q[0]));
+    sorted.sort_unstable_by(|p, q| p[axis].total_cmp(&q[axis]));
     let mut min_sq = f64::MAX;
     for (i, p) in sorted.iter().enumerate() {
         for q in &sorted[i + 1..] {
-            let gap = q[0] - p[0];
+            let gap = q[axis] - p[axis];
             if gap * gap > min_sq {
                 break;
             }
@@ -54,6 +56,27 @@ pub(crate) fn min_squared_distance<const D: usize>(points: &[[f64; D]]) -> f64 {
         }
     }
     min_sq
+}
+
+/// The coordinate whose values span the widest range (the first of equals).
+fn widest_coordinate<const D: usize>(points: &[[f64; D]]) -> usize {
+    (0..D)
+        .map(|k| {
+            let (lo, hi) = points
+                .iter()
+                .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| {
+                    (lo.min(p[k]), hi.max(p[k]))
+                });
+            (k, hi - lo)
+        })
+        .fold((0, f64::NEG_INFINITY), |best, (k, range)| {
+            if range > best.1 {
+                (k, range)
+            } else {
+                best
+            }
+        })
+        .0
 }
 
 /// H_d(r), the probability that two independent uniform points in the unit
@@ -190,7 +213,7 @@ mod tests {
             let grid: Vec<[f64; D]> = (0..n)
                 .map(|_| std::array::from_fn(|_| (rng.next_f64() * 4.0).floor() / 4.0))
                 .collect();
-            // Every point on one first coordinate, so the sweep prunes nothing.
+            // Every point on one first coordinate: the sweep takes another axis.
             let wall: Vec<[f64; D]> = (0..n)
                 .map(|_| std::array::from_fn(|k| if k == 0 { 0.5 } else { rng.next_f64() }))
                 .collect();
