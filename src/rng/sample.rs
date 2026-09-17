@@ -274,6 +274,19 @@ pub trait Sample: Rng {
         }
     }
 
+    /// A standard normal variate by the ziggurat of Marsaglia and Tsang, with
+    /// the table derived in [`super::ziggurat`] rather than tabulated.
+    ///
+    /// The same law as [`normal`](Self::normal) and a different sequence: a
+    /// draw usually costs one word and no transcendental function, where
+    /// inversion costs a Newton solve, so this is the faster of the two.  Its
+    /// body lies on the 2⁻⁵³ grid of the uniform it uses, and its tail is
+    /// drawn from dense uniforms by rejection, reaching further than
+    /// inversion's ±38.49.  `normal` remains the value-stable one.
+    fn normal_ziggurat(&mut self) -> f64 {
+        crate::rng::ziggurat::Ziggurat::derived().sample(self)
+    }
+
     /// Fill `bytes` with generator output, four bytes of each `next_u32`
     /// little-endian; a final partial word supplies its low bytes.
     fn fill_bytes(&mut self, bytes: &mut [u8]) {

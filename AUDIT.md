@@ -39,14 +39,15 @@ merely by compiling. The choice is to implement a documented platform API
 or to leave the target unsupported and say so. Darrell is finding a Windows
 machine to test against.
 
-### A4 — Sampling performance is unmeasured against alternatives
+### A4 — The fast normal is not the default, and nothing is measured against rand
 
-`fill_native` is measured (`examples/fill_throughput.rs`): about 10 GiB/s for
-Xoshiro256 and JSF64, two to four times `fill_bytes`, with the cryptographic
-generators cipher-bound. Bounded integers, shuffles and the exponential and
-normal variates have no such comparison, and `normal()` costs a Newton solve
-per draw. A ziggurat with tables derived here is the obvious candidate and
-needs its own acceptance test, the tail included.
+Every sampling method is now measured here (`examples/variate_throughput.rs`,
+millions of draws per second on one PCG64): `next_u64` 311, `range` 315,
+`below` 302, `unit_f64` 313, dense uniform 218, Bernoulli 110, exponential 78,
+`normal_ziggurat` 271, and `normal` by inversion 0.1. The inversion is three
+orders of magnitude slower than the ziggurat that samples the same law, but it
+is the value-stable method callers have, so swapping it is a decision, not a
+patch. Nothing here is measured against another crate's sampling.
 
 ### A5 — Parallel streams exist only for the linear generators
 

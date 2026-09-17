@@ -42,6 +42,7 @@ pub mod thread_rng;
 mod views;
 pub mod xorshift;
 pub mod xoshiro;
+pub(crate) mod ziggurat;
 
 #[cfg(feature = "cryptography")]
 pub use aes_ctr::AesCtr;
