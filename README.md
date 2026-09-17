@@ -125,7 +125,13 @@ cargo run --release --bin upstream_tests -- --rng AES
 cargo run --release --bin testu01_lz   -- --rng AES --k 27
 cargo run --release --bin webster_tavares -- --samples 2048
 cargo run --release --bin gorilla      -- --rng AES
+cargo run --release --bin sequential   -- --rng AES --words 4000000
 ```
+
+`sequential` bets on each bit with Markov models of orders 0 to 16 and reports
+p = min(1, 1/sup E) for the mixture's wealth E, which Ville's inequality makes
+valid however long the bits are watched.  It is conservative, and it is not
+part of `tests/run_aux.sh`.
 
 A further standalone binary, `bitplane_complexity`, measures Berlekamp-Massey
 linear complexity on each individual output bit plane across successive
@@ -195,6 +201,7 @@ That mix makes output useful both for regression testing and for verifying that 
 | DIEHARD historical tests: OPERM5, overlapping sums, count-the-1s on each byte offset, 6×8 rank on each byte offset | Opt-in suite (`--suite diehard-historical`); see below |
 | DIEHARDER: bit_distribution, byte_distribution, dct, fill_tree, gcd, ks_uniform, lagged_sums, minimum_distance_nd, monobit2, permutations | Brown's and Bauer's statistics.  Fill-tree's distribution is exact; the GCD step-count law is estimated by a 10¹²-pair simulation (`examples/gcd_step_table.rs`); χ² cells expecting too few counts are pooled so that every observation is scored once; monobit2 combines its block lengths by Bonferroni's bound |
 | Webster–Tavares (1985): strict avalanche / bit-independence probe over seeded RNG families | Research binary (`webster_tavares`); the dependence matrix and avalanche-variable correlations of the paper |
+| Ville (1939), Howard et al. (2021), Krichevsky–Trofimov (1981): anytime-valid test of fair bits by a mixture of Markov predictors | Research binary (`sequential`); p = min(1, 1/sup E) of a nonnegative martingale |
 | Knuth TAOCP Vol. 2 §3.3.2 permutation and gap tests, plus the Wald–Wolfowitz (1940) runs test above/below the median | Research binary (`bib_tests`) over uniform `[0,1)` streams |
 | NIST SP 800-22 §2.12 ApEn statistic swept over embedding dimensions `m=2..6` | Part of `bib_tests` |
 | L'Ecuyer and Simard (2007): Lempel–Ziv compressibility | Research binary (`testu01_lz`); the LZ78 phrase count against its exact distribution for k ≤ 5 and simulated distributions above (`examples/lz78_table.rs`), through a randomized probability-integral transform |

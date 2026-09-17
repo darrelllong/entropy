@@ -63,6 +63,11 @@ path = "src/bin/gorilla.rs"
 required-features = ["cryptography"]
 
 [[bin]]
+name = "sequential"
+path = "src/bin/sequential.rs"
+required-features = ["cryptography"]
+
+[[bin]]
 name = "testu01_lz"
 path = "src/bin/testu01_lz.rs"
 required-features = ["cryptography"]
