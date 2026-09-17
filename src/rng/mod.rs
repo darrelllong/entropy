@@ -177,6 +177,27 @@ pub trait Rng {
     }
 }
 
+/// A generator whose output is computationally unpredictable when its seed or
+/// key is secret: the operating system source, the ChaCha20 generators and the
+/// NIST DRBGs.  Accept `impl CryptoRng` where a weak generator must not
+/// compile.  The marker describes the construction; a generator keyed with a
+/// published test key, as the battery's fixed-seed rows are, is not secret.
+pub trait CryptoRng: Rng {}
+
+impl CryptoRng for OsRng {}
+#[cfg(feature = "cryptography")]
+impl CryptoRng for ChaCha20Rng {}
+#[cfg(feature = "cryptography")]
+impl CryptoRng for FastKeyErasureRng {}
+#[cfg(feature = "cryptography")]
+impl CryptoRng for ThreadRng {}
+#[cfg(feature = "cryptography")]
+impl CryptoRng for HmacDrbg {}
+#[cfg(feature = "cryptography")]
+impl CryptoRng for HashDrbg {}
+#[cfg(feature = "cryptography")]
+impl CryptoRng for CryptoCtrDrbg {}
+
 // ── Byte-buffered generators ─────────────────────────────────────────────────
 
 #[cfg(feature = "cryptography")]

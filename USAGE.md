@@ -74,12 +74,66 @@ generators (PCG64, Xoshiro256, ChaCha20Rng, etc.). This is sufficient for
 the p-value calculations in this crate. Do not rely on `next_f64` for
 high-precision floating-point sampling from a 64-bit generator.
 
-**No CSPRNG marker type.** The `Rng` trait has no subtrait distinguishing
-cryptographic from non-cryptographic generators. Any function accepting
-`impl Rng` will compile with `ConstantRng` or `SystemVRand`. This flat
-design is correct for a test harness that compares all generators uniformly.
-In production code, define a `CsprngRng: Rng` marker subtrait so weak
-generators are rejected at compile time.
+**`CryptoRng` marks cryptographic constructions.** `OsRng`, `ChaCha20Rng`,
+`FastKeyErasureRng`, `ThreadRng`, `HmacDrbg`, `HashDrbg` and `CryptoCtrDrbg`
+implement it.  Accept `impl CryptoRng` where a weak generator must not
+compile.  The marker describes the construction, not the key: a generator
+keyed with a published test key is not secret.
+
+---
+
+## Random Values in Applications
+
+`entropy::rng` also serves programs that need random values, not only tests.
+
+```rust
+use entropy::rng::{thread_rng, Sample, Seedable, Pcg64};
+
+let mut rng = thread_rng();              // per-thread ChaCha20, fast key erasure
+let die = rng.range(1, 7);               // exactly uniform in 1..=6
+let coin = rng.bernoulli(0.3);           // exactly probability 0.3
+let x = rng.unit_f64();                  // 53-bit uniform in [0, 1)
+let z = rng.normal();                    // standard normal, full tails
+let mut deck: Vec<u8> = (0..52).collect();
+rng.shuffle(&mut deck);                  // uniform over all orderings
+
+let mut sim = Pcg64::seed_from_u64(42);  // reproducible stream
+```
+
+| Method (`Sample`, on every generator) | What it guarantees |
+|---|---|
+| `below(n)`, `range(lo, hi)` | Exactly uniform integers, by Lemire's multiply-and-reject method; checked exhaustively at 12-bit words for every bound |
+| `ratio(a, b)`, `bernoulli(p)` | Probability exactly a/b, or exactly the double p, ties included |
+| `unit_f64()` | Uniform on the 2⁵³ multiples of 2⁻⁵³ in [0, 1) |
+| `unit_f64_dense()` | A uniform real rounded down to a double: every double in [0, 1), subnormals included, with its gap's probability |
+| `exponential()`, `normal()` | Inversion of dense uniforms, so the tails reach about 744 and ±38 |
+| `shuffle`, `choose` | Durstenfeld's Fisher–Yates with exact indices |
+| `fill_bytes` | Little-endian `next_u32` words |
+
+**`thread_rng()`** gives each thread a `FastKeyErasureRng` keyed from the
+operating system: ChaCha20 whose key is replaced by the first 32 bytes of
+each refill and whose served bytes are erased, so a captured state reveals no
+earlier output (Bernstein, "Fast-key-erasure random-number generators",
+2017).  It takes a fresh key after every 2³⁰ bytes and whenever the process id
+changes, so a forked child never repeats its parent.  `try_thread_rng()`
+returns the operating system's error instead of panicking.
+
+**OS entropy.** `os_random(&mut bytes)`, `OsRng::try_new()` and
+`OsRng::try_fill` return `io::Result`.  On Linux the first use reads a byte
+from `/dev/random`, which blocks until the kernel pool is initialized, so
+`/dev/urandom` is never read unseeded.  `OsRng` is Unix-only: without FFI or
+a dependency there is no portable system call for Windows.
+
+**Seeding.** `Seedable` is implemented by PCG32, PCG64, Xoshiro256,
+Xoroshiro128, SFC64, JSF64, MT19937, ChaCha20Rng and FastKeyErasureRng:
+`from_seed_bytes` (the constructor's integers, little-endian),
+`seed_from_u64` (SplitMix64 expansion) and `from_os`.
+
+**Value stability.** Every generator, `Sample` method and `Seedable`
+derivation produces the same values from the same seed in every release;
+known-answer tests pin them, and a change to any of them is a breaking
+change recorded in the commit history.  `thread_rng` is seeded from the
+operating system and has no stable values.
 
 ---
 
@@ -320,8 +374,9 @@ DIEHARDER runs prohibitively slow.
 | Goal | Generator | Notes |
 |------|-----------|-------|
 | Fast simulation, no reproducibility requirement | `Sfc64` or `Jsf64` | Among the fastest generators in the suite |
-| Reproducible statistical testing | `Pcg64` or `Xoshiro256` | Seed with `seed_material(n)`; deterministic across runs |
-| Cryptographic-quality output | `ChaCha20Rng` or `CryptoCtrDrbg` (AES-256) | Seed from `OsRng`; rotate `ChaCha20Rng` before 256 GiB output; no reseed API exists |
+| Reproducible simulation or testing | `Pcg64` or `Xoshiro256` | `Seedable::seed_from_u64(n)`; value-stable across releases |
+| Random values in an application | `thread_rng()` | Fast key erasure, reseeded from the OS, fork-safe |
+| Cryptographic-quality output with a chosen key | `FastKeyErasureRng`, `ChaCha20Rng` or `CryptoCtrDrbg` (AES-256) | Seed with `Seedable::from_os`; `ChaCha20Rng` stops at 256 GiB per key |
 | OS entropy directly | `OsRng` | Wraps `/dev/urandom`; not buffered |
 | Negative control — must fail all tests | `ConstantRng` or `CounterRng` | Sanity check that batteries are working |
 | Never use for anything | `DualEcDrbg` | Known backdoor; included for reference only |
