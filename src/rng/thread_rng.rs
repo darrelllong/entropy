@@ -19,33 +19,22 @@
 //! stream.
 
 use super::{os::os_random, Rng};
-use cryptography::{zeroize_slice, ChaCha20};
+use cryptography::{cprng::fast_key_erasure::KEY, zeroize_slice, FastKeyErasure};
 use std::{cell::RefCell, io, marker::PhantomData};
 
-/// Keystream bytes per refill: eight ChaCha20 blocks.
-const REFILL: usize = 512;
-/// Bytes of each refill that become the next key.
-const KEY: usize = 32;
 /// Output bytes after which a thread's generator takes a fresh key.
 const RESEED_BYTES: u64 = 1 << 30;
 
-/// ChaCha20 with fast key erasure.
-pub struct FastKeyErasureRng {
-    key: [u8; KEY],
-    buffer: [u8; REFILL],
-    /// Next unserved byte of `buffer`; `REFILL` when empty.
-    position: usize,
-}
+/// ChaCha20 with fast key erasure: cryptography's `FastKeyErasure`, whose
+/// refill is `REFILL` (512) keystream bytes of which the first `KEY` (32)
+/// become the next key.
+pub struct FastKeyErasureRng(FastKeyErasure);
 
 impl FastKeyErasureRng {
     /// A generator whose first key is `key`.  The caller's copy is not wiped.
     #[must_use]
     pub fn new(key: [u8; KEY]) -> Self {
-        Self {
-            key,
-            buffer: [0; REFILL],
-            position: REFILL,
-        }
+        Self(FastKeyErasure::new(key))
     }
 
     /// A generator keyed from the operating system.
@@ -60,60 +49,24 @@ impl FastKeyErasureRng {
         Ok(rng)
     }
 
-    /// Replace the key with the next 32 bytes of keystream and keep the rest.
-    fn refill(&mut self) {
-        let mut stream = [0u8; REFILL];
-        ChaCha20::new(&self.key, &[0u8; 12]).apply_keystream(&mut stream);
-        self.key.copy_from_slice(&stream[..KEY]);
-        self.buffer[KEY..].copy_from_slice(&stream[KEY..]);
-        zeroize_slice(&mut stream);
-        self.position = KEY;
-    }
-
-    /// Serve `bytes`, erasing each from the buffer as it goes.
+    /// Serve `bytes`, erasing each from the generator's buffer as it goes.
     pub fn fill(&mut self, bytes: &mut [u8]) {
-        let mut done = 0;
-        while done < bytes.len() {
-            if self.position == REFILL {
-                self.refill();
-            }
-            let take = (REFILL - self.position).min(bytes.len() - done);
-            let served = &mut self.buffer[self.position..self.position + take];
-            bytes[done..done + take].copy_from_slice(served);
-            zeroize_slice(served);
-            self.position += take;
-            done += take;
-        }
+        self.0.fill(bytes);
     }
 
     /// XOR `fresh` into the key and discard the unserved buffer.
     fn reseed(&mut self, fresh: &[u8; KEY]) {
-        for (k, f) in self.key.iter_mut().zip(fresh) {
-            *k ^= f;
-        }
-        zeroize_slice(&mut self.buffer);
-        self.position = REFILL;
+        self.0.reseed(fresh);
     }
 }
 
 impl Rng for FastKeyErasureRng {
     fn next_u32(&mut self) -> u32 {
-        let mut word = [0u8; 4];
-        self.fill(&mut word);
-        u32::from_le_bytes(word)
+        self.0.next_u32()
     }
 
     fn next_u64(&mut self) -> u64 {
-        let mut word = [0u8; 8];
-        self.fill(&mut word);
-        u64::from_le_bytes(word)
-    }
-}
-
-impl Drop for FastKeyErasureRng {
-    fn drop(&mut self) {
-        zeroize_slice(&mut self.key);
-        zeroize_slice(&mut self.buffer);
+        self.0.next_u64()
     }
 }
 
@@ -204,8 +157,9 @@ impl Rng for ThreadRng {
 
 #[cfg(test)]
 mod tests {
-    use super::{with_generator, FastKeyErasureRng, KEY, REFILL, RESEED_BYTES, STATE};
-    use crate::rng::{thread_rng, Rng};
+    use super::{with_generator, FastKeyErasureRng, KEY, RESEED_BYTES, STATE};
+    use crate::rng::{hex, thread_rng, Rng};
+    use cryptography::cprng::fast_key_erasure::REFILL;
     use cryptography::ChaCha20;
 
     /// Output is the keystream after its first 32 bytes, and the next refill
@@ -226,14 +180,21 @@ mod tests {
         assert_eq!(out[REFILL - KEY..], second[KEY..]);
     }
 
-    /// Served bytes are erased from the buffer, and the state holds no copy.
+    /// The first and last bytes of a 960-byte fill under key 00 … 1f, as
+    /// OpenSSL's ChaCha20 computes them independently (cryptography pins the
+    /// same bytes on its mechanism).
     #[test]
-    fn served_bytes_are_erased() {
-        let mut rng = FastKeyErasureRng::new([7; KEY]);
-        let word = rng.next_u64().to_le_bytes();
-        assert_eq!(rng.buffer[KEY..KEY + 8], [0; 8]);
-        assert!(!rng.buffer.windows(8).any(|w| w == word));
-        assert!(!rng.key.windows(8).any(|w| w == word));
+    fn fill_matches_independent_chacha20() {
+        const FIRST: &str = "2b23cce7a26023ab3f0eef693ac87f64258235eab1f7a32dc22762a0485b410c\
+                             18b84231ade6a6d113615c61af434e27f8b1f3f5e1ad5b5cecf8fc122a35755c";
+        const LAST: &str = "d0649d0f9a4306e3aa7c5bcf77cc8d04a1f80e367a24ee97a867b2295c945177";
+        let key: [u8; KEY] = std::array::from_fn(|i| i as u8);
+        let mut out = [0u8; 2 * (REFILL - KEY)];
+        FastKeyErasureRng::new(key).fill(&mut out);
+        let first = hex(FIRST);
+        let last = hex(LAST);
+        assert_eq!(out[..first.len()], first[..]);
+        assert_eq!(out[out.len() - last.len()..], last[..]);
     }
 
     /// A new process id or a full reseed interval takes a fresh key.
