@@ -216,6 +216,30 @@ fn bits_to_index(bits: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
+    /// The sample variance of 200 000 simulated distances against its table value.
+    const EMPIRICAL_VARIANCE: f64 = 1e-3;
+
+    /// A mean or variance summed here from exact terms.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// A shipped table value, reproduced by the same summation.
+    const SHIPPED_TABLE: f64 = 1e-15;
+
+    /// SP 800-22 quotes σ for its example to six decimals.
+    const SP_800_22_SIGMA: f64 = 5e-7;
+
+    /// σ recomputed from the shipped table, which agrees to nine decimals.
+    const SHIPPED_SIGMA: f64 = 1e-9;
+
+    /// The p-value from that σ, to eight decimals.
+    const SHIPPED_P: f64 = 1e-8;
+
+    /// SP 800-22 quotes its example values to six decimals.
+    const PUBLISHED: f64 = 1e-6;
+
+    /// SP 800-22 quotes the example sum to six figures, about 10⁻⁵ here.
+    const PUBLISHED_SUM: f64 = 1e-5;
+
     use super::{
         choose_l, universal, universal_parametric_all, universal_sigma, universal_statistic,
         EXPECTED_LOG_GAP_STATS,
@@ -252,7 +276,7 @@ mod tests {
             let (m, v) = EXPECTED_LOG_GAP_STATS[l];
             let last_mu_place = if l < 11 { 1e-7 } else { 1e-6 };
             assert!((m - mu).abs() <= last_mu_place, "μ for L = {l}: {m}");
-            assert!((v - var).abs() <= 1e-3, "σ² for L = {l}: {v}");
+            assert!((v - var).abs() <= EMPIRICAL_VARIANCE, "σ² for L = {l}: {v}");
         }
     }
 
@@ -360,11 +384,11 @@ mod tests {
             let (mean, variance) = maurer_series(l);
             let (decimal_mean, decimal_variance) = DECIMAL_SERIES[l - 6];
             assert!(
-                (mean - decimal_mean).abs() < 1e-12,
+                (mean - decimal_mean).abs() < CLOSED_FORM,
                 "series μ, L = {l}: {mean}"
             );
             assert!(
-                (variance - decimal_variance).abs() < 1e-12,
+                (variance - decimal_variance).abs() < CLOSED_FORM,
                 "series σ², L = {l}: {variance}"
             );
             let (mu_gap, variance_gap) = TABLE_GAPS[l - 6];
@@ -384,8 +408,8 @@ mod tests {
     #[test]
     fn published_table_covers_l16() {
         let (mu, var) = EXPECTED_LOG_GAP_STATS[16];
-        assert!((mu - 15.167378763638).abs() < 1e-12);
-        assert!((var - 3.421308343033).abs() < 1e-12);
+        assert!((mu - 15.167378763638).abs() < CLOSED_FORM);
+        assert!((var - 3.421308343033).abs() < CLOSED_FORM);
     }
 
     /// σ for L = 7, K = 1000 with §2.9.4's c(L, K), from an independent
@@ -394,7 +418,10 @@ mod tests {
     #[test]
     fn uses_nist_correction_factor() {
         let sigma = universal_sigma(7, 1_000, EXPECTED_LOG_GAP_STATS[7].1);
-        assert!((sigma - 0.034399103037796475).abs() < 1e-15, "σ = {sigma}");
+        assert!(
+            (sigma - 0.034399103037796475).abs() < SHIPPED_TABLE,
+            "σ = {sigma}"
+        );
     }
 
     /// SP 800-22 §2.9.8: n = 1 048 576, L = 7, Q = 1280, so K = 148 516;
@@ -409,18 +436,21 @@ mod tests {
         let k = 1_048_576 / l - q;
         assert_eq!(k, 148_516);
         let sigma = universal_sigma(l, k, 3.125);
-        assert!((sigma - 0.002703).abs() < 5e-7, "σ = {sigma}");
+        assert!((sigma - 0.002703).abs() < SP_800_22_SIGMA, "σ = {sigma}");
         let f_n = 919_924.038020 / k as f64;
         let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
-        assert!((p - 0.427733).abs() < 1e-6, "p = {p}");
+        assert!((p - 0.427733).abs() < PUBLISHED, "p = {p}");
         // The shipped 12-digit table entry for L = 7 is more precise than the
         // printed 6.1962507 and 3.125; an independent Python replica gives
         // σ = 0.002702824 and P = 0.427772059 for the same printed sum.
         let (mu7, var7) = EXPECTED_LOG_GAP_STATS[l];
         let sigma = universal_sigma(l, k, var7);
         let p = erfc((f_n - mu7).abs() / (sigma * SQRT_2));
-        assert!((sigma - 0.002702824).abs() < 1e-9, "shipped σ = {sigma}");
-        assert!((p - 0.427772059).abs() < 1e-8, "shipped p = {p}");
+        assert!(
+            (sigma - 0.002702824).abs() < SHIPPED_SIGMA,
+            "shipped σ = {sigma}"
+        );
+        assert!((p - 0.427772059).abs() < SHIPPED_P, "shipped p = {p}");
     }
 
     /// SP 800-22 Appendix B prints P-value = 0.282568 for 10⁶ bits of e, where
@@ -432,16 +462,16 @@ mod tests {
     fn matches_appendix_b_e_row() {
         let e = e_bits(1_000_000);
         let r = universal(&e);
-        assert!((r.p_value - 0.282591).abs() < 1e-6, "{r}");
+        assert!((r.p_value - 0.282591).abs() < PUBLISHED, "{r}");
         let (l, q) = (7, 1280);
         let k = e.len() / l - q;
         assert_eq!(k, 141_577);
         let f_n = universal_statistic(&e, l, q, k);
         let sum = f_n * k as f64;
-        assert!((sum - 877_667.758407).abs() < 1e-5, "sum = {sum}");
+        assert!((sum - 877_667.758407).abs() < PUBLISHED_SUM, "sum = {sum}");
         let sigma = universal_sigma(l, k, 3.125);
         let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
-        assert!((p - 0.282568).abs() < 1e-6, "p = {p}");
+        assert!((p - 0.282568).abs() < PUBLISHED, "p = {p}");
     }
 
     /// The SP 800-22 §2.9.7 table, as (L, minimum n).

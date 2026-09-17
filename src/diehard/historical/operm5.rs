@@ -270,6 +270,18 @@ fn symmetric_eigen(a: &Matrix) -> ([f64; N_ORDERINGS], Matrix) {
 
 #[cfg(test)]
 mod tests {
+    /// A row sum or entry of the exact covariance matrix.
+    const EXACT_COVARIANCE: f64 = 1e-15;
+
+    /// The trace of the covariance times its pseudoinverse, over 120 rows.
+    const MATRIX_PRODUCT: f64 = 1e-8;
+
+    /// Tolerance on the pinned χ² of a fixed stream.
+    const GOLDEN_CHI_TOLERANCE: f64 = 1e-9;
+
+    /// Tolerance on the p-value of that χ².
+    const GOLDEN_P_TOLERANCE: f64 = 1e-12;
+
     use super::{
         covariance, for_each_ordering, operm5, ordering_index, pseudo_inverse, statistic, Matrix,
         N_ORDERINGS, WINDOW, WORDS,
@@ -323,7 +335,7 @@ mod tests {
     fn covariance_rows_sum_to_zero() {
         let c = covariance();
         for (a, row) in c.iter().enumerate() {
-            assert!(row.iter().sum::<f64>().abs() < 1e-15, "row {a}");
+            assert!(row.iter().sum::<f64>().abs() < EXACT_COVARIANCE, "row {a}");
             for (b, &v) in row.iter().enumerate() {
                 assert_eq!(v.to_bits(), c[b][a].to_bits(), "C[{a}][{b}]");
             }
@@ -334,7 +346,7 @@ mod tests {
         let p = 1.0 / 120.0;
         let want =
             p - 9.0 * p * p + 2.0 * (1.0 / 720.0 + 1.0 / 5040.0 + 1.0 / 40320.0 + 1.0 / 362880.0);
-        assert!((c[0][0] - want).abs() < 1e-15, "{}", c[0][0]);
+        assert!((c[0][0] - want).abs() < EXACT_COVARIANCE, "{}", c[0][0]);
     }
 
     /// P is the pseudoinverse of C: C·P·C = C, P·C·P = P, and
@@ -356,7 +368,7 @@ mod tests {
         let err = max_abs_diff(&cp, &cp_transpose);
         assert!(err < 1e-10, "CP is not symmetric: {err:e}");
         let trace: f64 = cp.iter().enumerate().map(|(i, row)| row[i]).sum();
-        assert!((trace - 96.0).abs() < 1e-8, "trace(CP) = {trace}");
+        assert!((trace - 96.0).abs() < MATRIX_PRODUCT, "trace(CP) = {trace}");
     }
 
     /// χ² on a fixed PCG64 stream, pinned.
@@ -369,12 +381,12 @@ mod tests {
         let words = Pcg64::new(20_260_916, 5).collect_u32s(WORDS);
         let chi_square = statistic(&words);
         assert!(
-            (chi_square - GOLDEN_CHI_SQUARE).abs() < 1e-9,
+            (chi_square - GOLDEN_CHI_SQUARE).abs() < GOLDEN_CHI_TOLERANCE,
             "{chi_square:?}"
         );
         let result = operm5(&words);
         assert!(
-            (result.p_value - GOLDEN_P).abs() < 1e-12,
+            (result.p_value - GOLDEN_P).abs() < GOLDEN_P_TOLERANCE,
             "{:?}",
             result.p_value
         );

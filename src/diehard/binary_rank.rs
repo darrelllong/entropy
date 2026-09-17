@@ -242,6 +242,18 @@ fn gf2_rank_probability(rows: usize, cols: usize, rank: usize) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    /// A rank probability or their sum, computed exactly here.
+    const EXACT_PROBABILITY: f64 = 1e-15;
+
+    /// The 6×8 probabilities against the product form, whose factors round.
+    const PRODUCT_FORM: f64 = 1e-13;
+
+    /// An identity that holds exactly, up to floating rounding.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// A probability against the infinite product truncated at its shipped terms.
+    const TRUNCATED_PRODUCT: f64 = 1e-9;
+
     use super::{
         binary_rank_31x31, binary_rank_32x32, binary_rank_6x8, gf2_rank_probability, leftmost_bits,
         theoretical_probs, P6X8_FIVE, P6X8_FULL,
@@ -270,7 +282,7 @@ mod tests {
             (got.2, want.2),
             (got.3, want.3),
         ] {
-            assert!((g - w).abs() < 1e-12, "{g} vs {w}");
+            assert!((g - w).abs() < CLOSED_FORM, "{g} vs {w}");
         }
     }
 
@@ -295,7 +307,7 @@ mod tests {
         let note = result.note.as_deref().unwrap_or_default();
         assert!(note.contains("χ²=0.0001"), "{note}");
         assert!(
-            (result.p_value - 0.9999514430863818).abs() < 1e-9,
+            (result.p_value - 0.9999514430863818).abs() < TRUNCATED_PRODUCT,
             "{result}"
         );
     }
@@ -350,7 +362,7 @@ mod tests {
     #[test]
     fn exact_31x31_probabilities_sum_to_one() {
         let (p_full, p_m1, p_m2, p_tail) = theoretical_probs(31, 31);
-        assert!(((p_full + p_m1 + p_m2 + p_tail) - 1.0).abs() < 1e-12);
+        assert!(((p_full + p_m1 + p_m2 + p_tail) - 1.0).abs() < CLOSED_FORM);
         assert!(p_full > 0.28 && p_full < 0.29);
         assert!(p_tail > 0.0);
     }
@@ -362,11 +374,11 @@ mod tests {
         let infinite_product: f64 = (1..200).map(|i| 1.0 - 0.5f64.powi(i)).product();
         let p = gf2_rank_probability(32, 32, 32);
         assert!(
-            (p - infinite_product).abs() < 1e-9,
+            (p - infinite_product).abs() < TRUNCATED_PRODUCT,
             "{p} vs {infinite_product}"
         );
         let total: f64 = (0..=32).map(|r| gf2_rank_probability(32, 32, r)).sum();
-        assert!((total - 1.0).abs() < 1e-12, "32×32 total = {total}");
+        assert!((total - 1.0).abs() < CLOSED_FORM, "32×32 total = {total}");
     }
 
     /// The 6×8 masses P(6) and P(5) are exact and, with the exact
@@ -376,13 +388,13 @@ mod tests {
     fn rank_probability_tables_sum_to_one() {
         let (a, b, c, d) = theoretical_probs(32, 32);
         let sum = a + b + c + d;
-        assert!((sum - 1.0).abs() < 1e-15, "32×32 sum = {sum}");
+        assert!((sum - 1.0).abs() < EXACT_PROBABILITY, "32×32 sum = {sum}");
 
-        assert!((P6X8_FULL + P6X8_FIVE + 0.009443013983400306 - 1.0).abs() < 1e-15);
-        assert!((gf2_rank_probability(6, 8, 6) - P6X8_FULL).abs() < 1e-13);
-        assert!((gf2_rank_probability(6, 8, 5) - P6X8_FIVE).abs() < 1e-13);
+        assert!((P6X8_FULL + P6X8_FIVE + 0.009443013983400306 - 1.0).abs() < EXACT_PROBABILITY);
+        assert!((gf2_rank_probability(6, 8, 6) - P6X8_FULL).abs() < PRODUCT_FORM);
+        assert!((gf2_rank_probability(6, 8, 5) - P6X8_FIVE).abs() < PRODUCT_FORM);
         let total: f64 = (0..=6).map(|r| gf2_rank_probability(6, 8, r)).sum();
-        assert!((total - 1.0).abs() < 1e-13, "6×8 total = {total}");
+        assert!((total - 1.0).abs() < PRODUCT_FORM, "6×8 total = {total}");
     }
 
     const RANK_TESTS: [fn(&[u32]) -> TestResult; 3] =

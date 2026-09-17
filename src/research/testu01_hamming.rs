@@ -438,6 +438,12 @@ pub fn hamming_indep_block_result(summary: &HammingIndepSummary, k: usize) -> Te
 
 #[cfg(test)]
 mod tests {
+    /// A statistic this test computes exactly from small counts.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// A sum or symmetry of binomial probabilities, which round as they accumulate.
+    const SUMMED_PROBABILITY: f64 = 1e-9;
+
     use super::{binomial_probs, hamming_corr, hamming_indep, BlockWeights};
     use crate::rng::{ConstantRng, Rng, Xorshift32};
 
@@ -561,7 +567,7 @@ mod tests {
                 summary.z_score
             );
             let two_sided = crate::math::erfc(z.abs() / std::f64::consts::SQRT_2);
-            assert!((summary.p_value - two_sided).abs() < 1e-12, "{label}");
+            assert!((summary.p_value - two_sided).abs() < CLOSED_FORM, "{label}");
             assert_words_drawn(&mut rng, calls);
         }
     }
@@ -610,7 +616,7 @@ mod tests {
         let summary = hamming_indep(&mut rng, 20, 0, 2, 2, 1);
         // same side 10, opposite 5, middle 5; expected 2.5, 2.5, 15.
         let want = 7.5f64.powi(2) / 2.5 + 2.5f64.powi(2) / 2.5 + 10.0f64.powi(2) / 15.0;
-        assert!((summary.block_chi_square[0] - want).abs() < 1e-12);
+        assert!((summary.block_chi_square[0] - want).abs() < CLOSED_FORM);
         assert_eq!(2, summary.block_dof[0]);
     }
 
@@ -622,11 +628,14 @@ mod tests {
         for l in [1075usize, super::HAMMING_INDEP_MAX_L] {
             let probs = binomial_probs(l);
             let sum: f64 = probs.iter().sum();
-            assert!((sum - 1.0).abs() < 1e-9, "L = {l}: sum = {sum}");
+            assert!(
+                (sum - 1.0).abs() < SUMMED_PROBABILITY,
+                "L = {l}: sum = {sum}"
+            );
             let k = l / 2 - 10;
             assert!(probs[k] > 0.0, "L = {l}: central mass underflowed");
             assert!(
-                (probs[k] - probs[l - k]).abs() <= 1e-9 * probs[k],
+                (probs[k] - probs[l - k]).abs() <= SUMMED_PROBABILITY * probs[k],
                 "L = {l}: asymmetric"
             );
         }
@@ -639,7 +648,10 @@ mod tests {
             direct.push(p);
         }
         for (k, (&x, &y)) in binomial_probs(l).iter().zip(&direct).enumerate() {
-            assert!((x - y).abs() <= 1e-9 * y, "L = 300, k = {k}: {x} vs {y}");
+            assert!(
+                (x - y).abs() <= SUMMED_PROBABILITY * y,
+                "L = 300, k = {k}: {x} vs {y}"
+            );
         }
     }
 
@@ -647,7 +659,7 @@ mod tests {
     fn binomial_probs_sum_to_one() {
         let probs = binomial_probs(12);
         let sum: f64 = probs.iter().sum();
-        assert!((sum - 1.0).abs() < 1e-12);
+        assert!((sum - 1.0).abs() < CLOSED_FORM);
     }
 
     /// A zero correlation gives p = erfc(0) = 1 exactly.
@@ -675,16 +687,16 @@ mod tests {
         // Weak cells 5 and 3 pool to 8 < 10 and join the last kept cell
         // (12 → 20, observed 14 → 22): χ² = 2²/20 + 2²/20 = 0.4, dof 1.
         let (chi, dof, lumped) = lumped_chi_square(&[20.0, 5.0, 3.0, 12.0], &[18, 7, 1, 14], 10.0);
-        assert!((chi - 0.4).abs() < 1e-12, "{chi}");
+        assert!((chi - 0.4).abs() < CLOSED_FORM, "{chi}");
         assert_eq!((1, 2), (dof, lumped));
         // Weak cells 6 and 4 pool to 10 and form a class of their own:
         // χ² = 5²/20 + 3²/12 + 4²/10 = 3.6 over three classes, dof 2.
         let (chi, dof, lumped) = lumped_chi_square(&[20.0, 6.0, 4.0, 12.0], &[25, 4, 2, 9], 10.0);
-        assert!((chi - 3.6).abs() < 1e-12, "{chi}");
+        assert!((chi - 3.6).abs() < CLOSED_FORM, "{chi}");
         assert_eq!((2, 2), (dof, lumped));
         // No cell reaches 10: everything pools into one class, dof 0.
         let (chi, dof, lumped) = lumped_chi_square(&[4.0, 3.0], &[5, 2], 10.0);
-        assert!(chi.abs() < 1e-12, "{chi}");
+        assert!(chi.abs() < CLOSED_FORM, "{chi}");
         assert_eq!((0, 2), (dof, lumped));
     }
 }

@@ -185,6 +185,12 @@ pub fn gorilla_aggregate_ad(results: &[GorillaBitResult]) -> GorillaAggregate {
 
 #[cfg(test)]
 mod tests {
+    /// The same statistic reached by another route through the same arithmetic.
+    const SAME_ARITHMETIC: f64 = 1e-12;
+
+    /// Marsaglia & Marsaglia (2004) print their values to three decimals.
+    const PUBLISHED: f64 = 1e-3;
+
     use super::{
         gorilla_aggregate_ad, missing_words_for_bit, GorillaBitResult, GORILLA_MISSING_MEAN,
         GORILLA_MISSING_STDDEV,
@@ -276,17 +282,17 @@ mod tests {
         ] {
             let aggregate = gorilla_aggregate_ad(&bit_results(table));
             assert!(
-                (aggregate.statistic - statistic).abs() <= 1e-12 * statistic,
+                (aggregate.statistic - statistic).abs() <= SAME_ARITHMETIC * statistic,
                 "{name}: A = {}",
                 aggregate.statistic
             );
             assert!(
-                (aggregate.adks - adks).abs() < 1e-12,
+                (aggregate.adks - adks).abs() < SAME_ARITHMETIC,
                 "{name}: Pr(A < z) = {}",
                 aggregate.adks
             );
             assert!(
-                (aggregate.adks - printed).abs() < 1e-3,
+                (aggregate.adks - printed).abs() < PUBLISHED,
                 "{name}: printed {printed}"
             );
             assert_eq!(1.0 - aggregate.adks, aggregate.p_value, "{name}");
@@ -309,7 +315,7 @@ mod tests {
         for (table, ks_cdf) in [(&KISS, 0.052), (&LFIB4, 0.587)] {
             let mut values = table.to_vec();
             let got = 1.0 - ks_test(&mut values);
-            assert!((got - ks_cdf).abs() < 1e-3, "Pr(D < d) = {got}");
+            assert!((got - ks_cdf).abs() < PUBLISHED, "Pr(D < d) = {got}");
         }
     }
 
@@ -321,8 +327,10 @@ mod tests {
             let direct = gorilla_aggregate_ad(&bit_results(table));
             let reflected: Vec<f64> = table.iter().map(|p| 1.0 - p).collect();
             let reflected = gorilla_aggregate_ad(&bit_results(&reflected));
-            assert!((direct.statistic - reflected.statistic).abs() < 1e-12 * direct.statistic);
-            assert!((direct.adks - reflected.adks).abs() < 1e-12);
+            assert!(
+                (direct.statistic - reflected.statistic).abs() < SAME_ARITHMETIC * direct.statistic
+            );
+            assert!((direct.adks - reflected.adks).abs() < SAME_ARITHMETIC);
         }
     }
 

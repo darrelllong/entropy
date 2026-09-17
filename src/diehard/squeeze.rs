@@ -179,6 +179,21 @@ fn score(counts: &[u32; N_CELLS]) -> (f64, usize, f64) {
 
 #[cfg(test)]
 mod tests {
+    /// DIEHARD quotes the pooled χ² of its example to three decimals.
+    const PUBLISHED_CHI: f64 = 1e-3;
+
+    /// A sum of cell probabilities that is exactly 1.
+    const PROBABILITY_SUM: f64 = 1e-14;
+
+    /// A χ² and p-value recomputed by the same arithmetic.
+    const CLOSED_FORM: f64 = 1e-12;
+
+    /// A χ² recomputed from pooled cells, which round.
+    const RECOMPUTED_CHI: f64 = 1e-9;
+
+    /// The p-value of that χ², compared relatively.
+    const RELATIVE_P: f64 = 1e-6;
+
     use super::{
         cells_from_steps, score, squeeze, step_count_distribution, CELL_PROBABILITIES, CUTOFF,
         N_CELLS, N_TRIALS,
@@ -210,7 +225,7 @@ mod tests {
             .collect();
         assert_eq!(weak, [0, 39, 40, 41, 42]);
         let pooled: f64 = weak.iter().map(|&i| n * CELL_PROBABILITIES[i]).sum();
-        assert!((pooled - 9.278).abs() < 1e-3, "pooled = {pooled}");
+        assert!((pooled - 9.278).abs() < PUBLISHED_CHI, "pooled = {pooled}");
     }
 
     /// χ² with the 38 strong cells scored alone and the five weak cells pooled,
@@ -242,8 +257,11 @@ mod tests {
         let (p, df, chi) = score(&NEAR);
         let (want_chi, want_p) = by_hand(&NEAR);
         assert_eq!(df, 38);
-        assert!((chi - want_chi).abs() < 1e-12, "χ² = {chi} vs {want_chi}");
-        assert!((p - want_p).abs() < 1e-12, "p = {p} vs {want_p}");
+        assert!(
+            (chi - want_chi).abs() < CLOSED_FORM,
+            "χ² = {chi} vs {want_chi}"
+        );
+        assert!((p - want_p).abs() < CLOSED_FORM, "p = {p} vs {want_p}");
     }
 
     /// Over-produced extreme lengths reach the pooled cell and are rejected.
@@ -253,8 +271,11 @@ mod tests {
         let (want_chi, want_p) = by_hand(&EXTREME);
         assert_eq!(df, 38);
         assert!(chi > 1000.0);
-        assert!((chi - want_chi).abs() < 1e-9, "χ² = {chi} vs {want_chi}");
-        assert!((p / want_p - 1.0).abs() < 1e-6, "p = {p} vs {want_p}");
+        assert!(
+            (chi - want_chi).abs() < RECOMPUTED_CHI,
+            "χ² = {chi} vs {want_chi}"
+        );
+        assert!((p / want_p - 1.0).abs() < RELATIVE_P, "p = {p} vs {want_p}");
     }
 
     /// The table is a distribution: positive cells summing to 1.
@@ -262,7 +283,7 @@ mod tests {
     fn cell_probabilities_sum_to_one() {
         assert!(CELL_PROBABILITIES.iter().all(|&p| p > 0.0));
         let sum: f64 = CELL_PROBABILITIES.iter().sum();
-        assert!((sum - 1.0).abs() < 1e-14, "sum = {sum}");
+        assert!((sum - 1.0).abs() < PROBABILITY_SUM, "sum = {sum}");
     }
 
     /// f_k(j) by the recurrence with sums taken afresh for every k.
@@ -285,7 +306,10 @@ mod tests {
             let fast = step_count_distribution(start, 30);
             let slow = direct_distribution(start as usize, 30);
             for (j, (a, b)) in fast.iter().zip(&slow).enumerate() {
-                assert!((a - b).abs() < 1e-14, "start {start}, j {j}: {a} vs {b}");
+                assert!(
+                    (a - b).abs() < PROBABILITY_SUM,
+                    "start {start}, j {j}: {a} vs {b}"
+                );
             }
         }
         let two = step_count_distribution(2, 10);
@@ -303,7 +327,7 @@ mod tests {
     )]
     fn cells_are_consistent_with_a_smaller_start() {
         let cells = cells_from_steps(&step_count_distribution(1 << 21, 48));
-        assert!((cells.iter().sum::<f64>() - 1.0).abs() < 1e-14);
+        assert!((cells.iter().sum::<f64>() - 1.0).abs() < PROBABILITY_SUM);
         // ln(2³¹)/ln(2²¹) ≈ 1.48: the smaller start needs fewer steps, so its
         // mass sits in lower cells.
         let mean = |c: &[f64]| c.iter().enumerate().map(|(i, p)| i as f64 * p).sum::<f64>();

@@ -261,6 +261,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    /// A dependence this test computes exactly from the crafted function.
+    const CLOSED_FORM: f64 = 1e-12;
+
     use super::evaluate_u64;
     use crate::rng::{Rng, Xorshift32};
 
@@ -272,10 +275,10 @@ mod tests {
         for i in 0..4 {
             for j in 0..4 {
                 let expected = if i == j { 1.0 } else { 0.0 };
-                assert!((report.dependence[i][j] - expected).abs() < 1e-12);
+                assert!((report.dependence[i][j] - expected).abs() < CLOSED_FORM);
             }
         }
-        assert!((report.max_sac_bias - 0.5).abs() < 1e-12);
+        assert!((report.max_sac_bias - 0.5).abs() < CLOSED_FORM);
         // Each avalanche vector is the constant e_j: all 4 · C(4,2) pairs are 0/0.
         assert_eq!(24, report.bic_pairs);
         assert_eq!(24, report.bic_degenerate_pairs);
@@ -310,15 +313,15 @@ mod tests {
         for i in 0..2 {
             for j in 0..4 {
                 let expected = if j <= 1 { 0.5 } else { 0.0 };
-                assert!((report.dependence[i][j] - expected).abs() < 1e-12);
+                assert!((report.dependence[i][j] - expected).abs() < CLOSED_FORM);
             }
         }
-        assert!((report.max_bic_abs_corr - 1.0).abs() < 1e-12);
+        assert!((report.max_bic_abs_corr - 1.0).abs() < CLOSED_FORM);
         // Flipping x0 (or x1) flips output bits 0 and 1 together whenever the
         // other input is 1, so ρ(0,1) = 1; the other 5 pairs for those inputs
         // involve a never-flipping bit, and inputs 2 and 3 flip nothing.
         assert_eq!(24, report.bic_pairs);
         assert_eq!(5 + 5 + 6 + 6, report.bic_degenerate_pairs);
-        assert!((report.mean_bic_abs_corr - 1.0).abs() < 1e-12);
+        assert!((report.mean_bic_abs_corr - 1.0).abs() < CLOSED_FORM);
     }
 }

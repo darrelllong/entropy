@@ -105,6 +105,18 @@ fn gf2_rank_32x32(bits: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
+    /// A rank probability against its closed form.
+    const EXACT_PROBABILITY: f64 = 1e-15;
+
+    /// A sum of probabilities that is exactly 1.
+    const PROBABILITY_SUM: f64 = 1e-14;
+
+    /// SP 800-22 quotes its example χ² to seven decimals.
+    const PUBLISHED_CHI: f64 = 5e-8;
+
+    /// SP 800-22 quotes its example values to six decimals.
+    const PUBLISHED: f64 = 1e-6;
+
     use super::*;
     use crate::nist::test_vectors::e_bits;
 
@@ -117,8 +129,8 @@ mod tests {
     fn rank_probabilities_match_exact_evaluation() {
         let p_32 = rank_probability(32, ROWS, COLS);
         let p_31 = rank_probability(31, ROWS, COLS);
-        assert!((p_32 - EXACT_P32).abs() < 1e-15, "p₃₂ = {p_32}");
-        assert!((p_31 - EXACT_P31).abs() < 1e-15, "p₃₁ = {p_31}");
+        assert!((p_32 - EXACT_P32).abs() < EXACT_PROBABILITY, "p₃₂ = {p_32}");
+        assert!((p_31 - EXACT_P31).abs() < EXACT_PROBABILITY, "p₃₁ = {p_31}");
     }
 
     /// The rank distribution over r = 0..=32 sums to 1, so the lower-rank
@@ -127,9 +139,9 @@ mod tests {
     fn rank_distribution_sums_to_one() {
         let p = |r| rank_probability(r, ROWS, COLS);
         let total: f64 = (0..=32).map(p).sum();
-        assert!((total - 1.0).abs() < 1e-14, "Σ p_r = {total}");
+        assert!((total - 1.0).abs() < PROBABILITY_SUM, "Σ p_r = {total}");
         let lower: f64 = (0..=30).map(p).sum();
-        assert!((lower - (1.0 - p(32) - p(31))).abs() < 1e-14);
+        assert!((lower - (1.0 - p(32) - p(31))).abs() < PROBABILITY_SUM);
     }
 
     /// SP 800-22 §2.5.8: the first 100 000 bits of e give N = 97 matrices,
@@ -139,9 +151,9 @@ mod tests {
     #[test]
     fn chi_square_reproduces_section_2_5_8_example() {
         let chi_sq = rank_chi_square(23, 60, 14);
-        assert!((chi_sq - 1.2619656).abs() < 5e-8, "χ² = {chi_sq}");
+        assert!((chi_sq - 1.2619656).abs() < PUBLISHED_CHI, "χ² = {chi_sq}");
         let p = chi2_pvalue(chi_sq, 2);
-        assert!((p - 0.532069).abs() < 1e-6, "p = {p}");
+        assert!((p - 0.532069).abs() < PUBLISHED, "p = {p}");
     }
 
     /// SP 800-22 §2.5.8 end to end on the first 100 000 bits of e: the
@@ -149,7 +161,7 @@ mod tests {
     #[test]
     fn matches_section_2_5_8_example() {
         let r = matrix_rank(&e_bits(100_000));
-        assert!((r.p_value - 0.532069).abs() < 1e-6, "{r}");
+        assert!((r.p_value - 0.532069).abs() < PUBLISHED, "{r}");
         let note = r.note.as_deref().unwrap();
         assert!(note.contains("N=97, F32=23, F31=60, F≤30=14"), "{r}");
     }
