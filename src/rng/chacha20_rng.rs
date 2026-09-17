@@ -160,9 +160,33 @@ impl Rng for ChaCha20Rng {
         u64::from_le_bytes(self.take_bytes::<8>())
     }
 
-    /// From the buffer, eight bytes per word; see [`ByteBuffered::fill_words`].
+    /// The buffered words first, then whole blocks written straight into
+    /// `bytes` by the cipher, then the tail through the buffer again.  The
+    /// bytes are the same as one `next_u64` at a time: the buffer holds a
+    /// whole number of words, so nothing is discarded at its boundaries
+    /// unless a `next_u32` left a half word, in which case the whole request
+    /// goes through the buffer and that half word is discarded as usual.
     fn fill_native(&mut self, bytes: &mut [u8]) {
-        self.fill_words(bytes);
+        const WORD: usize = size_of::<u64>();
+        let buffered = BLOCK_BYTES - self.offset;
+        if !buffered.is_multiple_of(WORD) {
+            self.fill_words(bytes);
+            return;
+        }
+        let (head, rest) = bytes.split_at_mut(buffered.min(bytes.len()));
+        self.fill_words(head);
+        let blocks = rest.len() / BLOCK_BYTES;
+        let direct = blocks * BLOCK_BYTES;
+        if blocks > 0 {
+            assert!(
+                self.blocks_left >= blocks as u64,
+                "ChaCha20Rng: block counter exhausted; RFC 8439 allows 2^32 blocks \
+                 per key and nonce, and another block would repeat keystream"
+            );
+            self.blocks_left -= blocks as u64;
+            self.cipher.keystream(&mut rest[..direct]);
+        }
+        self.fill_words(&mut rest[direct..]);
     }
 }
 
