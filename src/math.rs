@@ -223,7 +223,9 @@ pub fn normal_quantile(p: f64) -> f64 {
 // ── ln Γ ──────────────────────────────────────────────────────────────────────
 
 /// Natural logarithm of the gamma function, ln Γ(x), for x > 0: rump's
-/// Lanczos evaluation (g = 7, nine terms), good to about fifteen digits.
+/// Lanczos evaluation (g = 7, nine terms).  rump measures its error below
+/// 5·10⁻¹⁵ absolute on [0.1, 3], where ln Γ passes through zero, and below
+/// 2·10⁻¹⁵ relative elsewhere.
 #[must_use]
 pub fn lgamma(x: f64) -> f64 {
     rump::number_theory::ln_gamma(x)
