@@ -761,8 +761,10 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     Ok(runs)
 }
 
-/// A generator with a count of the words drawn from it: a `next_u64` counts
-/// two, as the default `next_u64` draws two words.
+/// A generator with a count of the `next_u32` words drawn from it.  Its
+/// `next_u64` is always two of those words, high then low, never the inner
+/// generator's own `next_u64`, whose consumption differs between
+/// generators, so every suite offset is a count of `next_u32` calls.
 struct Positioned<R> {
     inner: R,
     position: u64,
@@ -774,8 +776,7 @@ impl<R: Rng> Rng for Positioned<R> {
         self.inner.next_u32()
     }
     fn next_u64(&mut self) -> u64 {
-        self.position += 2;
-        self.inner.next_u64()
+        (u64::from(self.next_u32()) << 32) | u64::from(self.next_u32())
     }
 }
 
@@ -1493,6 +1494,23 @@ mod tests {
         assert_eq!(scheduled(&["--rng", "dual_ec"]).unwrap(), dual_ec);
         assert_eq!(scheduled(&["--rng", "DUAL_EC"]).unwrap(), dual_ec);
         assert_eq!(scheduled(&["--rng", "windows"]).unwrap().len(), 3);
+    }
+
+    /// `next_u64` through a positioned generator is two of its `next_u32`
+    /// words, even for a generator with a native 64-bit output.
+    #[test]
+    fn positioned_next_u64_is_two_words() {
+        let mut a = Positioned {
+            inner: Pcg64::new(5, 5),
+            position: 0,
+        };
+        let mut b = Pcg64::new(5, 5);
+        let word = a.next_u64();
+        assert_eq!(a.position, 2);
+        assert_eq!(
+            word,
+            (u64::from(b.next_u32()) << 32) | u64::from(b.next_u32())
+        );
     }
 
     /// A skipped suite is drawn over, so a later suite reads the same words
