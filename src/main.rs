@@ -87,6 +87,17 @@ const DIEHARD_N: usize = 16_000_000;
 const DIEHARD_HISTORICAL_N: usize = 16_000_000;
 const _: () = assert!(DIEHARD_HISTORICAL_N >= diehard::historical::WORDS_NEEDED);
 
+/// Where each suite starts reading its generator, in `next_u32` calls from
+/// the start of the stream.  A suite that is not selected is skipped over, so
+/// selecting suites never changes the words another suite reads.  NIST reads
+/// 500 000 words, DIEHARD about 21.8 million (its live-drawing tests vary),
+/// DIEHARDER 20.7 million and the historical suite 16 million.
+const NIST_START: u64 = 0;
+const DIEHARD_START: u64 = 1 << 20;
+const DIEHARDER_START: u64 = DIEHARD_START + (1 << 25);
+const HISTORICAL_START: u64 = DIEHARDER_START + (1 << 25);
+const STREAM_END: u64 = HISTORICAL_START + (1 << 25);
+
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
 /// Prefix of every historical DIEHARD result name.
@@ -646,27 +657,94 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     Ok(runs)
 }
 
-fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
-    let nist = if args.run_suite(&Suite::Nist) {
-        nist::run_all(&mut rng, NIST_N)
-    } else {
-        vec![]
+/// A generator with a count of the words drawn from it: a `next_u64` counts
+/// two, as the default `next_u64` draws two words.
+struct Positioned<R> {
+    inner: R,
+    position: u64,
+}
+
+impl<R: Rng> Rng for Positioned<R> {
+    fn next_u32(&mut self) -> u32 {
+        self.position += 1;
+        self.inner.next_u32()
+    }
+    fn next_u64(&mut self) -> u64 {
+        self.position += 2;
+        self.inner.next_u64()
+    }
+}
+
+impl<R: Rng> Positioned<R> {
+    /// Draw and discard words up to `start`.
+    fn advance_to(&mut self, start: u64) {
+        while self.position < start {
+            self.next_u32();
+        }
+    }
+
+    /// Run `suite` from `start` if `selected`.  A suite that reads past
+    /// `end` has read another suite's words, which is reported as an ERROR.
+    fn suite(
+        &mut self,
+        selected: bool,
+        name: &'static str,
+        start: u64,
+        end: u64,
+        suite: impl FnOnce(&mut Self) -> Vec<TestResult>,
+    ) -> Vec<TestResult> {
+        if !selected {
+            return vec![];
+        }
+        self.advance_to(start);
+        let mut results = suite(self);
+        if self.position > end {
+            results.push(TestResult::with_note(
+                name,
+                f64::NAN,
+                format!(
+                    "read {} words from {start}, past the next suite's start {end}",
+                    self.position - start
+                ),
+            ));
+        }
+        results
+    }
+}
+
+fn run_one<R: Rng>(name: &'static str, rng: R, args: &Args) -> RngResults {
+    let mut rng = Positioned {
+        inner: rng,
+        position: 0,
     };
-    let diehard = if args.run_suite(&Suite::Diehard) {
-        diehard::run_all(&mut rng, DIEHARD_N, args.quick)
-    } else {
-        vec![]
-    };
-    let dieharder = if args.run_suite(&Suite::Dieharder) {
-        dieharder::run_all(&mut rng, DIEHARD_N, args.quick)
-    } else {
-        vec![]
-    };
-    let diehard_historical = if args.run_suite(&Suite::DiehardHistorical) {
-        diehard::historical::run_all(&mut rng, DIEHARD_HISTORICAL_N)
-    } else {
-        vec![]
-    };
+    let nist = rng.suite(
+        args.run_suite(&Suite::Nist),
+        "nist::input_segment",
+        NIST_START,
+        DIEHARD_START,
+        |r| nist::run_all(r, NIST_N),
+    );
+    let diehard = rng.suite(
+        args.run_suite(&Suite::Diehard),
+        "diehard::input_segment",
+        DIEHARD_START,
+        DIEHARDER_START,
+        |r| diehard::run_all(r, DIEHARD_N, args.quick),
+    );
+    let dieharder = rng.suite(
+        args.run_suite(&Suite::Dieharder),
+        "dieharder::input_segment",
+        DIEHARDER_START,
+        HISTORICAL_START,
+        |r| dieharder::run_all(r, DIEHARD_N, args.quick),
+    );
+    let diehard_historical = rng.suite(
+        args.run_suite(&Suite::DiehardHistorical),
+        "diehard_historical::input_segment",
+        HISTORICAL_START,
+        STREAM_END,
+        |r| diehard::historical::run_all(r, DIEHARD_HISTORICAL_N),
+    );
     RngResults {
         name,
         nist,
@@ -678,12 +756,18 @@ fn run_one<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
 }
 
 /// Run only NIST SP 800-22 — for RNGs too slow for DIEHARD/DIEHARDER.
-fn run_nist_only<R: Rng>(name: &'static str, mut rng: R, args: &Args) -> RngResults {
-    let nist = if args.run_suite(&Suite::Nist) {
-        nist::run_all(&mut rng, NIST_N)
-    } else {
-        vec![]
+fn run_nist_only<R: Rng>(name: &'static str, rng: R, args: &Args) -> RngResults {
+    let mut rng = Positioned {
+        inner: rng,
+        position: 0,
     };
+    let nist = rng.suite(
+        args.run_suite(&Suite::Nist),
+        "nist::input_segment",
+        NIST_START,
+        DIEHARD_START,
+        |r| nist::run_all(r, NIST_N),
+    );
     RngResults {
         name,
         nist,
@@ -1167,6 +1251,47 @@ mod tests {
         assert_eq!(scheduled(&["--rng", "dual_ec"]).unwrap(), dual_ec);
         assert_eq!(scheduled(&["--rng", "DUAL_EC"]).unwrap(), dual_ec);
         assert_eq!(scheduled(&["--rng", "windows"]).unwrap().len(), 3);
+    }
+
+    /// A skipped suite is drawn over, so a later suite reads the same words
+    /// whether or not the earlier one ran; a suite that reads past its segment
+    /// adds an ERROR.
+    #[test]
+    fn suites_read_fixed_segments() {
+        let first_word = |run_nist: bool| {
+            let mut rng = Positioned {
+                inner: CounterRng::new(0),
+                position: 0,
+            };
+            rng.suite(run_nist, "nist::input_segment", NIST_START, DIEHARD_START, |r| {
+                (0..10).for_each(|_| {
+                    r.next_u32();
+                });
+                vec![]
+            });
+            let mut seen = 0;
+            rng.suite(true, "diehard::input_segment", DIEHARD_START, DIEHARDER_START, |r| {
+                seen = r.next_u32();
+                vec![]
+            });
+            seen
+        };
+        assert_eq!(first_word(true), first_word(false));
+        assert_eq!(u64::from(first_word(false)), DIEHARD_START);
+
+        let mut rng = Positioned {
+            inner: CounterRng::new(0),
+            position: 0,
+        };
+        let results = rng.suite(true, "nist::input_segment", 0, 4, |r| {
+            (0..5).for_each(|_| {
+                r.next_u32();
+            });
+            vec![]
+        });
+        assert_eq!(results.len(), 1);
+        assert!(results[0].errored(), "{}", results[0]);
+        assert!(rng.suite(false, "diehard::input_segment", 4, 8, |_| unreachable!()).is_empty());
     }
 
     /// `--views` adds four views of each of the six 64-bit generators; without
