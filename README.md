@@ -31,6 +31,25 @@ fn main() {
 }
 ```
 
+## Features
+
+| Feature | Default | What it adds |
+|---|---|---|
+| `batteries` | yes | The `nist`, `diehard`, `dieharder` and `research` suites, and with them `rustfft` for the spectral test |
+| `cryptography` | yes | The cipher-, hash- and DRBG-backed generators from `cryptography-rs`, and the volatile scrub of the `OsRng` buffer |
+
+With neither feature the crate is `entropy::{math, rng, result, seed}` — the
+generators, `Sample`, `Seedable`, `CryptoRng`, the probability functions and
+the result type — and it has **no dependencies at all**:
+
+```sh
+cargo add rng-entropy --no-default-features
+```
+
+That build is for an application that wants exact sampling and the
+distribution functions without a test battery; the batteries are what pull in
+the FFT.
+
 ## Dependency Note
 
 This crate depends, through the default `cryptography` feature, on Darrell Long's [`cryptography-rs`](https://crates.io/crates/cryptography-rs) crate (library name `cryptography`, source at [darrelllong/cryptography](https://github.com/darrelllong/cryptography)).  It is taken from the sibling checkout `../cryptography` during development, and from its published version otherwise; the tests also use [`rust-mp`](https://github.com/darrelllong/rump) (`../rump`) to check the NIST e fixture.  `cryptography-rs` supplies:

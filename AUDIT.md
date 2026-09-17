@@ -39,14 +39,6 @@ merely by compiling. The choice is to implement a documented platform API
 or to leave the target unsupported and say so. Darrell is finding a Windows
 machine to test against.
 
-### A3 — The crate is one feature block
-
-Enabling the statistics or the application RNG pulls in the FFT and, by
-default, cryptography. A consumer that wants `Sample` and `math` should not
-compile the batteries; factoring will want exactly that. The split needs
-feature names, a documented minimal surface and a consumer test that compiles
-it.
-
 ### A4 — Sampling performance is unmeasured against alternatives
 
 `fill_native` is measured (`examples/fill_throughput.rs`): about 10 GiB/s for
@@ -80,6 +72,7 @@ entropy build links neither sibling.
 | E3 | The only byte interface was four-byte `next_u32` words, half a 64-bit generator's output | `Rng::fill_native`, overridden by every buffered generator, beside the unchanged battery projection (5ebe60e) |
 | E5 | The anytime-valid bound assumed an accuracy of `ln` that Rust does not specify | `ROUNDING_EPSILONS` names the assumption, both error terms are charged against it, and a test measures exp(ln q) over the estimator's own values (ceabc3f) |
 | E6, in part | Per-word thread-local and process-id work, a panic on reseed failure, and a permanently cached readiness error | `ThreadRng::try_fill`, `fill` and `try_next_u64`: one check per request, split at the reseed limit; `pool_ready` remembers only success (ceabc3f) |
+| A3, the feature split | The statistics and the application RNG pulled in the FFT and, by default, cryptography | The `batteries` feature carries the four suites and `rustfft`; the four configurations are tested, and the minimal one has no dependencies |
 | E7 | Points sharing the sweep axis were compared pairwise, and outliers make that axis the widest | A tied run is swept on the widest coordinate it has not used: 162 times faster on the slab family, unchanged on uniform points (acea67a) |
 
 ## Standard of evidence

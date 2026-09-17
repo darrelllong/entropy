@@ -25,82 +25,118 @@ exclude = [
 ]
 
 # Every binary reaches the cipher-backed generators (through the shared
-# `src/bin/common` family), so all need the `cryptography` feature; a
-# `default-features = false` build is the library alone.
+# `src/bin/common` family) and the test batteries, so all need both the
+# `cryptography` and `batteries` features.  A `default-features = false` build
+# is the generators, the sampling interface and the probability functions
+# alone.
 [[bin]]
 name = "run_tests"
 path = "src/main.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "pilot_rng"
 path = "src/bin/pilot_rng.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "dump_rng"
 path = "src/bin/dump_rng.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "webster_tavares"
 path = "src/bin/webster_tavares.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "bitplane_complexity"
 path = "src/bin/bitplane_complexity.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "bib_tests"
 path = "src/bin/bib_tests.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "gorilla"
 path = "src/bin/gorilla.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "sequential"
 path = "src/bin/sequential.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "testu01_lz"
 path = "src/bin/testu01_lz.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[bin]]
 name = "upstream_tests"
 path = "src/bin/upstream_tests.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 # These integration tests run the binaries above, so they need the same
 # feature; without it Cargo builds neither the binaries nor the tests.
 [[test]]
 name = "dump_rng"
 path = "tests/dump_rng.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[test]]
 name = "registry"
 path = "tests/registry.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [[test]]
 name = "statistics"
 path = "tests/statistics.rs"
+required-features = ["batteries"]
+
+[[test]]
+name = "diehard_goldens"
+path = "tests/diehard_goldens.rs"
+required-features = ["batteries"]
 
 [[test]]
 name = "completion"
 path = "tests/completion.rs"
-required-features = ["cryptography"]
+required-features = ["cryptography", "batteries"]
 
 [lib]
 name = "entropy"
 path = "src/lib.rs"
+
+# Examples that run a battery need its feature; the others (the tail and
+# throughput drivers) build from the library alone.
+
+[[example]]
+name = "battery_null"
+path = "examples/battery_null.rs"
+required-features = ["batteries"]
+
+[[example]]
+name = "dct_position_table"
+path = "examples/dct_position_table.rs"
+required-features = ["batteries"]
+
+[[example]]
+name = "lz78_table"
+path = "examples/lz78_table.rs"
+required-features = ["batteries"]
+
+[[example]]
+name = "power_curves"
+path = "examples/power_curves.rs"
+required-features = ["batteries"]
+
+[[example]]
+name = "squeeze_table"
+path = "examples/squeeze_table.rs"
+required-features = ["batteries"]
 
 [features]
 # The cipher-, hash- and DRBG-backed generators and the volatile scrub of the
@@ -110,7 +146,12 @@ path = "src/lib.rs"
 # wiping.  On by default; a consumer that needs only the statistical tests and
 # generators takes the crate with `default-features = false`, and then links
 # neither cryptography nor rump.
-default = ["cryptography"]
+default = ["batteries", "cryptography"]
+# The NIST, DIEHARD, DIEHARDER and research batteries, and with them the fast
+# Fourier transform the spectral test needs.  Without it the crate is
+# `entropy::{math, rng, result, seed}`: the generators, `Sample`, `Seedable`,
+# the probability functions and the result type, with no `rustfft`.
+batteries = ["dep:rustfft"]
 cryptography = ["dep:cryptography-rs"]
 
 [dependencies]
@@ -120,7 +161,7 @@ cryptography = ["dep:cryptography-rs"]
 # scrubs its limbs on drop — which is why the dependency is optional; see
 # the feature above.
 cryptography-rs = { version = "0.7", path = "../cryptography", optional = true }
-rustfft         = "6.2"
+rustfft         = { version = "6.2", optional = true }
 
 [dev-dependencies]
 # Exact binary splitting of e for the test that checks the NIST e fixture.

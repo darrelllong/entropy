@@ -72,7 +72,9 @@ impl<R: Rng> Rng for BitReversed<R> {
 #[cfg(test)]
 mod tests {
     use super::{BitReversed, FullWord, HighHalf, LowHalf};
-    use crate::{nist::frequency::frequency, rng::Rng};
+    #[cfg(feature = "batteries")]
+    use crate::nist::frequency::frequency;
+    use crate::rng::Rng;
 
     /// Emits 0x0123_4567_89ab_cdef, then that plus one, and so on.
     struct Counter64(u64);
@@ -107,6 +109,7 @@ mod tests {
 
     /// Good high bits over constant low bits: the default view passes a
     /// frequency test and the low view fails it.
+    #[cfg(feature = "batteries")]
     #[test]
     fn low_half_view_exposes_a_low_bit_defect() {
         struct BrokenLow(crate::rng::Pcg64);

@@ -11,11 +11,10 @@ unmeasured is in [AUDIT.md](AUDIT.md).
 | Order | Work | Acceptance experiment |
 |---|---|---|
 | 1 | Finish the calibration campaigns and publish the rates at 0.001 | Per-slot, per-family and whole-battery null rates from held-out streams, with intervals |
-| 2 | Separate RNG, statistics and batteries by feature | A consumer compiles `Sample` and `math` with no FFT and no cryptography, and its tests pass |
-| 3 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
-| 4 | A ziggurat normal with tables derived here | Exact acceptance regions, tail correctness to the smallest subnormal, and a paired cost comparison against inversion |
-| 5 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
-| 6 | Reproducible parallel streams | Scheduling invariance, counter exhaustion, stream identity, and statistical quality of the partition |
+| 2 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
+| 3 | A ziggurat normal with tables derived here | Exact acceptance regions, tail correctness to the smallest subnormal, and a paired cost comparison against inversion |
+| 4 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
+| 5 | Reproducible parallel streams | Scheduling invariance, counter exhaustion, stream identity, and statistical quality of the partition |
 
 ## Calibration and power
 
@@ -32,13 +31,7 @@ and minimum distance, cover the supported parameter cells and the thresholds
 actually used, and record each empirical table's training size, discrete-tail
 convention and out-of-domain behaviour.
 
-## Features and platforms
-
-Split the crate so that a consumer can take the application RNG and the
-probability functions without the batteries: `math` is always on, the
-generators and `Sample` next, the suites and their FFT behind features, and
-cryptography optional as now. Factoring is the first consumer that wants the
-minimal build; its compile is the test.
+## Platforms
 
 For Windows, either implement a documented platform API — which needs FFI, and
 the crate has none — or depend on a maintained backend abstraction, or state

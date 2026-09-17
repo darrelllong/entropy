@@ -3,6 +3,7 @@
 //! Each function names the mathematics it evaluates and where that comes
 //! from.  The fast Fourier transform comes from `rustfft`.
 
+#[cfg(feature = "batteries")]
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::f64::consts::{FRAC_PI_2, PI, SQRT_2};
 
@@ -1099,6 +1100,7 @@ pub fn poisson_pmf(k: usize, lambda: f64) -> f64 {
 /// Uses `rustfft` so the NIST spectral test can analyze the full sequence
 /// length instead of truncating to a radix-2 prefix.
 #[must_use]
+#[cfg(feature = "batteries")]
 pub fn fft_magnitudes(x: &[f64]) -> Vec<f64> {
     let n = x.len();
     let mut planner = FftPlanner::<f64>::new();
@@ -2061,6 +2063,7 @@ mod tests {
         assert!((ln_gamma(0.5) - 0.5723649429247004).abs() < 1e-10);
     }
 
+    #[cfg(feature = "batteries")]
     #[test]
     fn dft_and_fft_agree() {
         let x: Vec<f64> = (0..64).map(|i| ((i * 37 + 11) % 17) as f64 - 8.0).collect();
