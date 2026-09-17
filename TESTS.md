@@ -7,10 +7,10 @@ os: Darwin 27.0.0 arm64
 rustc: rustc 1.93.1 (01f6ddf75 2026-02-11)
 features: default
 Cargo.lock sha256: 995745efeed35539e407f061d078d5604bc8fbdbb9f5b5a1fe14efa2e0a66945
-entropy: 28b29b741f75e7ba38a2303f8623ffafdb1977e1
-rump: ba318de957c8c7e3c0a098ea39fbc9ef07d6e3b6
-cryptography: aa865da77502306f544b7031f65eaf3f7b7960b2
-run_tests sha256: 774b71ecd985c00d51adbb64e35e7eab54c8124eb1e13971c16057f87647c6ab
+entropy: d7c2b7f1525162276da64a8e9d36bd59ea073bb8
+rump: 0996ee6771c7501eec423b43ce2c63eca07a5967
+cryptography: 69d9fa6eb848ebdf0d04953372ccbceeee8f1982
+run_tests sha256: be64fb66504a7f56a6abfa75af8561e0a0b757591693d483bed43a9f303b9309
 ```
 
 Sample size: **16 Mbit** per generator for NIST; DIEHARD/DIEHARDER
@@ -98,17 +98,18 @@ are noise, not structure.
 | Salsa20 (key=00..1f, nonce=00..07) | 739 | 722 | 11 | 6 |
 | Snow3G (key=00..0f, iv=00..0f) | 739 | 724 | 9 | 6 |
 | ZUC-128 (key=00..0f, iv=00..0f) | 739 | 728 | 5 | 6 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 728 | 5 | 6 |
-| Squidward (SHA-256 chain, OsRng seed) | 739 | 726 | 7 | 6 |
-| PCG32 (OsRng seed) | 739 | 722 | 11 | 6 |
-| PCG64 (OsRng seed) | 739 | 727 | 6 | 6 |
-| Xoshiro256 (OsRng seed) | 739 | 724 | 9 | 6 |
-| Xoroshiro128 (OsRng seed) | 739 | 724 | 9 | 6 |
-| SFC64 (OsRng seed) | 739 | 723 | 10 | 6 |
-| JSF64 (OsRng seed) | 739 | 724 | 9 | 6 |
-| ChaCha20 CSPRNG (OsRng key) | 739 | 726 | 7 | 6 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 701 | 6 | 32 |
-| Hash_DRBG SHA-256 (OsRng seed) | 739 | 696 | 11 | 32 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 729 | 4 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 739 | 727 | 6 | 6 |
+| PCG32 (OsRng seed) | 739 | 695 | 12 | 32 |
+| PCG64 (OsRng seed) | 739 | 725 | 8 | 6 |
+| Xoshiro256 (OsRng seed) | 739 | 722 | 11 | 6 |
+| Xoroshiro128 (OsRng seed) | 739 | 725 | 8 | 6 |
+| SFC64 (OsRng seed) | 739 | 724 | 9 | 6 |
+| JSF64 (OsRng seed) | 739 | 701 | 6 | 32 |
+| ChaCha20 CSPRNG (OsRng key) | 739 | 729 | 4 | 6 |
+| FastKeyErasureRng ChaCha20 (key=00..1f) | 739 | 701 | 6 | 32 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 728 | 5 | 6 |
+| Hash_DRBG SHA-256 (OsRng seed) | 739 | 727 | 6 | 6 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 695 | 12 | 32 |
 | PCG64 (state=1, seq=1) [high half] | 739 | 727 | 6 | 6 |
 | PCG64 (state=1, seq=1) [low half] | 739 | 724 | 9 | 6 |
@@ -619,7 +620,7 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 8/739 — `diehard::count_ones_stream`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×4), `nist::random_excursions_variant`
+- **OsRng (/dev/urandom)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3)
 - **MT19937 (seed=19650218)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
 - **Xorshift64 (seed=1)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 14/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×10), `dieharder::monobit2`, `nist::matrix_rank`
@@ -646,17 +647,18 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **Salsa20 (key=00..1f, nonce=00..07)**: 11/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
 - **Snow3G (key=00..0f, iv=00..0f)**: 9/739 — `dieharder::bit_distribution` (×5), `dieharder::lagged_sums`, `nist::non_overlapping_template` (×3)
 - **ZUC-128 (key=00..0f, iv=00..0f)**: 5/739 — `dieharder::bit_distribution` (×5)
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×2), `dieharder::fill_tree_count`, `nist::non_overlapping_template` (×2)
-- **Squidward (SHA-256 chain, OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
-- **PCG32 (OsRng seed)**: 11/739 — `diehard::binary_rank_6x8`, `dieharder::bit_distribution` (×6), `nist::random_excursions_variant` (×4)
-- **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution`, `nist::linear_complexity`, `nist::non_overlapping_template` (×4)
-- **Xoshiro256 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×4)
-- **Xoroshiro128 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
-- **SFC64 (OsRng seed)**: 10/739 — `dieharder::bit_distribution` (×7), `nist::linear_complexity`, `nist::non_overlapping_template` (×2)
-- **JSF64 (OsRng seed)**: 9/739 — `diehard::binary_rank_31x31`, `dieharder::bit_distribution` (×8)
-- **ChaCha20 CSPRNG (OsRng key)**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×4), `dieharder::byte_distribution`, `nist::non_overlapping_template`
-- **Hash_DRBG SHA-256 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×11)
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 4/739 — `diehard::craps_throws`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template`
+- **Squidward (SHA-256 chain, OsRng seed)**: 6/739 — `diehard::binary_rank_32x32`, `diehard::oqso`, `dieharder::bit_distribution` (×4)
+- **PCG32 (OsRng seed)**: 12/739 — `dieharder::bit_distribution` (×10), `maurer::universal_l10`, `nist::universal`
+- **PCG64 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`, `nist::serial_delta2`
+- **Xoshiro256 (OsRng seed)**: 11/739 — `diehard::count_ones_stream`, `dieharder::bit_distribution` (×5), `nist::random_excursions_variant` (×5)
+- **Xoroshiro128 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×2)
+- **SFC64 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×2), `nist::spectral`
+- **JSF64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::spectral`
+- **ChaCha20 CSPRNG (OsRng key)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
+- **FastKeyErasureRng ChaCha20 (key=00..1f)**: 6/739 — `diehard::minimum_distance_2d`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×3)
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×3)
+- **Hash_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×6)
 - **cryptography::CtrDrbgAes256 (seed=00..2f)**: 12/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×5)
 - **PCG64 (state=1, seq=1) [high half]**: 6/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions_variant`
 - **PCG64 (state=1, seq=1) [low half]**: 9/739 — `diehard::spheres_3d`, `dieharder::bit_distribution` (×7), `nist::random_excursions_variant`
