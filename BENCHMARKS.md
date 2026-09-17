@@ -3,7 +3,13 @@
 Throughput measured with `pilot-bench` `run_program --preset normal`.
 
 > **Provenance.**  `tolkien` and `baase` were measured on 2026-07-22 and are
-> the reference columns.  `Dyson`, `dmz` and `moore` are older measurements of
+> the reference columns.  Four `baase` rows were remeasured on 2026-09-17 at
+> the same preset and confidence level, because their implementations moved:
+> ChaCha20 (162, from 160.5), the new `FastKeyErasureRng` (96.36), Hash_DRBG
+> (23.54, from 27.79) and HMAC_DRBG (2.833, from 3.228).  The two DRBGs lost
+> 12–15% when their mechanisms moved into cryptography; that is a measurement
+> of the two implementations, not of the adapter, which adds one buffered
+> Generate call per 256 or 32 bytes as before.  `Dyson`, `dmz` and `moore` are older measurements of
 > earlier builds, kept for cross-architecture comparison; their `OsRng`
 > figures were taken with one `read` syscall per word rather than per 64 words,
 > and Dyson's `Squidward` figure with a hardware SHA-256 path the current crate
@@ -80,9 +86,10 @@ fallback points if some benchmark files are still missing.
 | `Xoroshiro128 (seeds=1,2)` | 907.1 | ±1.877 | 730.4 | ±1.964 | 623 | ±1.44 | 488.2 | ±0.9319 | 1004 | ±44.68 |
 | `SFC64 (seeds=1,2,3)` | 1268 | ±3.177 | 1001 | ±2.452 | 859.8 | ±1.911 | 882.3 | ±33.84 | 1366 | ±18.51 |
 | `JSF64 (seed=0xdeadbeef)` | 1320 | ±3.305 | 870.6 | ±2.447 | 831.1 | ±1.713 | 865.4 | ±2.453 | 1234 | ±67.68 |
-| `ChaCha20 CSPRNG (OsRng key)` | 173.2 | ±0.3477 | 87.78 | ±1.53 | 89.83 | ±0.1971 | 120.6 | ±0.3759 | 160.5 | ±0.3082 |
-| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.298 | ±0.01169 | 1.969 | ±0.02565 | 1.855 | ±0.005707 | 1.701 | ±0.05834 | 3.228 | ±0.02168 |
-| `Hash_DRBG SHA-256 (OsRng seed)` | 31.19 | ±0.14 | 7.376 | ±0.02911 | 17.56 | ±0.03694 | 16.3 | ±0.7004 | 27.79 | ±0.1264 |
+| `ChaCha20 CSPRNG (OsRng key)` | 173.2 | ±0.3477 | 87.78 | ±1.53 | 89.83 | ±0.1971 | 120.6 | ±0.3759 | 162 | ±6.999 |
+| `FastKeyErasureRng ChaCha20 (key=00..1f)` | — | — | — | — | — | — | — | — | 96.36 | ±3.662 |
+| `HMAC_DRBG SHA-256 (OsRng seed)` | 3.298 | ±0.01169 | 1.969 | ±0.02565 | 1.855 | ±0.005707 | 1.701 | ±0.05834 | 2.833 | ±0.08067 |
+| `Hash_DRBG SHA-256 (OsRng seed)` | 31.19 | ±0.14 | 7.376 | ±0.02911 | 17.56 | ±0.03694 | 16.3 | ±0.7004 | 23.54 | ±0.5894 |
 | `cryptography::CtrDrbgAes256 (seed=00..2f)` | 1.906 | ±0.004278 | 1.123 | ±0.005344 | 0.8968 | ±0.001422 | 1.247 | ±0.02164 | 1.652 | ±0.008663 |
 | `Constant (0xDEAD_DEAD)` | 3.157e+04 | ±89.37 | 2.347e+04 | ±394.4 | 2.205e+04 | ±57.81 | 2.437e+04 | ±88.04 | 1.044e+04 | ±35.49 |
 | `Counter (0,1,2,...)` | 2.636e+04 | ±62.93 | 1.763e+04 | ±64.38 | 1.51e+04 | ±128.9 | 1.626e+04 | ±35.78 | 1.244e+04 | ±106.3 |

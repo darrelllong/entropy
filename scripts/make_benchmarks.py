@@ -18,6 +18,8 @@ machine directory is appended alphabetically using its raw name.
 Usage:
     python scripts/make_benchmarks.py [--stats DIR] [--output PATH] [--dry-run]
 """
+from __future__ import annotations
+
 
 import argparse
 import re
