@@ -154,6 +154,70 @@ pub trait Sample: Rng {
         (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
     }
 
+    /// A uniform real in [0, 1) rounded down to a double, so that every double
+    /// x in [0, 1) occurs with probability equal to the gap between x and the
+    /// next double: all 2⁶² of them are reachable, down to the smallest
+    /// subnormal.
+    ///
+    /// The real U has 2^−(e+1) ≤ U < 2^−e with probability 2^−(e+1), so e is
+    /// the number of leading zero bits of a stream of uniform words; given e,
+    /// U's next 52 bits are uniform and are the significand.  Past 1 074 zero
+    /// bits U rounds down to 0.
+    fn unit_f64_dense(&mut self) -> f64 {
+        let mut zeros = 0u32;
+        let mut word = self.next_u64();
+        while word == 0 {
+            zeros += 64;
+            if zeros >= 1_074 {
+                return 0.0;
+            }
+            word = self.next_u64();
+        }
+        zeros += word.leading_zeros();
+        if zeros >= 1_074 {
+            return 0.0;
+        }
+        let significand = self.next_u64() >> 12;
+        // U lies in [2^−(zeros+1), 2^−zeros): biased exponent 1022 − zeros.
+        if zeros < 1_022 {
+            let exponent = u64::from(1_022 - zeros);
+            f64::from_bits((exponent << 52) | significand)
+        } else {
+            // Subnormal: value = f · 2^−1074 with f < 2^52, whose leading 1
+            // sits at bit 1073 − zeros; the lower bits are uniform.
+            let top = 1073 - zeros;
+            let fraction = (1u64 << top) | (significand >> (52 - top));
+            f64::from_bits(fraction)
+        }
+    }
+
+    /// An exponential variate with mean 1: −ln U for U from
+    /// [`Sample::unit_f64_dense`], redrawn when U = 0.  Small U, which the
+    /// dense draw resolves down to the smallest subnormal, gives the tail up to
+    /// about 744.
+    fn exponential(&mut self) -> f64 {
+        loop {
+            let u = self.unit_f64_dense();
+            if u > 0.0 {
+                return -u.ln();
+            }
+        }
+    }
+
+    /// A standard normal variate by inversion: a random sign on Φ⁻¹(U/2) for
+    /// U from [`Sample::unit_f64_dense`], so both tails reach the extremes a
+    /// double probability allows (|z| near 38).  Each draw costs a Newton
+    /// solve, a few microseconds.
+    fn normal(&mut self) -> f64 {
+        loop {
+            let u = self.unit_f64_dense();
+            if u > 0.0 {
+                let z = crate::math::normal_quantile(0.5 * u);
+                return if self.next_u32() & 1 == 0 { z } else { -z };
+            }
+        }
+    }
+
     /// Fill `bytes` with generator output, four bytes of each `next_u32`
     /// little-endian; a final partial word supplies its low bytes.
     fn fill_bytes(&mut self, bytes: &mut [u8]) {
@@ -355,5 +419,82 @@ mod tests {
         // Past p's last digit every block of p is 0, so U ≥ p.
         let last = ProbabilityDigits::new(2f64.powi(-1074));
         assert_eq!((last.exponent, last.significand), (-1074, 1));
+    }
+
+    /// Dense floats: exact on crafted words, including subnormals, and
+    /// uniform in distribution.
+    #[test]
+    fn dense_floats_follow_the_word_stream() {
+        struct Words(Vec<u64>);
+        impl Rng for Words {
+            fn next_u32(&mut self) -> u32 {
+                0
+            }
+            fn next_u64(&mut self) -> u64 {
+                self.0.remove(0)
+            }
+        }
+        // A leading 1 bit: U in [1/2, 1), significand from the second word.
+        assert_eq!(
+            Words(vec![1 << 63, u64::MAX]).unit_f64_dense(),
+            1.0 - 2f64.powi(-53)
+        );
+        assert_eq!(Words(vec![1 << 63, 0]).unit_f64_dense(), 0.5);
+        // Three zero bits then a one: [1/16, 1/8).
+        assert_eq!(Words(vec![1 << 60, 0]).unit_f64_dense(), 0.0625);
+        // 1 073 zero bits (16 words and 49 bits): the smallest subnormal.
+        let mut v = vec![0; 16];
+        v.push(1 << 14);
+        v.push(0);
+        assert_eq!(Words(v).unit_f64_dense(), f64::from_bits(1));
+        // 1 041 zero bits: U in [2^−1042, 2^−1041), whose floor is 2^−1042.
+        let mut v = vec![0; 16];
+        v.push(1 << 46);
+        v.push(0);
+        assert_eq!(Words(v).unit_f64_dense(), 2f64.powi(-1042));
+        assert_eq!(Words(vec![0; 17]).unit_f64_dense(), 0.0);
+
+        let mut rng = Pcg64::new(11, 11);
+        let n = 200_000;
+        let mean: f64 = (0..n).map(|_| rng.unit_f64_dense()).sum::<f64>() / n as f64;
+        assert!((mean - 0.5).abs() < 5.0 * (1.0 / 12.0 / n as f64).sqrt());
+        let e: f64 = (0..n).map(|_| rng.exponential()).sum::<f64>() / n as f64;
+        assert!((e - 1.0).abs() < 5.0 / (n as f64).sqrt());
+        let z: Vec<f64> = (0..n).map(|_| rng.normal()).collect();
+        let zm = z.iter().sum::<f64>() / n as f64;
+        let zv = z.iter().map(|x| (x - zm).powi(2)).sum::<f64>() / n as f64;
+        assert!(
+            zm.abs() < 5.0 / (n as f64).sqrt() && (zv - 1.0).abs() < 0.02,
+            "{zm} {zv}"
+        );
+    }
+
+    /// Both tails of the normal and the exponential's far tail are reachable.
+    #[test]
+    fn variates_reach_their_far_tails() {
+        struct Words(Vec<u64>, u32);
+        impl Rng for Words {
+            fn next_u32(&mut self) -> u32 {
+                self.1
+            }
+            fn next_u64(&mut self) -> u64 {
+                self.0.remove(0)
+            }
+        }
+        // 200 zero bits: U = 2^−201, so the exponential gives 201·ln 2 and the
+        // normal ±Φ⁻¹(2^−202).
+        let tiny = || {
+            let mut v = vec![0u64; 3];
+            v.push(1 << 55);
+            v.push(0);
+            v
+        };
+        let e = Words(tiny(), 0).exponential();
+        assert!((e - 201.0 * std::f64::consts::LN_2).abs() < 1e-9, "{e}");
+        let low = Words(tiny(), 0).normal();
+        let high = Words(tiny(), 1).normal();
+        let q = crate::math::normal_cdf(low);
+        assert!((q / 2f64.powi(-202) - 1.0).abs() < 1e-9, "{low}: {q}");
+        assert_eq!(high, -low);
     }
 }
