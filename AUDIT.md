@@ -39,7 +39,7 @@ merely by compiling. The choice is to implement a documented platform API
 or to leave the target unsupported and say so. Darrell is finding a Windows
 machine to test against.
 
-### A4 — The exponential is half rand's speed
+### A4 — The shuffle trails rand
 
 Every sampling method is measured here (`examples/variate_throughput.rs`), and
 against rand 0.10.2 through public APIs on this Mac, best of seven rounds of
@@ -52,14 +52,14 @@ five million draws, in millions per second:
 | uniform double | 760 | 760 |
 | integer in 1 … 6 | 314 | 317 |
 | normal | 270 | 286 |
-| exponential | 143 | 276 |
+| exponential | 243 | 180 |
 | shuffle of 1 000 | 701 | 771 |
 
-The generators, the bounded integers and the uniform doubles match. The normal
-is within 6% since the ziggurat landed. The exponential is inversion, −ln U
-from a dense uniform, against rand's ziggurat: exact to the smallest subnormal
-and half the speed. A ziggurat for it would need the same treatment the normal
-had, tail included. The shuffle is 9% behind and unexplained.
+The generators, the bounded integers and the uniform doubles match, the normal
+is within 6%, and the exponential is ahead since it too became a ziggurat.
+The shuffle is 9% behind and unexplained: both are Fisher–Yates over the same
+bounded-integer method, so the difference is in how the index is drawn per
+element.
 
 ### A5 — Parallel streams exist only for the linear generators
 

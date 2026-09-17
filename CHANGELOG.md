@@ -16,6 +16,13 @@ everything that moved.
   smallest subnormal. The ziggurat's table is derived at run time from the
   equal-area recurrence, not tabulated from the paper.
 
+- **`Sample::exponential` is a ziggurat too**, over e^{−x}, with the tail
+  beyond its base boundary drawn as that boundary plus another exponential,
+  which the law's lack of memory makes exact. 243 million draws per second
+  against rand 0.10.2's 180 million, and against 143 million for the inversion
+  it replaces, which is `Sample::exponential_inverse` and still resolves the
+  tail to 744.
+
 - **`math::lgamma` is `math::ln_gamma`.** With it, `math::ln_gamma`,
   `math::regularized_incomplete_beta`, `math::student_t_quantile` and
   `math::NumericalError` moved here from rump, with the same signatures rump

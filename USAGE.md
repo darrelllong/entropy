@@ -106,7 +106,8 @@ let mut sim = Pcg64::seed_from_u64(42);  // reproducible stream
 | `ratio(a, b)`, `bernoulli(p)` | Probability exactly a/b, or exactly the double p, ties included |
 | `unit_f64()` | Uniform on the 2⁵³ multiples of 2⁻⁵³ in [0, 1) |
 | `unit_f64_dense()` | A uniform real rounded down to a double: every double in [0, 1), subnormals included, with its gap's probability |
-| `exponential()` | Inversion of a dense uniform, so the tail reaches about 744 |
+| `exponential()` | Marsaglia and Tsang's ziggurat over e^{−x}, with the tail drawn by the law's lack of memory |
+| `exponential_inverse()` | The same law as −ln U from a dense uniform, so the tail reaches about 744 |
 | `normal()` | Marsaglia and Tsang's ziggurat, with the table derived at run time: a 2⁻⁵³ grid in the body and a rejection tail |
 | `normal_inverse()` | The same law by inverting Φ from a dense uniform: 2 700 times slower, resolved to the smallest subnormal |
 | `shuffle`, `partial_shuffle`, `choose`, `choose_mut` | Durstenfeld's Fisher–Yates with exact indices |
@@ -176,7 +177,8 @@ not tabulated: the equal-area recurrence is closed by bisecting for r, and the
 tests check the areas, the closure, the distribution, the moments and the
 tail's own law.  `normal_inverse()` samples the same law by inverting Φ, at
 0.1 million draws per second, resolving the tails down to the smallest
-subnormal uniform.  `examples/variate_throughput.rs`
+subnormal uniform.  `exponential()` is the same construction over e^{−x},
+faster than rand 0.10.2's, with `exponential_inverse()` the −ln U it replaces.  `examples/variate_throughput.rs`
 measures every sampling method.
 
 **Parallel streams.** `Xoshiro256` and `Xoroshiro128` can jump: `jump_pow2(k)`

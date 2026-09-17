@@ -12,7 +12,7 @@ unmeasured is in [AUDIT.md](AUDIT.md).
 |---|---|---|
 | 1 | Finish the calibration campaigns and publish the rates at 0.001 | Per-slot, per-family and whole-battery null rates from held-out streams, with intervals |
 | 2 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
-| 3 | A ziggurat exponential, as the normal has | Exact acceptance regions, tail correctness, and a paired cost comparison against −ln U |
+| 3 | Close the 9% shuffle gap against rand | A paired measurement per element, with the exact-uniformity invariant kept |
 | 4 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
 | 5 | One parallel-stream interface across the generators | Scheduling invariance, counter exhaustion, stream identity, and the segments' statistical independence |
 
@@ -48,10 +48,9 @@ value-stable and which system-seeded handles are deliberately not.
 
 Benchmark bounded integers, shuffles and the variates separately from raw
 generation, as `fill_throughput` does for bytes. Lemire's method is already
-exact; preserve its accepted-preimage invariant. `normal()` is a ziggurat whose table is derived at run time, and
-`normal_inverse()` is the inversion it is checked against. The exponential is
-still −ln U; a ziggurat for it needs the same treatment, and its tail must
-keep reaching about 744.
+exact; preserve its accepted-preimage invariant. `normal()` and `exponential()` are ziggurats whose tables are derived at run
+time, checked against the inversions kept as `normal_inverse()` and
+`exponential_inverse()`. What remains behind rand is the shuffle.
 
 Adapters for cryptography's `Csprng` and, if wanted, the public rand traits
 belong behind an optional dependency, with conformance from published API
