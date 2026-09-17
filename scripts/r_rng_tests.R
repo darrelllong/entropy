@@ -257,48 +257,39 @@ r <- safe(randtoolbox::freq.test(u_nz, echo = FALSE))
 cat_row("randtoolbox::freq.test (16 bins)", r$statistic, r$p.value, r$error)
 
 r <- safe(randtoolbox::gap.test(u_nz, lower = 0, upper = 0.5, echo = FALSE))
-# randtoolbox::gap.test extends bins out to expected count ~0.1, well below
-# the Cochran-rule threshold of expected >= 5 (Cochran 1954; Knuth TAOCP §3.3.1).
-# A single observation in a sparse tail bin contributes (1 - lambda)^2 / lambda
-# to chi^2 — a per-RNG false-positive rate of ~10^-3 that does not shrink with
-# sample size (the number of unsafe bins stays ~5 for any n).  Re-aggregate
-# tail bins until each surviving bin has expected >= 5, then recompute chi^2
-# and the p-value on that merged distribution.
-if (!is.null(r$observed) && !is.null(r$expected) && length(r$observed) > 0
-    && all(is.finite(r$expected)) && all(is.finite(r$observed))) {
-  obs  <- as.numeric(r$observed)
-  exp_ <- as.numeric(r$expected)
-  # The geometric expected sequence is monotonically decreasing, so the set
-  # of "safe" bins (expected >= 5) is a contiguous prefix.  Compute the
-  # last safe index, then merge the entire unsafe tail into one O(N) sum
-  # — avoids the O(N^2) pop-from-end pattern that hung on CounterRng,
-  # whose gap.test return has length(observed) = 5,000,000.
-  keep <- which(exp_ >= 5)
-  if (length(keep) == 0L) {
-    # The whole distribution is sparse — chi^2 is degenerate, fall through.
-    cat_row("randtoolbox::gap.test [0,0.5)", r$statistic, r$p.value, r$error)
-  } else {
-    last_keep <- max(keep)
-    if (last_keep < length(exp_)) {
-      tail_idx <- (last_keep + 1L):length(exp_)
-      exp_[last_keep] <- exp_[last_keep] + sum(exp_[tail_idx])
-      obs[last_keep]  <- obs[last_keep]  + sum(obs[tail_idx])
-      exp_ <- exp_[seq_len(last_keep)]
-      obs  <- obs[seq_len(last_keep)]
-    }
-    if (length(exp_) >= 2L) {
-      chi2 <- sum((obs - exp_)^2 / exp_)
-      df   <- length(exp_) - 1L
-      pv   <- pchisq(chi2, df = df, lower.tail = FALSE)
-      cat_row(sprintf("randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=%d)", df),
-              chi2, pv)
-    } else {
-      cat_row("randtoolbox::gap.test [0,0.5) (Cochran-trimmed)",
-              r$statistic, r$p.value, r$error)
-    }
-  }
+# Between successive values in [0, 1/2) the gap length j = 0, 1, ... is
+# geometric, with probability p(1 - p)^j for p = 1/2.  randtoolbox scales its
+# expected counts by the number of values in the interval rather than by the
+# number of gaps observed, and stops them at the longest gap seen, so its
+# Pearson statistic compares tables with different totals; over 3 000 null
+# streams of 5*10^6 words it rejected at 0.01 in 1.67%.  Here the K observed
+# gaps are scored against K p (1 - p)^j, the cells are cut where the expected
+# count first falls below 5, and the last cell takes the whole tail,
+# K (1 - p)^m observed as K minus the cells before it.
+gap_label <- "randtoolbox::gap.test [0,0.5)"
+if (!is.null(r$error)) {
+  cat_row(gap_label, NULL, NA, r$error)
+} else if (is.null(r$observed) || length(r$observed) == 0 ||
+           !all(is.finite(r$observed))) {
+  cat_row(gap_label, NULL, NA, "no gap counts")
 } else {
-  cat_row("randtoolbox::gap.test [0,0.5)", r$statistic, r$p.value, r$error)
+  obs <- as.numeric(r$observed)
+  gaps <- sum(obs)
+  p_hit <- 0.5
+  expected_all <- gaps * p_hit * (1 - p_hit)^(seq_along(obs) - 1L)
+  cells <- max(c(0L, which(expected_all >= 5)))
+  if (cells < 2L) {
+    cat_row(gap_label, NULL, NA, "fewer than two cells expect 5 gaps")
+  } else {
+    expected <- expected_all[seq_len(cells)]
+    expected[cells] <- gaps * (1 - p_hit)^(cells - 1L)
+    observed <- obs[seq_len(cells)]
+    observed[cells] <- gaps - sum(obs[seq_len(cells - 1L)])
+    chi2 <- sum((observed - expected)^2 / expected)
+    df <- cells - 1L
+    cat_row(sprintf("%s (geometric, %d cells, df=%d)", gap_label, cells, df),
+            chi2, pchisq(chi2, df = df, lower.tail = FALSE))
+  }
 }
 
 r <- safe(randtoolbox::serial.test(u_nz, d = 8, echo = FALSE))
