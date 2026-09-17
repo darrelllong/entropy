@@ -90,6 +90,10 @@ path = "tests/registry.rs"
 required-features = ["cryptography"]
 
 [[test]]
+name = "statistics"
+path = "tests/statistics.rs"
+
+[[test]]
 name = "completion"
 path = "tests/completion.rs"
 required-features = ["cryptography"]

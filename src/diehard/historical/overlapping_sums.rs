@@ -100,6 +100,7 @@ pub fn overlapping_sums(words: &[u32]) -> TestResult {
         1.0 - anderson_darling_cdf(OUTER, a2),
         format!("{WORDS} words, A²={a2:.4} over {OUTER} outer results"),
     )
+    .anderson_darling(a2, OUTER)
 }
 
 /// The ten outer results of the first two layers on exactly [`WORDS`] words.

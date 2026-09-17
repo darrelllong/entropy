@@ -293,6 +293,12 @@ pub fn fpf_cross_result(summary: &FpfSummary) -> TestResult {
             summary.cross_chi_square
         ),
     )
+    .with_statistic(
+        "G",
+        summary.cross_chi_square,
+        Some(summary.cross_dof as f64),
+        "chi-square",
+    )
 }
 
 /// Package one platter's intra-platter G-test as a [`TestResult`] named
@@ -309,6 +315,12 @@ pub fn fpf_platter_result(platter: &FpfPlatterSummary, summary: &FpfSummary) -> 
             platter.dof,
             platter.chi_square
         ),
+    )
+    .with_statistic(
+        "G",
+        platter.chi_square,
+        Some(platter.dof as f64),
+        "chi-square",
     )
 }
 

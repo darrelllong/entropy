@@ -163,7 +163,8 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
             } else {
                 format!("pairs={actual_pairs}, gtblsize={gtblsize}, χ²={gcd_chi_sq:.4}")
             },
-        ),
+        )
+        .chi_square(gcd_chi_sq, gcd_df as f64),
         TestResult::with_note(
             "dieharder::gcd_step_counts",
             p_steps,
@@ -172,7 +173,8 @@ pub fn gcd_both(rng: &mut impl Rng) -> Vec<TestResult> {
             } else {
                 format!("pairs={actual_pairs}, χ²={step_chi_sq:.4}")
             },
-        ),
+        )
+        .chi_square(step_chi_sq, step_df as f64),
     ]
 }
 

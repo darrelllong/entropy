@@ -250,6 +250,7 @@ pub fn hamming_corr_result(summary: &HammingCorrSummary) -> TestResult {
             summary.n, summary.r, summary.s, summary.l, summary.rho_hat, summary.z_score
         ),
     )
+    .normal(summary.z_score)
 }
 
 /// Outcome of one Hamming-independence run.
@@ -408,6 +409,7 @@ pub fn hamming_indep_main_result(summary: &HammingIndepSummary) -> TestResult {
             summary.main_chi_square
         ),
     )
+    .chi_square(summary.main_chi_square, summary.main_dof as f64)
 }
 
 /// Package the `k`-th corner-block statistic (`k` in `1..=d`) as a
@@ -431,6 +433,7 @@ pub fn hamming_indep_block_result(summary: &HammingIndepSummary, k: usize) -> Te
             summary.block_chi_square[idx]
         ),
     )
+    .chi_square(summary.block_chi_square[idx], summary.block_dof[idx] as f64)
 }
 
 #[cfg(test)]

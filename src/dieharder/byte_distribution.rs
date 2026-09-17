@@ -56,6 +56,7 @@ pub fn byte_distribution(words: &[u32]) -> TestResult {
         p_value,
         format!("tsamples={tsamples}, streams={SAMP_TOTAL}, expected/cell={expected:.1}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, (255 * SAMP_TOTAL) as f64)
 }
 
 #[cfg(test)]

@@ -95,6 +95,7 @@ pub fn operm5(words: &[u32]) -> TestResult {
         p_value,
         format!("n={N_WINDOWS}, df={DF}, χ²={chi_square:.4}"),
     )
+    .chi_square(chi_square, DF)
 }
 
 /// χ² = xᵀ P x / n over the overlapping windows of exactly [`WORDS`] words,

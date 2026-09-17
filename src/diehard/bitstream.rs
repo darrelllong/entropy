@@ -47,12 +47,14 @@ pub fn bitstream(words: &[u32]) -> TestResult {
 
     // Kolmogorov-Smirnov test on REPEATS p-values.
     let p_value = crate::math::ks_test(&mut p_values);
+    let d = crate::math::ks_statistic(&mut p_values);
 
     TestResult::with_note(
         "diehard::bitstream",
         p_value,
         format!("window=20-bit, stream=2^21, repeats={REPEATS}"),
     )
+    .kolmogorov_smirnov(d, p_values.len())
 }
 
 /// Count missing 20-bit words by feeding the rolling window directly from

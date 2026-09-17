@@ -69,18 +69,24 @@ pub fn runs_float_both(rng: &mut impl Rng) -> Vec<TestResult> {
 
     let p_up = ks_test(&mut up_pvals);
     let p_dn = ks_test(&mut dn_pvals);
+    let (d_up, d_dn) = (
+        crate::math::ks_statistic(&mut up_pvals),
+        crate::math::ks_statistic(&mut dn_pvals),
+    );
 
     vec![
         TestResult::with_note(
             "diehard::runs_up",
             p_up,
             format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form"),
-        ),
+        )
+        .kolmogorov_smirnov(d_up, REPEATS),
         TestResult::with_note(
             "diehard::runs_down",
             p_dn,
             format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form"),
-        ),
+        )
+        .kolmogorov_smirnov(d_dn, REPEATS),
     ]
 }
 
@@ -103,12 +109,13 @@ pub fn runs_float(words: &[u32]) -> TestResult {
         })
         .map(|(uv, dv)| (igamc(3.0, uv / 2.0), igamc(3.0, dv / 2.0)))
         .unzip();
-    let p = (2.0 * ks_test(&mut up_pvals).min(ks_test(&mut dn_pvals))).min(1.0);
+    let smaller = ks_test(&mut up_pvals).min(ks_test(&mut dn_pvals));
     TestResult::with_note(
         "diehard::runs_up_down",
-        p,
+        (2.0 * smaller).min(1.0),
         format!("seq_len={SEQ_LEN}, repeats={REPEATS}, covariance-form (Bonferroni)"),
     )
+    .with_statistic("smaller p-value", smaller, None, "Bonferroni bound")
 }
 
 /// Compute the quadratic form statistic for up-runs and down-runs in one

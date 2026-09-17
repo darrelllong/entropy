@@ -105,7 +105,8 @@ fn pattern_results(words: &[u32], n: usize) -> Option<Vec<TestResult>> {
                 "dieharder::bit_distribution",
                 p,
                 format!("width={n}, pattern={pattern}, tsamples={tsamples}, bsamples={BSAMPLES}, df={df}, χ²={chi_sq:.4}"),
-            ));
+            )
+            .chi_square(chi_sq, df as f64));
         }
     }
     Some(results)
@@ -138,6 +139,12 @@ pub fn bit_distribution(words: &[u32], max_bits: usize) -> TestResult {
             scored.len(),
             worst.note.clone().unwrap_or_default()
         ),
+    )
+    .with_statistic(
+        "smallest pattern p-value",
+        worst.p_value,
+        None,
+        "Bonferroni bound",
     )
 }
 

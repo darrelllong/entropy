@@ -110,6 +110,7 @@ pub fn longest_run(bits: &[u8]) -> TestResult {
         p_value,
         format!("n={n}, M={m}, N={num_blocks}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, k as f64)
 }
 
 fn longest_run_of_ones(block: &[u8]) -> usize {

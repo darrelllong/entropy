@@ -32,6 +32,7 @@ pub fn frequency(bits: &[u8]) -> TestResult {
         p_value,
         format!("n={n}, S_n={s_n}, s_obs={s_obs:.4}"),
     )
+    .normal(s_n as f64 / (n as f64).sqrt())
 }
 
 #[cfg(test)]

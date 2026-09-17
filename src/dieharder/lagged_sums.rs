@@ -45,6 +45,7 @@ pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
         p_value,
         format!("lag={lag}, tsamples={tsamples}, sum={sum:.4}, z={z:.4}"),
     )
+    .normal(z)
 }
 
 #[cfg(test)]

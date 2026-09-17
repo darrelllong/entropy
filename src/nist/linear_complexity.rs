@@ -54,6 +54,7 @@ pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
         p_value,
         format!("n={n}, M={m}, N={num_blocks}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, 6.0)
 }
 
 /// π₀, …, π₆ of SP 800-22 §2.10.4 step (6), the probabilities of the seven

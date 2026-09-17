@@ -46,7 +46,7 @@ fn missing_count(seen: &[u8]) -> usize {
 fn monkey_result(name: &'static str, missing: usize, mean: f64, sigma: f64) -> TestResult {
     let z = (missing as f64 - mean) / sigma;
     let p_value = erfc(z.abs() / SQRT_2);
-    TestResult::with_note(name, p_value, format!("missing={missing}, z={z:.4}"))
+    TestResult::with_note(name, p_value, format!("missing={missing}, z={z:.4}")).normal(z)
 }
 
 /// Overlapping Pairs Sparse Occupancy (OPSO).

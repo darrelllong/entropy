@@ -52,7 +52,12 @@ fn cusum(bits: &[u8], reverse: bool, name: &'static str) -> TestResult {
 
     let p_value = cusum_pvalue(z, n);
 
-    TestResult::with_note(name, p_value, format!("n={n}, z={z}"))
+    TestResult::with_note(name, p_value, format!("n={n}, z={z}")).with_statistic(
+        "maximum partial-sum excursion",
+        z,
+        None,
+        "SP 800-22 §2.13 excursion law",
+    )
 }
 
 /// P-value formula from SP 800-22 §2.13.4.

@@ -129,6 +129,7 @@ pub fn non_overlapping_template_raw(bits: &[u8], template: &[u8]) -> TestResult 
         p_value,
         format!("B={tmpl_str}, N={num_blocks}, M={big_m}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, num_blocks as f64)
 }
 
 /// Count non-overlapping occurrences of `template` in `block`.

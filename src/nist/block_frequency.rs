@@ -42,4 +42,5 @@ pub fn block_frequency(bits: &[u8], m: usize) -> TestResult {
         p_value,
         format!("n={n}, M={m}, N={num_blocks}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, num_blocks as f64)
 }

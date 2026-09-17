@@ -68,12 +68,14 @@ pub fn serial_both(bits: &[u8], m: usize) -> Vec<TestResult> {
             "nist::serial_delta1",
             p1,
             format!("n={n}, m={m}, ∇ψ²={del1:.4}"),
-        ),
+        )
+        .chi_square(del1, f64::from(1u32 << (m - 1))),
         TestResult::with_note(
             "nist::serial_delta2",
             p2,
             format!("n={n}, m={m}, ∇²ψ²={del2:.4}"),
-        ),
+        )
+        .chi_square(del2, f64::from(1u32 << (m - 2))),
     ]
 }
 

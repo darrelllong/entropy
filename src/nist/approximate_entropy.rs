@@ -48,6 +48,7 @@ pub fn approximate_entropy(bits: &[u8], m: usize) -> TestResult {
         p_value,
         format!("n={n}, m={m}, ApEn={ap_en:.6}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, f64::from(1u32 << m))
 }
 
 /// §2.12.4 steps 6–7: χ² = 2n(ln 2 − ApEn(m)) and P = igamc(2^{m−1}, χ²/2),

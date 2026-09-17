@@ -117,6 +117,8 @@ pub struct LempelZivSummary {
     pub z_sum_p_value: f64,
     /// Kolmogorov–Smirnov p-value for uniformity of the U.
     pub ks_p_value: f64,
+    /// Kolmogorov–Smirnov distance of the U from Uniform(0, 1).
+    pub ks_d: f64,
 }
 
 fn lz78_count_blocks(blocks: &[u32], n_bits: usize, s: usize) -> usize {
@@ -275,6 +277,7 @@ pub fn lempel_ziv_summary(
         z_sum_stat: f64::NAN,
         z_sum_p_value: f64::NAN,
         ks_p_value: f64::NAN,
+        ks_d: f64::NAN,
     };
     let limit = max_replications(k);
     if replications > limit {
@@ -311,6 +314,7 @@ pub fn lempel_ziv_summary(
     } else {
         ks_test(&mut uniforms)
     };
+    summary.ks_d = crate::math::ks_statistic(&mut uniforms);
     (reps, summary)
 }
 
@@ -330,7 +334,8 @@ pub fn lempel_ziv_sum_result(summary: &LempelZivSummary) -> TestResult {
             "testu01::lzw_sum",
             summary.z_sum_p_value,
             format!("{}, Z={:.4}", parameters(summary), summary.z_sum_stat),
-        ),
+        )
+        .normal(summary.z_sum_stat),
     }
 }
 
@@ -339,7 +344,8 @@ pub fn lempel_ziv_sum_result(summary: &LempelZivSummary) -> TestResult {
 pub fn lempel_ziv_ks_result(summary: &LempelZivSummary) -> TestResult {
     match &summary.unsupported {
         Some(why) => TestResult::unsupported("testu01::lzw_ks", why),
-        None => TestResult::with_note("testu01::lzw_ks", summary.ks_p_value, parameters(summary)),
+        None => TestResult::with_note("testu01::lzw_ks", summary.ks_p_value, parameters(summary))
+            .kolmogorov_smirnov(summary.ks_d, summary.replications),
     }
 }
 

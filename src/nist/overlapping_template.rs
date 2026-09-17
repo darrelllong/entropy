@@ -92,6 +92,7 @@ pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
         p_value,
         format!("n={n}, m={m}, N={num_blocks}, ν={nu:?}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, k as f64)
 }
 
 fn count_overlapping(block: &[u8], template: &[u8]) -> usize {

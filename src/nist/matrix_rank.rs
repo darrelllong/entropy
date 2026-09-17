@@ -84,6 +84,7 @@ pub fn matrix_rank(bits: &[u8]) -> TestResult {
         p_value,
         format!("N={num_matrices}, F32={f_32}, F31={f_31}, F≤30={f_less}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, 2.0)
 }
 
 /// Compute the GF(2) rank of a 32×32 binary matrix.

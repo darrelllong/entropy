@@ -83,6 +83,7 @@ pub fn monobit2(words: &[u32]) -> TestResult {
             2usize << (levels - 1)
         ),
     )
+    .with_statistic("smallest level p-value", smallest, None, "Bonferroni bound")
 }
 
 /// Levels whose most likely cell expects at least [`MIN_CENTRE_EXPECTED`]

@@ -153,6 +153,7 @@ pub fn permutation_test(samples: &[f64], t: usize) -> TestResult {
             stats.window, stats.blocks, stats.chi_square, df
         ),
     )
+    .chi_square(stats.chi_square, df as f64)
 }
 
 /// Knuth TAOCP §3.3.2 gap-test statistics: chi-square the lengths of gaps
@@ -275,6 +276,7 @@ pub fn gap_test(samples: &[f64], alpha: f64, beta: f64, max_gap: usize) -> TestR
             stats.alpha, stats.beta, stats.gaps, stats.max_gap, stats.cells, stats.chi_square, df
         ),
     )
+    .chi_square(stats.chi_square, df as f64)
 }
 
 /// Wald–Wolfowitz runs statistics above/below the sample median.
@@ -365,6 +367,7 @@ pub fn runs_above_below_median_test(samples: &[f64]) -> TestResult {
             stats.median, stats.below, stats.above, stats.runs, stats.z_score
         ),
     )
+    .normal(stats.z_score)
 }
 
 #[cfg(test)]

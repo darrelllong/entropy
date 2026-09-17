@@ -36,12 +36,14 @@ pub fn parking_lot(rng: &mut impl Rng, quick: bool) -> TestResult {
     }
 
     let p_value = ks_test(&mut p_values);
+    let d = crate::math::ks_statistic(&mut p_values);
 
     TestResult::with_note(
         "diehard::parking_lot",
         p_value,
         format!("attempts={ATTEMPTS}, mean={MEAN}, σ={SIGMA}, repeats={repeats}"),
     )
+    .kolmogorov_smirnov(d, p_values.len())
 }
 
 fn simulate(rng: &mut impl Rng) -> usize {

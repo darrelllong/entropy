@@ -172,6 +172,7 @@ fn universal_with_l(bits: &[u8], l: usize, q: usize, name: &'static str) -> Test
         p_value,
         format!("n={n}, L={l}, Q={q}, K={k}, f_n={f_n:.4}, μ={mu:.4}, σ={sigma:.6}"),
     )
+    .normal((f_n - mu) / sigma)
 }
 
 fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {

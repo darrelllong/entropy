@@ -78,12 +78,14 @@ pub fn birthday_spacings(words: &[u32]) -> TestResult {
 
     // Final KS test on the 9 chi-square p-values.
     let p_value = ks_test(&mut p_values);
+    let d = crate::math::ks_statistic(&mut p_values);
 
     TestResult::with_note(
         "diehard::birthday_spacings",
         p_value,
         format!("m={M}, year=2^24, samples={SAMPLES}"),
     )
+    .kolmogorov_smirnov(d, p_values.len())
 }
 
 /// The number of i with C(i) = C(i−1) in sorted spacings: a value that

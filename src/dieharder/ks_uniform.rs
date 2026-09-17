@@ -22,12 +22,14 @@ pub fn ks_uniform(words: &[u32]) -> TestResult {
 
     let mut sample: Vec<f64> = words.iter().map(|&w| w as f64 / 4_294_967_296.0).collect();
     let p_value = ks_test(&mut sample);
+    let d = crate::math::ks_statistic(&mut sample);
 
     TestResult::with_note(
         "dieharder::ks_uniform",
         p_value,
         format!("tsamples={}", words.len()),
     )
+    .kolmogorov_smirnov(d, words.len())
 }
 
 #[cfg(test)]

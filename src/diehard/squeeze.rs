@@ -164,6 +164,7 @@ pub fn squeeze(rng: &mut impl Rng) -> TestResult {
         p_value,
         format!("trials={N_TRIALS}, cells={N_CELLS}, df={df}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, df as f64)
 }
 
 /// Score a squeeze histogram: Pearson χ² against

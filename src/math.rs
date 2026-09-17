@@ -424,13 +424,19 @@ fn upper_gamma_fraction(a: f64, x: f64, ln_prefactor: f64) -> Option<f64> {
 /// Otherwise the slice is sorted in place.
 #[must_use]
 pub fn ks_test(samples: &mut [f64]) -> f64 {
+    ks_pvalue(ks_statistic(samples), samples.len())
+}
+
+/// The Kolmogorov–Smirnov distance D = sup |F_n(x) − x| of `samples` from
+/// Uniform(0, 1), sorting them in place; NaN if any sample is NaN.
+#[must_use]
+pub fn ks_statistic(samples: &mut [f64]) -> f64 {
     if samples.iter().any(|x| x.is_nan()) {
         return f64::NAN;
     }
     samples.sort_by(f64::total_cmp);
-    let n = samples.len();
-    let nf = n as f64;
-    let d = samples
+    let nf = samples.len() as f64;
+    samples
         .iter()
         .enumerate()
         .map(|(i, &x)| {
@@ -438,8 +444,7 @@ pub fn ks_test(samples: &mut [f64]) -> f64 {
             let f_lo = i as f64 / nf;
             (f_hi - x).abs().max((x - f_lo).abs())
         })
-        .fold(0.0_f64, f64::max);
-    ks_pvalue(d, n)
+        .fold(0.0_f64, f64::max)
 }
 
 /// Largest n for which [`ks_pvalue`] evaluates the exact distribution.

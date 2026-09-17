@@ -111,6 +111,12 @@ pub fn craps(rng: &mut impl Rng) -> TestResult {
             o.wins, o.p_wins, o.p_throws
         ),
     )
+    .with_statistic(
+        "smaller p-value",
+        o.p_wins.min(o.p_throws),
+        None,
+        "Bonferroni bound",
+    )
 }
 
 /// Run the craps test; returns the two p-values as separate `TestResult`s.
@@ -124,12 +130,14 @@ pub fn craps_both(rng: &mut impl Rng) -> Vec<TestResult> {
             "diehard::craps_wins",
             o.p_wins,
             format!("games={N_GAMES}, wins={}, z={:.4}", o.wins, o.z_wins),
-        ),
+        )
+        .normal(o.z_wins),
         TestResult::with_note(
             "diehard::craps_throws",
             o.p_throws,
             format!("games={N_GAMES}, df={}, χ²={:.4}", o.df, o.chi_sq),
-        ),
+        )
+        .chi_square(o.chi_sq, o.df as f64),
     ]
 }
 

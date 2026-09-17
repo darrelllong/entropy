@@ -104,6 +104,7 @@ fn count_ones_test(letters: impl Iterator<Item = usize>, name: &'static str) -> 
             q5 - q4
         ),
     )
+    .with_statistic("Q5 - Q4", q5 - q4, Some(QDIFF_DF), "chi-square, two-sided")
 }
 
 /// The Pearson sums (Q5, Q4) over `N_SAMPLES` overlapping

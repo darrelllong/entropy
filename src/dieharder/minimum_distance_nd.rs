@@ -75,12 +75,14 @@ pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestRes
     };
 
     let p_value = ks_test(&mut p_values);
+    let ks_d = crate::math::ks_statistic(&mut p_values);
 
     TestResult::with_note(
         "dieharder::minimum_distance_nd",
         p_value,
         format!("d={d}, n={n_points}, repeats={repeats}"),
     )
+    .kolmogorov_smirnov(ks_d, p_values.len())
 }
 
 /// One u = 1 − exp(−C(n, 2)·H_d(r)) per repeat, each from `n_points` uniform

@@ -150,6 +150,7 @@ pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> Tes
             mixture.leading_order()
         ),
     )
+    .with_statistic("ln sup E", sup_log, None, "Ville's inequality, p = 1/sup E")
 }
 
 #[cfg(test)]

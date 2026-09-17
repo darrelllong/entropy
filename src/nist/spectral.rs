@@ -57,6 +57,7 @@ pub fn spectral(bits: &[u8]) -> TestResult {
         p_value,
         format!("n={n}, N₀={n0:.1}, N₁={n1}, T={threshold:.4}, d={d:.4}"),
     )
+    .normal(d)
 }
 
 /// The quantities of §2.6.4 steps (4)–(8).

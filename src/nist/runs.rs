@@ -10,6 +10,7 @@
 //! Minimum recommended sequence length: n ≥ 100.
 
 use crate::{math::erfc, result::TestResult};
+use std::f64::consts::SQRT_2;
 
 /// Run the runs test.
 ///
@@ -42,6 +43,7 @@ pub fn runs(bits: &[u8]) -> TestResult {
         p_value,
         format!("n={n}, V_n={v_n}, π={pi:.4}"),
     )
+    .normal(SQRT_2 * (v_n as f64 - 2.0 * n as f64 * pi * (1.0 - pi)) / denom)
 }
 
 #[cfg(test)]

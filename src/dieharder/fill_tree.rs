@@ -139,12 +139,14 @@ pub fn fill_tree_both(words: &[u32]) -> Vec<TestResult> {
             "dieharder::fill_tree_count",
             p_fill,
             format!("trials={N_TRIALS}, cells={cells}, χ²={chi_fill:.4}"),
-        ),
+        )
+        .chi_square(chi_fill, df_fill as f64),
         TestResult::with_note(
             "dieharder::fill_tree_position",
             p_pos,
             format!("trials={N_TRIALS}, χ²={chi_pos:.4}"),
-        ),
+        )
+        .chi_square(chi_pos, df_pos as f64),
     ]
 }
 
@@ -164,6 +166,12 @@ pub fn fill_tree(words: &[u32]) -> TestResult {
         "dieharder::fill_tree",
         (2.0 * p_fill.min(p_pos)).min(1.0),
         format!("p_fill={p_fill:.4}, p_pos={p_pos:.4} (Bonferroni)"),
+    )
+    .with_statistic(
+        "smaller p-value",
+        p_fill.min(p_pos),
+        None,
+        "Bonferroni bound",
     )
 }
 

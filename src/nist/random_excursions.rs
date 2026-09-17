@@ -47,6 +47,12 @@ pub fn random_excursions(bits: &[u8]) -> TestResult {
                         worst.note.unwrap_or_default()
                     ),
                 )
+                .with_statistic(
+                    "smallest state p-value",
+                    worst.p_value,
+                    None,
+                    "Bonferroni bound",
+                )
             }
         })
         .unwrap_or_else(|| TestResult::insufficient("nist::random_excursions", "J < 500"))
@@ -73,6 +79,7 @@ pub fn random_excursions_all(bits: &[u8]) -> Vec<TestResult> {
                     p_value,
                     format!("x={x}, J={j}, χ²={chi_sq:.4}"),
                 )
+                .chi_square(chi_sq, 5.0)
             })
             .collect(),
     }

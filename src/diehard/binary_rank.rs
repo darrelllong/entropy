@@ -94,6 +94,7 @@ pub fn binary_rank_6x8(words: &[u32]) -> TestResult {
         p_value,
         format!("N={RANK_6X8_MATRICES}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, 2.0)
 }
 
 /// Rows in each 6×8 matrix.
@@ -193,6 +194,7 @@ fn rank_test(
         p_value,
         format!("{rows}×{cols}, N={n_matrices}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, df as f64)
 }
 
 /// The leftmost `cols` bits of `w` (1 ≤ `cols` ≤ 32), right-aligned so that

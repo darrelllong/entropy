@@ -48,6 +48,7 @@ pub fn permutations(rng: &mut impl Rng, t: usize) -> TestResult {
         p_value,
         format!("t={t}, n={n_samples}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, df as f64)
 }
 
 /// Lexicographic rank of the ordering permutation of `window`.

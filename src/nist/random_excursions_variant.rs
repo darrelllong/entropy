@@ -14,6 +14,7 @@
 //!   [pubs/NIST-SP-800-22r1a.pdf]
 
 use crate::{math::erfc, result::TestResult};
+use std::f64::consts::SQRT_2;
 
 /// Largest |x| among the tested states.
 const MAX_STATE: i32 = 9;
@@ -53,6 +54,12 @@ pub fn random_excursions_variant(bits: &[u8]) -> TestResult {
                         "Bonferroni over {m} states; worst: {}",
                         worst.note.unwrap_or_default()
                     ),
+                )
+                .with_statistic(
+                    "smallest state p-value",
+                    worst.p_value,
+                    None,
+                    "Bonferroni bound",
                 )
             }
         })
@@ -102,6 +109,7 @@ pub fn random_excursions_variant_all(bits: &[u8]) -> Vec<TestResult> {
                 p_value,
                 format!("x={x}, ξ(x)={count}, J={j}"),
             )
+            .normal(SQRT_2 * (count - j as f64) / denom)
         })
         .collect()
 }
@@ -167,6 +175,7 @@ mod tests {
                     erfc(numer / denom),
                     format!("x={x}, ξ(x)={count}, J={j}"),
                 )
+                .normal(SQRT_2 * (count - j as f64) / denom)
             })
             .collect()
     }

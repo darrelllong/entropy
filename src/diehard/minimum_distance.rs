@@ -48,12 +48,14 @@ pub fn minimum_distance_2d(rng: &mut impl Rng, quick: bool) -> TestResult {
     }
 
     let p_value = ks_test(&mut p_values);
+    let d = crate::math::ks_statistic(&mut p_values);
 
     TestResult::with_note(
         "diehard::minimum_distance_2d",
         p_value,
         format!("n={n_points}, side={SQUARE_SIDE}, repeats={repeats}"),
     )
+    .kolmogorov_smirnov(d, p_values.len())
 }
 
 #[cfg(test)]

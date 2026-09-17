@@ -22,6 +22,23 @@ pub enum Status {
     Error,
 }
 
+/// The statistic behind a p-value and the null distribution it was scored
+/// against.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Statistic {
+    /// What the statistic is, e.g. `"chi-square"` or `"z"`.
+    pub name: &'static str,
+    /// Its value.
+    pub value: f64,
+    /// Degrees of freedom, where the null distribution has them.
+    pub df: Option<f64>,
+    /// Sample size, for a Kolmogorov–Smirnov or Anderson–Darling statistic.
+    pub n: Option<usize>,
+    /// The null distribution the p-value comes from, e.g. `"chi-square"`,
+    /// `"normal, two-sided"` or `"Kolmogorov-Smirnov"`.
+    pub null: &'static str,
+}
+
 /// The outcome of a single statistical test run against one RNG.
 #[derive(Debug, Clone)]
 pub struct TestResult {
@@ -34,6 +51,8 @@ pub struct TestResult {
     pub note: Option<String>,
     /// Whether `p_value` is a probability, and if not, why.
     pub status: Status,
+    /// The statistic the p-value was computed from, when recorded.
+    pub statistic: Option<Statistic>,
 }
 
 impl TestResult {
@@ -48,6 +67,7 @@ impl TestResult {
             p_value,
             note: None,
             status: status_of(p_value),
+            statistic: None,
         }
     }
 
@@ -59,6 +79,7 @@ impl TestResult {
             p_value,
             note: Some(note.into()),
             status: status_of(p_value),
+            statistic: None,
         }
     }
 
@@ -70,7 +91,59 @@ impl TestResult {
             p_value: f64::NAN,
             note: Some(reason.to_owned()),
             status: Status::Insufficient,
+            statistic: None,
         }
+    }
+
+    /// Record the statistic behind the p-value.
+    #[must_use]
+    pub fn with_statistic(
+        mut self,
+        name: &'static str,
+        value: f64,
+        df: Option<f64>,
+        null: &'static str,
+    ) -> Self {
+        self.statistic = Some(Statistic {
+            name,
+            value,
+            df,
+            n: None,
+            null,
+        });
+        self
+    }
+
+    /// A Kolmogorov–Smirnov distance of `n` values from Uniform(0, 1).
+    #[must_use]
+    pub fn kolmogorov_smirnov(mut self, d: f64, n: usize) -> Self {
+        self = self.with_statistic("D", d, None, "Kolmogorov-Smirnov");
+        if let Some(stat) = self.statistic.as_mut() {
+            stat.n = Some(n);
+        }
+        self
+    }
+
+    /// An Anderson–Darling statistic of `n` values from Uniform(0, 1).
+    #[must_use]
+    pub fn anderson_darling(mut self, a2: f64, n: usize) -> Self {
+        self = self.with_statistic("A²", a2, None, "Anderson-Darling");
+        if let Some(stat) = self.statistic.as_mut() {
+            stat.n = Some(n);
+        }
+        self
+    }
+
+    /// A Pearson or likelihood χ² scored against χ²(`df`).
+    #[must_use]
+    pub fn chi_square(self, value: f64, df: f64) -> Self {
+        self.with_statistic("chi-square", value, Some(df), "chi-square")
+    }
+
+    /// A standardized statistic scored two-sided against N(0, 1).
+    #[must_use]
+    pub fn normal(self, z: f64) -> Self {
+        self.with_statistic("z", z, None, "normal, two-sided")
     }
 
     /// `true` if the p-value is a probability and at least [`ALPHA`].
@@ -93,6 +166,7 @@ impl TestResult {
             p_value: f64::NAN,
             note: Some(reason.to_owned()),
             status: Status::Unsupported,
+            statistic: None,
         }
     }
 
@@ -146,6 +220,23 @@ impl TestResult {
             "null".to_owned()
         };
         members.push(format!("\"p_value\":{p}"));
+        if let Some(stat) = &self.statistic {
+            let number = |v: f64| {
+                if v.is_finite() {
+                    format!("{v:?}")
+                } else {
+                    "null".to_owned()
+                }
+            };
+            members.push(format!(
+                "\"statistic\":{{\"name\":{},\"value\":{},\"df\":{},\"n\":{},\"null\":{}}}",
+                json_string(stat.name),
+                number(stat.value),
+                stat.df.map_or_else(|| "null".to_owned(), number),
+                stat.n.map_or_else(|| "null".to_owned(), |n| n.to_string()),
+                json_string(stat.null)
+            ));
+        }
         if let Some(note) = &self.note {
             members.push(format!("\"note\":{}", json_string(note)));
         }
@@ -270,5 +361,21 @@ mod tests {
         assert!(skip
             .to_json(&[])
             .contains(r#""status":"insufficient","p_value":null"#));
+    }
+
+    #[test]
+    fn json_carries_the_statistic() {
+        let r = TestResult::new("t::chi", 0.25).chi_square(12.5, 9.0);
+        assert!(
+            r.to_json(&[]).contains(
+                r#""statistic":{"name":"chi-square","value":12.5,"df":9.0,"n":null,"null":"chi-square"}"#
+            ),
+            "{}",
+            r.to_json(&[])
+        );
+        let z = TestResult::new("t::z", 0.5).normal(-0.6744897501960817);
+        assert!(z
+            .to_json(&[])
+            .contains(r#""df":null,"n":null,"null":"normal, two-sided""#));
     }
 }

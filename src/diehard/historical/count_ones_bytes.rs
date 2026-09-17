@@ -68,6 +68,7 @@ pub fn count_ones_bytes(words: &[u32]) -> Vec<TestResult> {
                 q_difference_p_value(q5, q4),
                 format!("bits {b} to {}, Q5-Q4={:.2}", b + 7, q5 - q4),
             )
+            .with_statistic("Q5 - Q4", q5 - q4, Some(2_500.0), "chi-square, two-sided")
         })
         .collect()
 }

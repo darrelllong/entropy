@@ -100,14 +100,18 @@ pub fn rank_6x8_windows(words: &[u32]) -> Vec<TestResult> {
                     counts[2]
                 ),
             )
+            .chi_square(chi_square, 2.0)
         })
         .collect();
     let a2 = anderson_darling_statistic(&mut p_values);
-    results.push(TestResult::with_note(
-        SUMMARY_NAME,
-        1.0 - anderson_darling_cdf(WINDOWS, a2),
-        format!("A²={a2:.4} over the 25 window p-values"),
-    ));
+    results.push(
+        TestResult::with_note(
+            SUMMARY_NAME,
+            1.0 - anderson_darling_cdf(WINDOWS, a2),
+            format!("A²={a2:.4} over the 25 window p-values"),
+        )
+        .anderson_darling(a2, WINDOWS),
+    );
     results
 }
 

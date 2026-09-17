@@ -85,6 +85,7 @@ pub fn dct(words: &[u32]) -> TestResult {
         p_value,
         format!("ntuple={NTUPLE}, tsamples={TSAMPLES}, χ²={chi_sq:.4}"),
     )
+    .chi_square(chi_sq, df as f64)
 }
 
 /// The rotated words of a block as numbers.
