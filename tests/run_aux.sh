@@ -40,7 +40,7 @@ section() {
     printf '\n%s\n%s\n%s\n\n' "$SEP" "$1" "$SEP"
 }
 
-BIN="$ROOT_DIR/target/release"
+BIN="${CARGO_TARGET_DIR:-$ROOT_DIR/target}/release"
 
 cargo build --quiet --release \
     --bin bib_tests \

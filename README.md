@@ -90,6 +90,13 @@ tests/run_battery.sh --test nist::spectral
 tests/run_battery.sh --suite diehard-historical --rng MT19937   # opt-in, see below
 ```
 
+The 64-bit generators return the high half of each output as a word, so the
+default run never reads their low bits.  `--views` adds, from fixed seeds, four
+runs of each of PCG64, Xoshiro256, Xoroshiro128, SFC64, JSF64 and Xorshift64:
+high half, low half, full word and bit-reversed high half.  The views of one
+generator share its outputs, so their results are not independent.
+`tests/run_all.sh` passes `--views`.
+
 ### Auxiliary probes only
 
 ```sh

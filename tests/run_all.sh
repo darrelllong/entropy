@@ -21,7 +21,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
 Usage: tests/run_all.sh [run_tests options...]
 
 Runs every battery and probe:
-  1. NIST SP 800-22 / DIEHARD / DIEHARDER battery  (run_tests)
+  1. NIST SP 800-22 / DIEHARD / DIEHARDER battery  (run_tests --views)
   2. Knuth + ApEn profile                           (bib_tests)
   3. Hamming weights + FPF                          (upstream_tests)
   4. Lempel-Ziv                                    (testu01_lz)
@@ -47,7 +47,7 @@ mkdir -p "$LOG_DIR"
 HOST_TAG="$(hostname -s 2>/dev/null || hostname)"
 LOG="$LOG_DIR/run_all-${HOST_TAG}-$(date +%Y%m%d-%H%M%S).log"
 
-BIN="$ROOT_DIR/target/release"
+BIN="${CARGO_TARGET_DIR:-$ROOT_DIR/target}/release"
 SEP=$(printf '=%.0s' {1..72})
 
 section() {
@@ -64,7 +64,7 @@ run_all() {
         --bin gorilla
 
     section "run_tests  (NIST SP 800-22 · DIEHARD · DIEHARDER)"
-    "$BIN/run_tests" "$@"
+    "$BIN/run_tests" --views "$@"
 
     section "bib_tests  (Knuth + NIST ApEn profile m=2..6)"
     "$BIN/bib_tests"

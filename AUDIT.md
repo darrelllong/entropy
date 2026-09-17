@@ -35,12 +35,3 @@ settle both and admit more replications.
 periodogram test rejected at 0.01 in 1.30% and 0.90% of null streams, too few
 runs to measure the report's α = 0.001.  The periodogram height KS is
 conservative on uniform input.  The package tests are uncalibrated.
-
-## Coverage
-
-### A5 — Batteries test only the high half of 64-bit generators
-
-[views.rs](src/rng/views.rs) provides low-half, full-word and bit-reversed
-views, but the batteries run the default high-half `next_u32`, so a defect
-confined to low bits is unseen.  Run the views as named, dependent
-experiments.

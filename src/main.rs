@@ -55,13 +55,13 @@ use cryptography::{
     Snow3g, Twofish128, Zuc128,
 };
 use entropy::rng::{
-    AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
-    CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom,
-    Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
-    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32,
-    Xorshift64, Xoshiro256,
+    AesCtr, BitReversed, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng,
+    CounterRng, CryptoCtrDrbg, DualEcDrbg, FullWord, HashDrbg, HighHalf, HmacDrbg, Jsf64, Lcg32,
+    LcgVariant, LinuxLibcRandom, LowHalf, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64,
+    SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
+    WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
 };
-use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, K16, K32};
+use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
 use entropy::{diehard, dieharder, nist, result::TestResult};
 use std::thread;
 
@@ -210,6 +210,7 @@ struct Args {
     test_filter: Option<String>, // substring match on TestResult::name
     rng_filters: Vec<String>,    // substring match on RNG label
     fail_on_fail: bool,          // exit nonzero if any shown test FAILed
+    views: bool,                 // also run the 64-bit generators' output views
 }
 
 /// What the command line asks `run_tests` to do.
@@ -244,12 +245,14 @@ impl Args {
         let mut test_filter: Option<String> = None;
         let mut rng_filters: Vec<String> = Vec::new();
         let mut fail_on_fail = false;
+        let mut views = false;
 
         let mut argv = argv.into_iter();
         while let Some(arg) = argv.next() {
             match arg.as_str() {
                 "--quick" => quick = true,
                 "--fail-on-fail" => fail_on_fail = true,
+                "--views" => views = true,
                 "--help" | "-h" => return Ok(Command::Help),
                 "--suite" => {
                     let v = argv.next().ok_or("--suite requires an argument")?;
@@ -318,6 +321,7 @@ impl Args {
             test_filter,
             rng_filters,
             fail_on_fail,
+            views,
         };
         args.check_test_filter()?;
         Ok(Command::Run(args))
@@ -383,7 +387,7 @@ fn print_usage() {
     // that indents the flag descriptions' continuation lines.
     println!(
         "\
-Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--fail-on-fail] [--help]
+Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--views] [--fail-on-fail] [--help]
 
  --suite         Run only this battery.  Repeatable: --suite nist --suite diehard.
                  diehard-historical runs the historical DIEHARD tests, which
@@ -400,6 +404,12 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
  --rng           Run only RNGs whose label contains <label>, ignoring case.
                  Repeatable.  A selection that runs no RNG is a usage error.
  --quick         Reduced sample counts in DIEHARD/DIEHARDER (faster, less sensitive).
+ --views         Also run PCG64, Xoshiro256, Xoroshiro128, SFC64, JSF64 and
+                 Xorshift64 from fixed seeds through four views of each 64-bit
+                 output: high half (what the default runs read), low half,
+                 full word (high then low) and bit-reversed high half.  The
+                 four views of one generator share its outputs, so their
+                 results are not independent.
  --fail-on-fail  Exit 1 if any shown test FAILed.  Without it, exit 0 only
                  means the battery ran to completion.  Negative-control RNGs
                  (BAD…, Constant, Counter, Dual_EC_DRBG) are expected to FAIL,
@@ -586,6 +596,24 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
         "cryptography::CtrDrbgAes256 (seed=00..2f)",
         CryptoCtrDrbg::with_test_seed()
     );
+    // Four views of each 64-bit generator's outputs from one fixed seed, so a
+    // defect confined to the low half or to bit order shows in its own row.
+    macro_rules! views {
+        ($label:expr, $rng:expr) => {{
+            if args.views {
+                run!(concat!($label, " [high half]"), HighHalf($rng));
+                run!(concat!($label, " [low half]"), LowHalf($rng));
+                run!(concat!($label, " [full word]"), FullWord::new($rng));
+                run!(concat!($label, " [bit-reversed]"), BitReversed($rng));
+            }
+        }};
+    }
+    views!("PCG64 (state=1, seq=1)", Pcg64::new(1, 1));
+    views!("Xoshiro256 (seeds=1,2,3,4)", Xoshiro256::new(1, 2, 3, 4));
+    views!("Xoroshiro128 (seeds=1,2)", Xoroshiro128::new(1, 2));
+    views!("SFC64 (seeds=1,2,3)", Sfc64::new(1, 2, 3));
+    views!("JSF64 (seed=0xdeadbeef)", Jsf64::new(JSF64_PROBE_SEED));
+    views!("Xorshift64 (seed=1)", Xorshift64::new(1));
     run!(CONSTANT_LABEL, ConstantRng::new(CONSTANT_RNG_WORD));
     run!("Counter (0,1,2,…)", CounterRng::new(0));
     // Dual_EC_DRBG: included for reference only.
@@ -921,7 +949,7 @@ mod tests {
     #[test]
     fn no_options_select_every_suite_and_rng() {
         let a = run_args(&[]);
-        assert!(!a.quick && !a.fail_on_fail);
+        assert!(!a.quick && !a.fail_on_fail && !a.views);
         assert!(a.suites.is_empty() && a.test_filter.is_none() && a.rng_filters.is_empty());
         for suite in [Suite::Nist, Suite::Diehard, Suite::Dieharder] {
             assert!(a.run_suite(&suite));
@@ -935,6 +963,7 @@ mod tests {
         let a = run_args(&[
             "--quick",
             "--fail-on-fail",
+            "--views",
             "--suite",
             "nist",
             "--suite",
@@ -946,7 +975,7 @@ mod tests {
             "--test",
             "frequency",
         ]);
-        assert!(a.quick && a.fail_on_fail);
+        assert!(a.quick && a.fail_on_fail && a.views);
         assert!(a.run_suite(&Suite::Nist) && a.run_suite(&Suite::Dieharder));
         assert!(!a.run_suite(&Suite::Diehard));
         assert_eq!(a.rng_filters, ["PCG", "Xorshift"]);
@@ -1125,6 +1154,25 @@ mod tests {
         assert_eq!(scheduled(&["--rng", "dual_ec"]).unwrap(), dual_ec);
         assert_eq!(scheduled(&["--rng", "DUAL_EC"]).unwrap(), dual_ec);
         assert_eq!(scheduled(&["--rng", "windows"]).unwrap().len(), 3);
+    }
+
+    /// `--views` adds four views of each of the six 64-bit generators; without
+    /// it none is scheduled.
+    #[test]
+    fn views_schedule_four_views_of_six_generators() {
+        assert!(scheduled(&["--rng", "[low half]"]).is_err());
+        let low = scheduled(&["--views", "--rng", "[low half]"]).unwrap();
+        assert_eq!(low.len(), 6);
+        let pcg = scheduled(&["--views", "--rng", "PCG64 (state=1, seq=1)"]).unwrap();
+        assert_eq!(
+            pcg,
+            [
+                "PCG64 (state=1, seq=1) [high half]",
+                "PCG64 (state=1, seq=1) [low half]",
+                "PCG64 (state=1, seq=1) [full word]",
+                "PCG64 (state=1, seq=1) [bit-reversed]",
+            ]
+        );
     }
 
     #[test]

@@ -24,4 +24,4 @@ EOF
 fi
 
 cargo build --release --bin run_tests
-exec "$ROOT_DIR/target/release/run_tests" "$@"
+exec "${CARGO_TARGET_DIR:-$ROOT_DIR/target}/release/run_tests" "$@"
