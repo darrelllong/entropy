@@ -8,9 +8,9 @@
 //! so all three run in the same process, on the same buffer, in alternating
 //! order.
 
-use entropy::rng::{Jsf64, Pcg64, Sample, Seedable, Xoshiro256};
 #[cfg(feature = "cryptography")]
 use entropy::rng::{ChaCha20Rng, FastKeyErasureRng};
+use entropy::rng::{Jsf64, Pcg64, Sample, Seedable, Xoshiro256};
 use std::time::Instant;
 
 /// Mebibytes filled per round unless the command line says otherwise.
@@ -74,12 +74,8 @@ fn main() {
     report("Xoshiro256", &mut buffer, rounds, || {
         Xoshiro256::seed_from_u64(SEED)
     });
-    report("Jsf64", &mut buffer, rounds, || {
-        Jsf64::seed_from_u64(SEED)
-    });
-    report("Pcg64", &mut buffer, rounds, || {
-        Pcg64::seed_from_u64(SEED)
-    });
+    report("Jsf64", &mut buffer, rounds, || Jsf64::seed_from_u64(SEED));
+    report("Pcg64", &mut buffer, rounds, || Pcg64::seed_from_u64(SEED));
     #[cfg(feature = "cryptography")]
     {
         report("ChaCha20Rng", &mut buffer, rounds, || {

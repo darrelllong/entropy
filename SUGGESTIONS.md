@@ -101,7 +101,7 @@ a log probability rather than first rounding its CDF to zero. Test all tiny
 subnormal endpoints with crafted word streams and high-precision quantiles.
 State whether sampling approximates a continuous law or promises a particular
 rounded law. A finite 53-bit uniform grid and dense floating sampling have
- different distributions and tail ranges.
+different distributions and tail ranges.
 
 Move shared floating probability functions from rump into a statistics feature
 here, with coherent domain/error/accuracy contracts. Factoring's Student consumer
