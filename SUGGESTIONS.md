@@ -4,8 +4,9 @@ Improvements beyond the open defects in [AUDIT.md](AUDIT.md).
 
 ## Results
 
-- Structured output with each result's statistic, degrees of freedom,
-  null-model version, unrounded p-value and input offsets.
+- `run_tests --json` gives each result's unrounded p-value, status and the
+  offset of its suite's input.  The statistic, degrees of freedom and null
+  model still live only in the note; give them their own fields.
 
 ## Calibration practice
 

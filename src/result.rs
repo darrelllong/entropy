@@ -115,6 +115,64 @@ impl TestResult {
     }
 }
 
+impl Status {
+    /// Lower-case name used in structured output.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Status::Scored => "scored",
+            Status::Insufficient => "insufficient",
+            Status::Unsupported => "unsupported",
+            Status::Error => "error",
+        }
+    }
+}
+
+impl TestResult {
+    /// One JSON object for this result: its name, status, unrounded p-value
+    /// (`null` when not finite) and note, preceded by the caller's `context`
+    /// members, each a key and an already-encoded JSON value.
+    #[must_use]
+    pub fn to_json(&self, context: &[(&str, String)]) -> String {
+        let mut members: Vec<String> = context
+            .iter()
+            .map(|(key, value)| format!("{}:{value}", json_string(key)))
+            .collect();
+        members.push(format!("\"name\":{}", json_string(self.name)));
+        members.push(format!("\"status\":\"{}\"", self.status.as_str()));
+        let p = if self.p_value.is_finite() {
+            format!("{:?}", self.p_value)
+        } else {
+            "null".to_owned()
+        };
+        members.push(format!("\"p_value\":{p}"));
+        if let Some(note) = &self.note {
+            members.push(format!("\"note\":{}", json_string(note)));
+        }
+        format!("{{{}}}", members.join(","))
+    }
+}
+
+/// `s` as a JSON string literal.
+#[must_use]
+pub fn json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
 /// [`Status::Scored`] for a finite p-value in [0, 1], else [`Status::Error`].
 fn status_of(p_value: f64) -> Status {
     if (0.0..=1.0).contains(&p_value) {
@@ -195,5 +253,22 @@ mod tests {
         assert!(r.is_unsupported());
         assert!(!r.passed() && !r.failed() && !r.skipped() && !r.errored());
         assert!(r.to_string().starts_with("[UNSUPPORTED] t"), "{r}");
+    }
+
+    /// Structured output keeps the unrounded p-value and escapes strings.
+    #[test]
+    fn json_keeps_the_unrounded_p_value() {
+        let r = TestResult::with_note("t::x", 0.1 + 0.2, "a \"q\"\\\n\u{1}");
+        assert_eq!(
+            r.to_json(&[
+                ("generator", json_string("G")),
+                ("input_start", "1048576".into())
+            ]),
+            r#"{"generator":"G","input_start":1048576,"name":"t::x","status":"scored","p_value":0.30000000000000004,"note":"a \"q\"\\\n\u0001"}"#
+        );
+        let skip = TestResult::insufficient("t::y", "short");
+        assert!(skip
+            .to_json(&[])
+            .contains(r#""status":"insufficient","p_value":null"#));
     }
 }

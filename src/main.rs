@@ -63,7 +63,10 @@ use entropy::rng::{
     WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
-use entropy::{diehard, dieharder, nist, result::TestResult};
+use entropy::{
+    diehard, dieharder, nist,
+    result::{json_string, TestResult},
+};
 use std::thread;
 
 /// The label `run_tests` prints for the [`ConstantRng`] run.  `--rng` matches
@@ -223,6 +226,7 @@ struct Args {
     rng_filters: Vec<String>,    // substring match on RNG label
     fail_on_fail: bool,          // exit nonzero if any shown test FAILed
     views: bool,                 // also run the 64-bit generators' output views
+    json: bool,                  // one JSON object per result instead of the report
 }
 
 /// What the command line asks `run_tests` to do.
@@ -258,6 +262,7 @@ impl Args {
         let mut rng_filters: Vec<String> = Vec::new();
         let mut fail_on_fail = false;
         let mut views = false;
+        let mut json = false;
 
         let mut argv = argv.into_iter();
         while let Some(arg) = argv.next() {
@@ -265,6 +270,7 @@ impl Args {
                 "--quick" => quick = true,
                 "--fail-on-fail" => fail_on_fail = true,
                 "--views" => views = true,
+                "--json" => json = true,
                 "--help" | "-h" => return Ok(Command::Help),
                 "--suite" => {
                     let v = argv.next().ok_or("--suite requires an argument")?;
@@ -334,6 +340,7 @@ impl Args {
             rng_filters,
             fail_on_fail,
             views,
+            json,
         };
         args.check_test_filter()?;
         Ok(Command::Run(args))
@@ -399,7 +406,7 @@ fn print_usage() {
     // that indents the flag descriptions' continuation lines.
     println!(
         "\
-Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--views] [--fail-on-fail] [--help]
+Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--views] [--json] [--fail-on-fail] [--help]
 
  --suite         Run only this battery.  Repeatable: --suite nist --suite diehard.
                  diehard-historical runs the historical DIEHARD tests, which
@@ -422,6 +429,10 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
                  full word (high then low) and bit-reversed high half.  The
                  four views of one generator share its outputs, so their
                  results are not independent.
+ --json          Print one JSON object per shown result, one per line, with
+                 the generator, suite, the word at which the suite's input
+                 starts, the result name, its status (scored, insufficient,
+                 unsupported or error), the unrounded p-value and the note.
  --fail-on-fail  Exit 1 if any shown test FAILed.  Without it, exit 0 only
                  means the battery ran to completion.  Negative-control RNGs
                  (BAD…, Constant, Counter, Dual_EC_DRBG) are expected to FAIL,
@@ -851,7 +862,11 @@ fn main() {
 
     let (mut total_fail, mut total_error) = (0usize, 0usize);
     for r in all_results.into_iter().flatten() {
-        let (fail, error) = print_rng_results(&r, &banner, &args);
+        let (fail, error) = if args.json {
+            print_json_results(&r, &args)
+        } else {
+            print_rng_results(&r, &banner, &args)
+        };
         total_fail += fail;
         total_error += error;
     }
@@ -892,6 +907,34 @@ fn group_thousands(n: usize) -> String {
 
 /// Print one RNG's block; returns the numbers of shown tests that FAILed and
 /// that reported an ERROR.
+/// One JSON line per shown result; returns the FAIL and ERROR/UNSUPPORTED
+/// counts, as [`print_rng_results`] does.
+fn print_json_results(r: &RngResults, args: &Args) -> (usize, usize) {
+    let (mut fail, mut error) = (0, 0);
+    for (suite, start, results) in [
+        ("nist", NIST_START, &r.nist),
+        ("diehard", DIEHARD_START, &r.diehard),
+        ("dieharder", DIEHARDER_START, &r.dieharder),
+        (
+            "diehard-historical",
+            HISTORICAL_START,
+            &r.diehard_historical,
+        ),
+    ] {
+        for t in results.iter().filter(|t| args.matches(t.name)) {
+            fail += usize::from(t.failed());
+            error += usize::from(t.errored() || t.is_unsupported());
+            let context = [
+                ("generator", json_string(r.name)),
+                ("suite", json_string(suite)),
+                ("input_start", start.to_string()),
+            ];
+            println!("{}", t.to_json(&context));
+        }
+    }
+    (fail, error)
+}
+
 fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize) {
     // Collect only matching results; skip the entire block if nothing matches.
     let matching: Vec<&TestResult> = r
@@ -1046,7 +1089,7 @@ mod tests {
     #[test]
     fn no_options_select_every_suite_and_rng() {
         let a = run_args(&[]);
-        assert!(!a.quick && !a.fail_on_fail && !a.views);
+        assert!(!a.quick && !a.fail_on_fail && !a.views && !a.json);
         assert!(a.suites.is_empty() && a.test_filter.is_none() && a.rng_filters.is_empty());
         for suite in [Suite::Nist, Suite::Diehard, Suite::Dieharder] {
             assert!(a.run_suite(&suite));
@@ -1061,6 +1104,7 @@ mod tests {
             "--quick",
             "--fail-on-fail",
             "--views",
+            "--json",
             "--suite",
             "nist",
             "--suite",
@@ -1072,7 +1116,7 @@ mod tests {
             "--test",
             "frequency",
         ]);
-        assert!(a.quick && a.fail_on_fail && a.views);
+        assert!(a.quick && a.fail_on_fail && a.views && a.json);
         assert!(a.run_suite(&Suite::Nist) && a.run_suite(&Suite::Dieharder));
         assert!(!a.run_suite(&Suite::Diehard));
         assert_eq!(a.rng_filters, ["PCG", "Xorshift"]);
@@ -1263,17 +1307,29 @@ mod tests {
                 inner: CounterRng::new(0),
                 position: 0,
             };
-            rng.suite(run_nist, "nist::input_segment", NIST_START, DIEHARD_START, |r| {
-                (0..10).for_each(|_| {
-                    r.next_u32();
-                });
-                vec![]
-            });
+            rng.suite(
+                run_nist,
+                "nist::input_segment",
+                NIST_START,
+                DIEHARD_START,
+                |r| {
+                    (0..10).for_each(|_| {
+                        r.next_u32();
+                    });
+                    vec![]
+                },
+            );
             let mut seen = 0;
-            rng.suite(true, "diehard::input_segment", DIEHARD_START, DIEHARDER_START, |r| {
-                seen = r.next_u32();
-                vec![]
-            });
+            rng.suite(
+                true,
+                "diehard::input_segment",
+                DIEHARD_START,
+                DIEHARDER_START,
+                |r| {
+                    seen = r.next_u32();
+                    vec![]
+                },
+            );
             seen
         };
         assert_eq!(first_word(true), first_word(false));
@@ -1291,7 +1347,9 @@ mod tests {
         });
         assert_eq!(results.len(), 1);
         assert!(results[0].errored(), "{}", results[0]);
-        assert!(rng.suite(false, "diehard::input_segment", 4, 8, |_| unreachable!()).is_empty());
+        assert!(rng
+            .suite(false, "diehard::input_segment", 4, 8, |_| unreachable!())
+            .is_empty());
     }
 
     /// `--views` adds four views of each of the six 64-bit generators; without
