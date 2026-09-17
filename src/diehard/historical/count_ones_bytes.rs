@@ -20,9 +20,11 @@
 //! 4 000 streams of 6 400 100 words, each from a separately seeded PCG64
 //! generator, gave 100 000 window p-values with p < 0.01 in 1.045% (binomial
 //! standard deviation 0.031%) and p < 0.001 in 0.089%; a Kolmogorov–Smirnov
-//! test of the 100 000 gave p = 0.028.  Q5 − Q4 is only approximately
-//! χ²(2 500), and at that sample size the excess is a few hundredths of a
-//! percent.  A test below runs a fixed eight-stream version under
+//! test of the 100 000 gave p = 0.028.  12 000 xoshiro256** streams gave
+//! 300 000 p-values with p < 0.01 in 1.060% (standard deviation 0.018%),
+//! p < 0.001 in 0.101% and a Kolmogorov–Smirnov p-value of 0.13.  Q5 − Q4 is
+//! only approximately χ²(2 500), and the excess at 0.01 is about six
+//! hundredths of a percent.  A test below runs a fixed eight-stream version under
 //! `cargo test --release`.
 //!
 //! # Author

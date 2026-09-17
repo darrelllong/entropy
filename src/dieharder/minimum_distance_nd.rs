@@ -30,6 +30,19 @@
 //! second-order term in place of H_d gives means of 0.5140 and 0.5249 at 500
 //! points in four and five dimensions (KS p < 10⁻⁴).
 //!
+//! The test's own p-values, from xoshiro256** streams seeded apart, rejected
+//! at 0.01 in these fractions of runs (binomial standard deviation 0.07% for
+//! 20 000 quick runs, 0.22% for 2 000 full runs):
+//!
+//! | test | quick | full |
+//! |---|---|---|
+//! | d = 2 | 1.005% | 1.05% |
+//! | d = 3 | 0.950% | 1.20% |
+//! | d = 4 | 0.855% | 1.10% |
+//! | d = 5 | 1.005% | 1.05% |
+//! | DIEHARD minimum distance | 0.980% | 1.25% |
+//! | DIEHARD 3-D spheres | 0.910% | 0.85% |
+//!
 //! # Author
 //! Robert G. Brown, *Dieharder: A Random Number Test Suite* (2004–2011).
 
