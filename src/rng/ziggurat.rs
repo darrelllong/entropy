@@ -25,10 +25,10 @@
 //! The rectangles carry a 53-bit uniform, so inside them the draw lies on a
 //! grid of that resolution; the tail is drawn by the rejection of the same
 //! paper, from dense uniforms, and reaches as far as −ln(2⁻¹⁰⁷⁴)/r.  This is
-//! the sequence of [`Sample::normal`](crate::rng::Sample::normal); the
-//! inversion it replaced is kept as
-//! [`Sample::normal_inverse`](crate::rng::Sample::normal_inverse), and the two
-//! sample the same law.
+//! the sequence of [`Sample::normal`](crate::rng::Sample::normal).
+//! [`Sample::normal_inverse`](crate::rng::Sample::normal_inverse) samples the
+//! same law by inverting Φ, and is the slower and more finely resolved of the
+//! two.
 
 use crate::{math::erfc, rng::Rng};
 use std::sync::OnceLock;
@@ -42,6 +42,15 @@ const UNIFORM_BITS: u32 = f64::MANTISSA_DIGITS;
 
 /// Where the layer index sits in the drawn word, above the uniform.
 const LAYER_SHIFT: u32 = UNIFORM_BITS;
+
+/// Mask of the layer index: `LAYERS` is a power of two.
+const LAYER_MASK: u64 = LAYERS as u64 - 1;
+
+/// 2⁻⁵³, the uniform's scale as a multiplication rather than a division.
+const UNIFORM_SCALE: f64 = 1.0 / (1u64 << UNIFORM_BITS) as f64;
+
+/// Mask of the uniform's significand.
+const UNIFORM_MASK: u64 = (1 << UNIFORM_BITS) - 1;
 
 /// Where the sign bit sits, above the layer index.
 const SIGN_SHIFT: u32 = LAYER_SHIFT + 8;
@@ -137,10 +146,13 @@ impl Ziggurat {
     pub(crate) fn sample(&self, rng: &mut (impl Rng + ?Sized)) -> f64 {
         loop {
             let word = rng.next_u64();
-            let uniform = (word & ((1 << UNIFORM_BITS) - 1)) as f64 / (1u64 << UNIFORM_BITS) as f64;
-            let layer = (word >> LAYER_SHIFT) as usize % LAYERS;
-            let negative = (word >> SIGN_SHIFT) & 1 == 1;
-            let sign = if negative { -1.0 } else { 1.0 };
+            let uniform = (word & UNIFORM_MASK) as f64 * UNIFORM_SCALE;
+            let layer = ((word >> LAYER_SHIFT) & LAYER_MASK) as usize;
+            let sign = if (word >> SIGN_SHIFT) & 1 == 1 {
+                -1.0
+            } else {
+                1.0
+            };
             if layer == 0 {
                 // The base piece: the rectangle [0, r] × [0, f(r)] and the
                 // tail beyond r, which the uniform selects in proportion to
@@ -152,6 +164,8 @@ impl Ziggurat {
                 return sign * self.tail(rng);
             }
             // Piece `layer` is [0, x[layer − 1]] × [f[layer − 1], f[layer]].
+            // The boundaries are read unchecked of bounds by construction:
+            // `layer` is masked to LAYERS and this branch has layer ≥ 1.
             let x = uniform * self.x[layer - 1];
             if x < self.x[layer] {
                 // Left of the curve's crossing: under it already.
@@ -182,7 +196,7 @@ impl Ziggurat {
 
 /// A uniform in [0, 1) on the 2⁵³ grid, from one word.
 fn unit(rng: &mut (impl Rng + ?Sized)) -> f64 {
-    (rng.next_u64() >> (u64::BITS - UNIFORM_BITS)) as f64 / (1u64 << UNIFORM_BITS) as f64
+    (rng.next_u64() >> (u64::BITS - UNIFORM_BITS)) as f64 * UNIFORM_SCALE
 }
 
 /// −ln U for a dense uniform U: an exponential variate whose tail reaches

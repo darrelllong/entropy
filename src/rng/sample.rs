@@ -259,9 +259,9 @@ pub trait Sample: Rng {
     /// [`normal`](Self::normal).
     ///
     /// This samples the continuous normal law through a dense uniform, to the
-    /// accuracy of Φ⁻¹; it does not promise any particular rounded law.  It
-    /// was `normal` before the ziggurat replaced it, and is kept under this
-    /// name for callers who need those values.
+    /// accuracy of Φ⁻¹; it does not promise any particular rounded law.  Its
+    /// values are stable, and every one of them is a function of the words it
+    /// reads, which the crafted-stream tests pin to the smallest subnormal.
     fn normal_inverse(&mut self) -> f64 {
         loop {
             let u = self.unit_f64_dense();
@@ -287,9 +287,9 @@ pub trait Sample: Rng {
     /// and the tail is drawn from dense uniforms by rejection, reaching
     /// further than inversion's ±38.49.
     ///
-    /// This replaced the inversion in the 2026-09-17 series: a seed that gave
-    /// one sequence of normals now gives another.  Nothing else in [`Sample`]
-    /// moved, and `normal_inverse` still gives the old values.
+    /// Its values are stable, and differ from
+    /// [`normal_inverse`](Self::normal_inverse)'s: the two methods read
+    /// different words to sample the same law.
     fn normal(&mut self) -> f64 {
         crate::rng::ziggurat::Ziggurat::derived().sample(self)
     }
