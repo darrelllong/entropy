@@ -87,10 +87,14 @@ const CONSTANT_LABEL: &str = "Constant (0xDEAD_DEAD)";
 // run and L=11..16 report SKIP.
 const NIST_N: usize = 16_000_000;
 const DIEHARD_N: usize = 16_000_000;
-// The historical DIEHARD suite reads one capture of this many words; its
-// hungriest test, the 6x8 rank over 25 windows, needs 15 000 000.
-const DIEHARD_HISTORICAL_N: usize = 16_000_000;
+// The historical DIEHARD suite reads one capture, from which every test reads
+// a prefix.  Its hungriest test, the 6x8 rank over 25 byte windows, needs
+// diehard::historical::WORDS_NEEDED (15 000 000), and each suite's segment
+// holds 2^25 words, so the capture is the same budget the other suites read
+// rather than a second number: they are equal by choice, not coincidence.
+const DIEHARD_HISTORICAL_N: usize = DIEHARD_N;
 const _: () = assert!(DIEHARD_HISTORICAL_N >= diehard::historical::WORDS_NEEDED);
+const _: () = assert!(DIEHARD_HISTORICAL_N as u64 <= STREAM_END - HISTORICAL_START);
 
 /// Where each suite starts reading its generator, in `next_u32` calls from
 /// the start of the stream.  A suite that is not selected is skipped over, so

@@ -36,9 +36,10 @@ const NIST_N: usize = 16_000_000;
 /// Words the DIEHARD and DIEHARDER suites read.
 const DIEHARD_N: usize = 16_000_000;
 
-/// Words the historical DIEHARD tests read, as in `run_tests`: fewer leaves
-/// every one of them insufficient.
-const DIEHARD_HISTORICAL_N: usize = 16_000_000;
+/// Words the historical DIEHARD tests capture, as in `run_tests`: the same
+/// budget as the other suites, and above the 15 000 000 its hungriest test
+/// needs.  Fewer leaves every one of them insufficient.
+const DIEHARD_HISTORICAL_N: usize = DIEHARD_N;
 
 /// Significance levels counted for every result.
 const LEVELS: [f64; 3] = [0.05, 0.01, 0.001];
