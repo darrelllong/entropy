@@ -20,13 +20,13 @@ Q5 − Q4 would remove the excess.
 do not make the absolute coefficients exchangeable.  Derive the position law
 or tabulate it by simulation on separate streams.
 
-### A3 — The R report's package tests are calibrated only coarsely
+### A3 — The R report's 0.001 threshold is calibrated only coarsely
 
-[scripts/r_rng_tests.R](scripts/r_rng_tests.R).  Over 3 000 null streams the
-two runs tests rejected at 0.01 in 1.57% (standard deviation 0.18%) and the
-periodogram height tests are conservative; 3 000 streams resolve rejection at
-the report's α = 0.001 only to about ±0.06 points.  Recalibrate at 0.001 with
-enough streams, and correct or relabel the runs tests.
+[scripts/r_rng_tests.R](scripts/r_rng_tests.R).  3 000 null streams per row
+resolve rejection at the report's α = 0.001 only to about ±0.06 points; the
+runs tests, rerun on 20 000 streams, give 1.09% at 0.01 and 0.135% at 0.001.
+The periodogram height tests are conservative by construction.  Recalibrate
+the other rows at 0.001 with enough streams.
 
 ### A4 — Minimum distance and LZ78 are calibrated at chosen points, not by law
 
