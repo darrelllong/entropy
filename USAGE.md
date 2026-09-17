@@ -127,12 +127,14 @@ lengths across every buffer size.
 It is a different stream from `Sample::fill_bytes`, which stays little-endian
 `next_u32` words so that the battery's projection of a 64-bit generator does
 not move; neither substitutes for the other.  `examples/fill_throughput.rs`
-measures both: on this Mac, Xoshiro256 and JSF64 fill at about 10 GiB/s
-through `fill_native`, two to four times their `fill_bytes` rate; ChaCha20Rng
-reaches about 1.3 times its `fill_bytes` rate, since whole blocks go straight
-into the caller's buffer; and FastKeyErasureRng stays near its scalar rate,
-where the per-byte erasure of served bytes, not the cipher, is the cost.  The
-machine is loaded, so treat the ratios as ranges.
+measures both, as the median of several rounds: on this Mac, Xoshiro256 and
+JSF64 fill at about 10 GiB/s through `fill_native`, two to four times their
+`fill_bytes` rate, and ChaCha20Rng and FastKeyErasureRng at about 1.3 to 2
+times theirs, since whole blocks go straight into the caller's buffer.  On an
+otherwise quiet machine the fast-key-erasure fill reaches about 850 MiB/s for
+a 16 MiB request, against 856 for cryptography's own core, so the wrapper
+costs nothing.  The medians here are taken under load; treat them as ranges,
+and measure your own case.
 
 **`thread_rng()`** gives each thread a `FastKeyErasureRng` keyed from the
 operating system: ChaCha20 whose key is replaced by the first 32 bytes of
