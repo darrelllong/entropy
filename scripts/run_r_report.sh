@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Build R-REPORT.md by running scripts/r_rng_tests.R against every RNG.
 # usage: ./scripts/run_r_report.sh
+#
+# R_REMOTE=host:dir runs R on `host` instead, for a machine that can build
+# dump_rng but lacks the R packages: the script and each stream are copied to
+# `dir` there and removed after use.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,12 +24,31 @@ if [[ ! -r "$R_SCRIPT" ]]; then
   echo "error: $R_SCRIPT missing or unreadable" >&2
   exit 1
 fi
-if ! command -v Rscript >/dev/null 2>&1; then
-  echo "error: Rscript not on PATH" >&2
-  exit 1
+R_REMOTE="${R_REMOTE:-}"
+# rscript <args>: run Rscript here, or on R_REMOTE's host.
+rscript() {
+  if [[ -n "$R_REMOTE" ]]; then
+    local q=() a
+    for a in "$@"; do q+=("$(printf '%q' "$a")"); done
+    ssh -o BatchMode=yes "${R_REMOTE%%:*}" "Rscript ${q[*]}"
+  else
+    Rscript "$@"
+  fi
+}
+if [[ -n "$R_REMOTE" ]]; then
+  REMOTE_DIR="${R_REMOTE#*:}"
+  ssh -o BatchMode=yes "${R_REMOTE%%:*}" "mkdir -p $(printf '%q' "$REMOTE_DIR")"
+  scp -q "$R_SCRIPT" "${R_REMOTE%%:*}:$REMOTE_DIR/r_rng_tests.R"
+  RUN_SCRIPT="$REMOTE_DIR/r_rng_tests.R"
+else
+  if ! command -v Rscript >/dev/null 2>&1; then
+    echo "error: Rscript not on PATH" >&2
+    exit 1
+  fi
+  RUN_SCRIPT="$R_SCRIPT"
 fi
 # Verify every R package upfront — one clear error beats 44 per-RNG failures.
-MISSING_PKGS=$(Rscript -e '
+MISSING_PKGS=$(rscript -e '
   pkgs <- c("moments", "randtests", "randtoolbox", "tseries")
   missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
   cat(missing, sep = " ")' 2>/dev/null)
@@ -171,7 +194,7 @@ analysis: `scripts/r_rng_tests.R`.
 R packages used:
 EOF
 
-Rscript -e '
+rscript -e '
 pkgs <- c("randtests","randtoolbox","tseries","moments","stats")
 for (p in pkgs) {
   v <- tryCatch(packageVersion(p), error=function(e) NA)
@@ -181,7 +204,7 @@ for (p in pkgs) {
 
 cat <<EOF
 
-R version: $(Rscript -e 'cat(paste0(R.version$major,".",R.version$minor))' 2>/dev/null)
+R version: $(rscript -e 'cat(paste0(R.version$major,".",R.version$minor))' 2>/dev/null)
 
 \`\`\`
 $("$ROOT/scripts/provenance.sh" default "$DUMP")
@@ -226,7 +249,13 @@ for entry in "${RNGS[@]}"; do
   # Exit 0: every result passes; 1: some fail; 2: some invalid.  Anything
   # else means the analysis did not finish.
   status=0
-  Rscript "$R_SCRIPT" "$bin" "$label" || status=$?
+  if [[ -n "$R_REMOTE" ]]; then
+    scp -q "$bin" "${R_REMOTE%%:*}:$REMOTE_DIR/$name.bin"
+    rscript "$RUN_SCRIPT" "$REMOTE_DIR/$name.bin" "$label" || status=$?
+    ssh -o BatchMode=yes "${R_REMOTE%%:*}" "rm -f $(printf '%q' "$REMOTE_DIR/$name.bin")"
+  else
+    rscript "$RUN_SCRIPT" "$bin" "$label" || status=$?
+  fi
   case $status in
     0|1) ;;
     2) echo "[invalid] $label has invalid results" >&2; INVALID+=("$name") ;;
