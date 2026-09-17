@@ -1,4 +1,4 @@
-//! Brute-force nearest-pair scan shared by the minimum-distance tests.
+//! Nearest-pair search shared by the minimum-distance tests.
 //!
 //! The minimum distance, 3-D spheres and n-dimensional minimum distance
 //! tests each need the smallest Euclidean distance among n points in a
@@ -7,17 +7,34 @@
 
 /// Smallest squared Euclidean distance between two of `points`.
 ///
-/// Every pair is visited once, and each squared distance is summed in
-/// coordinate order, (Δ₀² + Δ₁²) + Δ₂² and so on.  Only the value is
-/// returned, so which of several tied pairs is met first cannot matter.
+/// The points are sorted by their first coordinate and swept in that order.
+/// For each point the scan moves to later points only while the square of the
+/// first-coordinate gap is at most the smallest squared distance found so far.
+/// Every squared distance is summed in coordinate order,
+/// (Δ₀² + Δ₁²) + Δ₂² and so on, so the first term is that square.  Rounded
+/// subtraction and squaring are monotone and adding a non-negative term never
+/// lowers a rounded sum, so every pair the sweep skips has a computed squared
+/// distance above the minimum: the result is bit for bit the minimum over all
+/// pairs, which the tests check against a scan of every pair.
+///
+/// Each point is compared with about n·r later points, where r is the
+/// nearest-pair scale; for n uniform points in the unit d-cube r ≈ n^(−2/d),
+/// against n/2 for a scan of every pair.
+///
 /// Callers that need the distance take one square root of the result:
 /// correctly rounded `sqrt` is monotone non-decreasing, so that root equals
 /// the smallest per-pair root bit for bit.  Returns `f64::MAX` for fewer than
 /// two points; every caller passes at least 500.
 pub(crate) fn min_squared_distance<const D: usize>(points: &[[f64; D]]) -> f64 {
+    let mut sorted = points.to_vec();
+    sorted.sort_unstable_by(|p, q| p[0].total_cmp(&q[0]));
     let mut min_sq = f64::MAX;
-    for (i, p) in points.iter().enumerate() {
-        for q in &points[i + 1..] {
+    for (i, p) in sorted.iter().enumerate() {
+        for q in &sorted[i + 1..] {
+            let gap = q[0] - p[0];
+            if gap * gap > min_sq {
+                break;
+            }
             let mut sq = 0.0;
             for (a, b) in p.iter().zip(q) {
                 let delta = a - b;
@@ -139,6 +156,63 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The squared distance of every pair, summed in coordinate order.
+    fn all_pairs_min<const D: usize>(points: &[[f64; D]]) -> f64 {
+        let mut min_sq = f64::MAX;
+        for (i, p) in points.iter().enumerate() {
+            for q in &points[i + 1..] {
+                let mut sq = 0.0;
+                for (a, b) in p.iter().zip(q) {
+                    sq += (a - b) * (a - b);
+                }
+                min_sq = min_sq.min(sq);
+            }
+        }
+        min_sq
+    }
+
+    fn sweep_matches_all_pairs<const D: usize>(rng: &mut Mt19937) {
+        for n in [2, 3, 17, 500, 2_000] {
+            let uniform: Vec<[f64; D]> = (0..n)
+                .map(|_| std::array::from_fn(|_| rng.next_f64()))
+                .collect();
+            // Coarse grid: many ties in the sort key and coincident points.
+            let grid: Vec<[f64; D]> = (0..n)
+                .map(|_| std::array::from_fn(|_| (rng.next_f64() * 4.0).floor() / 4.0))
+                .collect();
+            // Every point on one first coordinate, so the sweep prunes nothing.
+            let wall: Vec<[f64; D]> = (0..n)
+                .map(|_| std::array::from_fn(|k| if k == 0 { 0.5 } else { rng.next_f64() }))
+                .collect();
+            // Tight clusters near the faces and corners, and a duplicate.
+            let mut clusters: Vec<[f64; D]> = (0..n)
+                .map(|i| {
+                    std::array::from_fn(|_| {
+                        let base = if i % 2 == 0 { 0.0 } else { 1.0 - 1e-9 };
+                        base + rng.next_f64() * 1e-9
+                    })
+                })
+                .collect();
+            clusters.push(clusters[n / 2]);
+            for points in [uniform, grid, wall, clusters] {
+                assert_eq!(
+                    min_squared_distance(&points).to_bits(),
+                    all_pairs_min(&points).to_bits(),
+                    "D = {D}, n = {n}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sweep_finds_the_all_pairs_minimum_bit_for_bit() {
+        let mut rng = Mt19937::new(2026);
+        sweep_matches_all_pairs::<2>(&mut rng);
+        sweep_matches_all_pairs::<3>(&mut rng);
+        sweep_matches_all_pairs::<4>(&mut rng);
+        sweep_matches_all_pairs::<5>(&mut rng);
     }
 
     #[test]

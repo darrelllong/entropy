@@ -38,12 +38,6 @@ Improvements beyond the open defects in [AUDIT.md](AUDIT.md).
 
 ## Faster exact algorithms
 
-- **Closest pair.**  The minimum-distance tests visit every pair,
-  100 × C(8 000, 2) ≈ 3.2·10⁹ distances per battery.  A grid or
-  divide-and-conquer closest-pair algorithm gives the same minimum in far less
-  time, which could buy more repetitions.  Check it against the brute-force
-  scan on duplicates, boundary points and coarse grids, and time it in every
-  dimension: a structure that wins in two may lose in five.
 - **DCT.**  The DCT test performs 5 000 × 256² coefficient products.  With the
   even extension y of a block, X[k] = Re(e^(−iπk/(2N))·FFT(y)[k])/2 gives the
   same unnormalised DCT-II in O(N log N) (J. Makhoul, *IEEE Trans. ASSP* 28,
