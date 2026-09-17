@@ -62,7 +62,6 @@ unusable, and keep that rule through reseeding.
 For reproducible parallel simulations, evaluate counter-based indexing or a
 proved jump partition, deriving the design from
 [Salmon et al., *Parallel Random Numbers*](https://users.cs.utah.edu/~hari/teaching/bigdata/random123sc11.pdf).
-It need not precede the feature split.
 
 ## Numerical work
 
@@ -89,7 +88,7 @@ neither consumer.
 |---|---|---|
 | rump | BigInt, modular arithmetic, primality, exact polynomial, finite-field, GF(2) and lattice support | Deletes its probability functions once factoring has switched |
 | cryptography | Ciphers, hashes, authenticated schemes, DRBG mechanisms, key erasure and state wiping | Owns Hash_DRBG, HMAC_DRBG and fast key erasure; entropy adapts them |
-| entropy | Noncryptographic generators, OS seeding, sampling, stream views, thread-local access, probability functions, batteries | Feature split outstanding |
+| entropy | Noncryptographic generators, OS seeding, sampling, stream views, thread-local access, probability functions, batteries | Split by feature: the batteries and the FFT are optional, and the minimal build has no dependencies |
 | factoring | Rho, ECM, QS and GNFS orchestration, relation and cofactor policy, polynomial selection, cost dispatch | Switching its Student's t and ln Γ to `entropy::math` |
 
 Keep the distinction between rump's quality-neutral `RandomSource`,
