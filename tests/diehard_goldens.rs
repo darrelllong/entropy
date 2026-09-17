@@ -14,10 +14,7 @@
 //! one and run at their `quick` size where they have one; `permutations`
 //! (t = 5) and `lagged_sums` (lags 1 and 100) use the battery's parameters.
 //!
-//! `dct` needs 1 280 000 words and 5 000 direct 256-term transforms, which
-//! take over ten seconds in an unoptimised build, so its golden runs only
-//! under `cargo test --release`.  Everything else runs in a few seconds of
-//! debug-build test time.
+//! Every golden runs in a few seconds of debug-build test time.
 
 use entropy::{
     diehard, dieharder,
@@ -401,10 +398,6 @@ fn byte_distribution() {
 }
 
 #[test]
-#[cfg_attr(
-    debug_assertions,
-    ignore = "over ten seconds unoptimised; runs under cargo test --release"
-)]
 fn dct() {
     check(
         &[at_gate(dieharder::dct::dct, DCT_WORDS)],

@@ -8,12 +8,23 @@
 //! The words are rotated left by 0, 8, 16 and 24 bits in the four quarters of
 //! the blocks, so that each byte takes a turn in the most significant place.
 //!
+//! The coefficients come from one fast Fourier transform per block.  With y
+//! the even extension of the block to length 2N, y\[j\] = y\[2N − 1 − j\] = x\[j\],
+//! its transform Y\[k\] = Σⱼ y\[j\]·e^(−2πijk/2N) satisfies
+//! X\[k\] = Re(e^(−iπk/2N)·Y\[k\])/2 (J. Makhoul, "A fast cosine transform in
+//! one and multiple dimensions", *IEEE Transactions on Acoustics, Speech, and
+//! Signal Processing* 28(1), pp. 27–34, 1980).  The two computations round
+//! differently, which could move the maximum only between coefficients equal
+//! to within rounding; the tests check that the position of the maximum
+//! agrees with the direct sums on every block they try.
+//!
 //! # Author
 //! David Bauer, in Robert G. Brown's *Dieharder: A Random Number Test Suite*
 //! (2006).
 
 use crate::{math::igamc, result::TestResult};
-use std::f64::consts::PI;
+use rustfft::{num_complex::Complex, Fft, FftPlanner};
+use std::{f64::consts::PI, sync::Arc};
 
 /// Block length (ntuple), must be a power of 2.
 const NTUPLE: usize = 256;
@@ -37,40 +48,16 @@ pub fn dct(words: &[u32]) -> TestResult {
     let v = 1u64 << (RMAX_BITS - 1);
     let mean_dc = NTUPLE as f64 * (v as f64 - 0.5);
 
-    // positionCounts[k] counts how many blocks had position k as the |DCT| argmax.
+    // position_counts[k]: blocks whose largest |X[k]| is at position k.
     let mut position_counts = vec![0u64; NTUPLE];
-
-    // Precompute the DCT-II basis: cos_table[k * NTUPLE + j] = cos(π(j+½)k/N).
-    // NTUPLE is fixed at 256 (65 536 entries, 512 KiB) so computing this once
-    // and reusing it across all TSAMPLES blocks avoids 5 000 × 256² = 328 M
-    // cosine evaluations.
-    let scale = PI / NTUPLE as f64;
-    let cos_table: Vec<f64> = (0..NTUPLE)
-        .flat_map(|k| (0..NTUPLE).map(move |j| ((j as f64 + 0.5) * k as f64 * scale).cos()))
-        .collect();
+    let mut transform = FastDct::new();
 
     for j in 0..TSAMPLES {
         // The rotation grows by a quarter word every quarter of the blocks.
         let rot_amount = ((j / (TSAMPLES / 4)) as u32 * (RMAX_BITS / 4)) % RMAX_BITS;
-
         let block = &words[j * NTUPLE..(j + 1) * NTUPLE];
-
-        // Compute DCT-II of the rotated raw words using the precomputed basis.
-        let mut dct_vals = dct_ii_u32(block, rot_amount, &cos_table);
-
-        // Adjust DC component: subtract block mean, then divide by √2.
-        dct_vals[0] -= mean_dc;
-        dct_vals[0] /= 2f64.sqrt();
-
-        // Record the position of the maximum absolute DCT value.
-        let max_pos = dct_vals
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-
-        position_counts[max_pos] += 1;
+        let coefficients = transform.dct_ii(block, rot_amount);
+        position_counts[max_position(coefficients, mean_dc)] += 1;
     }
 
     // Chi-square for uniformity of position counts.
@@ -91,40 +78,142 @@ pub fn dct(words: &[u32]) -> TestResult {
     )
 }
 
-/// Direct O(n²) DCT-II of raw u32 words with bit-rotation.
-///
-/// X[k] = Σ_{j=0}^{N-1} x[j] · cos(π(j+½)k/N)
-///
-/// where x[j] is the rotated word cast to f64.
-///
-/// `cos_table` must be a flat array of N×N cosine values where entry
-/// `cos_table[k * N + j]` = cos(π(j+½)k/N), precomputed by the caller.
-fn dct_ii_u32(words: &[u32], rot_amount: u32, cos_table: &[f64]) -> Vec<f64> {
-    let n = words.len();
-
-    let x: Vec<f64> = words
+/// The rotated words of a block as numbers.
+fn rotated(words: &[u32], rot_amount: u32) -> impl Iterator<Item = f64> + '_ {
+    words
         .iter()
-        .map(|&w| {
-            let rotated = if rot_amount == 0 {
-                w
-            } else {
-                w.rotate_left(rot_amount)
-            };
-            rotated as f64
-        })
-        .collect();
+        .map(move |&w| f64::from(w.rotate_left(rot_amount)))
+}
 
-    (0..n)
-        .map(|k| {
-            let row = &cos_table[k * n..(k + 1) * n];
-            x.iter().zip(row).map(|(&xj, &c)| xj * c).sum()
-        })
-        .collect()
+/// Position of the largest |X\[k\]| after the DC coefficient is centred by
+/// `mean_dc` and divided by √2.  Of equal magnitudes the last wins.
+fn max_position(coefficients: &mut [f64], mean_dc: f64) -> usize {
+    coefficients[0] -= mean_dc;
+    coefficients[0] /= 2f64.sqrt();
+    coefficients
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.abs().total_cmp(&b.abs()))
+        .map_or(0, |(i, _)| i)
+}
+
+/// The DCT-II of `NTUPLE` words through one FFT of length 2·`NTUPLE`.
+struct FastDct {
+    fft: Arc<dyn Fft<f64>>,
+    buffer: Vec<Complex<f64>>,
+    scratch: Vec<Complex<f64>>,
+    /// e^(−iπk/2N) for k = 0 … N − 1.
+    phases: Vec<Complex<f64>>,
+    coefficients: Vec<f64>,
+}
+
+impl FastDct {
+    fn new() -> Self {
+        let fft = FftPlanner::new().plan_fft_forward(2 * NTUPLE);
+        let scratch = vec![Complex::default(); fft.get_inplace_scratch_len()];
+        let phases = (0..NTUPLE)
+            .map(|k| Complex::from_polar(1.0, -PI * k as f64 / (2 * NTUPLE) as f64))
+            .collect();
+        Self {
+            fft,
+            buffer: vec![Complex::default(); 2 * NTUPLE],
+            scratch,
+            phases,
+            coefficients: vec![0.0; NTUPLE],
+        }
+    }
+
+    /// X\[k\] = Σⱼ x\[j\]·cos(π(j + ½)k/N) of the rotated words, k = 0 … N − 1.
+    fn dct_ii(&mut self, words: &[u32], rot_amount: u32) -> &mut [f64] {
+        for (j, x) in rotated(words, rot_amount).enumerate() {
+            self.buffer[j] = Complex::new(x, 0.0);
+            self.buffer[2 * NTUPLE - 1 - j] = Complex::new(x, 0.0);
+        }
+        self.fft
+            .process_with_scratch(&mut self.buffer, &mut self.scratch);
+        for ((c, y), phase) in self
+            .coefficients
+            .iter_mut()
+            .zip(&self.buffer)
+            .zip(&self.phases)
+        {
+            *c = (phase * y).re / 2.0;
+        }
+        &mut self.coefficients
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{dct, NTUPLE, TSAMPLES};
+    use super::{dct, max_position, rotated, FastDct, NTUPLE, RMAX_BITS, TSAMPLES};
+    use crate::rng::{Mt19937, Pcg32, Rng, Xorshift32};
+    use std::f64::consts::PI;
+
+    /// The direct sums X[k] = Σⱼ x[j]·cos(π(j + ½)k/N).
+    fn direct_dct(words: &[u32], rot_amount: u32) -> Vec<f64> {
+        let x: Vec<f64> = rotated(words, rot_amount).collect();
+        (0..NTUPLE)
+            .map(|k| {
+                x.iter()
+                    .enumerate()
+                    .map(|(j, &xj)| xj * ((j as f64 + 0.5) * k as f64 * PI / NTUPLE as f64).cos())
+                    .sum()
+            })
+            .collect()
+    }
+
+    /// The fast coefficients agree with the direct sums to rounding, and the
+    /// position of the maximum is the same, on generator output in every
+    /// rotation and on structured blocks.
+    #[test]
+    fn fast_transform_matches_direct_sums() {
+        let mean_dc = NTUPLE as f64 * ((1u64 << (RMAX_BITS - 1)) as f64 - 0.5);
+        let mut blocks: Vec<Vec<u32>> = Vec::new();
+        let mut mt = Mt19937::new(1);
+        let mut pcg = Pcg32::new(42, 54);
+        let mut xs = Xorshift32::new(2_463_534_242);
+        for _ in 0..700 {
+            blocks.push(mt.collect_u32s(NTUPLE));
+            blocks.push(pcg.collect_u32s(NTUPLE));
+            blocks.push(xs.collect_u32s(NTUPLE));
+        }
+        blocks.push(vec![0; NTUPLE]);
+        blocks.push(vec![u32::MAX; NTUPLE]);
+        blocks.push(vec![1 << 31; NTUPLE]);
+        blocks.push((0..NTUPLE as u32).collect());
+        blocks.push(
+            (0..NTUPLE)
+                .map(|j| if j % 2 == 0 { u32::MAX } else { 0 })
+                .collect(),
+        );
+        blocks.push(
+            (0..NTUPLE)
+                .map(|j| (j as u32).wrapping_mul(0x9e37_79b9))
+                .collect(),
+        );
+        let mut fast = FastDct::new();
+        for (b, block) in blocks.iter().enumerate() {
+            for rot in [0, 8, 16, 24] {
+                let mut direct = direct_dct(block, rot);
+                let quick = fast.dct_ii(block, rot).to_vec();
+                // Both sums round at the scale of N·2³², the largest a
+                // coefficient can be.
+                let scale = NTUPLE as f64 * 4_294_967_296.0;
+                for (k, (d, q)) in direct.iter().zip(&quick).enumerate() {
+                    assert!(
+                        (d - q).abs() <= 1e-13 * scale,
+                        "block {b} rot {rot} k {k}: {d} vs {q}"
+                    );
+                }
+                let mut quick = quick;
+                assert_eq!(
+                    max_position(&mut direct, mean_dc),
+                    max_position(&mut quick, mean_dc),
+                    "block {b} rot {rot}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn short_inputs_skip() {

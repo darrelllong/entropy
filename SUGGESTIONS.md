@@ -36,14 +36,6 @@ Improvements beyond the open defects in [AUDIT.md](AUDIT.md).
 - Combine dependent results with Holm or Bonferroni bounds; never multiply,
   Fisher-combine or Šidák-correct p-values that share input.
 
-## Faster exact algorithms
-
-- **DCT.**  The DCT test performs 5 000 × 256² coefficient products.  With the
-  even extension y of a block, X[k] = Re(e^(−iπk/(2N))·FFT(y)[k])/2 gives the
-  same unnormalised DCT-II in O(N log N) (J. Makhoul, *IEEE Trans. ASSP* 28,
-  1980).  Preserve the rotations, DC adjustment and argmax tie rule, and check
-  every block's argmax against the direct transform.
-
 ## A sequential test with an error guarantee
 
 A predictor q_t for the next bit, built only from past bits, defines
