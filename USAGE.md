@@ -112,7 +112,25 @@ let mut sim = Pcg64::seed_from_u64(42);  // reproducible stream
 | `choose_weighted`, `sample_weighted` | Probability exactly proportional to integer weights, summed in 128 bits |
 | `choose_from_iter`, `sample_from_iter` | Uniform choice from an iterator of unknown length (Vitter's Algorithm R) |
 | `below_u128` | Exactly uniform 128-bit integers |
-| `fill_bytes` | Little-endian `next_u32` words |
+| `fill_bytes` | Little-endian `next_u32` words: the battery's projection, unchanged |
+| `fill_native` (on `Rng`) | Little-endian `next_u64` words, a partial final chunk taking one more word's low bytes: the byte interface for applications |
+
+**Bytes in bulk.** `Rng::fill_native` is the native byte interface: whole
+`next_u64` words, least significant byte first, with a shorter final chunk
+taking the low bytes of one more word and discarding the rest of it.  A
+generator backed by a buffer or a keystream (ChaCha20Rng, the DRBGs,
+FastKeyErasureRng, ThreadRng) serves a request from that buffer instead of a
+call per word, and the bytes are the same either way, which
+`fill_native_matches_repeated_words` checks against repeated `next_u64` at
+lengths across every buffer size.
+
+It is a different stream from `Sample::fill_bytes`, which stays little-endian
+`next_u32` words so that the battery's projection of a 64-bit generator does
+not move; neither substitutes for the other.  `examples/fill_throughput.rs`
+measures both: on this Mac, with 64 MiB per round, Xoshiro256 and JSF64 fill
+at about 10 GiB/s through `fill_native`, two to four times their `fill_bytes`
+rate, while for ChaCha20Rng and FastKeyErasureRng the cipher dominates and the
+two paths are within the measurement's noise.
 
 **`thread_rng()`** gives each thread a `FastKeyErasureRng` keyed from the
 operating system: ChaCha20 whose key is replaced by the first 32 bytes of

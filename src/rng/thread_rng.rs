@@ -68,6 +68,19 @@ impl Rng for FastKeyErasureRng {
     fn next_u64(&mut self) -> u64 {
         self.0.next_u64()
     }
+
+    /// Straight from the keystream: whole words as the buffer serves them,
+    /// and a shorter final chunk taking one more word's low bytes.
+    fn fill_native(&mut self, bytes: &mut [u8]) {
+        let whole = bytes.len() - bytes.len() % size_of::<u64>();
+        let (words, rest) = bytes.split_at_mut(whole);
+        self.0.fill(words);
+        if !rest.is_empty() {
+            let mut word = [0u8; size_of::<u64>()];
+            self.0.fill(&mut word);
+            rest.copy_from_slice(&word[..rest.len()]);
+        }
+    }
 }
 
 /// A thread's generator and what decides when it reseeds.
@@ -215,6 +228,21 @@ impl Rng for ThreadRng {
     fn next_u64(&mut self) -> u64 {
         let charge = size_of::<u64>() as u64;
         with_generator(std::process::id(), charge, FastKeyErasureRng::next_u64).expect(OS_FAILED)
+    }
+
+    /// [`ThreadRng::fill`] for the whole words, then one more word for a
+    /// shorter final chunk, whose remaining bytes are discarded as the
+    /// [`Rng::fill_native`] contract requires.  `fill` itself is continuous
+    /// and discards nothing.
+    fn fill_native(&mut self, bytes: &mut [u8]) {
+        let whole = bytes.len() - bytes.len() % size_of::<u64>();
+        let (words, rest) = bytes.split_at_mut(whole);
+        self.fill(words);
+        if !rest.is_empty() {
+            let mut word = [0u8; size_of::<u64>()];
+            self.fill(&mut word);
+            rest.copy_from_slice(&word[..rest.len()]);
+        }
     }
 }
 

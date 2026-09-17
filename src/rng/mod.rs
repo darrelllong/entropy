@@ -123,6 +123,13 @@ pub use xoshiro::{Xoroshiro128, Xoshiro256};
 ///     `next_u64` above.  Mixing `next_u32` and `next_u64` at a buffer refill
 ///     boundary silently discards up to 7 trailing bytes; see the individual
 ///     adapter doc comments for the full caveat.
+/// * **`fill_native`** is the byte interface: whole `next_u64` words,
+///   little-endian, a partial final word supplying its low bytes and losing
+///   the rest.  It is deliberately a different stream from
+///   `Sample::fill_bytes`, which stays four-byte `next_u32` words so the
+///   battery's projection of a 64-bit generator does not move.  Concrete
+///   generators override it to serve bytes from their own buffer or keystream.
+///
 ///   - `BlockCtrRng` and `OsRng` read 4 bytes little-endian for `next_u32`
 ///     and keep the default `next_u64`.
 ///   - `AesCtr`, `CryptoCtrDrbg` and `DualEcDrbg` decode `next_u32`
@@ -139,6 +146,37 @@ pub trait Rng {
     /// directly; see the byte-ordering contract above.
     fn next_u64(&mut self) -> u64 {
         ((self.next_u32() as u64) << 32) | (self.next_u32() as u64)
+    }
+
+    /// Fill `bytes` from the generator's natural word, little-endian: the
+    /// native byte interface, for applications that want bytes rather than the
+    /// battery's word projection.
+    ///
+    /// The contract, which every override keeps:
+    ///
+    /// * the request is a whole number of `next_u64` words, least significant
+    ///   byte first, and a partial final word supplies its low bytes;
+    /// * the rest of that final word is discarded, so a fill of length not a
+    ///   multiple of 8 is not continuous with the next call, exactly as
+    ///   [`Sample::fill_bytes`](crate::rng::Sample::fill_bytes) is not
+    ///   continuous across a partial `next_u32`;
+    /// * a generator whose natural block is wider may serve a request from its
+    ///   own block, provided the bytes are those the `next_u64` sequence would
+    ///   give;
+    /// * it is a *different* stream from `Sample::fill_bytes`, which is
+    ///   defined as little-endian `next_u32` words and stays the battery's
+    ///   projection of a 64-bit generator.  Neither may be substituted for the
+    ///   other.
+    fn fill_native(&mut self, bytes: &mut [u8]) {
+        let mut chunks = bytes.chunks_exact_mut(size_of::<u64>());
+        for chunk in &mut chunks {
+            chunk.copy_from_slice(&self.next_u64().to_le_bytes());
+        }
+        let rest = chunks.into_remainder();
+        if !rest.is_empty() {
+            let word = self.next_u64().to_le_bytes();
+            rest.copy_from_slice(&word[..rest.len()]);
+        }
     }
 
     /// Uniform float in \[0, 1) built from **32 bits** of the generator's output.
@@ -219,6 +257,19 @@ trait ByteBuffered<const LEN: usize> {
     /// Overwrite the whole buffer with the generator's next `LEN` bytes.
     fn refill(&mut self);
 
+    /// Fill `bytes` as repeated `next_u64` calls would: one buffered word per
+    /// eight bytes, a shorter final chunk taking the low bytes of one more
+    /// word, and the buffer's own tail discarded wherever fewer than eight
+    /// bytes remain in it.  This is [`Rng::fill_native`] for a byte-buffered
+    /// generator, without a call per word.
+    #[inline]
+    fn fill_words(&mut self, bytes: &mut [u8]) {
+        for chunk in bytes.chunks_mut(size_of::<u64>()) {
+            let word = self.take_bytes::<{ size_of::<u64>() }>();
+            chunk.copy_from_slice(&word[..chunk.len()]);
+        }
+    }
+
     /// The next `N` bytes.  When fewer than `N` remain, they are discarded
     /// and the buffer is refilled first; that is how mixing `next_u32` and
     /// `next_u64` at a refill boundary drops up to 7 bytes.
@@ -249,6 +300,71 @@ fn hex(s: &str) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use super::Rng;
+
+    /// `fill_native` is exactly repeated `next_u64`, little-endian, for the
+    /// word-at-a-time default and for every buffered override: whole words,
+    /// a partial final chunk from one more word, and no continuity across
+    /// that partial chunk.  Lengths cross the buffer sizes of the byte-backed
+    /// generators (32, 64 and 256 bytes).
+    #[test]
+    fn fill_native_matches_repeated_words() {
+        fn check(mut a: impl Rng, mut b: impl Rng, name: &str) {
+            for len in [0usize, 1, 7, 8, 9, 31, 32, 33, 63, 64, 65, 255, 256, 257] {
+                let mut bytes = vec![0u8; len];
+                a.fill_native(&mut bytes);
+                let mut want = Vec::with_capacity(len);
+                while want.len() < len {
+                    want.extend_from_slice(&b.next_u64().to_le_bytes());
+                }
+                want.truncate(len);
+                assert_eq!(bytes, want, "{name} at {len} bytes");
+            }
+        }
+        check(
+            crate::rng::Xoshiro256::new(1, 2, 3, 4),
+            crate::rng::Xoshiro256::new(1, 2, 3, 4),
+            "Xoshiro256",
+        );
+        check(
+            crate::rng::Jsf64::new(12_345),
+            crate::rng::Jsf64::new(12_345),
+            "Jsf64",
+        );
+        check(
+            crate::rng::Mt19937::new(5_489),
+            crate::rng::Mt19937::new(5_489),
+            "Mt19937",
+        );
+        #[cfg(feature = "cryptography")]
+        {
+            use crate::rng::{ChaCha20Rng, FastKeyErasureRng, HashDrbg, HmacDrbg};
+            let key = [7u8; 32];
+            check(
+                ChaCha20Rng::new(&key, &[0; 12], 0),
+                ChaCha20Rng::new(&key, &[0; 12], 0),
+                "ChaCha20Rng",
+            );
+            check(
+                FastKeyErasureRng::new(key),
+                FastKeyErasureRng::new(key),
+                "FastKeyErasureRng",
+            );
+            let entropy = [1u8; 55];
+            let nonce = [2u8; 16];
+            check(
+                HashDrbg::from_entropy(&entropy, &nonce, &[]),
+                HashDrbg::from_entropy(&entropy, &nonce, &[]),
+                "HashDrbg",
+            );
+            check(
+                HmacDrbg::from_entropy(&entropy, &nonce, &[]),
+                HmacDrbg::from_entropy(&entropy, &nonce, &[]),
+                "HmacDrbg",
+            );
+        }
+    }
+
     /// Every `Drop` impl in this module clears state through
     /// `cryptography::zeroize_slice`.  Committed cryptography-rs 0.7
     /// (342989a) makes it an unconditional volatile write; a sibling change

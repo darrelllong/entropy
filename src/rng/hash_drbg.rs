@@ -158,6 +158,11 @@ impl Rng for HashDrbg {
     fn next_u64(&mut self) -> u64 {
         u64::from_le_bytes(self.take_bytes::<8>())
     }
+
+    /// From the buffer, eight bytes per word; see [`ByteBuffered::fill_words`].
+    fn fill_native(&mut self, bytes: &mut [u8]) {
+        self.fill_words(bytes);
+    }
 }
 
 impl Drop for HashDrbg {
