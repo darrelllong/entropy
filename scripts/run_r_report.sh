@@ -123,13 +123,14 @@ P-256 scalar multiplications (≈ 10 min/MB). `randtests::rank.test` is O(n²)
 Mann-Kendall; it is run on the first 5 000 samples to keep the per-RNG
 runtime under a second.
 
-The reject threshold is α = 0.001 (a single test passing/failing is not
-proof; a generator that gets a few REJECTs from independent tests at α=0.001
-is expected statistical noise across ~16 tests, but a generator that REJECTs
-on most tests is broken).
+Each result is **pass** (p ≥ 0.001), **fail** (p < 0.001) or **invalid**,
+with its reason, when the test raised an error or gave no single finite
+p-value in [0, 1].  A few failures among ~20 tests are expected noise; a
+generator failing most of them is broken.  An invalid result says nothing
+about the generator either way.
 
-`tseries::jarque.bera.test` tests Normality and is **expected to REJECT**
-for a uniform stream; it is included as a sanity check.
+`tseries::jarque.bera.test` tests Normality and is **expected to fail** for a
+uniform stream; it is included as a sanity check.
 
 The moment table reports the empirical raw moments E[U^k] for k = 1..10 and
 the absolute error against the theoretical value 1/(k+1) for U(0,1).
@@ -161,6 +162,7 @@ EOF
 
 # ----- per-RNG ----------------------------------------------------------------
 FAILED=()
+INVALID=()
 for entry in "${RNGS[@]}"; do
   label="${entry%%|*}"
   name="${entry##*|}"
@@ -191,10 +193,15 @@ for entry in "${RNGS[@]}"; do
     FAILED+=("$name")
     continue
   fi
-  if ! Rscript "$R_SCRIPT" "$bin" "$label"; then
-    echo "[err] R analysis on $label failed" >&2
-    FAILED+=("$name")
-  fi
+  # Exit 0: every result passes; 1: some fail; 2: some invalid.  Anything
+  # else means the analysis did not finish.
+  status=0
+  Rscript "$R_SCRIPT" "$bin" "$label" || status=$?
+  case $status in
+    0|1) ;;
+    2) echo "[invalid] $label has invalid results" >&2; INVALID+=("$name") ;;
+    *) echo "[err] R analysis on $label failed (exit $status)" >&2; FAILED+=("$name") ;;
+  esac
   rm -f "$bin"
 done
 } > "$OUT.tmp"
@@ -207,3 +214,8 @@ if (( ${#FAILED[@]} > 0 )); then
 fi
 mv -f "$OUT.tmp" "$OUT"
 echo "[done] wrote $OUT" >&2
+# Invalid results are part of a complete report, but the run is not clean.
+if (( ${#INVALID[@]} > 0 )); then
+  echo "[invalid] ${#INVALID[@]} generator(s) have invalid results: ${INVALID[*]}" >&2
+  exit 2
+fi

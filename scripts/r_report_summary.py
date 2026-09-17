@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Insert a per-RNG REJECT-count summary just below the front-matter of R-REPORT.md.
+"""Insert a per-RNG pass/fail/invalid summary just below the front matter of R-REPORT.md.
+
+Exit status: 0 when no result is invalid, 2 when any is (the summary is still
+written).
 
 usage: scripts/r_report_summary.py R-REPORT.md
 """
@@ -17,70 +20,52 @@ except OSError as exc:
     sys.exit(f"r_report_summary: cannot read {path}: {exc}")
 
 # Strip any previous summary block first so re-runs are idempotent.  The
-# block we emit ends with a `---\n\n` separator, then the first per-RNG
-# `##` heading.  `(?=^## )` requires the next paragraph start with `## `
-# without consuming it.
+# block ends with a `---\n\n` separator before the first per-RNG `##` heading.
 text = re.sub(
     r"## Summary —[^\n]*\n.*?\n---\n\n(?=^## )",
     "", text, flags=re.DOTALL | re.MULTILINE
 )
 
-# Split into front matter (everything before the first '## ') and body.
 m = re.search(r"^## ", text, flags=re.MULTILINE)
 if not m:
     sys.exit("no '## ' section found")
 front, body = text[: m.start()], text[m.start() :]
 
-# Walk each '## <label>' section.  Only sections that contain a "Raw
-# moments" table are RNG sections — this skips the trailing analytical
-# discussion ("## Analysis") if present.
+# Each RNG section ends with the analysis's own outcome line.
+OUTCOME = re.compile(r"^\*\*Outcome\*\*: (\d+) pass, (\d+) fail, (\d+) invalid(.*)$",
+                     re.MULTILINE)
 sections = re.split(r"^(## .+)$", body, flags=re.MULTILINE)
-# split() returns ['', heading1, content1, heading2, content2, ...]
 rows = []
 for i in range(1, len(sections), 2):
     heading = sections[i].lstrip("# ").strip()
     chunk = sections[i + 1]
-    # An RNG section's signature is the moments-table header.
     if "### Raw moments E[U^k]" not in chunk:
         continue
-    # tally REJECT/pass/n/a, ignoring the Jarque-Bera row (always REJECT)
-    rejects = 0
-    passes = 0
-    nas = 0
-    jb_skipped = False
-    for line in chunk.splitlines():
-        if not line.startswith("|"):
-            continue
-        cols = [c.strip() for c in line.strip("|").split("|")]
-        if len(cols) != 4:
-            continue
-        test, _stat, _p, verdict = cols
-        if test in ("Test",) or set(test) <= {"-"}:
-            continue
-        if test.startswith("k "):
-            continue
-        if "jarque.bera" in test:
-            jb_skipped = True
-            continue
-        if verdict == "REJECT":
-            rejects += 1
-        elif verdict == "pass":
-            passes += 1
-        elif verdict == "n/a":
-            nas += 1
-    rows.append((heading, rejects, passes, nas, jb_skipped))
+    outcome = OUTCOME.search(chunk)
+    if outcome is None:
+        # A section without its outcome line did not finish.
+        rows.append((heading, "?", "?", "no outcome"))
+        continue
+    passes, fails, invalid, rest = outcome.groups()
+    detail = invalid if not rest.strip(" ()") else f"{invalid}{rest.split(' (Jarque')[0]}"
+    rows.append((heading, passes, fails, detail))
 
-# Build summary block.
-out = ["## Summary — REJECT counts at α = 0.001\n",
-       ("Counts exclude `tseries::jarque.bera.test`, which is a Normality "
-        "test and is **expected to REJECT** for any uniform stream.\n"),
-       "| RNG | REJECTs | Passes | n/a |",
-       "|-----|---------|--------|-----|"]
-for h, r, p, n, _ in rows:
-    out.append(f"| {h} | {r} | {p} | {n} |")
+out = ["## Summary — pass, fail and invalid results at α = 0.001\n",
+       ("Fail counts exclude `tseries::jarque.bera.test`, a Normality test that "
+        "uniform streams are expected to fail.  An invalid result is an error "
+        "or a p-value that is not a probability; it is not a pass.\n"),
+       "| RNG | Pass | Fail | Invalid |",
+       "|-----|------|------|---------|"]
+for h, p, f, n in rows:
+    out.append(f"| {h} | {p} | {f} | {n} |")
 summary = "\n".join(out) + "\n\n---\n\n"
 
 with open(path, "w") as fh:
     fh.write(front + summary + body)
 
+bad = [h for h, p, f, n in rows if not n.startswith("0")]
 print(f"[done] {len(rows)} RNG rows summarised in {path}")
+if bad:
+    print(f"[invalid] {len(bad)} generator(s) with invalid or unfinished results: {', '.join(bad)}",
+          file=sys.stderr)
+    sys.exit(2)

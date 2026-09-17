@@ -1,9 +1,174 @@
 #!/usr/bin/env Rscript
 # r_rng_tests.R <binary file> <rng label>
+# r_rng_tests.R --self-test
 #
 # Reads little-endian uint32 words from <binary file>, normalises to U[0,1),
 # runs every applicable randomness test from the standard R packages, computes
 # raw moments 1..10, and writes a markdown block to stdout.
+#
+# Every scored row gets one verdict: pass (p >= 0.001), fail (p < 0.001) or
+# invalid, with its reason, when the test produced no single finite p-value
+# in [0, 1] or raised an error.  Every expected result must appear exactly
+# once; a missing, duplicated or unnamed one is invalid.  Exit status: 0 when
+# every result passes, 1 when some fail and none is invalid, 2 when any is
+# invalid.  The Jarque-Bera row tests Normality, is expected to fail on
+# uniform input, and does not count toward the exit status.
+
+
+# ---- helpers -----------------------------------------------------------------
+fmt <- function(v) {
+  if (is.null(v) || length(v) == 0) return("NA")
+  if (length(v) > 1) v <- v[1]
+  if (is.na(v)) return("NA")
+  if (is.numeric(v)) {
+    if (abs(v) < 1e-300 && v != 0) "<1e-300"
+    else if (v != 0 && abs(v) < 1e-4) formatC(v, format = "e", digits = 3)
+    else formatC(v, format = "f", digits = 6)
+  } else as.character(v)
+}
+
+ALPHA <- 0.001
+
+# The results every analysis reports, each exactly once.
+EXPECTED <- c(
+  "randtests::runs.test", "randtests::bartels.rank.test",
+  "randtests::cox.stuart.test", "randtests::difference.sign.test",
+  "randtests::turning.point.test", "randtests::rank.test",
+  "randtoolbox::freq.test", "randtoolbox::gap.test",
+  "randtoolbox::serial.test", "randtoolbox::poker.test",
+  "randtoolbox::order.test", "stats::ks.test", "stats::chisq.test",
+  "stats::Box.test", "tseries::runs.test", "tseries::jarque.bera.test",
+  "spectral::max_spike", "spectral::heights_chisq", "spectral::heights_ks",
+  "spectral::bartlett")
+# Expected to fail on uniform input; excluded from the exit status.
+EXPECTED_FAILURE <- "tseries::jarque.bera.test"
+
+# pass, fail or invalid for one result, with the reason for invalid.  `reason`
+# is an error message from the producer, which makes the result invalid
+# whatever p is.
+classify <- function(p, reason = NULL, alpha = ALPHA) {
+  why <- if (!is.null(reason) && length(reason) >= 1 && nzchar(reason[[1]])) {
+    reason[[1]]
+  } else if (is.null(p) || length(p) == 0) {
+    "no p-value"
+  } else if (length(p) != 1) {
+    sprintf("%d p-values", length(p))
+  } else if (!is.numeric(p)) {
+    "p-value is not a number"
+  } else if (is.na(p)) {
+    "p-value is NA or NaN"
+  } else if (!is.finite(p)) {
+    "p-value is infinite"
+  } else if (p < 0 || p > 1) {
+    sprintf("p-value %s is outside [0, 1]", format(p))
+  } else {
+    NULL
+  }
+  if (!is.null(why)) return(list(verdict = "invalid", reason = why))
+  list(verdict = if (p < alpha) "fail" else "pass", reason = "")
+}
+
+verdict_text <- function(v) {
+  if (v$verdict == "invalid") sprintf("invalid: %s", v$reason) else v$verdict
+}
+
+# Every result recorded so far: its key and verdict.
+recorded <- list()
+
+# Record result `key`; a blank or repeated key is itself invalid.
+record <- function(key, v) {
+  if (is.null(key) || !nzchar(key)) {
+    v <- list(verdict = "invalid", reason = "unnamed result")
+    key <- ""
+  } else if (key %in% vapply(recorded, `[[`, "", "key")) {
+    v <- list(verdict = "invalid", reason = sprintf("duplicate result %s", key))
+  }
+  recorded[[length(recorded) + 1L]] <<- list(key = key, verdict = v$verdict,
+                                             reason = v$reason)
+  v
+}
+
+# The recorded outcome against EXPECTED: counts, the missing and unexpected
+# keys, and the exit status.
+summarise <- function(recorded, expected = EXPECTED,
+                      expected_failure = EXPECTED_FAILURE) {
+  keys <- vapply(recorded, `[[`, "", "key")
+  verdicts <- vapply(recorded, `[[`, "", "verdict")
+  missing <- setdiff(expected, keys)
+  unexpected <- setdiff(keys[nzchar(keys)], expected)
+  counted <- !(keys %in% expected_failure)
+  n_invalid <- sum(verdicts == "invalid") + length(missing) + length(unexpected)
+  n_fail <- sum(verdicts[counted] == "fail")
+  list(pass = sum(verdicts == "pass"), fail = n_fail, invalid = n_invalid,
+       missing = missing, unexpected = unexpected,
+       status = if (n_invalid > 0) 2L else if (n_fail > 0) 1L else 0L)
+}
+
+# Run `expr`; an error becomes a result whose `error` holds the message.
+safe <- function(expr) {
+  out <- tryCatch(suppressWarnings(expr),
+    error = function(e) list(p.value = NA, statistic = NA,
+                             error = conditionMessage(e)))
+  if (is.null(out)) out <- list(p.value = NA, statistic = NA,
+                                error = "the test returned nothing")
+  out
+}
+
+# One scored table row.  The key is the label up to its first space.
+cat_row <- function(test, stat, p, reason = NULL) {
+  key <- sub(" .*$", "", test)
+  v <- record(key, classify(p, reason))
+  cat(sprintf("| %s | %s | %s | %s |\n",
+              test,
+              if (is.null(stat)) "" else fmt(stat),
+              fmt(p),
+              verdict_text(v)))
+}
+
+# ---- self-test ---------------------------------------------------------------
+self_test <- function() {
+  check <- function(ok, what) if (!isTRUE(ok)) stop("self-test failed: ", what, call. = FALSE)
+  for (bad in list(NULL, numeric(0), c(0.2, 0.3), "0.5", NA, NaN, Inf, -Inf, -0.5, 1.25)) {
+    v <- classify(bad)
+    check(v$verdict == "invalid" && nzchar(v$reason),
+          paste("invalid p-value", deparse(bad)))
+  }
+  check(classify(0)$verdict == "fail", "exact 0")
+  check(classify(1)$verdict == "pass", "exact 1")
+  check(classify(0.5, reason = "boom")$verdict == "invalid", "producer error with a p-value")
+  r <- safe(stop("boom"))
+  check(classify(r$p.value, r$error)$reason == "boom", "producer error keeps its message")
+  check(classify(safe(NULL)$p.value, safe(NULL)$error)$verdict == "invalid", "producer returns nothing")
+
+  all_pass <- lapply(EXPECTED, function(k) list(key = k, verdict = "pass", reason = ""))
+  check(summarise(all_pass)$status == 0L, "all pass")
+  check(summarise(list())$status == 2L &&
+        length(summarise(list())$missing) == length(EXPECTED), "no results")
+  check(summarise(all_pass[-1])$status == 2L, "one result missing")
+  jb <- all_pass
+  jb[[which(EXPECTED == EXPECTED_FAILURE)]]$verdict <- "fail"
+  check(summarise(jb)$status == 0L, "the expected Jarque-Bera failure")
+  one_fail <- all_pass
+  one_fail[[1]]$verdict <- "fail"
+  check(summarise(one_fail)$status == 1L, "one failure")
+  recorded <<- list()
+  record("stats::ks.test", classify(0.5))
+  dup <- record("stats::ks.test", classify(0.5))
+  check(dup$verdict == "invalid", "duplicate result")
+  unnamed <- record("", classify(0.5))
+  check(unnamed$verdict == "invalid", "unnamed result")
+  check(summarise(c(all_pass, list(list(key = "extra::test", verdict = "pass", reason = ""))))$status == 2L,
+        "unexpected result")
+  cat("self-test passed\n")
+}
+
+argv  <- commandArgs(trailingOnly = TRUE)
+if (length(argv) == 1L && argv[[1]] == "--self-test") {
+  self_test()
+  quit(status = 0L)
+}
+if (length(argv) != 2L)
+  stop("usage: Rscript r_rng_tests.R <binary file> <rng label> | --self-test", call. = FALSE)
 
 suppressPackageStartupMessages({
   library(randtests)
@@ -15,9 +180,6 @@ suppressPackageStartupMessages({
   # not Uniformity, so they would always REJECT for a clean U(0,1) stream.
 })
 
-argv  <- commandArgs(trailingOnly = TRUE)
-if (length(argv) != 2L)
-  stop("usage: Rscript r_rng_tests.R <binary file> <rng label>", call. = FALSE)
 path  <- argv[[1]]
 label <- argv[[2]]
 if (!file.exists(path))
@@ -52,41 +214,6 @@ u   <- u32_num / 2^32                         # [0,1)
 # Guard against u==0 for tests that need ]0,1[
 u_nz <- pmax(u, 1 / 2^33)
 
-# ---- helpers -----------------------------------------------------------------
-fmt <- function(v) {
-  if (is.null(v) || length(v) == 0) return("NA")
-  if (length(v) > 1) v <- v[1]
-  if (is.na(v)) return("NA")
-  if (is.numeric(v)) {
-    if (abs(v) < 1e-300 && v != 0) "<1e-300"
-    else if (v != 0 && abs(v) < 1e-4) formatC(v, format = "e", digits = 3)
-    else formatC(v, format = "f", digits = 6)
-  } else as.character(v)
-}
-
-verdict <- function(p, alpha = 0.001) {
-  if (is.null(p) || length(p) == 0) return("n/a")
-  if (length(p) > 1) p <- p[1]
-  if (is.na(p)) return("n/a")
-  if (p < alpha) "REJECT" else "pass"
-}
-
-safe <- function(expr) {
-  out <- tryCatch(suppressWarnings(expr),
-    error = function(e) list(p.value = NA, statistic = NA,
-                             error = conditionMessage(e)))
-  if (is.null(out)) out <- list(p.value = NA, statistic = NA)
-  out
-}
-
-cat_row <- function(test, stat, p) {
-  cat(sprintf("| %s | %s | %s | %s |\n",
-              test,
-              if (is.null(stat)) "" else fmt(stat),
-              fmt(p),
-              verdict(p)))
-}
-
 # ---- header ------------------------------------------------------------------
 cat(sprintf("\n## %s\n\n", label))
 cat(sprintf("Sample size: %s u32 words (%.2f MB)\n\n",
@@ -105,29 +232,29 @@ x <- u
 
 # ---- randtests ---------------------------------------------------------------
 r <- safe(randtests::runs.test(x))
-cat_row("randtests::runs.test (median)", r$statistic, r$p.value)
+cat_row("randtests::runs.test (median)", r$statistic, r$p.value, r$error)
 
 r <- safe(randtests::bartels.rank.test(x))
-cat_row("randtests::bartels.rank.test", r$statistic, r$p.value)
+cat_row("randtests::bartels.rank.test", r$statistic, r$p.value, r$error)
 
 r <- safe(randtests::cox.stuart.test(x))
-cat_row("randtests::cox.stuart.test (trend)", r$statistic, r$p.value)
+cat_row("randtests::cox.stuart.test (trend)", r$statistic, r$p.value, r$error)
 
 r <- safe(randtests::difference.sign.test(x))
-cat_row("randtests::difference.sign.test", r$statistic, r$p.value)
+cat_row("randtests::difference.sign.test", r$statistic, r$p.value, r$error)
 
 r <- safe(randtests::turning.point.test(x))
-cat_row("randtests::turning.point.test", r$statistic, r$p.value)
+cat_row("randtests::turning.point.test", r$statistic, r$p.value, r$error)
 
 # Mann-Kendall rank.test is O(n^2): subsample to keep a per-RNG run < 1s.
 sub_n <- min(length(x), 5000L)
 r <- safe(randtests::rank.test(x[seq_len(sub_n)]))
 cat_row(sprintf("randtests::rank.test (Mann-Kendall, n=%d)", sub_n),
-        r$statistic, r$p.value)
+        r$statistic, r$p.value, r$error)
 
 # ---- randtoolbox: sample-based tests -----------------------------------------
 r <- safe(randtoolbox::freq.test(u_nz, echo = FALSE))
-cat_row("randtoolbox::freq.test (16 bins)", r$statistic, r$p.value)
+cat_row("randtoolbox::freq.test (16 bins)", r$statistic, r$p.value, r$error)
 
 r <- safe(randtoolbox::gap.test(u_nz, lower = 0, upper = 0.5, echo = FALSE))
 # randtoolbox::gap.test extends bins out to expected count ~0.1, well below
@@ -149,7 +276,7 @@ if (!is.null(r$observed) && !is.null(r$expected) && length(r$observed) > 0
   keep <- which(exp_ >= 5)
   if (length(keep) == 0L) {
     # The whole distribution is sparse — chi^2 is degenerate, fall through.
-    cat_row("randtoolbox::gap.test [0,0.5)", r$statistic, r$p.value)
+    cat_row("randtoolbox::gap.test [0,0.5)", r$statistic, r$p.value, r$error)
   } else {
     last_keep <- max(keep)
     if (last_keep < length(exp_)) {
@@ -167,46 +294,46 @@ if (!is.null(r$observed) && !is.null(r$expected) && length(r$observed) > 0
               chi2, pv)
     } else {
       cat_row("randtoolbox::gap.test [0,0.5) (Cochran-trimmed)",
-              r$statistic, r$p.value)
+              r$statistic, r$p.value, r$error)
     }
   }
 } else {
-  cat_row("randtoolbox::gap.test [0,0.5)", r$statistic, r$p.value)
+  cat_row("randtoolbox::gap.test [0,0.5)", r$statistic, r$p.value, r$error)
 }
 
 r <- safe(randtoolbox::serial.test(u_nz, d = 8, echo = FALSE))
-cat_row("randtoolbox::serial.test (d=8)", r$statistic, r$p.value)
+cat_row("randtoolbox::serial.test (d=8)", r$statistic, r$p.value, r$error)
 
 r <- safe(randtoolbox::poker.test(u_nz, nbcard = 5, echo = FALSE))
-cat_row("randtoolbox::poker.test (5-hand)", r$statistic, r$p.value)
+cat_row("randtoolbox::poker.test (5-hand)", r$statistic, r$p.value, r$error)
 
 r <- safe(randtoolbox::order.test(u_nz, d = 4, echo = FALSE))
-cat_row("randtoolbox::order.test (d=4)", r$statistic, r$p.value)
+cat_row("randtoolbox::order.test (d=4)", r$statistic, r$p.value, r$error)
 
 # ---- stats / tseries ---------------------------------------------------------
 suppressWarnings({
   r <- safe(ks.test(u, "punif", 0, 1))
 })
-cat_row("stats::ks.test vs U(0,1)", r$statistic, r$p.value)
+cat_row("stats::ks.test vs U(0,1)", r$statistic, r$p.value, r$error)
 
 bins <- 256L
 counts <- tabulate(pmin(floor(u * bins) + 1L, bins), nbins = bins)
 r <- safe(chisq.test(counts))
-cat_row("stats::chisq.test (256 bins)", r$statistic, r$p.value)
+cat_row("stats::chisq.test (256 bins)", r$statistic, r$p.value, r$error)
 
 r <- safe(Box.test(u - 0.5, lag = 25, type = "Ljung-Box"))
-cat_row("stats::Box.test (Ljung-Box, lag 25)", r$statistic, r$p.value)
+cat_row("stats::Box.test (Ljung-Box, lag 25)", r$statistic, r$p.value, r$error)
 
 fct <- factor(as.integer(u >= median(u)))
 r <- safe(tseries::runs.test(fct))
-cat_row("tseries::runs.test (binary)", r$statistic, r$p.value)
+cat_row("tseries::runs.test (binary)", r$statistic, r$p.value, r$error)
 
 r <- safe(tseries::jarque.bera.test(u))
 cat_row("tseries::jarque.bera.test (vs Normal*)",
-        r$statistic, r$p.value)
+        r$statistic, r$p.value, r$error)
 
 # ---- moments -----------------------------------------------------------------
-cat("\n*Note*: Jarque-Bera tests Normality; uniform output is expected to REJECT.\n")
+cat("\n*Note*: Jarque-Bera tests Normality; uniform output is expected to fail it.\n")
 cat("\n### Raw moments E[U^k] vs theoretical 1/(k+1)\n\n")
 cat("| k | observed | theoretical | abs error |\n")
 cat("|---|----------|-------------|-----------|\n")
@@ -295,22 +422,38 @@ cat(sprintf("| Periodogram bins tested (m = N/2 - 1) | %s |\n",
             format(m, big.mark = ",")))
 cat(sprintf("| max normalized periodogram (P_max) | %.6f |\n", maxP))
 # The exact max-order-statistic p 1-(1-e^{-x})^m, not a Bonferroni bound.
-cat(sprintf("| Max-spike exact p (no spike) | %s |\n", fmt(p_spike)))
+cat(sprintf("| Max-spike exact p (no spike) | %s (%s) |\n", fmt(p_spike),
+            verdict_text(record("spectral::max_spike", classify(p_spike)))))
 if (is.na(flatness)) {
   cat("| Spectral flatness (Wiener entropy) | NA (all-zero periodogram; degenerate/constant stream) |\n")
 } else {
   cat(sprintf("| Spectral flatness (Wiener entropy) | %.6f |\n", flatness))
 }
 cat(sprintf("| Theoretical flatness for white noise | %.6f |\n", exp(-0.5772156649)))
-cat(sprintf("| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=%.3f, p=%s |\n",
-            chi2, fmt(p_chi)))
-cat(sprintf("| Periodogram height KS vs Exp(1) | D=%.6f, p=%s |\n",
-            as.numeric(ks$statistic), fmt(ks$p.value)))
+cat(sprintf("| Periodogram chi^2 (10 Exp(1) bins, df=9) | chi2=%.3f, p=%s (%s) |\n",
+            chi2, fmt(p_chi),
+            verdict_text(record("spectral::heights_chisq", classify(p_chi)))))
+cat(sprintf("| Periodogram height KS vs Exp(1) | D=%.6f, p=%s (%s) |\n",
+            as.numeric(ks$statistic), fmt(ks$p.value),
+            verdict_text(record("spectral::heights_ks", classify(ks$p.value, ks$error)))))
 if (is.null(bartlett)) {
-  cat("| Cumulative periodogram KS (Bartlett) | NA (all-zero periodogram) |\n")
+  v <- record("spectral::bartlett",
+              list(verdict = "invalid", reason = "all-zero periodogram"))
+  cat(sprintf("| Cumulative periodogram KS (Bartlett) | NA (%s) |\n", verdict_text(v)))
 } else {
-  cat(sprintf("| Cumulative periodogram KS (Bartlett) | D=%.6f, p=%s |\n",
-              as.numeric(bartlett$statistic), fmt(bartlett$p.value)))
+  cat(sprintf("| Cumulative periodogram KS (Bartlett) | D=%.6f, p=%s (%s) |\n",
+              as.numeric(bartlett$statistic), fmt(bartlett$p.value),
+              verdict_text(record("spectral::bartlett",
+                                  classify(bartlett$p.value, bartlett$error)))))
 }
 
-cat("\n")
+# ---- outcome -----------------------------------------------------------------
+outcome <- summarise(recorded)
+cat(sprintf("\n**Outcome**: %d pass, %d fail, %d invalid",
+            outcome$pass, outcome$fail, outcome$invalid))
+if (length(outcome$missing) > 0)
+  cat(sprintf("; not measured: %s", paste(outcome$missing, collapse = ", ")))
+if (length(outcome$unexpected) > 0)
+  cat(sprintf("; unexpected: %s", paste(outcome$unexpected, collapse = ", ")))
+cat(" (Jarque-Bera excluded from the fail count)\n\n")
+quit(status = outcome$status)
