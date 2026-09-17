@@ -25,6 +25,9 @@ use std::{
     thread,
 };
 
+/// Streams rejected, by (defect, size, family).
+type Tally = BTreeMap<(usize, usize, &'static str), usize>;
+
 /// A defect and its strength parameter.
 #[derive(Clone, Copy)]
 enum Defect {
@@ -83,9 +86,7 @@ fn main() {
         .collect();
     let jobs = Arc::new(jobs);
     let next = Arc::new(AtomicUsize::new(0));
-    // (defect, size, family) → streams rejected.
-    let tally: Arc<Mutex<BTreeMap<(usize, usize, &'static str), usize>>> =
-        Arc::new(Mutex::new(BTreeMap::new()));
+    let tally: Arc<Mutex<Tally>> = Arc::new(Mutex::new(BTreeMap::new()));
     let handles: Vec<_> = (0..threads)
         .map(|_| {
             let (jobs, next, tally) = (jobs.clone(), next.clone(), tally.clone());
