@@ -21,9 +21,19 @@ independent null trials, and rarer corrected thresholds need more.
 | Whole battery, every slot | A 200 000-stream campaign over the four suites on PCG64, Xoshiro256 and SFC64 is running on the island (`examples/battery_null.rs`) | Its results: per-slot and per-family rates at 0.001, and the battery's own false-alarm rate |
 | Count-ones Q5−Q4 | 300 000 xoshiro windows reject at 0.01 in 1.060%, 100 000 PCG windows in 1.045% | The finite-window tail at 0.001, which that campaign measures |
 | DCT position law | 10⁶ runs: 0.104%, 1.015%, 5.029%; an exactly multinomial control gives 0.1046% and 1.013% | Nothing at this resolution: the residual is the Pearson approximation, not the transform |
-| R report | Most rows use 3 000 null streams; runs uses 20 000 and rejects in 0.135% at 0.001 | Streams at the deciding threshold for the other tests |
+| R report | 3 616 held-out null streams through every row: 15 of the 19 are within 2 standard errors of nominal at 0.01, the runs tests' 20 000-stream rate is 1.09% and 0.135% | More streams at 0.001; and see the two conservative rows below |
 | LZ78 above k = 20 | Cells at k = 21 … 25 with 80–600 runs; a 3 000-run campaign at k = 21, 22, 23 and 25 on xoshiro and SFC64 is running | Its results, and the tail at 0.001 |
 | Minimum distance | Selected modes and thresholds calibrated | The supported parameter cells, at the thresholds used |
+
+Two R rows are conservative rather than calibrated: the periodogram-height
+Kolmogorov–Smirnov test against Exp(1) rejects 1.44% of null streams at 0.05
+and 0.03% at 0.01 (z = −5.4), and the periodogram χ² over ten Exp(1) bins
+3.66% and 0.52% (z = −2.6). Both read a periodogram whose heights are
+estimated from the same stream, so their null is not the independent Exp(1)
+the test assumes. A REJECT from either is evidence; a pass is weaker than its
+level suggests. `tseries::jarque.bera.test` rejects every null stream, as it
+must: it tests normality of a uniform stream, and the report marks it invalid
+rather than failing the generator.
 
 Power is measured for the NIST families in [POWER.md](POWER.md): 100 streams
 per cell, ten defect settings, three sample sizes, a Bonferroni decision per
