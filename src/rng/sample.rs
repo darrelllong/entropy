@@ -237,11 +237,20 @@ pub trait Sample: Rng {
         }
     }
 
+    /// An exponential variate with mean 1, by the ziggurat of
+    /// [`super::ziggurat`] over e^{−x}: usually one word and no
+    /// transcendental function per draw, with the tail beyond the table's r
+    /// drawn as r plus another exponential, which the law's lack of memory
+    /// makes exact.
+    fn exponential(&mut self) -> f64 {
+        crate::rng::ziggurat::Ziggurat::exponential().sample_positive(self)
+    }
+
     /// An exponential variate with mean 1: −ln U for U from
     /// [`Sample::unit_f64_dense`], redrawn when U = 0.  Small U, which the
     /// dense draw resolves down to the smallest subnormal, gives the tail up to
     /// about 744.
-    fn exponential(&mut self) -> f64 {
+    fn exponential_inverse(&mut self) -> f64 {
         loop {
             let u = self.unit_f64_dense();
             if u > 0.0 {
@@ -291,7 +300,7 @@ pub trait Sample: Rng {
     /// [`normal_inverse`](Self::normal_inverse)'s: the two methods read
     /// different words to sample the same law.
     fn normal(&mut self) -> f64 {
-        crate::rng::ziggurat::Ziggurat::derived().sample(self)
+        crate::rng::ziggurat::Ziggurat::normal().sample(self)
     }
 
     /// Fill `bytes` with generator output, four bytes of each `next_u32`
@@ -754,9 +763,10 @@ mod tests {
         );
     }
 
-    /// Both tails of the inverted normal and the exponential's far tail are
-    /// reachable, down to the smallest subnormal U.  The ziggurat's tail has
-    /// its own tests, against the conditional law rather than crafted words.
+    /// Both tails of the inverted normal and the inverted exponential's far
+    /// tail are reachable, down to the smallest subnormal U.  The ziggurats'
+    /// tails have their own tests, against the conditional law rather than
+    /// crafted words.
     #[test]
     fn variates_reach_their_far_tails() {
         /// Relative tolerance where Φ is still a normal double.
@@ -777,7 +787,7 @@ mod tests {
         let zeros = 200;
         let exponent = f64::from(zeros + 1);
         let tiny = || dense_words(zeros, 0);
-        let e = Words(tiny(), 0).exponential();
+        let e = Words(tiny(), 0).exponential_inverse();
         assert!(
             (e - exponent * std::f64::consts::LN_2).abs() < MODERATE_TAIL,
             "{e}"

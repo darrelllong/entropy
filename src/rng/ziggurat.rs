@@ -63,25 +63,60 @@ const HALF_NORMAL_AREA: f64 = 1.253_314_137_315_500_3;
 /// few times ε.
 const R_TOLERANCE: f64 = 1e-15;
 
+/// A density falling from f(0) = 1 on [0, ∞), the pieces it is cut into, and
+/// how its tail beyond r is drawn.
+#[derive(Clone, Copy)]
+struct Shape {
+    /// f(x), which must fall from 1 at 0.
+    density: fn(f64) -> f64,
+    /// f⁻¹(y) for 0 < y ≤ 1.
+    inverse: fn(f64) -> f64,
+    /// ∫ₓ^∞ f.
+    tail_area: fn(f64) -> f64,
+    /// A draw from the tail beyond r, which the base piece defers to.
+    tail: fn(f64, &mut dyn FnMut() -> f64) -> f64,
+    /// The bracket the base boundary r is bisected in.
+    bracket: (f64, f64),
+}
+
+/// The half-normal e^{−x²/2}, whose tail is drawn by rejection: with e₁ and
+/// e₂ exponential, r + e₁/r is accepted when 2e₂ > (e₁/r)², which is the
+/// tail's law exactly (Marsaglia and Tsang, 2000).
+const NORMAL: Shape = Shape {
+    density: |x| (-0.5 * x * x).exp(),
+    inverse: |y| (-2.0 * y.ln()).sqrt(),
+    tail_area: |x| HALF_NORMAL_AREA * erfc(x / std::f64::consts::SQRT_2),
+    tail: |r, exponential| loop {
+        let excess = exponential() / r;
+        let height = exponential();
+        if 2.0 * height > excess * excess {
+            return r + excess;
+        }
+    },
+    bracket: (1.0, 8.0),
+};
+
+/// The exponential e^{−x}, whose tail beyond r is r plus another exponential:
+/// the law has no memory, so the tail needs no rejection.
+const EXPONENTIAL: Shape = Shape {
+    density: |x| (-x).exp(),
+    inverse: |y| -y.ln(),
+    tail_area: |x| (-x).exp(),
+    tail: |r, exponential| r + exponential(),
+    bracket: (1.0, 30.0),
+};
+
 /// The boundaries x₁ … x_LAYERS and the density at each, plus the base
-/// piece's r and area.
+/// piece's area and the shape they cover.
 pub(crate) struct Ziggurat {
     /// `x[i]` is xᵢ₊₁: `x[0]` = r and `x[LAYERS - 1]` = 0.
     x: [f64; LAYERS],
-    /// `f[i]` = e^{−x[i]²/2}.
+    /// `f[i]` = f(x[i]).
     f: [f64; LAYERS],
     /// The area of every piece.
     area: f64,
-}
-
-/// f(x) = e^{−x²/2}, the half-normal density without its normalisation.
-fn density(x: f64) -> f64 {
-    (-0.5 * x * x).exp()
-}
-
-/// ∫ₓ^∞ e^{−t²/2} dt = √(π/2)·erfc(x/√2).
-fn tail_area(x: f64) -> f64 {
-    HALF_NORMAL_AREA * erfc(x / std::f64::consts::SQRT_2)
+    /// The density the pieces cover.
+    shape: Shape,
 }
 
 impl Ziggurat {
@@ -91,15 +126,16 @@ impl Ziggurat {
     /// The recurrence can leave the density above 1, which is outside f's
     /// range; that r is too small, and the residual is reported as positive so
     /// the bisection moves away from it.
-    fn build(r: f64) -> (Self, f64) {
-        let area = r * density(r) + tail_area(r);
+    fn build(shape: Shape, r: f64) -> (Self, f64) {
+        let area = r * (shape.density)(r) + (shape.tail_area)(r);
         let mut table = Self {
             x: [0.0; LAYERS],
             f: [0.0; LAYERS],
             area,
+            shape,
         };
         table.x[0] = r;
-        table.f[0] = density(r);
+        table.f[0] = (shape.density)(r);
         // x[LAYERS - 1] is 0, where the density is 1, so the recurrence runs
         // to x[LAYERS - 2] and its next step must land exactly there.
         for i in 1..LAYERS - 1 {
@@ -108,7 +144,7 @@ impl Ziggurat {
                 // The pieces are too tall: r is below the solution.
                 return (table, y - 1.0);
             }
-            table.x[i] = (-2.0 * y.ln()).sqrt();
+            table.x[i] = (shape.inverse)(y);
             table.f[i] = y;
         }
         table.x[LAYERS - 1] = 0.0;
@@ -117,24 +153,31 @@ impl Ziggurat {
         (table, residual)
     }
 
-    /// The table, derived once: bisect r for the closure f(x_LAYERS) = 1.
-    ///
-    /// The residual falls with r, and r lies between 1 and 8: at r = 1 the
-    /// pieces are far too wide and at r = 8 far too narrow.
-    pub(crate) fn derived() -> &'static Self {
-        static TABLE: OnceLock<Ziggurat> = OnceLock::new();
-        TABLE.get_or_init(|| {
-            let (mut lo, mut hi) = (1.0f64, 8.0f64);
-            while hi - lo > R_TOLERANCE * hi {
-                let middle = 0.5 * (lo + hi);
-                if Self::build(middle).1 > 0.0 {
-                    lo = middle;
-                } else {
-                    hi = middle;
-                }
+    /// The table for a shape: bisect r for the closure f(x_LAYERS) = 1.  The
+    /// residual falls with r, so the bracket's low end has it positive.
+    fn derive(shape: Shape) -> Self {
+        let (mut lo, mut hi) = shape.bracket;
+        while hi - lo > R_TOLERANCE * hi {
+            let middle = 0.5 * (lo + hi);
+            if Self::build(shape, middle).1 > 0.0 {
+                lo = middle;
+            } else {
+                hi = middle;
             }
-            Self::build(0.5 * (lo + hi)).0
-        })
+        }
+        Self::build(shape, 0.5 * (lo + hi)).0
+    }
+
+    /// The half-normal's table, derived once.
+    pub(crate) fn normal() -> &'static Self {
+        static TABLE: OnceLock<Ziggurat> = OnceLock::new();
+        TABLE.get_or_init(|| Self::derive(NORMAL))
+    }
+
+    /// The exponential's table, derived once.
+    pub(crate) fn exponential() -> &'static Self {
+        static TABLE: OnceLock<Ziggurat> = OnceLock::new();
+        TABLE.get_or_init(|| Self::derive(EXPONENTIAL))
     }
 
     /// One standard normal variate.
@@ -161,7 +204,7 @@ impl Ziggurat {
                 if position < self.x[0] {
                     return sign * position;
                 }
-                return sign * self.tail(rng);
+                return sign * self.draw_tail(rng);
             }
             // Piece `layer` is [0, x[layer − 1]] × [f[layer − 1], f[layer]].
             // The boundaries are read unchecked of bounds by construction:
@@ -173,24 +216,22 @@ impl Ziggurat {
             }
             let (lower, upper) = (self.f[layer - 1], self.f[layer]);
             let height = lower + unit(rng) * (upper - lower);
-            if height < density(x) {
+            if height < (self.shape.density)(x) {
                 return sign * x;
             }
         }
     }
 
-    /// The tail beyond r, by the rejection of Marsaglia and Tsang: with
-    /// e₁ and e₂ independent exponentials, r + e₁/r is accepted when
-    /// 2e₂ > (e₁/r)², which is the tail's law exactly.
-    fn tail(&self, rng: &mut (impl Rng + ?Sized)) -> f64 {
-        let r = self.x[0];
-        loop {
-            let excess = exponential(rng) / r;
-            let height = exponential(rng);
-            if 2.0 * height > excess * excess {
-                return r + excess;
-            }
-        }
+    /// One draw from the shape itself, without the sign a symmetric law
+    /// takes: the exponential is one-sided.
+    pub(crate) fn sample_positive(&self, rng: &mut (impl Rng + ?Sized)) -> f64 {
+        self.sample(rng).abs()
+    }
+
+    /// The tail beyond r, as the shape draws it, from exponentials taken by
+    /// inversion of dense uniforms so the tail reaches as far as they do.
+    fn draw_tail(&self, rng: &mut (impl Rng + ?Sized)) -> f64 {
+        (self.shape.tail)(self.x[0], &mut || exponential(rng))
     }
 }
 
@@ -230,13 +271,13 @@ mod tests {
     /// the same area, and the base piece's rectangle plus tail is that area.
     #[test]
     fn the_derived_table_has_equal_areas() {
-        let z = Ziggurat::derived();
+        let z = Ziggurat::normal();
         assert!(z.x[0] > 3.0 && z.x[0] < 4.0, "r = {}", z.x[0]);
         assert_eq!(z.x[LAYERS - 1], 0.0);
         for i in 1..LAYERS {
             assert!(z.x[i] < z.x[i - 1], "x[{i}] = {} not below", z.x[i]);
         }
-        let base = z.x[0] * z.f[0] + tail_area(z.x[0]);
+        let base = z.x[0] * z.f[0] + (z.shape.tail_area)(z.x[0]);
         assert!((base - z.area).abs() <= AREA * z.area, "base {base}");
         for i in 1..LAYERS {
             let piece = z.x[i - 1] * (z.f[i] - z.f[i - 1]);
@@ -248,12 +289,46 @@ mod tests {
         }
     }
 
+    /// The exponential's table closes the same way, and its draws are
+    /// exponential: the mean and variance are 1, the Kolmogorov–Smirnov test
+    /// of 1 − e^{−x} passes, and the tail beyond the table's r is reached.
+    #[test]
+    fn the_exponential_table_and_draws_are_right() {
+        const DRAWS: usize = 200_000;
+        let z = Ziggurat::exponential();
+        assert!(z.x[0] > 6.0 && z.x[0] < 9.0, "r = {}", z.x[0]);
+        assert_eq!(z.x[LAYERS - 1], 0.0);
+        let base = z.x[0] * z.f[0] + (z.shape.tail_area)(z.x[0]);
+        assert!((base - z.area).abs() <= AREA * z.area, "base {base}");
+        for i in 1..LAYERS {
+            let piece = z.x[i - 1] * (z.f[i] - z.f[i - 1]);
+            assert!((piece - z.area).abs() <= AREA * z.area, "piece {i} = {piece}");
+        }
+
+        let mut rng = Pcg64::new(13, 17);
+        let values: Vec<f64> = (0..DRAWS).map(|_| z.sample_positive(&mut rng)).collect();
+        assert!(values.iter().all(|&v| v >= 0.0));
+        let mut uniforms: Vec<f64> = values.iter().map(|v| -(-v).exp_m1()).collect();
+        let p = ks_test(&mut uniforms);
+        assert!(p > 0.001, "Kolmogorov–Smirnov p = {p}");
+        let n = DRAWS as f64;
+        let mean = values.iter().sum::<f64>() / n;
+        assert!((mean - 1.0).abs() < SIGMAS / n.sqrt(), "mean {mean}");
+        let variance = values.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / n;
+        assert!(
+            (variance - 1.0).abs() < SIGMAS * (20.0 / n).sqrt(),
+            "variance {variance}"
+        );
+        let reached = values.iter().filter(|&&v| v > z.x[0]).count();
+        assert!(reached > 0, "the tail beyond {} was never drawn", z.x[0]);
+    }
+
     /// The draws are standard normal: a Kolmogorov–Smirnov test of Φ(z) over
     /// 200 000 draws, the mean and variance, and the tail frequencies.
     #[test]
     fn draws_follow_the_standard_normal() {
         const DRAWS: usize = 200_000;
-        let z = Ziggurat::derived();
+        let z = Ziggurat::normal();
         let mut rng = Pcg64::new(7, 11);
         let values: Vec<f64> = (0..DRAWS).map(|_| z.sample(&mut rng)).collect();
         let mut uniforms: Vec<f64> = values.iter().map(|&v| normal_cdf(v)).collect();
@@ -284,7 +359,7 @@ mod tests {
     #[test]
     fn the_tail_branch_is_the_tail_of_the_law() {
         const DRAWS: usize = 400_000;
-        let z = Ziggurat::derived();
+        let z = Ziggurat::normal();
         let mut rng = Xoshiro256::new(1, 2, 3, 4);
         let r = z.x[0];
         let tails: Vec<f64> = (0..DRAWS)
@@ -312,7 +387,7 @@ mod tests {
     #[test]
     fn it_agrees_with_the_inverse_in_distribution() {
         const DRAWS: usize = 100_000;
-        let z = Ziggurat::derived();
+        let z = Ziggurat::normal();
         let mut a = Pcg64::new(21, 3);
         let mut b = Pcg64::new(22, 5);
         let mut zig: Vec<f64> = (0..DRAWS).map(|_| normal_cdf(z.sample(&mut a))).collect();
