@@ -176,48 +176,82 @@ pub fn normal_cdf(x: f64) -> f64 {
 
 /// Standard normal quantile Φ⁻¹(p) for 0 < p < 1.
 ///
-/// Solves ln Φ(x) = ln q for the lower tail q = min(p, 1 − p) by Newton's
-/// method, whose derivative φ(x)/Φ(x) is well conditioned far into the tail,
-/// inside a bisection bracket on [−39, 0], then reflects for p > 1/2.
-/// Φ⁻¹(0) = −∞, Φ⁻¹(1) = +∞, and NaN outside [0, 1].
+/// The lower tail q = min(p, 1 − p) goes to [`normal_quantile_ln`] as ln q,
+/// and the result is reflected for p > 1/2.  Φ⁻¹(0) = −∞, Φ⁻¹(1) = +∞, and
+/// NaN outside [0, 1].
 #[must_use]
 pub fn normal_quantile(p: f64) -> f64 {
     if !(0.0..=1.0).contains(&p) {
         return f64::NAN;
     }
-    if p == 0.0 {
+    if p > 0.5 {
+        -lower_normal_quantile_ln((1.0 - p).ln())
+    } else {
+        lower_normal_quantile_ln(p.ln())
+    }
+}
+
+/// Standard normal quantile from a log probability: the x with
+/// ln Φ(x) = `ln_p`, for `ln_p` ≤ 0.
+///
+/// Working from ln p reaches probabilities that a double cannot hold, such
+/// as half the smallest subnormal, where Φ⁻¹ is about −38.6.  For ln p above
+/// ln ½ the lower tail of the reflection, 1 − p = −expm1(ln p), is solved
+/// instead.  ln_p = −∞ gives −∞, 0 gives +∞, and positive or NaN gives NaN.
+#[must_use]
+pub fn normal_quantile_ln(ln_p: f64) -> f64 {
+    if ln_p.is_nan() || ln_p > 0.0 {
+        return f64::NAN;
+    }
+    if ln_p > -std::f64::consts::LN_2 {
+        -lower_normal_quantile_ln((-ln_p.exp_m1()).ln())
+    } else {
+        lower_normal_quantile_ln(ln_p)
+    }
+}
+
+/// Newton steps [`normal_quantile_ln`] may take; it converges in a handful.
+const QUANTILE_STEPS: usize = 200;
+
+/// Relative step, in units of ε, at which the quantile's Newton iteration
+/// has converged.
+const QUANTILE_STEP_EPSILONS: f64 = 4.0;
+
+/// ln Φ(x) for x ≤ 0, as ln R(−x) − x²/2 − ln √(2π) with Mills' ratio R, so
+/// it stays finite where Φ(x) itself underflows.
+fn ln_normal_lower_tail(x: f64) -> f64 {
+    mills_ratio(-x).ln() - 0.5 * x * x - LN_SQRT_2PI
+}
+
+/// The x ≤ 0 with ln Φ(x) = `target`, for `target` ≤ ln ½; −∞ gives −∞.
+///
+/// Newton's method on ln Φ(x) − target, whose derivative φ(x)/Φ(x) = 1/R(−x)
+/// is well conditioned far into the tail, inside a bisection bracket.  The
+/// bracket's lower end −√(−2·target) has ln Φ below the target, because
+/// ln Φ(x) < −x²/2 − ln(|x|√(2π)) and |x|√(2π) > 1 there.
+fn lower_normal_quantile_ln(target: f64) -> f64 {
+    if target == f64::NEG_INFINITY {
         return f64::NEG_INFINITY;
     }
-    if p == 1.0 {
-        return f64::INFINITY;
-    }
-    let q = p.min(1.0 - p);
-    let target = q.ln();
-    let (mut lo, mut hi) = (-39.0f64, 0.0f64);
-    let mut x = (-(-2.0 * target).sqrt()).max(lo);
-    for _ in 0..200 {
-        let cdf = normal_cdf(x);
-        if cdf.ln() > target {
+    let (mut lo, mut hi) = (-(-2.0 * target).sqrt(), 0.0f64);
+    let mut x = lo;
+    for _ in 0..QUANTILE_STEPS {
+        let ln_cdf = ln_normal_lower_tail(x);
+        if ln_cdf > target {
             hi = x;
         } else {
             lo = x;
         }
-        let density = (-0.5 * x * x).exp() / (2.0 * std::f64::consts::PI).sqrt();
-        let mut next = x - (cdf.ln() - target) * cdf / density;
+        let mut next = x - (ln_cdf - target) * mills_ratio(-x);
         if !(next > lo && next < hi) {
             next = 0.5 * (lo + hi);
         }
-        if (next - x).abs() <= 4.0 * f64::EPSILON * x.abs().max(1.0) {
-            x = next;
-            break;
+        if (next - x).abs() <= QUANTILE_STEP_EPSILONS * f64::EPSILON * x.abs().max(1.0) {
+            return next;
         }
         x = next;
     }
-    if p > 0.5 {
-        -x
-    } else {
-        x
-    }
+    x
 }
 
 // ── ln Γ ──────────────────────────────────────────────────────────────────────
@@ -355,6 +389,15 @@ fn stirling_ln_prefactor(a: f64, x: f64) -> f64 {
     -a * log1p_deficit(mu) + 0.5 * (a / (2.0 * std::f64::consts::PI)).ln() - omega
 }
 
+/// Exponent α of f(μ) = η²/μ² whose series gives 1/η, and so c₀.
+const C0_POWER: f64 = -0.5;
+
+/// Exponent α of f(μ) whose series gives 1/η³, and so c₁.
+const C1_POWER: f64 = -1.5;
+
+/// Leading terms of the f^{−3/2} series that c₁'s closed form cancels.
+const C1_CANCELLED_TERMS: usize = 3;
+
 /// Power-series coefficients of the first two coefficients of DLMF 8.12.4 in
 /// μ: `[c₀ coefficients, c₁ coefficients]`.
 ///
@@ -370,7 +413,7 @@ fn stirling_ln_prefactor(a: f64, x: f64) -> f64 {
 fn uniform_coefficient_series() -> &'static [Vec<f64>; 2] {
     static TABLE: std::sync::OnceLock<[Vec<f64>; 2]> = std::sync::OnceLock::new();
     TABLE.get_or_init(|| {
-        let n_max = MU_TERMS + 3;
+        let n_max = MU_TERMS + C1_CANCELLED_TERMS;
         let f: Vec<f64> = (0..=n_max)
             .map(|j| match j {
                 0 => 1.0,
@@ -387,10 +430,10 @@ fn uniform_coefficient_series() -> &'static [Vec<f64>; 2] {
             }
             g
         };
-        let g = power(-0.5);
-        let h = power(-1.5);
+        let g = power(C0_POWER);
+        let h = power(C1_POWER);
         let c0 = g[1..=MU_TERMS].iter().map(|v| -v).collect();
-        let c1 = h[3..3 + MU_TERMS].to_vec();
+        let c1 = h[C1_CANCELLED_TERMS..C1_CANCELLED_TERMS + MU_TERMS].to_vec();
         [c0, c1]
     })
 }
@@ -1623,6 +1666,12 @@ mod tests {
 
     #[test]
     fn igamc_large_shape_parameter() {
+        /// Relative error allowed against R near the centre.
+        const CENTRAL: f64 = 2e-14;
+        /// Absolute rounding of 1 − Q, in units of ε.
+        const COMPLEMENT_EPSILONS: f64 = 2.0;
+        /// Error allowed in ln Q per unit of 1 + |ln Q|.
+        const LOG_TAIL: f64 = 4e-15;
         // R 4.2.0, pgamma(x, a) both tails, at x = a + k√a for k = −3, −1/3,
         // 0, 1/3 and 3 (a = 20: k = −3, −½, 0, ½, 3; a = 100: other offsets).
         // Before the Stirling prefactor, Q(10¹⁴, 10¹⁴) was 0.59.
@@ -1850,11 +1899,11 @@ mod tests {
         ] {
             let got = igamc(a, x);
             assert!(
-                (got - q).abs() <= 2e-14 * q,
+                (got - q).abs() <= CENTRAL * q,
                 "Q({a}, {x}) = {got}, want {q}"
             );
             assert!(
-                ((1.0 - got) - p).abs() <= 2e-14 * p + 2.0 * f64::EPSILON,
+                ((1.0 - got) - p).abs() <= CENTRAL * p + COMPLEMENT_EPSILONS * f64::EPSILON,
                 "P({a}, {x}) = {}, want {p}",
                 1.0 - got
             );
@@ -1887,45 +1936,67 @@ mod tests {
         ] {
             let got = igamc(a, x).ln();
             assert!(
-                (got - ln_q).abs() <= 4e-15 * (1.0 + ln_q.abs()),
+                (got - ln_q).abs() <= LOG_TAIL * (1.0 + ln_q.abs()),
                 "ln Q({a}, {x}) = {got}, want {ln_q}"
             );
         }
-        // Q ≈ 1 far below the mean.
-        assert_eq!(igamc(1e12, 1.0), 1.0);
-        assert_eq!(igamc(1e5, 1e-300), 1.0);
-        assert_eq!(igamc(1e12, 1e13), 0.0);
+        // Q rounds to 1 far below the mean and to 0 far above it, in both
+        // large-shape regimes.
+        let huge = 1e12;
+        assert_eq!(igamc(huge, 1.0), 1.0);
+        assert_eq!(igamc(UNIFORM_SHAPE, f64::MIN_POSITIVE), 1.0);
+        assert_eq!(igamc(huge, 10.0 * huge), 0.0);
+        assert_eq!(igamc(STIRLING_SHAPE, f64::MIN_POSITIVE), 1.0);
     }
 
     #[test]
     fn igamc_uniform_expansion_coefficients() {
+        /// Error allowed in c₀ and in c₁·μ³ (c₁'s closed form loses about
+        /// 1/|μ|³ of its accuracy).
+        const SERIES: f64 = 1e-14;
+        const CUBED_SERIES: f64 = 2e-15;
+        /// Absolute error allowed in c₁(0), which the recurrence accumulates.
+        const ORIGIN: f64 = 1e-16;
+        /// Relative error allowed in φ(μ) across the switch.
+        const SWITCH: f64 = 1e-14;
+        /// |μ| inside the series region, well away from 0.
+        const INSIDE: f64 = 0.1;
         let [c0, c1] = uniform_coefficient_series();
         // c₀(0) = −1/3 and c₁(0) = −1/540 (DLMF 8.12.8 and its successor).
-        assert!((c0[0] + 1.0 / 3.0).abs() < 1e-16);
-        assert!((c1[0] + 1.0 / 540.0).abs() < 1e-16);
-        // The series agree with the closed forms where those do not cancel
-        // badly.  c₁'s closed form loses about 1/|μ|³ of its accuracy.
-        for mu in [-0.249_9, -0.1, 0.1, 0.249_9] {
+        assert_eq!(c0[0], -1.0 / 3.0);
+        assert!((c1[0] + 1.0 / 540.0).abs() < ORIGIN);
+        // The series agree with the closed forms at the edge of their region
+        // and inside it.
+        let edge = SERIES_MU * (1.0 - f64::EPSILON.sqrt());
+        for mu in [-edge, -INSIDE, INSIDE, edge] {
             let horner = |c: &[f64]| c.iter().rev().fold(0.0, |acc, v| acc * mu + v);
             let eta = (2.0 * log1p_deficit(mu)).sqrt().copysign(mu);
             let (m, e) = (1.0 / mu, 1.0 / eta);
-            assert!((horner(c0) - (m - e)).abs() < 1e-14, "c0({mu})");
+            assert!((horner(c0) - (m - e)).abs() < SERIES, "c0({mu})");
             let closed = e * e * e - m * m * m - m * m - m / 12.0;
             assert!(
-                (horner(c1) - closed).abs() < 2e-15 / (mu * mu * mu).abs(),
+                (horner(c1) - closed).abs() < CUBED_SERIES / (mu * mu * mu).abs(),
                 "c1({mu})"
             );
         }
         // φ(μ) continues across the switch to the direct difference.
         for mu in [-SERIES_MU, SERIES_MU] {
-            let below = log1p_deficit(mu * (1.0 - 1e-15));
+            let below = log1p_deficit(mu * (1.0 - f64::EPSILON));
             let at = log1p_deficit(mu);
-            assert!((below - at).abs() <= 1e-14 * at, "phi({mu})");
+            assert!((below - at).abs() <= SWITCH * at, "phi({mu})");
         }
     }
 
     #[test]
     fn igamc_large_shape_switches_agree() {
+        /// Standard deviations from the centre to compare.
+        const SIGMAS: i32 = 30;
+        /// Below this, P cannot be recovered from 1 − Q.
+        const P_RESOLUTION: f64 = 1e-12;
+        /// Relative error allowed per unit of 1 + |ln min(P, Q)|.
+        const PER_LOG: f64 = 1e-13;
+        /// Absolute rounding allowed, in units of ε.
+        const ROUNDING_EPSILONS: f64 = 4.0;
         // Each side of a switch evaluated at the same (a, x), from the centre
         // to 30 standard deviations.  Compared: the smaller of P and Q, so
         // that 1 − Q's absolute rounding does not hide an error in P.
@@ -1937,7 +2008,7 @@ mod tests {
             }
         };
         for a in [STIRLING_SHAPE, UNIFORM_SHAPE] {
-            for k in -30..=30 {
+            for k in -SIGMAS..=SIGMAS {
                 let x = a + k as f64 * a.sqrt();
                 if x <= 0.0 {
                     continue;
@@ -1948,16 +2019,17 @@ mod tests {
                 } else {
                     uniform_upper_gamma(a, x)
                 };
-                if 1.0 - stirling < 1e-12 {
+                if 1.0 - stirling < P_RESOLUTION {
                     // P is below the resolution of 1 − Q.
                     assert!(
-                        (other - stirling).abs() <= 4.0 * f64::EPSILON,
+                        (other - stirling).abs() <= ROUNDING_EPSILONS * f64::EPSILON,
                         "a={a} x={x}"
                     );
                     continue;
                 }
                 let smaller = stirling.min(1.0 - stirling);
-                let tol = 1e-13 * (1.0 + smaller.ln().abs()) * smaller + 4.0 * f64::EPSILON;
+                let tol = PER_LOG * (1.0 + smaller.ln().abs()) * smaller
+                    + ROUNDING_EPSILONS * f64::EPSILON;
                 assert!(
                     (other.min(1.0 - other) - smaller).abs() <= tol,
                     "a={a} x={x}: {stirling} vs {other}"
@@ -2280,5 +2352,56 @@ mod tests {
         }
         assert!(super::normal_quantile(-0.1).is_nan());
         assert_eq!(super::normal_quantile(0.0), f64::NEG_INFINITY);
+        assert_eq!(super::normal_quantile(1.0), f64::INFINITY);
+        // Below x ≈ −37.5, where Φ(x) is subnormal: f·2⁻¹⁰⁷⁴ for small f
+        // (50-digit roots from mpmath).
+        const SUBNORMAL: f64 = 2e-14;
+        for (f, want) in [
+            (1.0, -38.467_405_617_144_346),
+            (2.0, -38.449_394_480_875_99),
+        ] {
+            let x = super::normal_quantile(f * f64::from_bits(1));
+            assert!((x - want).abs() < SUBNORMAL * want.abs(), "f = {f}: {x}");
+        }
+    }
+
+    /// Φ⁻¹ from a log probability, against 50-digit roots of
+    /// ln Φ(x) = ln p (mpmath), including probabilities no double can hold.
+    #[test]
+    fn normal_quantile_from_log_probability() {
+        /// Error allowed relative to max(|x|, 1).
+        const REFERENCE: f64 = 4e-15;
+        /// Bits below the binary point of half a subnormal's unit 2⁻¹⁰⁷⁴:
+        /// ln(f·2⁻¹⁰⁷⁵) = ln f − 1 075·ln 2.
+        const HALF_SUBNORMAL_UNIT_BITS: f64 = 1_075.0;
+        let ln2 = std::f64::consts::LN_2;
+        for (ln_p, want) in [
+            // Half of f·2⁻¹⁰⁷⁴: the normal sampler's lowest draws.
+            (-HALF_SUBNORMAL_UNIT_BITS * ln2, -38.485_408_335_567_34),
+            (
+                3f64.ln() - HALF_SUBNORMAL_UNIT_BITS * ln2,
+                -38.456_870_800_437_05,
+            ),
+            (-10_000.0, -141.379_839_873_127_16),
+            (-800.0, -39.884_694_838_256_68),
+            (-0.75, -0.069_322_262_459_629_65),
+            // Above ln ½, the reflected lower tail.
+            (-0.5, 0.270_288_020_738_735_85),
+            (-1e-10, 6.361_340_902_411_735),
+        ] {
+            let x = super::normal_quantile_ln(ln_p);
+            assert!(
+                (x - want).abs() <= REFERENCE * want.abs().max(1.0),
+                "ln p = {ln_p}: {x}"
+            );
+        }
+        assert!(super::normal_quantile_ln(-ln2).abs() < REFERENCE);
+        assert_eq!(
+            super::normal_quantile_ln(f64::NEG_INFINITY),
+            f64::NEG_INFINITY
+        );
+        assert_eq!(super::normal_quantile_ln(0.0), f64::INFINITY);
+        assert!(super::normal_quantile_ln(f64::MIN_POSITIVE).is_nan());
+        assert!(super::normal_quantile_ln(f64::NAN).is_nan());
     }
 }

@@ -9,6 +9,32 @@
 
 use super::Rng;
 
+/// Bits in a generator word.
+const WORD_BITS: u32 = u64::BITS;
+
+/// Significand bits of a double below its leading 1 (52).
+const FRACTION_BITS: u32 = f64::MANTISSA_DIGITS - 1;
+
+/// A double's biased exponent field, once the fraction is shifted out (0x7ff).
+const EXPONENT_FIELD: u64 = (1 << (u64::BITS - 1 - FRACTION_BITS)) - 1;
+
+/// −1 074: the binary exponent of the unit of a subnormal's integer significand.
+const SUBNORMAL_UNIT_EXPONENT: i32 = f64::MIN_EXP - f64::MANTISSA_DIGITS as i32;
+
+/// A normal double with biased exponent b and integer significand m is
+/// m·2^(b − `INTEGER_SIGNIFICAND_BIAS`) (1075).
+const INTEGER_SIGNIFICAND_BIAS: i32 = f64::MAX_EXP + FRACTION_BITS as i32 - 1;
+
+/// Leading zero bits of a uniform real U from which U < 2⁻¹⁰⁷⁴ rounds down to
+/// 0 (1 074), which is also the number of fractional bits a double can have.
+const ZERO_BITS_TO_ZERO: u32 = SUBNORMAL_UNIT_EXPONENT.unsigned_abs();
+
+/// Leading zero bits of U from which U < 2⁻¹⁰²² is subnormal (1 022).
+const ZERO_BITS_TO_SUBNORMAL: u32 = (1 - f64::MIN_EXP) as u32;
+
+/// Digit blocks that hold every fractional bit of a double (17).
+const PROBABILITY_BLOCKS: u32 = ZERO_BITS_TO_ZERO.div_ceil(WORD_BITS);
+
 /// A uniform integer in [0, `bound`) from `bits`-bit words, by D. Lemire's
 /// multiply-and-reject method (D. Lemire, "Fast random integer generation in
 /// an interval," *ACM Transactions on Modeling and Computer Simulation*
@@ -25,7 +51,7 @@ use super::Rng;
 /// Panics if `bound` is 0 or `bits` is outside 1 ..= 64.
 fn lemire_below(mut next: impl FnMut() -> u64, bound: u64, bits: u32) -> u64 {
     assert!(bound > 0, "empty range");
-    assert!((1..=64).contains(&bits), "word width");
+    assert!((1..=WORD_BITS).contains(&bits), "word width");
     let modulus = 1u128 << bits;
     let low = |m: u128| m & (modulus - 1);
     let bound = u128::from(bound);
@@ -51,12 +77,15 @@ struct ProbabilityDigits {
 impl ProbabilityDigits {
     fn new(p: f64) -> Self {
         let bits = p.to_bits();
-        let biased = ((bits >> 52) & 0x7ff) as i32;
-        let fraction = bits & ((1u64 << 52) - 1);
+        let biased = ((bits >> FRACTION_BITS) & EXPONENT_FIELD) as i32;
+        let fraction = bits & ((1u64 << FRACTION_BITS) - 1);
         let (significand, exponent) = if biased == 0 {
-            (fraction, -1074)
+            (fraction, SUBNORMAL_UNIT_EXPONENT)
         } else {
-            (fraction | (1u64 << 52), biased - 1075)
+            (
+                fraction | (1u64 << FRACTION_BITS),
+                biased - INTEGER_SIGNIFICAND_BIAS,
+            )
         };
         Self {
             significand,
@@ -68,14 +97,14 @@ impl ProbabilityDigits {
     /// The next 64 binary digits of p, as an integer.
     fn next_block(&mut self) -> u64 {
         self.taken += 1;
-        let shift = self.exponent + 64 * self.taken;
+        let shift = self.exponent + WORD_BITS as i32 * self.taken;
         if shift < 0 {
-            if -shift >= 64 {
+            if shift.unsigned_abs() >= WORD_BITS {
                 0
             } else {
                 self.significand >> -shift
             }
-        } else if shift >= 128 {
+        } else if shift.unsigned_abs() >= u128::BITS {
             0
         } else {
             // The bits above the low 64 belong to earlier blocks.
@@ -98,14 +127,14 @@ fn bernoulli(rng: &mut (impl Rng + ?Sized), p: f64) -> bool {
         return true;
     }
     let mut digits = ProbabilityDigits::new(p);
-    for _ in 0..18 {
+    for _ in 0..PROBABILITY_BLOCKS {
         let u = rng.next_u64();
         let q = digits.next_block();
         if u != q {
             return u < q;
         }
     }
-    // Eighteen blocks cover all 1 074 fractional bits of a double.
+    // p's digits are exhausted and U's so far equal them, so U ≥ p.
     false
 }
 
@@ -132,7 +161,7 @@ pub trait Sample: Rng {
     /// # Panics
     /// Panics if `bound` is 0.
     fn below(&mut self, bound: u64) -> u64 {
-        lemire_below(|| self.next_u64(), bound, 64)
+        lemire_below(|| self.next_u64(), bound, WORD_BITS)
     }
 
     /// A uniform integer in [`low`, `high`), exactly.
@@ -167,7 +196,8 @@ pub trait Sample: Rng {
     /// tests read and which has 32 bits, every representable spacing of the
     /// grid is reachable.
     fn unit_f64(&mut self) -> f64 {
-        (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+        let grid_bits = f64::MANTISSA_DIGITS;
+        (self.next_u64() >> (WORD_BITS - grid_bits)) as f64 * (1.0 / (1u64 << grid_bits) as f64)
     }
 
     /// A uniform real in [0, 1) rounded down to a double, so that every double
@@ -183,26 +213,26 @@ pub trait Sample: Rng {
         let mut zeros = 0u32;
         let mut word = self.next_u64();
         while word == 0 {
-            zeros += 64;
-            if zeros >= 1_074 {
+            zeros += WORD_BITS;
+            if zeros >= ZERO_BITS_TO_ZERO {
                 return 0.0;
             }
             word = self.next_u64();
         }
         zeros += word.leading_zeros();
-        if zeros >= 1_074 {
+        if zeros >= ZERO_BITS_TO_ZERO {
             return 0.0;
         }
-        let significand = self.next_u64() >> 12;
+        let significand = self.next_u64() >> (WORD_BITS - FRACTION_BITS);
         // U lies in [2^−(zeros+1), 2^−zeros): biased exponent 1022 − zeros.
-        if zeros < 1_022 {
-            let exponent = u64::from(1_022 - zeros);
-            f64::from_bits((exponent << 52) | significand)
+        if zeros < ZERO_BITS_TO_SUBNORMAL {
+            let exponent = u64::from(ZERO_BITS_TO_SUBNORMAL - zeros);
+            f64::from_bits((exponent << FRACTION_BITS) | significand)
         } else {
             // Subnormal: value = f · 2^−1074 with f < 2^52, whose leading 1
             // sits at bit 1073 − zeros; the lower bits are uniform.
-            let top = 1073 - zeros;
-            let fraction = (1u64 << top) | (significand >> (52 - top));
+            let top = ZERO_BITS_TO_ZERO - 1 - zeros;
+            let fraction = (1u64 << top) | (significand >> (FRACTION_BITS - top));
             f64::from_bits(fraction)
         }
     }
@@ -221,14 +251,24 @@ pub trait Sample: Rng {
     }
 
     /// A standard normal variate by inversion: a random sign on Φ⁻¹(U/2) for
-    /// U from [`Sample::unit_f64_dense`], so both tails reach the extremes a
-    /// double probability allows (|z| near 38).  Each draw costs a Newton
-    /// solve, a few microseconds.
+    /// U from [`Sample::unit_f64_dense`], so both tails reach |z| ≈ 38.49,
+    /// the quantile of half the smallest subnormal.  Where halving U would
+    /// round (odd subnormal significands, including 2⁻¹⁰⁷⁴ itself, whose half
+    /// is 0), U/2 is carried as ln U − ln 2.  Each draw costs a Newton solve,
+    /// a few microseconds.
+    ///
+    /// This samples the continuous normal law through a dense uniform, to the
+    /// accuracy of Φ⁻¹; it does not promise any particular rounded law.
     fn normal(&mut self) -> f64 {
         loop {
             let u = self.unit_f64_dense();
             if u > 0.0 {
-                let z = crate::math::normal_quantile(0.5 * u);
+                let half = 0.5 * u;
+                let z = if 2.0 * half == u {
+                    crate::math::normal_quantile(half)
+                } else {
+                    crate::math::normal_quantile_ln(u.ln() - std::f64::consts::LN_2)
+                };
                 return if self.next_u32() & 1 == 0 { z } else { -z };
             }
         }
@@ -237,7 +277,7 @@ pub trait Sample: Rng {
     /// Fill `bytes` with generator output, four bytes of each `next_u32`
     /// little-endian; a final partial word supplies its low bytes.
     fn fill_bytes(&mut self, bytes: &mut [u8]) {
-        let mut chunks = bytes.chunks_exact_mut(4);
+        let mut chunks = bytes.chunks_exact_mut(size_of::<u32>());
         for chunk in &mut chunks {
             chunk.copy_from_slice(&self.next_u32().to_le_bytes());
         }
@@ -302,14 +342,15 @@ pub trait Sample: Rng {
     /// Panics if `bound` is 0.
     fn below_u128(&mut self, bound: u128) -> u128 {
         assert!(bound > 0, "empty range");
-        let bits = 128 - (bound - 1).leading_zeros();
-        let mask = if bits == 128 {
+        let bits = u128::BITS - (bound - 1).leading_zeros();
+        let mask = if bits == u128::BITS {
             u128::MAX
         } else {
             (1u128 << bits) - 1
         };
         loop {
-            let v = ((u128::from(self.next_u64()) << 64) | u128::from(self.next_u64())) & mask;
+            let high = u128::from(self.next_u64()) << WORD_BITS;
+            let v = (high | u128::from(self.next_u64())) & mask;
             if v < bound {
                 return v;
             }
@@ -459,7 +500,9 @@ impl<R: Rng + ?Sized> Sample for R {}
 
 #[cfg(test)]
 mod tests {
-    use super::{lemire_below, ProbabilityDigits, Sample};
+    use super::{
+        lemire_below, ProbabilityDigits, Sample, PROBABILITY_BLOCKS, WORD_BITS, ZERO_BITS_TO_ZERO,
+    };
     use crate::rng::{CounterRng, Pcg64, Rng};
 
     /// At 12-bit words every bound from 1 to 4 096 gives each result exactly
@@ -624,81 +667,124 @@ mod tests {
         assert_eq!((last.exponent, last.significand), (-1074, 1));
     }
 
+    /// A generator that replays `next_u64` words and answers every
+    /// `next_u32` with a fixed word (the normal's sign).
+    struct Words(Vec<u64>, u32);
+
+    impl Rng for Words {
+        fn next_u32(&mut self) -> u32 {
+            self.1
+        }
+        fn next_u64(&mut self) -> u64 {
+            self.0.remove(0)
+        }
+    }
+
+    /// Words for [`Sample::unit_f64_dense`]: `zeros` zero bits, a one, then
+    /// `significand_word` (whose top 52 bits are the significand).
+    fn dense_words(zeros: u32, significand_word: u64) -> Vec<u64> {
+        let mut words = vec![0u64; (zeros / WORD_BITS) as usize];
+        words.push(1 << (WORD_BITS - 1 - zeros % WORD_BITS));
+        words.push(significand_word);
+        words
+    }
+
+    /// Leading zero bits that make U the smallest subnormal, 2⁻¹⁰⁷⁴.
+    const SMALLEST_SUBNORMAL_ZEROS: u32 = ZERO_BITS_TO_ZERO - 1;
+
+    /// A significand word whose top bit, the first significand bit, is set.
+    const FIRST_SIGNIFICAND_BIT: u64 = 1 << (WORD_BITS - 1);
+
     /// Dense floats: exact on crafted words, including subnormals, and
     /// uniform in distribution.
     #[test]
     fn dense_floats_follow_the_word_stream() {
-        struct Words(Vec<u64>);
-        impl Rng for Words {
-            fn next_u32(&mut self) -> u32 {
-                0
-            }
-            fn next_u64(&mut self) -> u64 {
-                self.0.remove(0)
-            }
-        }
+        const SAMPLES: usize = 200_000;
+        /// Standard errors allowed for the sample means.
+        const SIGMAS: f64 = 5.0;
+        /// Allowed error of the normal's sample variance.
+        const VARIANCE_TOLERANCE: f64 = 0.02;
+        let dense = |zeros, word| Words(dense_words(zeros, word), 0).unit_f64_dense();
         // A leading 1 bit: U in [1/2, 1), significand from the second word.
-        assert_eq!(
-            Words(vec![1 << 63, u64::MAX]).unit_f64_dense(),
-            1.0 - 2f64.powi(-53)
-        );
-        assert_eq!(Words(vec![1 << 63, 0]).unit_f64_dense(), 0.5);
+        let grid = 2f64.powi(-(f64::MANTISSA_DIGITS as i32));
+        assert_eq!(dense(0, u64::MAX), 1.0 - grid);
+        assert_eq!(dense(0, 0), 0.5);
         // Three zero bits then a one: [1/16, 1/8).
-        assert_eq!(Words(vec![1 << 60, 0]).unit_f64_dense(), 0.0625);
-        // 1 073 zero bits (16 words and 49 bits): the smallest subnormal.
-        let mut v = vec![0; 16];
-        v.push(1 << 14);
-        v.push(0);
-        assert_eq!(Words(v).unit_f64_dense(), f64::from_bits(1));
+        assert_eq!(dense(3, 0), 0.0625);
+        assert_eq!(dense(SMALLEST_SUBNORMAL_ZEROS, 0), f64::from_bits(1));
         // 1 041 zero bits: U in [2^−1042, 2^−1041), whose floor is 2^−1042.
-        let mut v = vec![0; 16];
-        v.push(1 << 46);
-        v.push(0);
-        assert_eq!(Words(v).unit_f64_dense(), 2f64.powi(-1042));
-        assert_eq!(Words(vec![0; 17]).unit_f64_dense(), 0.0);
+        let zeros = 1_041;
+        assert_eq!(dense(zeros, 0), 2f64.powi(-(zeros as i32) - 1));
+        let all_zero = vec![0; PROBABILITY_BLOCKS as usize];
+        assert_eq!(Words(all_zero, 0).unit_f64_dense(), 0.0);
 
         let mut rng = Pcg64::new(11, 11);
-        let n = 200_000;
-        let mean: f64 = (0..n).map(|_| rng.unit_f64_dense()).sum::<f64>() / n as f64;
-        assert!((mean - 0.5).abs() < 5.0 * (1.0 / 12.0 / n as f64).sqrt());
-        let e: f64 = (0..n).map(|_| rng.exponential()).sum::<f64>() / n as f64;
-        assert!((e - 1.0).abs() < 5.0 / (n as f64).sqrt());
-        let z: Vec<f64> = (0..n).map(|_| rng.normal()).collect();
-        let zm = z.iter().sum::<f64>() / n as f64;
-        let zv = z.iter().map(|x| (x - zm).powi(2)).sum::<f64>() / n as f64;
+        let n = SAMPLES as f64;
+        let uniform_variance = 1.0 / 12.0;
+        let mean: f64 = (0..SAMPLES).map(|_| rng.unit_f64_dense()).sum::<f64>() / n;
+        assert!((mean - 0.5).abs() < SIGMAS * (uniform_variance / n).sqrt());
+        let e: f64 = (0..SAMPLES).map(|_| rng.exponential()).sum::<f64>() / n;
+        assert!((e - 1.0).abs() < SIGMAS / n.sqrt());
+        let z: Vec<f64> = (0..SAMPLES).map(|_| rng.normal()).collect();
+        let zm = z.iter().sum::<f64>() / n;
+        let zv = z.iter().map(|x| (x - zm).powi(2)).sum::<f64>() / n;
         assert!(
-            zm.abs() < 5.0 / (n as f64).sqrt() && (zv - 1.0).abs() < 0.02,
+            zm.abs() < SIGMAS / n.sqrt() && (zv - 1.0).abs() < VARIANCE_TOLERANCE,
             "{zm} {zv}"
         );
     }
 
-    /// Both tails of the normal and the exponential's far tail are reachable.
+    /// Both tails of the normal and the exponential's far tail are reachable,
+    /// down to the smallest subnormal U.
     #[test]
     fn variates_reach_their_far_tails() {
-        struct Words(Vec<u64>, u32);
-        impl Rng for Words {
-            fn next_u32(&mut self) -> u32 {
-                self.1
-            }
-            fn next_u64(&mut self) -> u64 {
-                self.0.remove(0)
-            }
-        }
+        /// Relative tolerance where Φ is still a normal double.
+        const MODERATE_TAIL: f64 = 1e-9;
+        /// Tolerance on Φ⁻¹ against 50-digit references (mpmath).
+        const FAR_TAIL: f64 = 2e-13;
+        /// (significand f, Φ⁻¹(f·2⁻¹⁰⁷⁵)), the normal for U = f·2⁻¹⁰⁷⁴.  f = 1
+        /// and 3 cannot be halved exactly; f = 2 can.
+        const SUBNORMAL_QUANTILES: [(u64, f64); 3] = [
+            (1, -38.485_408_335_567_34),
+            (2, -38.467_405_617_144_35),
+            (3, -38.456_870_800_437_05),
+        ];
+        let sign = |negative: bool| u32::from(negative);
+
         // 200 zero bits: U = 2^−201, so the exponential gives 201·ln 2 and the
         // normal ±Φ⁻¹(2^−202).
-        let tiny = || {
-            let mut v = vec![0u64; 3];
-            v.push(1 << 55);
-            v.push(0);
-            v
-        };
+        let zeros = 200;
+        let exponent = f64::from(zeros + 1);
+        let tiny = || dense_words(zeros, 0);
         let e = Words(tiny(), 0).exponential();
-        assert!((e - 201.0 * std::f64::consts::LN_2).abs() < 1e-9, "{e}");
-        let low = Words(tiny(), 0).normal();
-        let high = Words(tiny(), 1).normal();
+        assert!(
+            (e - exponent * std::f64::consts::LN_2).abs() < MODERATE_TAIL,
+            "{e}"
+        );
+        let low = Words(tiny(), sign(false)).normal();
+        let high = Words(tiny(), sign(true)).normal();
         let q = crate::math::normal_cdf(low);
-        assert!((q / 2f64.powi(-202) - 1.0).abs() < 1e-9, "{low}: {q}");
+        assert!(
+            (q / 2f64.powf(-exponent - 1.0) - 1.0).abs() < MODERATE_TAIL,
+            "{low}: {q}"
+        );
         assert_eq!(high, -low);
+
+        // U = f·2⁻¹⁰⁷⁴: a leading 1 at 1 073 − ⌊log₂ f⌋ zeros and f's lower
+        // bit, if any, as the first significand bit.
+        for (f, want) in SUBNORMAL_QUANTILES {
+            let top = f.ilog2();
+            let significand_word = if f & 1 == 1 && top > 0 {
+                FIRST_SIGNIFICAND_BIT
+            } else {
+                0
+            };
+            let words = || dense_words(SMALLEST_SUBNORMAL_ZEROS - top, significand_word);
+            assert_eq!(Words(words(), 0).unit_f64_dense(), f64::from_bits(f));
+            let z = Words(words(), sign(false)).normal();
+            assert!((z - want).abs() < FAR_TAIL * want.abs(), "f = {f}: {z}");
+            assert_eq!(Words(words(), sign(true)).normal(), -z);
+        }
     }
 
     /// Every 2-subset of 5 appears about equally often, in both orders.
