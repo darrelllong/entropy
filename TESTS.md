@@ -1,6 +1,17 @@
 # Full Battery Results
 
-Full `run_tests` battery harvested from `darby.local` (Apple M4 Pro, 8P+4E cores) on 2026-09-16.
+Full `run_tests --views --alternatives` battery run on `dyson` (Apple M4 Pro, 8P+4E cores) on 2026-09-16.
+
+```text
+os: Darwin 27.0.0 arm64
+rustc: rustc 1.93.1 (01f6ddf75 2026-02-11)
+features: default
+Cargo.lock sha256: 995745efeed35539e407f061d078d5604bc8fbdbb9f5b5a1fe14efa2e0a66945
+entropy: 53e90af64b451cc73a01f31654ad2c2d7fb4263d
+rump: 5d34eca51c025045f0e9880b7e6e2e1d74aa0670
+cryptography: 40a9bdff34fa926e343eb9acf1a4d00aa362dbd9
+run_tests sha256: dfa886b7a7dd26861ae5d0240036ea2f056269d0f6c40533d64b5b1e2252c444
+```
 
 Sample size: **16 Mbit** per generator for NIST; DIEHARD/DIEHARDER
 consume **16 M 32-bit words** (plus what the live-drawing tests take
@@ -9,7 +20,7 @@ directly).
 Command:
 
 ```sh
-./target/release/run_tests
+tests/run_all.sh    # runs run_tests --views --alternatives, then the auxiliary probes
 ```
 
 Scope:
@@ -60,45 +71,74 @@ are noise, not structure.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 739 | 728 | 5 | 6 |
-| MT19937 (seed=19650218) | 739 | 728 | 5 | 6 |
-| Xorshift64 (seed=1) | 739 | 726 | 7 | 6 |
-| Xorshift32 (seed=1) | 739 | 720 | 13 | 6 |
-| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 728 | 5 | 6 |
+| OsRng (/dev/urandom) | 739 | 723 | 10 | 6 |
+| MT19937 (seed=19650218) | 739 | 729 | 4 | 6 |
+| Xorshift64 (seed=1) | 739 | 728 | 5 | 6 |
+| Xorshift32 (seed=1) | 739 | 719 | 14 | 6 |
+| BAD Unix System V rand() (15-bit LCG, seed=1) | 739 | 723 | 10 | 6 |
 | BAD Unix System V mrand48() (seed=1) | 739 | 726 | 7 | 6 |
-| BAD Unix BSD random() TYPE_3 (seed=1) | 739 | 721 | 12 | 6 |
-| BAD Unix Linux glibc rand()/random() (seed=1) | 739 | 721 | 12 | 6 |
-| BAD Unix FreeBSD12 rand_r() compat (seed=1) | 739 | 720 | 13 | 6 |
-| BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1) | 739 | 727 | 6 | 6 |
-| BAD Windows VB6/VBA Rnd() (project seed=1) | 739 | 202 | 531 | 6 |
-| BAD Windows .NET Random(seed=1) compat | 739 | 726 | 7 | 6 |
-| ANSI C sample LCG (1103515245,12345; seed=1) | 739 | 10 | 697 | 32 |
+| BAD Unix BSD random() TYPE_3 (seed=1) | 739 | 723 | 10 | 6 |
+| BAD Unix Linux glibc rand()/random() (seed=1) | 739 | 723 | 10 | 6 |
+| BAD Unix FreeBSD12 rand_r() compat (seed=1) | 739 | 722 | 11 | 6 |
+| BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1) | 739 | 726 | 7 | 6 |
+| BAD Windows VB6/VBA Rnd() (project seed=1) | 739 | 198 | 535 | 6 |
+| BAD Windows .NET Random(seed=1) compat | 739 | 725 | 8 | 6 |
+| ANSI C sample LCG (1103515245,12345; seed=1) | 739 | 9 | 698 | 32 |
 | LCG MINSTD (seed=1) | 739 | 16 | 691 | 32 |
-| BAD Borland C++ rand() LCG (seed=1) | 739 | 722 | 11 | 6 |
-| AES-128-CTR (NIST key) | 739 | 728 | 5 | 6 |
-| Camellia-128-CTR (key=00..0f) | 739 | 724 | 9 | 6 |
+| BAD Borland C++ rand() LCG (seed=1) | 739 | 726 | 7 | 6 |
+| AES-128-CTR (NIST key) | 739 | 723 | 10 | 6 |
+| Camellia-128-CTR (key=00..0f) | 739 | 730 | 3 | 6 |
 | Twofish-128-CTR (key=00..0f) | 739 | 722 | 11 | 6 |
-| Serpent-128-CTR (key=00..0f) | 739 | 701 | 6 | 32 |
+| Serpent-128-CTR (key=00..0f) | 739 | 696 | 11 | 32 |
 | SM4-CTR (key=00..0f) | 739 | 725 | 8 | 6 |
-| Grasshopper-CTR (key=00..1f) | 739 | 727 | 6 | 6 |
-| CAST-128-CTR (key=00..0f) | 739 | 725 | 8 | 6 |
-| SEED-CTR (key=00..0f) | 739 | 721 | 12 | 6 |
+| Grasshopper-CTR (key=00..1f) | 739 | 724 | 9 | 6 |
+| CAST-128-CTR (key=00..0f) | 739 | 731 | 2 | 6 |
+| SEED-CTR (key=00..0f) | 739 | 724 | 9 | 6 |
 | Rabbit (key=00..0f, iv=00..07) | 739 | 724 | 9 | 6 |
-| Salsa20 (key=00..1f, nonce=00..07) | 739 | 725 | 8 | 6 |
-| Snow3G (key=00..0f, iv=00..0f) | 739 | 726 | 7 | 6 |
-| ZUC-128 (key=00..0f, iv=00..0f) | 739 | 729 | 4 | 6 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 731 | 2 | 6 |
-| Squidward (SHA-256 chain, OsRng seed) | 739 | 726 | 7 | 6 |
-| PCG32 (OsRng seed) | 739 | 725 | 8 | 6 |
-| PCG64 (OsRng seed) | 739 | 701 | 6 | 32 |
-| Xoshiro256 (OsRng seed) | 739 | 720 | 13 | 6 |
-| Xoroshiro128 (OsRng seed) | 739 | 728 | 5 | 6 |
-| SFC64 (OsRng seed) | 739 | 727 | 6 | 6 |
-| JSF64 (OsRng seed) | 739 | 722 | 11 | 6 |
-| ChaCha20 CSPRNG (OsRng key) | 739 | 727 | 6 | 6 |
+| Salsa20 (key=00..1f, nonce=00..07) | 739 | 722 | 11 | 6 |
+| Snow3G (key=00..0f, iv=00..0f) | 739 | 724 | 9 | 6 |
+| ZUC-128 (key=00..0f, iv=00..0f) | 739 | 728 | 5 | 6 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 727 | 6 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 739 | 695 | 12 | 32 |
+| PCG32 (OsRng seed) | 739 | 727 | 6 | 6 |
+| PCG64 (OsRng seed) | 739 | 728 | 5 | 6 |
+| Xoshiro256 (OsRng seed) | 739 | 728 | 5 | 6 |
+| Xoroshiro128 (OsRng seed) | 739 | 727 | 6 | 6 |
+| SFC64 (OsRng seed) | 739 | 722 | 11 | 6 |
+| JSF64 (OsRng seed) | 739 | 726 | 7 | 6 |
+| ChaCha20 CSPRNG (OsRng key) | 739 | 724 | 9 | 6 |
 | HMAC_DRBG SHA-256 (OsRng seed) | 739 | 725 | 8 | 6 |
-| Hash_DRBG SHA-256 (OsRng seed) | 739 | 727 | 6 | 6 |
-| cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 699 | 8 | 32 |
+| Hash_DRBG SHA-256 (OsRng seed) | 739 | 726 | 7 | 6 |
+| cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 695 | 12 | 32 |
+| PCG64 (state=1, seq=1) [high half] | 739 | 727 | 6 | 6 |
+| PCG64 (state=1, seq=1) [low half] | 739 | 724 | 9 | 6 |
+| PCG64 (state=1, seq=1) [full word] | 739 | 728 | 5 | 6 |
+| PCG64 (state=1, seq=1) [bit-reversed] | 739 | 724 | 9 | 6 |
+| Xoshiro256 (seeds=1,2,3,4) [high half] | 739 | 725 | 8 | 6 |
+| Xoshiro256 (seeds=1,2,3,4) [low half] | 739 | 728 | 5 | 6 |
+| Xoshiro256 (seeds=1,2,3,4) [full word] | 739 | 729 | 4 | 6 |
+| Xoshiro256 (seeds=1,2,3,4) [bit-reversed] | 739 | 722 | 11 | 6 |
+| Xoroshiro128 (seeds=1,2) [high half] | 739 | 727 | 6 | 6 |
+| Xoroshiro128 (seeds=1,2) [low half] | 739 | 727 | 6 | 6 |
+| Xoroshiro128 (seeds=1,2) [full word] | 739 | 727 | 6 | 6 |
+| Xoroshiro128 (seeds=1,2) [bit-reversed] | 739 | 728 | 5 | 6 |
+| SFC64 (seeds=1,2,3) [high half] | 739 | 730 | 3 | 6 |
+| SFC64 (seeds=1,2,3) [low half] | 739 | 724 | 9 | 6 |
+| SFC64 (seeds=1,2,3) [full word] | 739 | 727 | 6 | 6 |
+| SFC64 (seeds=1,2,3) [bit-reversed] | 739 | 729 | 4 | 6 |
+| JSF64 (seed=0xdeadbeef) [high half] | 739 | 723 | 10 | 6 |
+| JSF64 (seed=0xdeadbeef) [low half] | 739 | 721 | 12 | 6 |
+| JSF64 (seed=0xdeadbeef) [full word] | 739 | 721 | 12 | 6 |
+| JSF64 (seed=0xdeadbeef) [bit-reversed] | 739 | 726 | 7 | 6 |
+| Xorshift64 (seed=1) [high half] | 739 | 728 | 5 | 6 |
+| Xorshift64 (seed=1) [low half] | 739 | 699 | 34 | 6 |
+| Xorshift64 (seed=1) [full word] | 739 | 715 | 18 | 6 |
+| Xorshift64 (seed=1) [bit-reversed] | 739 | 731 | 2 | 6 |
+| ALT PCG64 (state=1, seq=1) bits biased to 1/2 + 2^-11 | 739 | 602 | 105 | 32 |
+| ALT PCG64 (state=1, seq=1) lowest bit stuck at 0 | 739 | 25 | 682 | 32 |
+| ALT PCG64 (state=1, seq=1) 65 536-word blocks repeated | 739 | 672 | 61 | 6 |
+| ALT PCG64 (state=1, seq=1) top bit copies bit 30 of previous word | 739 | 644 | 89 | 6 |
+| ALT PCG64 (state=1, seq=1) period 2^20 words | 739 | 341 | 392 | 6 |
 | Constant (0xDEAD_DEAD) | 739 | 0 | 707 | 32 |
 | Counter (0,1,2,…) | 739 | 1 | 706 | 32 |
 | Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01) | 200 | 192 | 2 | 6 |
@@ -579,45 +619,74 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 5/739 — `dieharder::bit_distribution` (×5)
-- **MT19937 (seed=19650218)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2)
-- **Xorshift64 (seed=1)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
-- **Xorshift32 (seed=1)**: 13/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `dieharder::monobit2`, `nist::matrix_rank`
-- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 5/739 — `diehard::opso`, `dieharder::bit_distribution`, `nist::non_overlapping_template` (×2), `nist::spectral`
+- **OsRng (/dev/urandom)**: 10/739 — `dieharder::bit_distribution` (×9), `nist::non_overlapping_template`
+- **MT19937 (seed=19650218)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
+- **Xorshift64 (seed=1)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **Xorshift32 (seed=1)**: 14/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×10), `dieharder::monobit2`, `nist::matrix_rank`
+- **BAD Unix System V rand() (15-bit LCG, seed=1)**: 10/739 — `diehard::binary_rank_31x31`, `diehard::opso`, `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2), `nist::spectral`
 - **BAD Unix System V mrand48() (seed=1)**: 7/739 — `diehard::dna`, `diehard::opso`, `diehard::oqso`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
-- **BAD Unix BSD random() TYPE_3 (seed=1)**: 12/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
-- **BAD Unix Linux glibc rand()/random() (seed=1)**: 12/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
-- **BAD Unix FreeBSD12 rand_r() compat (seed=1)**: 13/739 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template` (×2), `nist::spectral`
-- **BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::random_excursions`, `nist::spectral`
-- **BAD Windows VB6/VBA Rnd() (project seed=1)**: 531/739 — `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×499), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l05`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
-- **BAD Windows .NET Random(seed=1) compat**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
-- **ANSI C sample LCG (1103515245,12345; seed=1)**: 697/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
+- **BAD Unix BSD random() TYPE_3 (seed=1)**: 10/739 — `diehard::oqso`, `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
+- **BAD Unix Linux glibc rand()/random() (seed=1)**: 10/739 — `diehard::oqso`, `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5), `nist::serial_delta2`
+- **BAD Unix FreeBSD12 rand_r() compat (seed=1)**: 11/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template` (×2), `nist::spectral`
+- **BAD Windows CRT rand() (MSVC/UCRT lineage, seed=1)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions`, `nist::spectral`
+- **BAD Windows VB6/VBA Rnd() (project seed=1)**: 535/739 — `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×503), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::fill_tree_count`, `dieharder::fill_tree_position`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `dieharder::permutations`, `maurer::universal_l05`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::overlapping_template`, `nist::spectral`, `nist::universal`
+- **BAD Windows .NET Random(seed=1) compat**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3)
+- **ANSI C sample LCG (1103515245,12345; seed=1)**: 698/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::birthday_spacings`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::opso`, `diehard::oqso`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×148), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
 - **LCG MINSTD (seed=1)**: 691/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::ks_uniform`, `dieharder::lagged_sums` (×2), `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×146), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
-- **BAD Borland C++ rand() LCG (seed=1)**: 11/739 — `diehard::opso`, `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`, `nist::spectral`
-- **AES-128-CTR (NIST key)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`, `nist::overlapping_template`
-- **Camellia-128-CTR (key=00..0f)**: 9/739 — `dieharder::bit_distribution` (×9)
-- **Twofish-128-CTR (key=00..0f)**: 11/739 — `diehard::runs_down`, `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×4)
-- **Serpent-128-CTR (key=00..0f)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
+- **BAD Borland C++ rand() LCG (seed=1)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`, `nist::spectral`
+- **AES-128-CTR (NIST key)**: 10/739 — `diehard::oqso`, `diehard::parking_lot`, `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`, `nist::overlapping_template`
+- **Camellia-128-CTR (key=00..0f)**: 3/739 — `dieharder::bit_distribution` (×3)
+- **Twofish-128-CTR (key=00..0f)**: 11/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×4)
+- **Serpent-128-CTR (key=00..0f)**: 11/739 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template`
 - **SM4-CTR (key=00..0f)**: 8/739 — `dieharder::bit_distribution` (×7), `nist::serial_delta2`
-- **Grasshopper-CTR (key=00..1f)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
-- **CAST-128-CTR (key=00..0f)**: 8/739 — `diehard::runs_down`, `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
-- **SEED-CTR (key=00..0f)**: 12/739 — `dieharder::bit_distribution` (×10), `nist::non_overlapping_template` (×2)
+- **Grasshopper-CTR (key=00..1f)**: 9/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`
+- **CAST-128-CTR (key=00..0f)**: 2/739 — `diehard::dna`, `nist::non_overlapping_template`
+- **SEED-CTR (key=00..0f)**: 9/739 — `dieharder::bit_distribution` (×6), `dieharder::fill_tree_position`, `nist::non_overlapping_template` (×2)
 - **Rabbit (key=00..0f, iv=00..07)**: 9/739 — `dieharder::bit_distribution` (×6), `maurer::universal_l09`, `nist::non_overlapping_template` (×2)
-- **Salsa20 (key=00..1f, nonce=00..07)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
-- **Snow3G (key=00..0f, iv=00..0f)**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
-- **ZUC-128 (key=00..0f, iv=00..0f)**: 4/739 — `dieharder::bit_distribution` (×4)
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 2/739 — `dieharder::bit_distribution`, `nist::non_overlapping_template`
-- **Squidward (SHA-256 chain, OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×7)
-- **PCG32 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×8)
-- **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
-- **Xoshiro256 (OsRng seed)**: 13/739 — `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×9), `nist::non_overlapping_template` (×3)
-- **Xoroshiro128 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::random_excursions`
-- **SFC64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
-- **JSF64 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×4)
-- **ChaCha20 CSPRNG (OsRng key)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×2)
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template`
-- **Hash_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×4), `dieharder::fill_tree_count`, `nist::longest_run`
-- **cryptography::CtrDrbgAes256 (seed=00..2f)**: 8/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×5)
+- **Salsa20 (key=00..1f, nonce=00..07)**: 11/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
+- **Snow3G (key=00..0f, iv=00..0f)**: 9/739 — `dieharder::bit_distribution` (×5), `dieharder::lagged_sums`, `nist::non_overlapping_template` (×3)
+- **ZUC-128 (key=00..0f, iv=00..0f)**: 5/739 — `dieharder::bit_distribution` (×5)
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 6/739 — `dieharder::bit_distribution`, `nist::non_overlapping_template` (×2), `nist::random_excursions` (×2), `nist::random_excursions_variant`
+- **Squidward (SHA-256 chain, OsRng seed)**: 12/739 — `dieharder::bit_distribution` (×6), `maurer::universal_l10`, `nist::non_overlapping_template` (×4), `nist::universal`
+- **PCG32 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×3)
+- **PCG64 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2)
+- **Xoshiro256 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×5)
+- **Xoroshiro128 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::matrix_rank`, `nist::non_overlapping_template`, `nist::random_excursions`
+- **SFC64 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×7), `nist::random_excursions`, `nist::random_excursions_variant` (×3)
+- **JSF64 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×7)
+- **ChaCha20 CSPRNG (OsRng key)**: 9/739 — `dieharder::bit_distribution` (×5), `maurer::universal_l07`, `nist::non_overlapping_template`, `nist::random_excursions_variant` (×2)
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`, `nist::runs`, `nist::serial_delta1`
+- **Hash_DRBG SHA-256 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
+- **cryptography::CtrDrbgAes256 (seed=00..2f)**: 12/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×5)
+- **PCG64 (state=1, seq=1) [high half]**: 6/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions_variant`
+- **PCG64 (state=1, seq=1) [low half]**: 9/739 — `diehard::spheres_3d`, `dieharder::bit_distribution` (×7), `nist::random_excursions_variant`
+- **PCG64 (state=1, seq=1) [full word]**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2)
+- **PCG64 (state=1, seq=1) [bit-reversed]**: 9/739 — `diehard::birthday_spacings`, `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×2)
+- **Xoshiro256 (seeds=1,2,3,4) [high half]**: 8/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×2)
+- **Xoshiro256 (seeds=1,2,3,4) [low half]**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **Xoshiro256 (seeds=1,2,3,4) [full word]**: 4/739 — `dieharder::bit_distribution` (×4)
+- **Xoshiro256 (seeds=1,2,3,4) [bit-reversed]**: 11/739 — `dieharder::bit_distribution` (×9), `nist::non_overlapping_template` (×2)
+- **Xoroshiro128 (seeds=1,2) [high half]**: 6/739 — `dieharder::bit_distribution` (×6)
+- **Xoroshiro128 (seeds=1,2) [low half]**: 6/739 — `diehard::count_ones_stream`, `dieharder::bit_distribution` (×5)
+- **Xoroshiro128 (seeds=1,2) [full word]**: 6/739 — `dieharder::bit_distribution` (×6)
+- **Xoroshiro128 (seeds=1,2) [bit-reversed]**: 5/739 — `dieharder::bit_distribution` (×5)
+- **SFC64 (seeds=1,2,3) [high half]**: 3/739 — `dieharder::bit_distribution` (×3)
+- **SFC64 (seeds=1,2,3) [low half]**: 9/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`
+- **SFC64 (seeds=1,2,3) [full word]**: 6/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`
+- **SFC64 (seeds=1,2,3) [bit-reversed]**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
+- **JSF64 (seed=0xdeadbeef) [high half]**: 10/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions_variant` (×5)
+- **JSF64 (seed=0xdeadbeef) [low half]**: 12/739 — `dieharder::bit_distribution` (×9), `nist::non_overlapping_template` (×3)
+- **JSF64 (seed=0xdeadbeef) [full word]**: 12/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×7)
+- **JSF64 (seed=0xdeadbeef) [bit-reversed]**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
+- **Xorshift64 (seed=1) [high half]**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
+- **Xorshift64 (seed=1) [low half]**: 34/739 — `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::opso`, `dieharder::bit_distribution` (×29), `dieharder::lagged_sums`, `dieharder::monobit2`
+- **Xorshift64 (seed=1) [full word]**: 18/739 — `dieharder::bit_distribution` (×16), `dieharder::gcd_step_counts`, `dieharder::monobit2`
+- **Xorshift64 (seed=1) [bit-reversed]**: 2/739 — `dieharder::bit_distribution` (×2)
+- **ALT PCG64 (state=1, seq=1) bits biased to 1/2 + 2^-11**: 105/739 — `dieharder::bit_distribution` (×95), `dieharder::byte_distribution`, `dieharder::ks_uniform`, `dieharder::lagged_sums`, `dieharder::monobit2`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::non_overlapping_template`, `nist::runs`, `nist::serial_delta1`
+- **ALT PCG64 (state=1, seq=1) lowest bit stuck at 0**: 682/739 — `diehard::binary_rank_32x32`, `diehard::binary_rank_6x8`, `diehard::bitstream`, `diehard::count_ones_stream`, `diehard::dna`, `diehard::opso`, `diehard::oqso`, `dieharder::bit_distribution` (×510), `dieharder::byte_distribution`, `dieharder::gcd_distribution`, `dieharder::gcd_step_counts`, `dieharder::monobit2`, `maurer::universal_l06`, `maurer::universal_l07`, `maurer::universal_l08`, `maurer::universal_l09`, `maurer::universal_l10`, `nist::approximate_entropy`, `nist::block_frequency`, `nist::cumulative_sums_backward`, `nist::cumulative_sums_forward`, `nist::frequency`, `nist::longest_run`, `nist::matrix_rank`, `nist::non_overlapping_template` (×144), `nist::overlapping_template`, `nist::runs`, `nist::serial_delta1`, `nist::spectral`, `nist::universal`
+- **ALT PCG64 (state=1, seq=1) 65 536-word blocks repeated**: 61/739 — `diehard::craps_throws`, `diehard::opso`, `diehard::oqso`, `diehard::squeeze`, `dieharder::bit_distribution` (×46), `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::monobit2`, `nist::approximate_entropy`, `nist::longest_run`, `nist::non_overlapping_template` (×4), `nist::overlapping_template`, `nist::spectral`
+- **ALT PCG64 (state=1, seq=1) top bit copies bit 30 of previous word**: 89/739 — `diehard::craps_throws`, `diehard::craps_wins`, `diehard::dna`, `diehard::minimum_distance_2d`, `diehard::parking_lot`, `diehard::runs_down`, `diehard::runs_up`, `diehard::spheres_3d`, `diehard::squeeze`, `dieharder::bit_distribution` (×73), `dieharder::dct`, `dieharder::gcd_step_counts`, `dieharder::minimum_distance_nd`, `dieharder::monobit2`, `dieharder::permutations`, `nist::block_frequency`, `nist::spectral`
+- **ALT PCG64 (state=1, seq=1) period 2^20 words**: 392/739 — `diehard::opso`, `diehard::oqso`, `dieharder::bit_distribution` (×385), `dieharder::byte_distribution`, `dieharder::ks_uniform`, `dieharder::lagged_sums`, `dieharder::monobit2`, `nist::random_excursions_variant`
 - **Constant (0xDEAD_DEAD)**: 707/739 — expected for degenerate generator.
 - **Counter (0,1,2,…)**: 706/739 — expected for degenerate generator.
 - **Dual_EC_DRBG P-256 (NIST Q, seed=0x00..01)**: 2/200 — `nist::non_overlapping_template` (×2)
@@ -625,13 +694,19 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Bottom Line
 
 - Degenerate generators (Constant, Counter) and legacy PRNGs (ANSI C LCG, MINSTD, VB6 Rnd) remain annihilated — the battery continues to distinguish garbage from structure.
-- Among non-trivial generators, the lowest FAIL count is **2** (`SpongeBob (SHA3-512 chain, OsRng seed)`) and the highest is **13** (`Xorshift32 (seed=1)`).
+- Among non-trivial generators, the lowest FAIL count is **2** (`CAST-128-CTR (key=00..0f)`) and the highest is **34** (`Xorshift64 (seed=1) [low half]`).
 - Isolated failures in `non_overlapping_template` and `bit_distribution` are expected at α = 0.01; they are noise unless they form a family cluster.
+- Specified defects (`run_tests --alternatives`), FAIL results out of those run:
+  - PCG64 (state=1, seq=1) bits biased to 1/2 + 2^-11: 105/739
+  - PCG64 (state=1, seq=1) lowest bit stuck at 0: 682/739
+  - PCG64 (state=1, seq=1) 65 536-word blocks repeated: 61/739
+  - PCG64 (state=1, seq=1) top bit copies bit 30 of previous word: 89/739
+  - PCG64 (state=1, seq=1) period 2^20 words: 392/739
 
 ## Auxiliary Probes
 
 These probes are not part of `run_tests`; they are recorded separately here
-from `tests/run_all.sh` on `darby.local` (2026-09-16).
+from `tests/run_all.sh` on `dyson` (2026-09-16).
 
 These probes exercise statistical properties not covered by the NIST/DIEHARD/DIEHARDER
 battery.  They run with their default parameters; use the individual binaries for
