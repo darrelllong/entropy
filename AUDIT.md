@@ -48,11 +48,15 @@ normal variates have no such comparison, and `normal()` costs a Newton solve
 per draw. A ziggurat with tables derived here is the obvious candidate and
 needs its own acceptance test, the tail included.
 
-### A5 — No reproducible parallel stream partition
+### A5 — Parallel streams exist only for the linear generators
 
-Seeds handed out by worker scheduling do not define a reproducible task
-stream. A counter-based design or a proved jump function would, and needs
-tests for scheduling invariance, counter exhaustion and stream identity.
+`Xoshiro256` and `Xoroshiro128` now jump, from a polynomial derived from the
+generator rather than a table, so their streams partition reproducibly. The
+other generators have no such partition: PCG can be advanced in logarithmic
+time by its own arithmetic, the counter-based designs would need a counter
+interface, and the cryptographic generators partition by nonce. Deciding one
+interface across them, and measuring that the segments are statistically
+independent rather than merely disjoint, is open.
 
 ### A6 — Cross-repository work in flight
 

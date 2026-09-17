@@ -165,6 +165,15 @@ Xoroshiro128, SFC64, JSF64, MT19937, ChaCha20Rng and FastKeyErasureRng:
 `from_seed_bytes` (the constructor's integers, little-endian),
 `seed_from_u64` (SplitMix64 expansion) and `from_os`.
 
+**Parallel streams.** `Xoshiro256` and `Xoroshiro128` can jump: `jump_pow2(k)`
+advances by 2ᵏ steps at the cost of a few hundred ordinary steps, and
+`stream(index)` is the seed advanced by `index` jumps of half the state's
+bits, so worker *k* holds segment *k* of one stream whatever order the workers
+run in.  The jump polynomial is not a table: the characteristic polynomial of
+the generator's own linear update is recovered by Berlekamp–Massey from a bit
+of its state, and x^(2ᵏ) mod that polynomial is applied to the state.  A test
+checks a jump of 2²⁰ against a million steps of the generator itself.
+
 **Value stability.** Every generator, `Sample` method and `Seedable`
 derivation produces the same values from the same seed in every release;
 known-answer tests pin them, and a change to any of them is a breaking

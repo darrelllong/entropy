@@ -23,6 +23,7 @@ pub mod dual_ec;
 pub mod hash_drbg;
 #[cfg(feature = "cryptography")]
 pub mod hmac_drbg;
+mod jump;
 pub mod lcg;
 pub mod mt19937;
 pub mod os;
@@ -38,7 +39,7 @@ pub mod squidward;
 pub mod stream_rng;
 #[cfg(feature = "cryptography")]
 pub mod thread_rng;
-pub mod views;
+mod views;
 pub mod xorshift;
 pub mod xoshiro;
 
