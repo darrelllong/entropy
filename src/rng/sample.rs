@@ -110,6 +110,22 @@ fn bernoulli(rng: &mut (impl Rng + ?Sized), p: f64) -> bool {
 }
 
 /// Sampling methods available on every generator.
+///
+/// ```
+/// use entropy::rng::{Pcg64, Sample, Seedable};
+///
+/// let mut rng = Pcg64::seed_from_u64(42);
+/// let die = rng.range(1, 7);
+/// assert!((1..7).contains(&die));
+/// let _coin = rng.bernoulli(0.3);
+/// let x = rng.unit_f64();
+/// assert!((0.0..1.0).contains(&x));
+/// let mut deck: Vec<u8> = (0..52).collect();
+/// rng.shuffle(&mut deck);
+/// deck.sort_unstable();
+/// assert_eq!(deck, (0..52).collect::<Vec<u8>>());
+/// assert!(rng.normal().is_finite());
+/// ```
 pub trait Sample: Rng {
     /// A uniform integer in [0, `bound`), exactly.
     ///
