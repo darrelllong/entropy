@@ -129,6 +129,11 @@ path = "examples/lz78_table.rs"
 required-features = ["batteries"]
 
 [[example]]
+name = "universal_variance"
+path = "examples/universal_variance.rs"
+required-features = ["batteries"]
+
+[[example]]
 name = "power_curves"
 path = "examples/power_curves.rs"
 required-features = ["batteries"]
