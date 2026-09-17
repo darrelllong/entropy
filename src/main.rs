@@ -55,6 +55,7 @@ use cryptography::{
     Camellia128, Cast128, Grasshopper, Rabbit, Salsa20, Seed as SeedCipher, Serpent128, Sm4,
     Snow3g, Twofish128, Zuc128,
 };
+use entropy::rng::alternatives::{Biased, LaggedMsb, RepeatedBlocks, ShortPeriod, StuckLowBits};
 use entropy::rng::{
     AesCtr, BitReversed, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, Corpus,
     CounterRng, CryptoCtrDrbg, DualEcDrbg, FullWord, HashDrbg, HighHalf, HmacDrbg, Jsf64, Lcg32,
@@ -226,6 +227,7 @@ struct Args {
     rng_filters: Vec<String>,    // substring match on RNG label
     fail_on_fail: bool,          // exit nonzero if any shown test FAILed
     views: bool,                 // also run the 64-bit generators' output views
+    alternatives: bool,          // also run generators with specified defects
     json: bool,                  // one JSON object per result instead of the report
     corpus: Option<String>,      // test this file of saved words instead of the generators
 }
@@ -263,6 +265,7 @@ impl Args {
         let mut rng_filters: Vec<String> = Vec::new();
         let mut fail_on_fail = false;
         let mut views = false;
+        let mut alternatives = false;
         let mut json = false;
         let mut corpus: Option<String> = None;
 
@@ -272,6 +275,7 @@ impl Args {
                 "--quick" => quick = true,
                 "--fail-on-fail" => fail_on_fail = true,
                 "--views" => views = true,
+                "--alternatives" => alternatives = true,
                 "--json" => json = true,
                 "--corpus" => {
                     corpus = Some(argv.next().ok_or("--corpus requires a file")?);
@@ -345,12 +349,16 @@ impl Args {
             rng_filters,
             fail_on_fail,
             views,
+            alternatives,
             json,
             corpus,
         };
-        if args.corpus.is_some() && (args.views || !args.rng_filters.is_empty()) {
+        if args.corpus.is_some()
+            && (args.views || args.alternatives || !args.rng_filters.is_empty())
+        {
             return Err(
-                "--corpus replaces the generators; it cannot be combined with --rng or --views"
+                "--corpus replaces the generators; it cannot be combined with \
+                        --rng, --views or --alternatives"
                     .into(),
             );
         }
@@ -418,7 +426,7 @@ fn print_usage() {
     // that indents the flag descriptions' continuation lines.
     println!(
         "\
-Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--views] [--json] [--corpus <file>] [--fail-on-fail] [--help]
+Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--views] [--alternatives] [--json] [--corpus <file>] [--fail-on-fail] [--help]
 
  --suite         Run only this battery.  Repeatable: --suite nist --suite diehard.
                  diehard-historical runs the historical DIEHARD tests, which
@@ -441,6 +449,12 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
                  full word (high then low) and bit-reversed high half.  The
                  four views of one generator share its outputs, so their
                  results are not independent.
+ --alternatives  Also run PCG64 (state=1, seq=1) with five specified defects,
+                 to show which tests detect each at this sample size: every
+                 bit 1 with probability 1/2 + 2^-11; the lowest bit of every
+                 word 0; each block of 65 536 words emitted twice; the top bit
+                 of each word copying bit 30 of the word before; and the first
+                 2^20 words repeated forever.  Labels start with ALT.
  --json          Print one JSON object per shown result, one per line, with
                  the generator, suite, the word at which the suite's input
                  starts, the result name, its status (scored, insufficient,
@@ -669,6 +683,29 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     views!("SFC64 (seeds=1,2,3)", Sfc64::new(1, 2, 3));
     views!("JSF64 (seed=0xdeadbeef)", Jsf64::new(JSF64_PROBE_SEED));
     views!("Xorshift64 (seed=1)", Xorshift64::new(1));
+    // Specified defects, so the battery's power against each can be read off.
+    if args.alternatives {
+        run!(
+            "ALT PCG64 (state=1, seq=1) bits biased to 1/2 + 2^-11",
+            Biased::new(Pcg64::new(1, 1), 10)
+        );
+        run!(
+            "ALT PCG64 (state=1, seq=1) lowest bit stuck at 0",
+            StuckLowBits::new(Pcg64::new(1, 1), 1)
+        );
+        run!(
+            "ALT PCG64 (state=1, seq=1) 65 536-word blocks repeated",
+            RepeatedBlocks::new(Pcg64::new(1, 1), 1 << 16)
+        );
+        run!(
+            "ALT PCG64 (state=1, seq=1) top bit copies bit 30 of previous word",
+            LaggedMsb::new(Pcg64::new(1, 1))
+        );
+        run!(
+            "ALT PCG64 (state=1, seq=1) period 2^20 words",
+            ShortPeriod::new(Pcg64::new(1, 1), 1 << 20)
+        );
+    }
     run!(CONSTANT_LABEL, ConstantRng::new(CONSTANT_RNG_WORD));
     run!("Counter (0,1,2,…)", CounterRng::new(0));
     // Dual_EC_DRBG: included for reference only.
@@ -1200,7 +1237,7 @@ mod tests {
     #[test]
     fn no_options_select_every_suite_and_rng() {
         let a = run_args(&[]);
-        assert!(!a.quick && !a.fail_on_fail && !a.views && !a.json);
+        assert!(!a.quick && !a.fail_on_fail && !a.views && !a.alternatives && !a.json);
         assert!(a.suites.is_empty() && a.test_filter.is_none() && a.rng_filters.is_empty());
         for suite in [Suite::Nist, Suite::Diehard, Suite::Dieharder] {
             assert!(a.run_suite(&suite));
@@ -1215,6 +1252,7 @@ mod tests {
             "--quick",
             "--fail-on-fail",
             "--views",
+            "--alternatives",
             "--json",
             "--suite",
             "nist",
@@ -1227,7 +1265,7 @@ mod tests {
             "--test",
             "frequency",
         ]);
-        assert!(a.quick && a.fail_on_fail && a.views && a.json);
+        assert!(a.quick && a.fail_on_fail && a.views && a.alternatives && a.json);
         assert!(a.run_suite(&Suite::Nist) && a.run_suite(&Suite::Dieharder));
         assert!(!a.run_suite(&Suite::Diehard));
         assert_eq!(a.rng_filters, ["PCG", "Xorshift"]);
@@ -1482,7 +1520,7 @@ mod tests {
             .unwrap_err()
             .contains("whole number"));
         assert!(scheduled(&["--corpus", "/nonexistent/corpus.bin"]).is_err());
-        for extra in ["--views", "--rng"] {
+        for extra in ["--views", "--alternatives", "--rng"] {
             let mut argv = vec!["--corpus", good, extra];
             if extra == "--rng" {
                 argv.push("AES");
@@ -1494,6 +1532,17 @@ mod tests {
 
     /// `--views` adds four views of each of the six 64-bit generators; without
     /// it none is scheduled.
+    #[test]
+    fn alternatives_schedule_five_defects() {
+        assert!(scheduled(&["--rng", "ALT "]).is_err());
+        assert_eq!(
+            scheduled(&["--alternatives", "--rng", "ALT "])
+                .unwrap()
+                .len(),
+            5
+        );
+    }
+
     #[test]
     fn views_schedule_four_views_of_six_generators() {
         assert!(scheduled(&["--rng", "[low half]"]).is_err());

@@ -95,7 +95,10 @@ default run never reads their low bits.  `--views` adds, from fixed seeds, four
 runs of each of PCG64, Xoshiro256, Xoroshiro128, SFC64, JSF64 and Xorshift64:
 high half, low half, full word and bit-reversed high half.  The views of one
 generator share its outputs, so their results are not independent.
-`tests/run_all.sh` passes `--views`.
+`--alternatives` adds PCG64 with five specified defects (a bit bias of
+2^-11, a stuck low bit, repeated 65 536-word blocks, a lag-1 dependence
+between bits and a period of 2^20 words), so the results show which tests
+detect each.  `tests/run_all.sh` passes `--views` and `--alternatives`.
 
 `--corpus <file>` tests saved output instead of the generators: the file's
 bytes, read as little-endian 32-bit words.  Each suite reads its own fixed

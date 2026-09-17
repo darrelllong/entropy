@@ -7,6 +7,7 @@
 
 #[cfg(feature = "cryptography")]
 pub mod aes_ctr;
+pub mod alternatives;
 pub mod bad;
 #[cfg(feature = "cryptography")]
 pub mod block_ctr;

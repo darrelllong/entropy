@@ -21,7 +21,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
 Usage: tests/run_all.sh [run_tests options...]
 
 Runs every battery and probe:
-  1. NIST SP 800-22 / DIEHARD / DIEHARDER battery  (run_tests --views)
+  1. NIST SP 800-22 / DIEHARD / DIEHARDER battery  (run_tests --views --alternatives)
   2. Knuth + ApEn profile                           (bib_tests)
   3. Hamming weights + FPF                          (upstream_tests)
   4. Lempel-Ziv                                    (testu01_lz)
@@ -67,7 +67,7 @@ run_all() {
     "$ROOT_DIR/scripts/provenance.sh" default "$BIN/run_tests"
 
     section "run_tests  (NIST SP 800-22 · DIEHARD · DIEHARDER)"
-    "$BIN/run_tests" --views "$@"
+    "$BIN/run_tests" --views --alternatives "$@"
 
     section "bib_tests  (Knuth + NIST ApEn profile m=2..6)"
     "$BIN/bib_tests"

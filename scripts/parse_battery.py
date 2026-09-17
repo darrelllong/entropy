@@ -228,7 +228,7 @@ def gen_header(run_date: str, host: str, cpu: str, n_bits: int, n_rngs: int,
     return f"""\
 # Full Battery Results
 
-Full `run_tests --views` battery run on `{host}` ({cpu}) on {run_date}.
+Full `run_tests --views --alternatives` battery run on `{host}` ({cpu}) on {run_date}.
 {source_block}
 Sample size: **{mbits:,} Mbit** per generator for NIST; DIEHARD/DIEHARDER
 consume **{mbits:,} M 32-bit words** (plus what the live-drawing tests take
@@ -237,7 +237,7 @@ directly).
 Command:
 
 ```sh
-tests/run_all.sh    # runs run_tests --views, then the auxiliary probes
+tests/run_all.sh    # runs run_tests --views --alternatives, then the auxiliary probes
 ```
 
 Scope:
@@ -328,9 +328,10 @@ def _is_real_generator(name: str) -> bool:
     Degenerate: Constant, Counter (zero-entropy, expected to fail).
     Legacy: BAD*, ANSI*, LCG MINSTD — historically broken, included as a
     sanity check that the battery can distinguish garbage from structure.
+    Specified defects: ALT* (run_tests --alternatives), which measure power.
     """
     first_word = name.split()[0]
-    if first_word in {"Constant", "Counter"}:
+    if first_word in {"Constant", "Counter", "ALT"}:
         return False
     if name.startswith("BAD") or name.startswith("ANSI"):
         return False
@@ -359,6 +360,12 @@ def gen_bottom_line(blocks: list[dict]) -> str:
              "`bit_distribution` are expected at α = 0.01; they are noise "
              "unless they form a family cluster.",
              ]
+    alternatives = [b for b in blocks if b["name"].startswith("ALT ")]
+    if alternatives:
+        lines.append("- Specified defects (`run_tests --alternatives`), FAIL "
+                     "results out of those run:")
+        lines.extend(f"  - {b['name'].removeprefix('ALT ')}: {b['fail']}/{b['total']}"
+                     for b in alternatives)
     return "\n".join(lines) + "\n"
 
 
