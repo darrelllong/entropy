@@ -20,12 +20,14 @@
 //!
 //! # Calibration
 //!
-//! 100 000 null runs on separately seeded xoshiro256** streams rejected at
-//! 0.05 in 5.106%, at 0.01 in 1.041% (binomial standard deviation 0.031%) and
-//! at 0.001 in 0.127% (0.010%), with a Kolmogorov–Smirnov p-value of 0.15.
-//! Equal variances make the position of the maximum close to uniform, not
-//! exactly uniform: the coefficients' higher cumulants differ with k, and the
-//! excess at 0.001 is resolved at this size.
+//! 10⁶ null runs on separately seeded xoshiro256** streams rejected at 0.05 in
+//! 5.029%, at 0.01 in 1.015% (binomial standard deviation 0.010%) and at 0.001
+//! in 0.104% (0.003%).  Exactly multinomial counts in 256 equal cells, 5 000
+//! at a time, give 1.013% and 0.1046% against χ²(255): the excess is Pearson's
+//! χ² approximation at 19.5 expected counts per cell, not the transform.  The
+//! position of the maximum is not exactly uniform (2·10¹⁰ blocks from
+//! `examples/dct_position_table.rs` put positions 0 and 128 each 0.4% above
+//! 1/256), but at 5 000 blocks that shifts χ² by 0.001.
 //!
 //! # Author
 //! David Bauer, in Robert G. Brown's *Dieharder: A Random Number Test Suite*

@@ -13,12 +13,13 @@ and what closing it requires.  Improvements that are not defects are in
 deviation 0.018%); 100 000 on PCG64 gave 1.045%.  A finite-window law for
 Q5 − Q4 would remove the excess.
 
-### A2 — The DCT maximum's position is not exactly uniform
+### A2 — Pearson χ² with about 20 expected counts per cell runs slightly high
 
-[dct.rs](src/dieharder/dct.rs).  100 000 null runs rejected at 0.001 in 0.127%
-(standard deviation 0.010%); at 0.01 in 1.041%.  Equal coefficient variances
-do not make the absolute coefficients exchangeable.  Derive the position law
-or tabulate it by simulation on separate streams.
+Exactly multinomial counts in 256 equal cells of 5 000 reject against
+χ²(255) at 0.01 in 1.013% and at 0.001 in 0.1046% (standard deviation 0.003%),
+and the DCT test matches that over 10⁶ runs.  Every Pearson test with small
+expected counts shares the excess.  An exact or simulated null for the
+Pearson statistic at the battery's cell counts would remove it.
 
 ### A3 — The R report's 0.001 threshold is calibrated only coarsely
 
