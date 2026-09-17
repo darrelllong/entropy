@@ -1,16 +1,16 @@
 # Full Battery Results
 
-Full `run_tests --views --alternatives` battery run on `dyson` (Apple M4 Pro, 8P+4E cores) on 2026-09-16.
+Full `run_tests --views --alternatives` battery run on `dyson` (Apple M4 Pro, 8P+4E cores) on 2026-09-17.
 
 ```text
 os: Darwin 27.0.0 arm64
 rustc: rustc 1.93.1 (01f6ddf75 2026-02-11)
 features: default
 Cargo.lock sha256: 995745efeed35539e407f061d078d5604bc8fbdbb9f5b5a1fe14efa2e0a66945
-entropy: 53e90af64b451cc73a01f31654ad2c2d7fb4263d
-rump: 5d34eca51c025045f0e9880b7e6e2e1d74aa0670
-cryptography: 40a9bdff34fa926e343eb9acf1a4d00aa362dbd9
-run_tests sha256: dfa886b7a7dd26861ae5d0240036ea2f056269d0f6c40533d64b5b1e2252c444
+entropy: 28b29b741f75e7ba38a2303f8623ffafdb1977e1
+rump: ba318de957c8c7e3c0a098ea39fbc9ef07d6e3b6
+cryptography: aa865da77502306f544b7031f65eaf3f7b7960b2
+run_tests sha256: 774b71ecd985c00d51adbb64e35e7eab54c8124eb1e13971c16057f87647c6ab
 ```
 
 Sample size: **16 Mbit** per generator for NIST; DIEHARD/DIEHARDER
@@ -71,7 +71,7 @@ are noise, not structure.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 739 | 723 | 10 | 6 |
+| OsRng (/dev/urandom) | 739 | 725 | 8 | 6 |
 | MT19937 (seed=19650218) | 739 | 729 | 4 | 6 |
 | Xorshift64 (seed=1) | 739 | 728 | 5 | 6 |
 | Xorshift32 (seed=1) | 739 | 719 | 14 | 6 |
@@ -98,17 +98,17 @@ are noise, not structure.
 | Salsa20 (key=00..1f, nonce=00..07) | 739 | 722 | 11 | 6 |
 | Snow3G (key=00..0f, iv=00..0f) | 739 | 724 | 9 | 6 |
 | ZUC-128 (key=00..0f, iv=00..0f) | 739 | 728 | 5 | 6 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 727 | 6 | 6 |
-| Squidward (SHA-256 chain, OsRng seed) | 739 | 695 | 12 | 32 |
-| PCG32 (OsRng seed) | 739 | 727 | 6 | 6 |
-| PCG64 (OsRng seed) | 739 | 728 | 5 | 6 |
-| Xoshiro256 (OsRng seed) | 739 | 728 | 5 | 6 |
-| Xoroshiro128 (OsRng seed) | 739 | 727 | 6 | 6 |
-| SFC64 (OsRng seed) | 739 | 722 | 11 | 6 |
-| JSF64 (OsRng seed) | 739 | 726 | 7 | 6 |
-| ChaCha20 CSPRNG (OsRng key) | 739 | 724 | 9 | 6 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 725 | 8 | 6 |
-| Hash_DRBG SHA-256 (OsRng seed) | 739 | 726 | 7 | 6 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 728 | 5 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 739 | 726 | 7 | 6 |
+| PCG32 (OsRng seed) | 739 | 722 | 11 | 6 |
+| PCG64 (OsRng seed) | 739 | 727 | 6 | 6 |
+| Xoshiro256 (OsRng seed) | 739 | 724 | 9 | 6 |
+| Xoroshiro128 (OsRng seed) | 739 | 724 | 9 | 6 |
+| SFC64 (OsRng seed) | 739 | 723 | 10 | 6 |
+| JSF64 (OsRng seed) | 739 | 724 | 9 | 6 |
+| ChaCha20 CSPRNG (OsRng key) | 739 | 726 | 7 | 6 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 701 | 6 | 32 |
+| Hash_DRBG SHA-256 (OsRng seed) | 739 | 696 | 11 | 32 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 695 | 12 | 32 |
 | PCG64 (state=1, seq=1) [high half] | 739 | 727 | 6 | 6 |
 | PCG64 (state=1, seq=1) [low half] | 739 | 724 | 9 | 6 |
@@ -619,7 +619,7 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 10/739 — `dieharder::bit_distribution` (×9), `nist::non_overlapping_template`
+- **OsRng (/dev/urandom)**: 8/739 — `diehard::count_ones_stream`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×4), `nist::random_excursions_variant`
 - **MT19937 (seed=19650218)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
 - **Xorshift64 (seed=1)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 14/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×10), `dieharder::monobit2`, `nist::matrix_rank`
@@ -646,17 +646,17 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **Salsa20 (key=00..1f, nonce=00..07)**: 11/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
 - **Snow3G (key=00..0f, iv=00..0f)**: 9/739 — `dieharder::bit_distribution` (×5), `dieharder::lagged_sums`, `nist::non_overlapping_template` (×3)
 - **ZUC-128 (key=00..0f, iv=00..0f)**: 5/739 — `dieharder::bit_distribution` (×5)
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 6/739 — `dieharder::bit_distribution`, `nist::non_overlapping_template` (×2), `nist::random_excursions` (×2), `nist::random_excursions_variant`
-- **Squidward (SHA-256 chain, OsRng seed)**: 12/739 — `dieharder::bit_distribution` (×6), `maurer::universal_l10`, `nist::non_overlapping_template` (×4), `nist::universal`
-- **PCG32 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×3)
-- **PCG64 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×2)
-- **Xoshiro256 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×5)
-- **Xoroshiro128 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::matrix_rank`, `nist::non_overlapping_template`, `nist::random_excursions`
-- **SFC64 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×7), `nist::random_excursions`, `nist::random_excursions_variant` (×3)
-- **JSF64 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×7)
-- **ChaCha20 CSPRNG (OsRng key)**: 9/739 — `dieharder::bit_distribution` (×5), `maurer::universal_l07`, `nist::non_overlapping_template`, `nist::random_excursions_variant` (×2)
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template`, `nist::runs`, `nist::serial_delta1`
-- **Hash_DRBG SHA-256 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×2)
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×2), `dieharder::fill_tree_count`, `nist::non_overlapping_template` (×2)
+- **Squidward (SHA-256 chain, OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
+- **PCG32 (OsRng seed)**: 11/739 — `diehard::binary_rank_6x8`, `dieharder::bit_distribution` (×6), `nist::random_excursions_variant` (×4)
+- **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution`, `nist::linear_complexity`, `nist::non_overlapping_template` (×4)
+- **Xoshiro256 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×4)
+- **Xoroshiro128 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×3)
+- **SFC64 (OsRng seed)**: 10/739 — `dieharder::bit_distribution` (×7), `nist::linear_complexity`, `nist::non_overlapping_template` (×2)
+- **JSF64 (OsRng seed)**: 9/739 — `diehard::binary_rank_31x31`, `dieharder::bit_distribution` (×8)
+- **ChaCha20 CSPRNG (OsRng key)**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×4), `dieharder::byte_distribution`, `nist::non_overlapping_template`
+- **Hash_DRBG SHA-256 (OsRng seed)**: 11/739 — `dieharder::bit_distribution` (×11)
 - **cryptography::CtrDrbgAes256 (seed=00..2f)**: 12/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×5)
 - **PCG64 (state=1, seq=1) [high half]**: 6/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions_variant`
 - **PCG64 (state=1, seq=1) [low half]**: 9/739 — `diehard::spheres_3d`, `dieharder::bit_distribution` (×7), `nist::random_excursions_variant`
@@ -706,7 +706,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Auxiliary Probes
 
 These probes are not part of `run_tests`; they are recorded separately here
-from `tests/run_all.sh` on `dyson` (2026-09-16).
+from `tests/run_all.sh` on `dyson` (2026-09-17).
 
 These probes exercise statistical properties not covered by the NIST/DIEHARD/DIEHARDER
 battery.  They run with their default parameters; use the individual binaries for
@@ -1078,200 +1078,200 @@ testu01_lz  (Lempel-Ziv  k=25  replications=10)
 ========================================================================
 
 MT19937
-  [PASS] testu01::lzw_sum                                  p = 0.190009  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-1.3106)
-  [PASS] testu01::lzw_ks                                   p = 0.149165  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762933 U=0.156179 z=-1.0103
-  [INFO] testu01::lzw_rep02                    W=1762950 U=0.317314 z=-0.4752
-  [INFO] testu01::lzw_rep03                    W=1762918 U=0.075535 z=-1.4358
-  [INFO] testu01::lzw_rep04                    W=1762999 U=0.843154 z=1.0075
-  [INFO] testu01::lzw_rep05                    W=1762971 U=0.567327 z=0.1696
-  [INFO] testu01::lzw_rep06                    W=1762935 U=0.173859 z=-0.9390
-  [INFO] testu01::lzw_rep07                    W=1762939 U=0.210948 z=-0.8031
-  [INFO] testu01::lzw_rep08                    W=1762981 U=0.677739 z=0.4614
-  [INFO] testu01::lzw_rep09                    W=1762940 U=0.225662 z=-0.7532
-  [INFO] testu01::lzw_rep10                    W=1762953 U=0.357127 z=-0.3661
+  [PASS] testu01::lzw_sum                                  p = 0.190289  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-1.3097)
+  [PASS] testu01::lzw_ks                                   p = 0.144966  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762933 U=0.160855 z=-0.9910
+  [INFO] testu01::lzw_rep02                    W=1762950 U=0.315416 z=-0.4806
+  [INFO] testu01::lzw_rep03                    W=1762918 U=0.076487 z=-1.4291
+  [INFO] testu01::lzw_rep04                    W=1762999 U=0.841065 z=0.9988
+  [INFO] testu01::lzw_rep05                    W=1762971 U=0.563332 z=0.1594
+  [INFO] testu01::lzw_rep06                    W=1762935 U=0.176777 z=-0.9277
+  [INFO] testu01::lzw_rep07                    W=1762939 U=0.212214 z=-0.7988
+  [INFO] testu01::lzw_rep08                    W=1762981 U=0.675134 z=0.4541
+  [INFO] testu01::lzw_rep09                    W=1762940 U=0.224898 z=-0.7558
+  [INFO] testu01::lzw_rep10                    W=1762953 U=0.355219 z=-0.3713
 
 Xorshift32
-  [PASS] testu01::lzw_sum                                  p = 0.926662  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.0920)
-  [PASS] testu01::lzw_ks                                   p = 0.972799  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762985 U=0.715592 z=0.5698
-  [INFO] testu01::lzw_rep02                    W=1762916 U=0.064821 z=-1.5155
-  [INFO] testu01::lzw_rep03                    W=1762950 U=0.322283 z=-0.4613
-  [INFO] testu01::lzw_rep04                    W=1762990 U=0.770940 z=0.7419
-  [INFO] testu01::lzw_rep05                    W=1762959 U=0.423821 z=-0.1921
-  [INFO] testu01::lzw_rep06                    W=1762943 U=0.247026 z=-0.6839
-  [INFO] testu01::lzw_rep07                    W=1762962 U=0.459082 z=-0.1027
-  [INFO] testu01::lzw_rep08                    W=1762978 U=0.647156 z=0.3777
-  [INFO] testu01::lzw_rep09                    W=1763035 U=0.978662 z=2.0269
-  [INFO] testu01::lzw_rep10                    W=1762931 U=0.146459 z=-1.0517
+  [PASS] testu01::lzw_sum                                  p = 0.933974  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.0828)
+  [PASS] testu01::lzw_ks                                   p = 0.967216  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762985 U=0.714327 z=0.5661
+  [INFO] testu01::lzw_rep02                    W=1762916 U=0.066571 z=-1.5018
+  [INFO] testu01::lzw_rep03                    W=1762950 U=0.320214 z=-0.4671
+  [INFO] testu01::lzw_rep04                    W=1762990 U=0.767650 z=0.7311
+  [INFO] testu01::lzw_rep05                    W=1762959 U=0.419828 z=-0.2023
+  [INFO] testu01::lzw_rep06                    W=1762943 U=0.245797 z=-0.6878
+  [INFO] testu01::lzw_rep07                    W=1762962 U=0.456048 z=-0.1104
+  [INFO] testu01::lzw_rep08                    W=1762978 U=0.642805 z=0.3660
+  [INFO] testu01::lzw_rep09                    W=1763035 U=0.981126 z=2.0776
+  [INFO] testu01::lzw_rep10                    W=1762931 U=0.150729 z=-1.0333
 
 Xorshift64
-  [PASS] testu01::lzw_sum                                  p = 0.131754  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-1.5072)
-  [PASS] testu01::lzw_ks                                   p = 0.114121  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762946 U=0.274592 z=-0.5990
-  [INFO] testu01::lzw_rep02                    W=1762978 U=0.644883 z=0.3715
-  [INFO] testu01::lzw_rep03                    W=1762961 U=0.447918 z=-0.1309
-  [INFO] testu01::lzw_rep04                    W=1762935 U=0.178910 z=-0.9195
-  [INFO] testu01::lzw_rep05                    W=1762918 U=0.075044 z=-1.4392
-  [INFO] testu01::lzw_rep06                    W=1762952 U=0.339646 z=-0.4134
-  [INFO] testu01::lzw_rep07                    W=1762940 U=0.221477 z=-0.7672
-  [INFO] testu01::lzw_rep08                    W=1763007 U=0.889641 z=1.2246
-  [INFO] testu01::lzw_rep09                    W=1762943 U=0.253772 z=-0.6627
-  [INFO] testu01::lzw_rep10                    W=1762918 U=0.076295 z=-1.4304
+  [PASS] testu01::lzw_sum                                  p = 0.131064  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-1.5099)
+  [PASS] testu01::lzw_ks                                   p = 0.110438  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762946 U=0.273863 z=-0.6012
+  [INFO] testu01::lzw_rep02                    W=1762978 U=0.640585 z=0.3600
+  [INFO] testu01::lzw_rep03                    W=1762961 U=0.445160 z=-0.1379
+  [INFO] testu01::lzw_rep04                    W=1762935 U=0.180896 z=-0.9120
+  [INFO] testu01::lzw_rep05                    W=1762918 U=0.076091 z=-1.4319
+  [INFO] testu01::lzw_rep06                    W=1762952 U=0.337564 z=-0.4191
+  [INFO] testu01::lzw_rep07                    W=1762940 U=0.221070 z=-0.7686
+  [INFO] testu01::lzw_rep08                    W=1763007 U=0.890011 z=1.2266
+  [INFO] testu01::lzw_rep09                    W=1762943 U=0.252720 z=-0.6660
+  [INFO] testu01::lzw_rep10                    W=1762918 U=0.077100 z=-1.4249
 
 BAD Unix System V rand()
-  [PASS] testu01::lzw_sum                                  p = 0.545233  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.6049)
-  [PASS] testu01::lzw_ks                                   p = 0.278731  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762954 U=0.361037 z=-0.3557
-  [INFO] testu01::lzw_rep02                    W=1762949 U=0.307228 z=-0.5037
-  [INFO] testu01::lzw_rep03                    W=1762945 U=0.269408 z=-0.6146
-  [INFO] testu01::lzw_rep04                    W=1762958 U=0.415098 z=-0.2144
-  [INFO] testu01::lzw_rep05                    W=1762974 U=0.602342 z=0.2594
-  [INFO] testu01::lzw_rep06                    W=1762936 U=0.183155 z=-0.9034
-  [INFO] testu01::lzw_rep07                    W=1763024 U=0.957985 z=1.7278
-  [INFO] testu01::lzw_rep08                    W=1762971 U=0.565723 z=0.1655
-  [INFO] testu01::lzw_rep09                    W=1762951 U=0.336519 z=-0.4220
-  [INFO] testu01::lzw_rep10                    W=1762931 U=0.146459 z=-1.0517
+  [PASS] testu01::lzw_sum                                  p = 0.541625  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.6104)
+  [PASS] testu01::lzw_ks                                   p = 0.265585  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762954 U=0.359145 z=-0.3607
+  [INFO] testu01::lzw_rep02                    W=1762949 U=0.305319 z=-0.5092
+  [INFO] testu01::lzw_rep03                    W=1762945 U=0.268782 z=-0.6165
+  [INFO] testu01::lzw_rep04                    W=1762958 U=0.410944 z=-0.2251
+  [INFO] testu01::lzw_rep05                    W=1762974 U=0.598562 z=0.2496
+  [INFO] testu01::lzw_rep06                    W=1762936 U=0.184684 z=-0.8977
+  [INFO] testu01::lzw_rep07                    W=1763024 U=0.958666 z=1.7354
+  [INFO] testu01::lzw_rep08                    W=1762971 U=0.561474 z=0.1547
+  [INFO] testu01::lzw_rep09                    W=1762951 U=0.334552 z=-0.4274
+  [INFO] testu01::lzw_rep10                    W=1762931 U=0.150729 z=-1.0333
 
 BAD Unix System V mrand48()
-  [PASS] testu01::lzw_sum                                  p = 0.748611  (N=10, k=25, r=0, s=30, pit_seed=1, Z=0.3205)
-  [PASS] testu01::lzw_ks                                   p = 0.883224  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762884 U=0.008498 z=-2.3868
-  [INFO] testu01::lzw_rep02                    W=1762984 U=0.707475 z=0.5460
-  [INFO] testu01::lzw_rep03                    W=1762921 U=0.089821 z=-1.3419
-  [INFO] testu01::lzw_rep04                    W=1762998 U=0.836558 z=0.9804
-  [INFO] testu01::lzw_rep05                    W=1762951 U=0.331865 z=-0.4348
-  [INFO] testu01::lzw_rep06                    W=1763024 U=0.957381 z=1.7211
-  [INFO] testu01::lzw_rep07                    W=1763014 U=0.924491 z=1.4359
-  [INFO] testu01::lzw_rep08                    W=1762970 U=0.554925 z=0.1381
-  [INFO] testu01::lzw_rep09                    W=1762962 U=0.464433 z=-0.0893
-  [INFO] testu01::lzw_rep10                    W=1762980 U=0.671675 z=0.4445
+  [PASS] testu01::lzw_sum                                  p = 0.766995  (N=10, k=25, r=0, s=30, pit_seed=1, Z=0.2963)
+  [PASS] testu01::lzw_ks                                   p = 0.894947  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762884 U=0.007733 z=-2.4213
+  [INFO] testu01::lzw_rep02                    W=1762984 U=0.704889 z=0.5385
+  [INFO] testu01::lzw_rep03                    W=1762921 U=0.090356 z=-1.3386
+  [INFO] testu01::lzw_rep04                    W=1762998 U=0.834003 z=0.9701
+  [INFO] testu01::lzw_rep05                    W=1762951 U=0.329785 z=-0.4405
+  [INFO] testu01::lzw_rep06                    W=1763024 U=0.957833 z=1.7261
+  [INFO] testu01::lzw_rep07                    W=1763014 U=0.925008 z=1.4396
+  [INFO] testu01::lzw_rep08                    W=1762970 U=0.549484 z=0.1244
+  [INFO] testu01::lzw_rep09                    W=1762962 U=0.461098 z=-0.0977
+  [INFO] testu01::lzw_rep10                    W=1762980 U=0.668714 z=0.4364
 
 BAD Unix BSD random()
-  [PASS] testu01::lzw_sum                                  p = 0.913444  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.1087)
-  [PASS] testu01::lzw_ks                                   p = 0.993820  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762964 U=0.478113 z=-0.0549
-  [INFO] testu01::lzw_rep02                    W=1763021 U=0.948391 z=1.6294
-  [INFO] testu01::lzw_rep03                    W=1762904 U=0.032027 z=-1.8518
-  [INFO] testu01::lzw_rep04                    W=1762982 U=0.693300 z=0.5052
-  [INFO] testu01::lzw_rep05                    W=1763007 U=0.890324 z=1.2283
-  [INFO] testu01::lzw_rep06                    W=1762961 U=0.443325 z=-0.1425
-  [INFO] testu01::lzw_rep07                    W=1762949 U=0.310867 z=-0.4934
-  [INFO] testu01::lzw_rep08                    W=1762981 U=0.677739 z=0.4614
-  [INFO] testu01::lzw_rep09                    W=1762932 U=0.154946 z=-1.0154
-  [INFO] testu01::lzw_rep10                    W=1762945 U=0.270944 z=-0.6100
+  [PASS] testu01::lzw_sum                                  p = 0.914980  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.1068)
+  [PASS] testu01::lzw_ks                                   p = 0.991996  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762964 U=0.475307 z=-0.0619
+  [INFO] testu01::lzw_rep02                    W=1763021 U=0.949040 z=1.6356
+  [INFO] testu01::lzw_rep03                    W=1762904 U=0.033166 z=-1.8362
+  [INFO] testu01::lzw_rep04                    W=1762982 U=0.689911 z=0.4956
+  [INFO] testu01::lzw_rep05                    W=1763007 U=0.890830 z=1.2310
+  [INFO] testu01::lzw_rep06                    W=1762961 U=0.440466 z=-0.1498
+  [INFO] testu01::lzw_rep07                    W=1762949 U=0.308991 z=-0.4987
+  [INFO] testu01::lzw_rep08                    W=1762981 U=0.675134 z=0.4541
+  [INFO] testu01::lzw_rep09                    W=1762932 U=0.159754 z=-0.9955
+  [INFO] testu01::lzw_rep10                    W=1762945 U=0.270324 z=-0.6118
 
 BAD Unix Linux glibc rand()/random()
-  [PASS] testu01::lzw_sum                                  p = 0.913444  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.1087)
-  [PASS] testu01::lzw_ks                                   p = 0.993820  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762964 U=0.478113 z=-0.0549
-  [INFO] testu01::lzw_rep02                    W=1763021 U=0.948391 z=1.6294
-  [INFO] testu01::lzw_rep03                    W=1762904 U=0.032027 z=-1.8518
-  [INFO] testu01::lzw_rep04                    W=1762982 U=0.693300 z=0.5052
-  [INFO] testu01::lzw_rep05                    W=1763007 U=0.890324 z=1.2283
-  [INFO] testu01::lzw_rep06                    W=1762961 U=0.443325 z=-0.1425
-  [INFO] testu01::lzw_rep07                    W=1762949 U=0.310867 z=-0.4934
-  [INFO] testu01::lzw_rep08                    W=1762981 U=0.677739 z=0.4614
-  [INFO] testu01::lzw_rep09                    W=1762932 U=0.154946 z=-1.0154
-  [INFO] testu01::lzw_rep10                    W=1762945 U=0.270944 z=-0.6100
+  [PASS] testu01::lzw_sum                                  p = 0.914980  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-0.1068)
+  [PASS] testu01::lzw_ks                                   p = 0.991996  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762964 U=0.475307 z=-0.0619
+  [INFO] testu01::lzw_rep02                    W=1763021 U=0.949040 z=1.6356
+  [INFO] testu01::lzw_rep03                    W=1762904 U=0.033166 z=-1.8362
+  [INFO] testu01::lzw_rep04                    W=1762982 U=0.689911 z=0.4956
+  [INFO] testu01::lzw_rep05                    W=1763007 U=0.890830 z=1.2310
+  [INFO] testu01::lzw_rep06                    W=1762961 U=0.440466 z=-0.1498
+  [INFO] testu01::lzw_rep07                    W=1762949 U=0.308991 z=-0.4987
+  [INFO] testu01::lzw_rep08                    W=1762981 U=0.675134 z=0.4541
+  [INFO] testu01::lzw_rep09                    W=1762932 U=0.159754 z=-0.9955
+  [INFO] testu01::lzw_rep10                    W=1762945 U=0.270324 z=-0.6118
 
 BAD Windows CRT rand()
-  [PASS] testu01::lzw_sum                                  p = 0.177062  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.3499)
-  [PASS] testu01::lzw_ks                                   p = 0.453306  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762952 U=0.338317 z=-0.4171
-  [INFO] testu01::lzw_rep02                    W=1763026 U=0.961849 z=1.7726
-  [INFO] testu01::lzw_rep03                    W=1762990 U=0.769659 z=0.7377
-  [INFO] testu01::lzw_rep04                    W=1762961 U=0.449522 z=-0.1269
-  [INFO] testu01::lzw_rep05                    W=1763020 U=0.946377 z=1.6107
-  [INFO] testu01::lzw_rep06                    W=1762944 U=0.256224 z=-0.6550
-  [INFO] testu01::lzw_rep07                    W=1762963 U=0.471103 z=-0.0725
-  [INFO] testu01::lzw_rep08                    W=1762997 U=0.826199 z=0.9393
-  [INFO] testu01::lzw_rep09                    W=1762973 U=0.595852 z=0.2426
-  [INFO] testu01::lzw_rep10                    W=1762973 U=0.593758 z=0.2372
+  [PASS] testu01::lzw_sum                                  p = 0.181593  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.3359)
+  [PASS] testu01::lzw_ks                                   p = 0.457950  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762952 U=0.336293 z=-0.4226
+  [INFO] testu01::lzw_rep02                    W=1763026 U=0.962923 z=1.7857
+  [INFO] testu01::lzw_rep03                    W=1762990 U=0.766392 z=0.7270
+  [INFO] testu01::lzw_rep04                    W=1762961 U=0.446799 z=-0.1338
+  [INFO] testu01::lzw_rep05                    W=1763020 U=0.947007 z=1.6165
+  [INFO] testu01::lzw_rep06                    W=1762944 U=0.255272 z=-0.6580
+  [INFO] testu01::lzw_rep07                    W=1762963 U=0.468098 z=-0.0801
+  [INFO] testu01::lzw_rep08                    W=1762997 U=0.823727 z=0.9297
+  [INFO] testu01::lzw_rep09                    W=1762973 U=0.592028 z=0.2328
+  [INFO] testu01::lzw_rep10                    W=1762973 U=0.589856 z=0.2272
 
 BAD Windows VB6/VBA Rnd()
-  [FAIL] testu01::lzw_sum                                  p = 2.029e-35  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-12.4203)
-  [FAIL] testu01::lzw_ks                                   p = 3.550e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1755485 U=0.000012 z=-4.2153
-  [INFO] testu01::lzw_rep02                    W=1755545 U=0.000017 z=-4.1440
-  [INFO] testu01::lzw_rep03                    W=1755563 U=0.000062 z=-3.8372
-  [INFO] testu01::lzw_rep04                    W=1755535 U=0.000076 z=-3.7887
-  [INFO] testu01::lzw_rep05                    W=1755551 U=0.000052 z=-3.8801
-  [INFO] testu01::lzw_rep06                    W=1755521 U=0.000024 z=-4.0687
-  [INFO] testu01::lzw_rep07                    W=1755536 U=0.000054 z=-3.8727
-  [INFO] testu01::lzw_rep08                    W=1755473 U=0.000037 z=-3.9607
-  [INFO] testu01::lzw_rep09                    W=1755512 U=0.000097 z=-3.7268
-  [INFO] testu01::lzw_rep10                    W=1755564 U=0.000078 z=-3.7821
+  [FAIL] testu01::lzw_sum                                  p = 5.471e-45  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-14.0742)
+  [FAIL] testu01::lzw_ks                                   p = 3.536e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1755485 U=0.000001 z=-4.7086
+  [INFO] testu01::lzw_rep02                    W=1755545 U=0.000002 z=-4.6442
+  [INFO] testu01::lzw_rep03                    W=1755563 U=0.000006 z=-4.3696
+  [INFO] testu01::lzw_rep04                    W=1755535 U=0.000008 z=-4.3266
+  [INFO] testu01::lzw_rep05                    W=1755551 U=0.000005 z=-4.4078
+  [INFO] testu01::lzw_rep06                    W=1755521 U=0.000002 z=-4.5765
+  [INFO] testu01::lzw_rep07                    W=1755536 U=0.000005 z=-4.4012
+  [INFO] testu01::lzw_rep08                    W=1755473 U=0.000004 z=-4.4797
+  [INFO] testu01::lzw_rep09                    W=1755512 U=0.000010 z=-4.2717
+  [INFO] testu01::lzw_rep10                    W=1755564 U=0.000008 z=-4.3207
 
 BAD Windows .NET Random(seed)
-  [PASS] testu01::lzw_sum                                  p = 0.240978  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.1725)
-  [PASS] testu01::lzw_ks                                   p = 0.199677  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762967 U=0.515394 z=0.0386
-  [INFO] testu01::lzw_rep02                    W=1762886 U=0.009449 z=-2.3475
-  [INFO] testu01::lzw_rep03                    W=1762991 U=0.779531 z=0.7706
-  [INFO] testu01::lzw_rep04                    W=1762976 U=0.629089 z=0.3294
-  [INFO] testu01::lzw_rep05                    W=1763020 U=0.946377 z=1.6107
-  [INFO] testu01::lzw_rep06                    W=1762976 U=0.622684 z=0.3125
-  [INFO] testu01::lzw_rep07                    W=1762883 U=0.008167 z=-2.4013
-  [INFO] testu01::lzw_rep08                    W=1763001 U=0.853421 z=1.0512
-  [INFO] testu01::lzw_rep09                    W=1763018 U=0.941106 z=1.5641
-  [INFO] testu01::lzw_rep10                    W=1763062 U=0.997278 z=2.7796
+  [PASS] testu01::lzw_sum                                  p = 0.237119  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.1822)
+  [PASS] testu01::lzw_ks                                   p = 0.211308  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762967 U=0.511173 z=0.0280
+  [INFO] testu01::lzw_rep02                    W=1762886 U=0.009117 z=-2.3608
+  [INFO] testu01::lzw_rep03                    W=1762991 U=0.775461 z=0.7570
+  [INFO] testu01::lzw_rep04                    W=1762976 U=0.624416 z=0.3171
+  [INFO] testu01::lzw_rep05                    W=1763020 U=0.947007 z=1.6165
+  [INFO] testu01::lzw_rep06                    W=1762976 U=0.618599 z=0.3018
+  [INFO] testu01::lzw_rep07                    W=1762883 U=0.007381 z=-2.4382
+  [INFO] testu01::lzw_rep08                    W=1763001 U=0.852498 z=1.0472
+  [INFO] testu01::lzw_rep09                    W=1763018 U=0.941798 z=1.5700
+  [INFO] testu01::lzw_rep10                    W=1763062 U=0.998133 z=2.8999
 
 ANSI C sample LCG
-  [FAIL] testu01::lzw_sum                                  p = 2.029e-35  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-12.4203)
-  [FAIL] testu01::lzw_ks                                   p = 3.550e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1761859 U=0.000012 z=-4.2153
-  [INFO] testu01::lzw_rep02                    W=1761837 U=0.000017 z=-4.1440
-  [INFO] testu01::lzw_rep03                    W=1761768 U=0.000062 z=-3.8372
-  [INFO] testu01::lzw_rep04                    W=1761798 U=0.000076 z=-3.7887
-  [INFO] testu01::lzw_rep05                    W=1761764 U=0.000052 z=-3.8801
-  [INFO] testu01::lzw_rep06                    W=1761816 U=0.000024 z=-4.0687
-  [INFO] testu01::lzw_rep07                    W=1761741 U=0.000054 z=-3.8727
-  [INFO] testu01::lzw_rep08                    W=1761768 U=0.000037 z=-3.9607
-  [INFO] testu01::lzw_rep09                    W=1761800 U=0.000097 z=-3.7268
-  [INFO] testu01::lzw_rep10                    W=1761780 U=0.000078 z=-3.7821
+  [FAIL] testu01::lzw_sum                                  p = 5.471e-45  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-14.0742)
+  [FAIL] testu01::lzw_ks                                   p = 3.536e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1761859 U=0.000001 z=-4.7086
+  [INFO] testu01::lzw_rep02                    W=1761837 U=0.000002 z=-4.6442
+  [INFO] testu01::lzw_rep03                    W=1761768 U=0.000006 z=-4.3696
+  [INFO] testu01::lzw_rep04                    W=1761798 U=0.000008 z=-4.3266
+  [INFO] testu01::lzw_rep05                    W=1761764 U=0.000005 z=-4.4078
+  [INFO] testu01::lzw_rep06                    W=1761816 U=0.000002 z=-4.5765
+  [INFO] testu01::lzw_rep07                    W=1761741 U=0.000005 z=-4.4012
+  [INFO] testu01::lzw_rep08                    W=1761768 U=0.000004 z=-4.4797
+  [INFO] testu01::lzw_rep09                    W=1761800 U=0.000010 z=-4.2717
+  [INFO] testu01::lzw_rep10                    W=1761780 U=0.000008 z=-4.3207
 
 LCG MINSTD
-  [FAIL] testu01::lzw_sum                                  p = 2.029e-35  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-12.4203)
-  [FAIL] testu01::lzw_ks                                   p = 3.550e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1761746 U=0.000012 z=-4.2153
-  [INFO] testu01::lzw_rep02                    W=1761663 U=0.000017 z=-4.1440
-  [INFO] testu01::lzw_rep03                    W=1761733 U=0.000062 z=-3.8372
-  [INFO] testu01::lzw_rep04                    W=1761659 U=0.000076 z=-3.7887
-  [INFO] testu01::lzw_rep05                    W=1761751 U=0.000052 z=-3.8801
-  [INFO] testu01::lzw_rep06                    W=1761622 U=0.000024 z=-4.0687
-  [INFO] testu01::lzw_rep07                    W=1761706 U=0.000054 z=-3.8727
-  [INFO] testu01::lzw_rep08                    W=1761722 U=0.000037 z=-3.9607
-  [INFO] testu01::lzw_rep09                    W=1761708 U=0.000097 z=-3.7268
-  [INFO] testu01::lzw_rep10                    W=1761669 U=0.000078 z=-3.7821
+  [FAIL] testu01::lzw_sum                                  p = 5.471e-45  (N=10, k=25, r=0, s=30, pit_seed=1, Z=-14.0742)
+  [FAIL] testu01::lzw_ks                                   p = 3.536e-10  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1761746 U=0.000001 z=-4.7086
+  [INFO] testu01::lzw_rep02                    W=1761663 U=0.000002 z=-4.6442
+  [INFO] testu01::lzw_rep03                    W=1761733 U=0.000006 z=-4.3696
+  [INFO] testu01::lzw_rep04                    W=1761659 U=0.000008 z=-4.3266
+  [INFO] testu01::lzw_rep05                    W=1761751 U=0.000005 z=-4.4078
+  [INFO] testu01::lzw_rep06                    W=1761622 U=0.000002 z=-4.5765
+  [INFO] testu01::lzw_rep07                    W=1761706 U=0.000005 z=-4.4012
+  [INFO] testu01::lzw_rep08                    W=1761722 U=0.000004 z=-4.4797
+  [INFO] testu01::lzw_rep09                    W=1761708 U=0.000010 z=-4.2717
+  [INFO] testu01::lzw_rep10                    W=1761669 U=0.000008 z=-4.3207
 
 AES-128-CTR
-  [PASS] testu01::lzw_sum                                  p = 0.060670  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.8759)
-  [PASS] testu01::lzw_ks                                   p = 0.244179  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762990 U=0.764932 z=0.7223
-  [INFO] testu01::lzw_rep02                    W=1762977 U=0.633934 z=0.3423
-  [INFO] testu01::lzw_rep03                    W=1762968 U=0.534110 z=0.0856
-  [INFO] testu01::lzw_rep04                    W=1763003 U=0.869148 z=1.1224
-  [INFO] testu01::lzw_rep05                    W=1762950 U=0.321180 z=-0.4644
-  [INFO] testu01::lzw_rep06                    W=1762949 U=0.307879 z=-0.5019
-  [INFO] testu01::lzw_rep07                    W=1763021 U=0.949640 z=1.6414
-  [INFO] testu01::lzw_rep08                    W=1763026 U=0.962255 z=1.7775
-  [INFO] testu01::lzw_rep09                    W=1762964 U=0.489013 z=-0.0275
-  [INFO] testu01::lzw_rep10                    W=1763007 U=0.891499 z=1.2345
+  [PASS] testu01::lzw_sum                                  p = 0.062319  (N=10, k=25, r=0, s=30, pit_seed=1, Z=1.8640)
+  [PASS] testu01::lzw_ks                                   p = 0.250374  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762990 U=0.761748 z=0.7119
+  [INFO] testu01::lzw_rep02                    W=1762977 U=0.629106 z=0.3295
+  [INFO] testu01::lzw_rep03                    W=1762968 U=0.528858 z=0.0724
+  [INFO] testu01::lzw_rep04                    W=1763003 U=0.868340 z=1.1186
+  [INFO] testu01::lzw_rep05                    W=1762950 U=0.319150 z=-0.4701
+  [INFO] testu01::lzw_rep06                    W=1762949 U=0.305976 z=-0.5073
+  [INFO] testu01::lzw_rep07                    W=1763021 U=0.950135 z=1.6462
+  [INFO] testu01::lzw_rep08                    W=1763026 U=0.963365 z=1.7912
+  [INFO] testu01::lzw_rep09                    W=1762964 U=0.485516 z=-0.0363
+  [INFO] testu01::lzw_rep10                    W=1763007 U=0.892237 z=1.2385
 
 cryptography::CtrDrbgAes256
-  [PASS] testu01::lzw_sum                                  p = 0.573631  (N=10, k=25, r=0, s=30, pit_seed=1, Z=0.5627)
-  [PASS] testu01::lzw_ks                                   p = 0.814483  (N=10, k=25, r=0, s=30, pit_seed=1)
-  [INFO] testu01::lzw_rep01                    W=1762988 U=0.745911 z=0.6617
-  [INFO] testu01::lzw_rep02                    W=1763007 U=0.888707 z=1.2197
-  [INFO] testu01::lzw_rep03                    W=1763003 U=0.868272 z=1.1183
-  [INFO] testu01::lzw_rep04                    W=1762932 U=0.153373 z=-1.0221
-  [INFO] testu01::lzw_rep05                    W=1762953 U=0.354369 z=-0.3736
-  [INFO] testu01::lzw_rep06                    W=1762982 U=0.686947 z=0.4872
-  [INFO] testu01::lzw_rep07                    W=1762965 U=0.495752 z=-0.0106
-  [INFO] testu01::lzw_rep08                    W=1762954 U=0.364049 z=-0.3477
-  [INFO] testu01::lzw_rep09                    W=1763001 U=0.857236 z=1.0680
-  [INFO] testu01::lzw_rep10                    W=1762932 U=0.153524 z=-1.0214
+  [PASS] testu01::lzw_sum                                  p = 0.574148  (N=10, k=25, r=0, s=30, pit_seed=1, Z=0.5620)
+  [PASS] testu01::lzw_ks                                   p = 0.827023  (N=10, k=25, r=0, s=30, pit_seed=1)
+  [INFO] testu01::lzw_rep01                    W=1762988 U=0.743139 z=0.6531
+  [INFO] testu01::lzw_rep02                    W=1763007 U=0.888893 z=1.2207
+  [INFO] testu01::lzw_rep03                    W=1763003 U=0.867416 z=1.1143
+  [INFO] testu01::lzw_rep04                    W=1762932 U=0.158115 z=-1.0022
+  [INFO] testu01::lzw_rep05                    W=1762953 U=0.352274 z=-0.3792
+  [INFO] testu01::lzw_rep06                    W=1762982 U=0.684344 z=0.4799
+  [INFO] testu01::lzw_rep07                    W=1762965 U=0.492135 z=-0.0197
+  [INFO] testu01::lzw_rep08                    W=1762954 U=0.361864 z=-0.3535
+  [INFO] testu01::lzw_rep09                    W=1763001 U=0.856653 z=1.0654
+  [INFO] testu01::lzw_rep10                    W=1762932 U=0.158272 z=-1.0016
 
 
 ========================================================================
