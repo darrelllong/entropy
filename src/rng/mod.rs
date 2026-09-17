@@ -61,7 +61,7 @@ pub use hash_drbg::HashDrbg;
 pub use hmac_drbg::HmacDrbg;
 pub use lcg::{Lcg32, LcgVariant};
 pub use mt19937::Mt19937;
-pub use os::OsRng;
+pub use os::{os_random, OsRng};
 pub use pcg::{Pcg32, Pcg64};
 pub use sample::Sample;
 pub use sfc::{Jsf64, Sfc64};

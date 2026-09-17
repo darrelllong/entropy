@@ -1,7 +1,8 @@
 //! OS entropy source via `/dev/urandom`.
 
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Read};
+use std::sync::OnceLock;
 
 use super::Rng;
 #[cfg(feature = "cryptography")]
@@ -41,34 +42,84 @@ const BUF_LEN: usize = 256;
 /// at boot until the CSPRNG is seeded, so this concern is macOS-specific only
 /// at very early boot.
 ///
-/// For this test harness running on a fully-booted system, `/dev/urandom` is
-/// fine.  In production, use `getrandom(2)` or a platform API that guarantees
-/// the entropy pool is initialized before returning.
+/// On Linux, before its first read the process reads one byte from
+/// `/dev/random`, which since Linux 5.6 blocks until the kernel pool is
+/// initialized and then never again, and older kernels release once the pool
+/// holds enough entropy: after it returns, `/dev/urandom` is seeded, as
+/// `getrandom(2)` with no flags would guarantee.  The check runs once per
+/// process.  [`OsRng::try_new`], [`OsRng::try_fill`] and [`os_random`] report
+/// errors instead of panicking.
 pub struct OsRng {
     file: File,
     buf: [u8; BUF_LEN],
     pos: usize, // index of next unread byte; BUF_LEN = exhausted
 }
 
+/// Wait, once per process, until the kernel's pool is initialized: on Linux
+/// by reading one byte from `/dev/random`; elsewhere `/dev/urandom` itself
+/// blocks until seeded.
+fn pool_ready() -> io::Result<()> {
+    static READY: OnceLock<Result<(), (io::ErrorKind, String)>> = OnceLock::new();
+    let outcome = READY.get_or_init(|| {
+        if cfg!(target_os = "linux") {
+            let mut byte = [0u8; 1];
+            File::open("/dev/random")
+                .and_then(|mut f| f.read_exact(&mut byte))
+                .map_err(|e| (e.kind(), e.to_string()))
+        } else {
+            Ok(())
+        }
+    });
+    outcome
+        .clone()
+        .map_err(|(kind, message)| io::Error::new(kind, message))
+}
+
+/// Fill `bytes` from the operating system's entropy source, once its pool is
+/// initialized, without keeping a copy.
+///
+/// # Errors
+/// Any error opening or reading `/dev/random` or `/dev/urandom`, including
+/// `NotFound` on a system without them.
+pub fn os_random(bytes: &mut [u8]) -> io::Result<()> {
+    pool_ready()?;
+    File::open("/dev/urandom")?.read_exact(bytes)
+}
+
 impl OsRng {
     /// Open `/dev/urandom`.
     ///
     /// # Panics
-    /// Panics if `/dev/urandom` cannot be opened — normal on non-Unix targets,
-    /// where `OsRng` is unsupported (see the type-level Platform support note).
+    /// Panics if [`OsRng::try_new`] fails — normal on non-Unix targets, where
+    /// `OsRng` is unsupported (see the type-level Platform support note).
     pub fn new() -> Self {
-        let file = File::open("/dev/urandom").unwrap_or_else(|e| {
+        Self::try_new().unwrap_or_else(|e| {
             panic!(
-                "OsRng: cannot open /dev/urandom ({e}). OsRng is Unix-only; on \
-                 other platforms use a non-OS generator or add a getrandom-based \
-                 entropy source."
+                "OsRng: cannot use /dev/urandom ({e}). OsRng is Unix-only; on \
+                 other platforms use a non-OS generator."
             )
-        });
-        Self {
-            file,
+        })
+    }
+
+    /// Open `/dev/urandom` once the kernel's pool is initialized.
+    ///
+    /// # Errors
+    /// Any error opening `/dev/urandom` or waiting on `/dev/random`.
+    pub fn try_new() -> io::Result<Self> {
+        pool_ready()?;
+        Ok(Self {
+            file: File::open("/dev/urandom")?,
             buf: [0u8; BUF_LEN],
             pos: BUF_LEN, // force a refill on first use
-        }
+        })
+    }
+
+    /// Fill `bytes` straight from the device, bypassing the word buffer.
+    ///
+    /// # Errors
+    /// Any read error.
+    pub fn try_fill(&mut self, bytes: &mut [u8]) -> io::Result<()> {
+        self.file.read_exact(bytes)
     }
 }
 
@@ -101,5 +152,18 @@ impl Rng for OsRng {
         let w = u32::from_le_bytes(self.buf[self.pos..self.pos + 4].try_into().unwrap());
         self.pos += 4;
         w
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn fallible_reads_fill_buffers() {
+        let mut a = [0u8; 64];
+        let mut b = [0u8; 64];
+        super::os_random(&mut a).unwrap();
+        super::OsRng::try_new().unwrap().try_fill(&mut b).unwrap();
+        assert_ne!(a, [0u8; 64]);
+        assert_ne!(a, b);
     }
 }
