@@ -248,7 +248,14 @@ const GAMMA_TOLERANCE: f64 = 1e-15;
 ///   1/(x + 1 − a − 1·(1 − a)/(x + 3 − a − 2·(2 − a)/(x + 5 − a − …)))
 ///   (DLMF 8.9.2), evaluated by the modified Lentz algorithm (W. J. Lentz,
 ///   *Applied Optics* 15 (1976); I. J. Thompson and A. R. Barnett, *J.
-///   Computational Physics* 64 (1986)).
+///   Computational Physics* 64 (1986));
+/// - for a < 1/10 and x < a + 1, where Q is small because a is and 1 − P would
+///   lose it to rounding, Q is computed directly from
+///   γ(a, x) = xᵃ Σₖ (−x)ᵏ/(k!(a + k)) (DLMF 8.7.3):
+///   Q = −expm1(u) − a·eᵘ·Σ_{k≥1} (−x)ᵏ/(k!(a + k)), u = a·ln x − ln Γ(1 + a),
+///   with ln Γ(1 + a) from its Taylor series (DLMF 5.7.3), which stays
+///   accurate relative to a however small a is.  Neither term cancels: the
+///   sum is negative.
 ///
 /// Both need O(√a) terms near x ≈ a, the bulk of a χ² distribution, so the
 /// iteration budget grows with √a.  Returns NaN if a is not a positive finite
@@ -264,6 +271,9 @@ pub fn igamc(a: f64, x: f64) -> f64 {
     if x.is_infinite() {
         return 0.0;
     }
+    if a < SMALL_SHAPE && x < a + 1.0 {
+        return small_shape_upper_gamma(a, x).unwrap_or(f64::NAN);
+    }
     let ln_prefactor = a * x.ln() - x - lgamma(a);
     if x < a + 1.0 {
         lower_gamma_series(a, x, ln_prefactor).map_or(f64::NAN, |p| 1.0 - p)
@@ -278,6 +288,79 @@ fn gamma_iterations(a: f64) -> u64 {
 }
 
 /// P(a, x) by the series of DLMF 8.7.1, or `None` without convergence.
+/// Shapes below which [`igamc`] computes Q directly rather than as 1 − P.
+const SMALL_SHAPE: f64 = 0.1;
+
+/// Euler's constant γ.
+const EULER_GAMMA: f64 = 0.577_215_664_901_532_9;
+
+/// ζ(k) for k = 2 … `ZETA_TERMS` + 1: the sum of n⁻ᵏ to n = 63 plus the
+/// Euler–Maclaurin tail from 64, through its B₈ term (DLMF 2.10.1).
+fn zeta_table() -> &'static [f64] {
+    static TABLE: std::sync::OnceLock<Vec<f64>> = std::sync::OnceLock::new();
+    TABLE.get_or_init(|| {
+        const N: f64 = 64.0;
+        // B₂ⱼ/(2j)! for j = 1 … 4.
+        const BERNOULLI_OVER_FACTORIAL: [f64; 4] =
+            [1.0 / 12.0, -1.0 / 720.0, 1.0 / 30_240.0, -1.0 / 1_209_600.0];
+        (2..ZETA_TERMS + 2)
+            .map(|k| {
+                let s = k as f64;
+                let head: f64 = (1..64).rev().map(|n| (n as f64).powf(-s)).sum();
+                let mut tail = N.powf(1.0 - s) / (s - 1.0) + 0.5 * N.powf(-s);
+                // The j-th correction is B₂ⱼ/(2j)! · s(s + 1)…(s + 2j − 2) · N^(−s−2j+1).
+                let mut rising = s;
+                for (j, b) in BERNOULLI_OVER_FACTORIAL.iter().enumerate() {
+                    if j > 0 {
+                        rising *= (s + 2.0 * j as f64 - 1.0) * (s + 2.0 * j as f64);
+                    }
+                    tail += b * rising * N.powf(-s - 2.0 * j as f64 - 1.0);
+                }
+                head + tail
+            })
+            .collect()
+    })
+}
+
+/// Terms of the ln Γ(1 + a) series: aᵏ < 10⁻¹⁷ for a < 1/10.
+const ZETA_TERMS: usize = 17;
+
+/// ln Γ(1 + a) = −γa + Σ_{k≥2} (−1)ᵏ ζ(k) aᵏ/k (DLMF 5.7.3), for 0 < a < 1/10.
+fn ln_gamma_one_plus_small(a: f64) -> f64 {
+    let mut sum = 0.0;
+    // (−a)ᵏ, starting from k = 1.
+    let mut power = -a;
+    for (i, zeta) in zeta_table().iter().enumerate() {
+        let k = (i + 2) as f64;
+        power *= -a;
+        sum += zeta * power / k;
+    }
+    sum - EULER_GAMMA * a
+}
+
+/// Q(a, x) for 0 < a < 1/10 and 0 < x < a + 1; see [`igamc`].
+fn small_shape_upper_gamma(a: f64, x: f64) -> Option<f64> {
+    let u = a * x.ln() - ln_gamma_one_plus_small(a);
+    // Σ_{k≥1} (−x)ᵏ/(k!(a + k)); x < 1.1, so the terms fall at least as fast
+    // as xᵏ/k!.
+    let mut power = 1.0;
+    let mut sum = 0.0;
+    for k in 1..=60 {
+        let kf = k as f64;
+        power *= -x / kf;
+        let term = power / (a + kf);
+        sum += term;
+        if !sum.is_finite() {
+            return None;
+        }
+        if term.abs() <= sum.abs() * GAMMA_TOLERANCE {
+            let q = -u.exp_m1() - a * u.exp() * sum;
+            return q.is_finite().then_some(q);
+        }
+    }
+    None
+}
+
 fn lower_gamma_series(a: f64, x: f64, ln_prefactor: f64) -> Option<f64> {
     let mut term = 1.0 / a;
     let mut sum = term;
@@ -286,6 +369,9 @@ fn lower_gamma_series(a: f64, x: f64, ln_prefactor: f64) -> Option<f64> {
         denominator += 1.0;
         term *= x / denominator;
         sum += term;
+        if !sum.is_finite() {
+            return None;
+        }
         if term.abs() <= sum.abs() * GAMMA_TOLERANCE {
             return Some(sum * ln_prefactor.exp());
         }
@@ -319,6 +405,9 @@ fn upper_gamma_fraction(a: f64, x: f64, ln_prefactor: f64) -> Option<f64> {
         c = nonzero(denominator + numerator / c);
         let factor = c * d;
         value *= factor;
+        if !value.is_finite() {
+            return None;
+        }
         if (factor - 1.0).abs() <= GAMMA_TOLERANCE {
             return Some(value * ln_prefactor.exp());
         }
@@ -1350,6 +1439,45 @@ mod tests {
     }
 
     // Large shape parameters need O(√a) iterations.
+    #[test]
+    fn igamc_small_shapes() {
+        // R 4.2.0, pgamma(x, a, lower.tail = FALSE).
+        for (a, x, q) in [
+            (1e-310, 1e-310, 7.132_241_631_632_851_5e-308),
+            (1e-300, 1e-300, 6.901_983_122_332_725_6e-298),
+            (1e-100, 1e-100, 2.296_812_936_345_03e-98),
+            (1e-20, 1e-20, 4.547_448_619_497_938_5e-19),
+            (1e-5, 1e-5, 1.093_513_009_563_298_9e-4),
+            (0.05, 0.03, 0.139_200_351_040_582_62),
+            (0.09, 1.05, 0.019_869_336_725_188_227),
+            (1e-8, 0.5, 5.597_735_977_099_586_7e-9),
+            (0.01, 1e-10, 0.201_138_908_566_394_8),
+        ] {
+            let got = igamc(a, x);
+            assert!(
+                (got - q).abs() <= 1e-12 * q,
+                "Q({a}, {x}) = {got}, want {q}"
+            );
+        }
+        // Q(a, x) → a·E₁(x) as a → 0; E₁(1) = 0.219 383 934 395 520 27.
+        let q = igamc(1e-20, 1.0);
+        assert!((q / 1e-20 - 0.219_383_934_395_520_27).abs() < 1e-12, "{q}");
+        // The branches agree where they meet, at a = 1/10.
+        for x in [0.01, 0.5, 1.09] {
+            let below = igamc(0.1 * (1.0 - 1e-12), x);
+            let at = igamc(0.1, x);
+            assert!((below - at).abs() < 1e-11, "x = {x}: {below} vs {at}");
+        }
+    }
+
+    /// ζ(2) = π²/6 and ζ(4) = π⁴/90.
+    #[test]
+    fn zeta_table_matches_closed_forms() {
+        let pi = std::f64::consts::PI;
+        assert!((zeta_table()[0] - pi * pi / 6.0).abs() < 4e-16);
+        assert!((zeta_table()[2] - pi.powi(4) / 90.0).abs() < 4e-16);
+    }
+
     #[test]
     fn igamc_large_shape_parameter() {
         assert!((igamc(20_000.0, 20_000.0) - 0.49905968376625065).abs() < 1e-6);
