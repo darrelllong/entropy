@@ -40,12 +40,17 @@
 use crate::{result::TestResult, rng::Rng};
 use std::f64::consts::LN_2;
 
+/// The most bits a [`MarkovMixture`] accepts, 2⁵³: every count stays an
+/// integer that `f64` represents exactly.
+pub const MAX_BITS: u64 = 1 << 53;
+
 /// Markov models of orders 0 … `max_order` and their log-wealth.
 pub struct MarkovMixture {
     /// counts[k][context] = [zeros, ones] seen after that k-bit context.
-    counts: Vec<Vec<[u32; 2]>>,
+    counts: Vec<Vec<[u64; 2]>>,
     log_wealth: Vec<f64>,
     history: u64,
+    bits: u64,
 }
 
 impl MarkovMixture {
@@ -60,17 +65,23 @@ impl MarkovMixture {
             counts: (0..=max_order).map(|k| vec![[0, 0]; 1 << k]).collect(),
             log_wealth: vec![0.0; max_order + 1],
             history: 0,
+            bits: 0,
         }
     }
 
     /// Update every model with one bit.
+    ///
+    /// # Panics
+    /// Panics after [`MAX_BITS`] bits.
     pub fn push(&mut self, bit: bool) {
+        assert!(self.bits < MAX_BITS, "more than 2^53 bits");
+        self.bits += 1;
         let x = usize::from(bit);
         for (k, (table, log_w)) in self.counts.iter_mut().zip(&mut self.log_wealth).enumerate() {
             let context = (self.history & ((1u64 << k) - 1)) as usize;
             let cell = &mut table[context];
-            let n = f64::from(cell[0]) + f64::from(cell[1]);
-            let q = (f64::from(cell[x]) + 0.5) / (n + 1.0);
+            let n = (cell[0] + cell[1]) as f64;
+            let q = (cell[x] as f64 + 0.5) / (n + 1.0);
             *log_w += LN_2 + q.ln();
             cell[x] += 1;
         }
@@ -103,9 +114,17 @@ impl MarkovMixture {
 
 /// Run the mixture of orders 0 … `max_order` over `words` words of `rng`, bits
 /// least significant first, checking its wealth after every word, and report
-/// p = min(1, 1/sup E) as `sequential::markov_mixture`.
+/// p = min(1, 1/sup E) as `sequential::markov_mixture`.  The p-value is valid
+/// for stopping after any word; wealth is not inspected inside a word.
+///
+/// Log-wealth is a sum of one rounded logarithm per model per bit, so its
+/// floating error grows with the number of bits; the tests compare order 0
+/// with its closed form over 10⁵ bits.
 #[must_use]
 pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> TestResult {
+    if words as u64 > MAX_BITS / 32 {
+        return TestResult::unsupported("sequential::markov_mixture", "more than 2^48 words");
+    }
     let mut mixture = MarkovMixture::new(max_order);
     let mut sup_log = 0.0f64;
     let mut sup_at = 0usize;
@@ -164,6 +183,47 @@ mod tests {
             );
         }
         assert!((mixture_sum / strings - 1.0).abs() < 1e-12);
+    }
+
+    /// Order 0's wealth has the closed form
+    /// E = 2ⁿ·Γ(n₀ + ½)·Γ(n₁ + ½) / (π·Γ(n + 1)), 2ⁿ times the KT probability
+    /// of the string; the running sum of logarithms agrees over 10⁵ bits.
+    #[test]
+    fn order_zero_wealth_matches_its_closed_form() {
+        use crate::{math::lgamma, rng::Rng};
+        let mut rng = Pcg64::new(9, 9);
+        let mut m = MarkovMixture::new(0);
+        let (mut n0, mut n1) = (0u64, 0u64);
+        for i in 0..100_000 {
+            let bit = i % 3 == 0 || rng.next_u32() & 1 == 1;
+            m.push(bit);
+            if bit {
+                n1 += 1;
+            } else {
+                n0 += 1;
+            }
+        }
+        let n = (n0 + n1) as f64;
+        let exact = n * std::f64::consts::LN_2 + lgamma(n0 as f64 + 0.5) + lgamma(n1 as f64 + 0.5)
+            - std::f64::consts::PI.ln()
+            - lgamma(n + 1.0);
+        assert!(
+            (m.log_wealth[0] - exact).abs() < 1e-7,
+            "{} vs {exact}",
+            m.log_wealth[0]
+        );
+    }
+
+    /// A count past u32::MAX neither wraps nor panics.
+    #[test]
+    fn counts_pass_the_32_bit_boundary() {
+        let mut m = MarkovMixture::new(0);
+        m.counts[0][0] = [u64::from(u32::MAX), 0];
+        let before = m.log_wealth[0];
+        m.push(false);
+        assert_eq!(m.counts[0][0], [1u64 << 32, 0]);
+        // q = (2³² − ½)/2³², so the wealth nearly doubles.
+        assert!((m.log_wealth[0] - before - std::f64::consts::LN_2).abs() < 1e-9);
     }
 
     #[test]
