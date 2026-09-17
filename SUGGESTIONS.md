@@ -31,3 +31,13 @@ Improvements beyond the open defects in [AUDIT.md](AUDIT.md).
 
 - Name the calibration table or null model version in each result's
   `Statistic`, and record the exact input range a suite read in `--json`.
+
+## Application interface
+
+- `OsRng` reads `/dev/urandom` and is Unix-only.  Windows has no entropy
+  source reachable without FFI or a dependency; a platform crate owned here
+  would be needed.
+- The crate requires `std`.  A `no_std` core (generators, `Sample`,
+  `Seedable`) with the batteries behind a feature would serve embedded users.
+- `normal()` inverts by Newton's method, a few microseconds per draw.  A
+  ziggurat with tables derived here would be faster at the same tail accuracy.
