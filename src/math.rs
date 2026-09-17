@@ -258,8 +258,18 @@ const GAMMA_TOLERANCE: f64 = 1e-15;
 ///   sum is negative.
 ///
 /// Both need O(√a) terms near x ≈ a, the bulk of a χ² distribution, so the
-/// iteration budget grows with √a.  Returns NaN if a is not a positive finite
-/// number, x < 0, either is NaN, or the expansion does not converge.
+/// iteration budget grows with √a.
+///
+/// The direct prefactor subtracts terms of size a·ln a, so for a ≥ 20 it is
+/// taken from Stirling's series instead (see `stirling_ln_prefactor`), and
+/// for a ≥ 10⁵ Q comes from Temme's uniform asymptotic expansion (DLMF
+/// 8.12.3), which needs no iteration.  Against R's pgamma from a = 20 to 10¹⁴
+/// at up to three standard deviations, both tails agree within 2·10⁻¹⁴
+/// relative, less the absolute rounding of 1 − Q; far upper tails agree
+/// within about |ln Q|·ε.
+///
+/// Returns NaN if a is not a positive finite number, x < 0, either is NaN, or
+/// the expansion does not converge.
 #[must_use]
 pub fn igamc(a: f64, x: f64) -> f64 {
     if !(a > 0.0 && a.is_finite() && x >= 0.0) {
@@ -274,7 +284,14 @@ pub fn igamc(a: f64, x: f64) -> f64 {
     if a < SMALL_SHAPE && x < a + 1.0 {
         return small_shape_upper_gamma(a, x).unwrap_or(f64::NAN);
     }
-    let ln_prefactor = a * x.ln() - x - lgamma(a);
+    if a >= UNIFORM_SHAPE {
+        return uniform_upper_gamma(a, x);
+    }
+    let ln_prefactor = if a >= STIRLING_SHAPE {
+        stirling_ln_prefactor(a, x)
+    } else {
+        a * x.ln() - x - lgamma(a)
+    };
     if x < a + 1.0 {
         lower_gamma_series(a, x, ln_prefactor).map_or(f64::NAN, |p| 1.0 - p)
     } else {
@@ -282,12 +299,132 @@ pub fn igamc(a: f64, x: f64) -> f64 {
     }
 }
 
+/// Shapes from which [`igamc`] takes the prefactor from Stirling's series.
+const STIRLING_SHAPE: f64 = 20.0;
+
+/// Shapes from which [`igamc`] uses the uniform asymptotic expansion.
+const UNIFORM_SHAPE: f64 = 1e5;
+
+/// |μ| below which μ − ln(1 + μ) and the expansion coefficients are summed
+/// as power series in μ.
+const SERIES_MU: f64 = 0.25;
+
+/// Terms of the power series in μ.
+const MU_TERMS: usize = 48;
+
+/// φ(μ) = μ − ln(1 + μ) for μ > −1, which is ½η² in DLMF 8.12.  Near 0 the
+/// direct difference cancels, so there it is μ² Σⱼ (−μ)ʲ/(j + 2).
+fn log1p_deficit(mu: f64) -> f64 {
+    if mu.abs() >= SERIES_MU {
+        return mu - mu.ln_1p();
+    }
+    let mut sum = 0.0;
+    let mut power = 1.0;
+    for j in 0..MU_TERMS {
+        sum += power / (j + 2) as f64;
+        power *= -mu;
+    }
+    mu * mu * sum
+}
+
+/// ln(xᵃe⁻ˣ/Γ(a)) for a ≥ [`STIRLING_SHAPE`].  With
+/// ln Γ(a) = (a − ½) ln a − a + ½ ln 2π + ω(a) (DLMF 5.11.1) and μ = x/a − 1,
+///
+/// a ln x − x − ln Γ(a) = −a·φ(μ) + ½ ln(a/2π) − ω(a),
+///
+/// which keeps the O(a ln a) terms that cancel in the direct form out of the
+/// sum.  ω(a) = Σₖ B₂ₖ/(2k(2k − 1)a²ᵏ⁻¹) through B₁₂; at a = 20 the first
+/// omitted term is below 10⁻¹⁹.
+fn stirling_ln_prefactor(a: f64, x: f64) -> f64 {
+    // B₂ₖ/(2k(2k − 1)) for k = 1 … 6.
+    const STIRLING: [f64; 6] = [
+        1.0 / 12.0,
+        -1.0 / 360.0,
+        1.0 / 1260.0,
+        -1.0 / 1680.0,
+        1.0 / 1188.0,
+        -691.0 / 360_360.0,
+    ];
+    let inverse_square = 1.0 / (a * a);
+    let omega = STIRLING
+        .iter()
+        .rev()
+        .fold(0.0, |acc, c| acc * inverse_square + c)
+        / a;
+    let mu = (x - a) / a;
+    -a * log1p_deficit(mu) + 0.5 * (a / (2.0 * std::f64::consts::PI)).ln() - omega
+}
+
+/// Power-series coefficients of the first two coefficients of DLMF 8.12.4 in
+/// μ: `[c₀ coefficients, c₁ coefficients]`.
+///
+/// η² = μ²f(μ) with f = 1 + Σ_{j≥1} 2(−μ)ʲ/(j + 2), so 1/η = μ⁻¹f^{−1/2} and
+/// 1/η³ = μ⁻³f^{−3/2}.  The coefficients gₙ of f^α follow from
+/// n·gₙ = Σ_{k=1}^{n} ((α + 1)k − n)·fₖ·gₙ₋ₖ, which is f·g′ = α·f′·g
+/// compared term by term.  Then
+///
+/// - c₀ = 1/μ − 1/η = −Σ_{n≥1} gₙ μⁿ⁻¹ with α = −½, and
+/// - c₁ = 1/η³ − 1/μ³ − 1/μ² − 1/(12μ) = Σ_{n≥3} hₙ μⁿ⁻³ with α = −3/2,
+///
+/// the lower terms cancelling exactly because h₀ = h₁ = 1 and h₂ = 1/12.
+fn uniform_coefficient_series() -> &'static [Vec<f64>; 2] {
+    static TABLE: std::sync::OnceLock<[Vec<f64>; 2]> = std::sync::OnceLock::new();
+    TABLE.get_or_init(|| {
+        let n_max = MU_TERMS + 3;
+        let f: Vec<f64> = (0..=n_max)
+            .map(|j| match j {
+                0 => 1.0,
+                _ => 2.0 * if j % 2 == 0 { 1.0 } else { -1.0 } / (j + 2) as f64,
+            })
+            .collect();
+        let power = |alpha: f64| {
+            let mut g = vec![1.0];
+            for n in 1..=n_max {
+                let sum: f64 = (1..=n)
+                    .map(|k| ((alpha + 1.0) * k as f64 - n as f64) * f[k] * g[n - k])
+                    .sum();
+                g.push(sum / n as f64);
+            }
+            g
+        };
+        let g = power(-0.5);
+        let h = power(-1.5);
+        let c0 = g[1..=MU_TERMS].iter().map(|v| -v).collect();
+        let c1 = h[3..3 + MU_TERMS].to_vec();
+        [c0, c1]
+    })
+}
+
+/// Q(a, x) for a ≥ [`UNIFORM_SHAPE`] from Temme's uniform expansion
+/// (DLMF 8.12.3–8.12.4; N. M. Temme, *SIAM J. Math. Anal.* 10 (1979)):
+///
+/// Q(a, x) = ½ erfc(η√(a/2)) + e^{−aη²/2}/√(2πa) · (c₀(η) + c₁(η)/a + …),
+///
+/// with λ = x/a, μ = λ − 1, ½η² = μ − ln(1 + μ) and η taking the sign of μ.
+/// c₀ and c₁ are DLMF 8.12.8 and its successor, summed as power series in μ
+/// near μ = 0, where their closed forms cancel.  The first omitted term is
+/// c₂(η)/a² with c₂(0) = 25/6048, below 2·10⁻¹⁸ of e^{−aη²/2} at a = 10⁵.
+fn uniform_upper_gamma(a: f64, x: f64) -> f64 {
+    let mu = (x - a) / a;
+    let half_eta_squared = log1p_deficit(mu);
+    let eta = (2.0 * half_eta_squared).sqrt().copysign(mu);
+    let (c0, c1) = if mu.abs() < SERIES_MU {
+        let [s0, s1] = uniform_coefficient_series();
+        let horner = |c: &[f64]| c.iter().rev().fold(0.0, |acc, v| acc * mu + v);
+        (horner(s0), horner(s1))
+    } else {
+        let (m, e) = (1.0 / mu, 1.0 / eta);
+        (m - e, e * e * e - m * m * m - m * m - m / 12.0)
+    };
+    let tail = (-a * half_eta_squared).exp() / (2.0 * std::f64::consts::PI * a).sqrt();
+    0.5 * erfc(eta * (0.5 * a).sqrt()) + tail * (c0 + c1 / a)
+}
+
 /// Terms or convergents the incomplete-gamma expansions may take.
 fn gamma_iterations(a: f64) -> u64 {
     500 + (10.0 * a.sqrt()) as u64
 }
 
-/// P(a, x) by the series of DLMF 8.7.1, or `None` without convergence.
 /// Shapes below which [`igamc`] computes Q directly rather than as 1 − P.
 const SMALL_SHAPE: f64 = 0.1;
 
@@ -361,6 +498,7 @@ fn small_shape_upper_gamma(a: f64, x: f64) -> Option<f64> {
     None
 }
 
+/// P(a, x) by the series of DLMF 8.7.1, or `None` without convergence.
 fn lower_gamma_series(a: f64, x: f64, ln_prefactor: f64) -> Option<f64> {
     let mut term = 1.0 / a;
     let mut sum = term;
@@ -1485,8 +1623,347 @@ mod tests {
 
     #[test]
     fn igamc_large_shape_parameter() {
-        assert!((igamc(20_000.0, 20_000.0) - 0.49905968376625065).abs() < 1e-6);
-        assert!((igamc(100_000.0, 100_000.0) - 0.4995794778896348).abs() < 1e-6);
+        // R 4.2.0, pgamma(x, a) both tails, at x = a + k√a for k = −3, −1/3,
+        // 0, 1/3 and 3 (a = 20: k = −3, −½, 0, ½, 3; a = 100: other offsets).
+        // Before the Stirling prefactor, Q(10¹⁴, 10¹⁴) was 0.59.
+        for (a, x, q, p) in [
+            (
+                20.0,
+                6.583592135001261,
+                0.9999807902181169,
+                1.9209781883082807e-05,
+            ),
+            (
+                20.0,
+                17.76393202250021,
+                0.6717005214596905,
+                0.32829947854030955,
+            ),
+            (20.0, 20.0, 0.47025726683923996, 0.52974273316076),
+            (
+                20.0,
+                22.23606797749979,
+                0.2889517686253374,
+                0.7110482313746627,
+            ),
+            (
+                20.0,
+                33.41640786499874,
+                0.00492329742884906,
+                0.995076702571151,
+            ),
+            (100.0, 70.0, 0.9995696274050201, 0.00043037259497989103),
+            (100.0, 95.0, 0.6826431888302003, 0.31735681116979975),
+            (100.0, 100.0, 0.48670120172085113, 0.5132987982791488),
+            (100.0, 105.0, 0.2997546576088436, 0.7002453423911563),
+            (100.0, 130.0, 0.002750408367306526, 0.9972495916326934),
+            (
+                1000.0,
+                905.1316701949486,
+                0.9989987610049358,
+                0.0010012389950642827,
+            ),
+            (
+                1000.0,
+                984.1886116991581,
+                0.6886773251909328,
+                0.3113226748090672,
+            ),
+            (1000.0, 1000.0, 0.4957947558197845, 0.5042052441802155),
+            (
+                1000.0,
+                1015.8113883008419,
+                0.3057560671815522,
+                0.6942439328184478,
+            ),
+            (
+                1000.0,
+                1094.8683298050514,
+                0.0017472455014651358,
+                0.9982527544985349,
+            ),
+            (10000.0, 9700.0, 0.9987658244155314, 0.001234175584468492),
+            (10000.0, 9950.0, 0.6905821151388175, 0.3094178848611826),
+            (10000.0, 10000.0, 0.4986701916600448, 0.5013298083399551),
+            (10000.0, 10050.0, 0.30765755929743444, 0.6923424407025656),
+            (10000.0, 10300.0, 0.0014704948963856824, 0.9985295051036143),
+            (
+                100000.0,
+                99051.31670194949,
+                0.9986872301204007,
+                0.0013127698795992464,
+            ),
+            (
+                100000.0,
+                99841.88611699158,
+                0.6911841108748996,
+                0.30881588912510044,
+            ),
+            (100000.0, 100000.0, 0.4995794778896348, 0.5004205221103651),
+            (
+                100000.0,
+                100158.11388300842,
+                0.3082592250000536,
+                0.6917407749999464,
+            ),
+            (
+                100000.0,
+                100948.68329805051,
+                0.0013875136808330186,
+                0.998612486319167,
+            ),
+            (
+                1000000.0,
+                997000.0,
+                0.9986618958326864,
+                0.0013381041673135986,
+            ),
+            (1000000.0, 999500.0, 0.6913744431091846, 0.30862555689081533),
+            (1000000.0, 1000000.0, 0.4998670192391274, 0.5001329807608725),
+            (1000000.0, 1000500.0, 0.3084495242285028, 0.6915504757714972),
+            (
+                1000000.0,
+                1003000.0,
+                0.0013617406462175894,
+                0.9986382593537824,
+            ),
+            (
+                100000000.0,
+                99970000.0,
+                0.9986512835508385,
+                0.0013487164491615515,
+            ),
+            (
+                100000000.0,
+                99995000.0,
+                0.6914536596225079,
+                0.3085463403774922,
+            ),
+            (
+                100000000.0,
+                100000000.0,
+                0.4999867019239859,
+                0.5000132980760141,
+            ),
+            (
+                100000000.0,
+                100005000.0,
+                0.3085287371111551,
+                0.691471262888845,
+            ),
+            (
+                100000000.0,
+                100030000.0,
+                0.0013510801016019564,
+                0.998648919898398,
+            ),
+            (
+                10000000000.0,
+                9999700000.0,
+                0.9986502201485566,
+                0.0013497798514433145,
+            ),
+            (
+                10000000000.0,
+                9999950000.0,
+                0.6914615811105128,
+                0.3085384188894872,
+            ),
+            (
+                10000000000.0,
+                10000000000.0,
+                0.4999986701923987,
+                0.5000013298076014,
+            ),
+            (
+                10000000000.0,
+                10000050000.0,
+                0.3085366585628534,
+                0.6914633414371467,
+            ),
+            (
+                10000000000.0,
+                10000300000.0,
+                0.0013500162166919078,
+                0.998649983783308,
+            ),
+            (
+                1000000000000.0,
+                999997000000.0,
+                0.998650113786608,
+                0.0013498862133920384,
+            ),
+            (
+                1000000000000.0,
+                999999500000.0,
+                0.6914623732576796,
+                0.30853762674232044,
+            ),
+            (
+                1000000000000.0,
+                1000000000000.0,
+                0.4999998670192399,
+                0.5000001329807602,
+            ),
+            (
+                1000000000000.0,
+                1000000500000.0,
+                0.30853745070965716,
+                0.6914625492903429,
+            ),
+            (
+                1000000000000.0,
+                1000003000000.0,
+                0.001349909849916901,
+                0.9986500901500831,
+            ),
+            (
+                100000000000000.0,
+                99999970000000.0,
+                0.9986501031501959,
+                0.0013498968498040942,
+            ),
+            (
+                100000000000000.0,
+                99999995000000.0,
+                0.6914624524723798,
+                0.3085375475276201,
+            ),
+            (
+                100000000000000.0,
+                100000000000000.0,
+                0.49999998670192397,
+                0.500000013298076,
+            ),
+            (
+                100000000000000.0,
+                100000005000000.0,
+                0.30853752992435374,
+                0.6914624700756462,
+            ),
+            (
+                100000000000000.0,
+                100000030000000.0,
+                0.0013498992134565841,
+                0.9986501007865434,
+            ),
+        ] {
+            let got = igamc(a, x);
+            assert!(
+                (got - q).abs() <= 2e-14 * q,
+                "Q({a}, {x}) = {got}, want {q}"
+            );
+            assert!(
+                ((1.0 - got) - p).abs() <= 2e-14 * p + 2.0 * f64::EPSILON,
+                "P({a}, {x}) = {}, want {p}",
+                1.0 - got
+            );
+        }
+        // Upper tails from R's pgamma(x, a, lower.tail = FALSE, log.p = TRUE),
+        // at 8, 20 and 35 standard deviations.  The prefactor's exponential
+        // carries a relative error of about |ln Q|·ε.
+        for (a, x, ln_q) in [
+            (20.0, 55.77708763999664, -18.307533644467878),
+            (20.0, 109.44271909999159, -59.38155469624912),
+            (20.0, 176.5247584249853, -117.45575719426809),
+            (1000.0, 1252.9822128134704, -30.472963422476223),
+            (1000.0, 1632.4555320336758, -146.28899010837105),
+            (1000.0, 2106.7971810589324, -366.1043944144452),
+            (10000.0, 10800.0, -33.4042115603731),
+            (10000.0, 12000.0, -180.70209048800146),
+            (10000.0, 13500.0, -503.429469757475),
+            (99999.0, 102528.80947899244, -34.48414979550952),
+            (99999.0, 106323.5236974811, -195.86530714895784),
+            (99999.0, 111066.91647059192, -575.228153523897),
+            (100000.0, 102529.8221281347, -34.484152392758304),
+            (100000.0, 106324.55532033676, -195.86534559575),
+            (100000.0, 111067.97181058933, -575.2283464152754),
+            (10000000.0, 10025298.221281348, -34.95960711550473),
+            (10000000.0, 10063245.553203367, -203.07787685984414),
+            (10000000.0, 10110679.718105894, -612.4928749357099),
+            (1000000000000.0, 1000008000000.0, -35.013266612208255),
+            (1000000000000.0, 1000020000000.0, -203.9144887939386),
+            (1000000000000.0, 1000035000000.0, -616.9608099988801),
+        ] {
+            let got = igamc(a, x).ln();
+            assert!(
+                (got - ln_q).abs() <= 4e-15 * (1.0 + ln_q.abs()),
+                "ln Q({a}, {x}) = {got}, want {ln_q}"
+            );
+        }
+        // Q ≈ 1 far below the mean.
+        assert_eq!(igamc(1e12, 1.0), 1.0);
+        assert_eq!(igamc(1e5, 1e-300), 1.0);
+        assert_eq!(igamc(1e12, 1e13), 0.0);
+    }
+
+    #[test]
+    fn igamc_uniform_expansion_coefficients() {
+        let [c0, c1] = uniform_coefficient_series();
+        // c₀(0) = −1/3 and c₁(0) = −1/540 (DLMF 8.12.8 and its successor).
+        assert!((c0[0] + 1.0 / 3.0).abs() < 1e-16);
+        assert!((c1[0] + 1.0 / 540.0).abs() < 1e-16);
+        // The series agree with the closed forms where those do not cancel
+        // badly.  c₁'s closed form loses about 1/|μ|³ of its accuracy.
+        for mu in [-0.249_9, -0.1, 0.1, 0.249_9] {
+            let horner = |c: &[f64]| c.iter().rev().fold(0.0, |acc, v| acc * mu + v);
+            let eta = (2.0 * log1p_deficit(mu)).sqrt().copysign(mu);
+            let (m, e) = (1.0 / mu, 1.0 / eta);
+            assert!((horner(c0) - (m - e)).abs() < 1e-14, "c0({mu})");
+            let closed = e * e * e - m * m * m - m * m - m / 12.0;
+            assert!(
+                (horner(c1) - closed).abs() < 2e-15 / (mu * mu * mu).abs(),
+                "c1({mu})"
+            );
+        }
+        // φ(μ) continues across the switch to the direct difference.
+        for mu in [-SERIES_MU, SERIES_MU] {
+            let below = log1p_deficit(mu * (1.0 - 1e-15));
+            let at = log1p_deficit(mu);
+            assert!((below - at).abs() <= 1e-14 * at, "phi({mu})");
+        }
+    }
+
+    #[test]
+    fn igamc_large_shape_switches_agree() {
+        // Each side of a switch evaluated at the same (a, x), from the centre
+        // to 30 standard deviations.  Compared: the smaller of P and Q, so
+        // that 1 − Q's absolute rounding does not hide an error in P.
+        let series_or_fraction = |a: f64, x: f64, ln_prefactor: f64| {
+            if x < a + 1.0 {
+                1.0 - lower_gamma_series(a, x, ln_prefactor).unwrap()
+            } else {
+                upper_gamma_fraction(a, x, ln_prefactor).unwrap()
+            }
+        };
+        for a in [STIRLING_SHAPE, UNIFORM_SHAPE] {
+            for k in -30..=30 {
+                let x = a + k as f64 * a.sqrt();
+                if x <= 0.0 {
+                    continue;
+                }
+                let stirling = series_or_fraction(a, x, stirling_ln_prefactor(a, x));
+                let other = if a == STIRLING_SHAPE {
+                    series_or_fraction(a, x, a * x.ln() - x - lgamma(a))
+                } else {
+                    uniform_upper_gamma(a, x)
+                };
+                if 1.0 - stirling < 1e-12 {
+                    // P is below the resolution of 1 − Q.
+                    assert!(
+                        (other - stirling).abs() <= 4.0 * f64::EPSILON,
+                        "a={a} x={x}"
+                    );
+                    continue;
+                }
+                let smaller = stirling.min(1.0 - stirling);
+                let tol = 1e-13 * (1.0 + smaller.ln().abs()) * smaller + 4.0 * f64::EPSILON;
+                assert!(
+                    (other.min(1.0 - other) - smaller).abs() <= tol,
+                    "a={a} x={x}: {stirling} vs {other}"
+                );
+            }
+        }
     }
 
     #[test]

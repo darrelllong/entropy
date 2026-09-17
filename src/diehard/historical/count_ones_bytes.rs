@@ -87,7 +87,7 @@ mod tests {
     };
 
     /// Sum of the 25 p-values on a fixed PCG64 stream, pinned.
-    const GOLDEN_P_SUM: f64 = 12.546_311_271_539_537;
+    const GOLDEN_P_SUM: f64 = 12.546_311_271_523_468;
 
     /// The 25 results on a fixed stream, in window order, pinned
     /// through their sum.

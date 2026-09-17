@@ -684,7 +684,27 @@ previously missing from this bibliography.
   title        = {Incomplete Gamma and Related Functions},
   howpublished = {NIST Digital Library of Mathematical Functions, Chapter 8},
   url          = {https://dlmf.nist.gov/8},
-  note         = {Series 8.7.1 and continued fraction 8.9.2 behind math::igamc.}
+  note         = {Series 8.7.1, continued fraction 8.9.2 and uniform expansion 8.12.3--8.12.8 behind math::igamc.}
+}
+
+@misc{dlmf5,
+  author       = {Askey, R. A. and Roy, R.},
+  title        = {Gamma Function},
+  howpublished = {NIST Digital Library of Mathematical Functions, Chapter 5},
+  url          = {https://dlmf.nist.gov/5},
+  note         = {Stirling's series 5.11.1, the large-shape prefactor of math::igamc.}
+}
+
+@article{temme1979incomplete,
+  author  = {Temme, N. M.},
+  title   = {The Asymptotic Expansion of the Incomplete Gamma Functions},
+  journal = {SIAM Journal on Mathematical Analysis},
+  volume  = {10},
+  number  = {4},
+  pages   = {757--766},
+  year    = {1979},
+  doi     = {10.1137/0510071},
+  note    = {The uniform expansion behind math::igamc for a $\geq 10^5$; the c$_0$ and c$_1$ power series in $\mu$ were derived here. [not in pubs/]}
 }
 
 @article{stephens1974edf,
