@@ -236,7 +236,7 @@ That mix makes output useful both for regression testing and for verifying that 
 - Some tests naturally emit families of p-values; the runner reports each member rather than flattening a family into one verdict.
 - Results that share input are dependent; a cluster of failures in one family is less evidence than the same number of failures in unrelated tests.
 - Which NIST families detect which specified defects, and at what sample size, is measured in [POWER.md](POWER.md); a family that detects none of them is not evidence of quality.
-- Open statistical work is listed in [AUDIT.md](AUDIT.md) and [SUGGESTIONS.md](SUGGESTIONS.md).
+- Open statistical work is listed in [AUDIT.md](AUDIT.md) and [SUGGESTIONS.md](SUGGESTIONS.md); what a consumer must change between releases is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Historical DIEHARD Tests
 
