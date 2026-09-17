@@ -20,47 +20,86 @@
 ///
 /// Each point is compared with about n·r later points, where r is the
 /// nearest-pair scale; for n uniform points in the unit d-cube r ≈ n^(−2/d),
-/// against n/2 for a scan of every pair.  Points that share a value on the
-/// axis are not pruned; taking the widest coordinate makes that the case only
-/// when all of them share values on every coordinate's range.
+/// against n/2 for a scan of every pair.
+///
+/// A gap of zero never stops the scan, so points that share the axis value
+/// would be compared with each other pairwise however the axis is chosen:
+/// putting every point on one coordinate and two outliers far apart on
+/// another makes that coordinate the widest and leaves one tied run holding
+/// everything.  So a run of equal axis values is not swept here at all.  Its
+/// own smallest distance comes from the same sweep applied to the run on the
+/// widest coordinate it has not used yet, and the outer scan starts each point
+/// at the next run, so a pair inside a run is compared exactly once, in the
+/// recursion.  A run tied on every coordinate is a set of identical points,
+/// whose distance is zero.  The recursion is at most d deep and each level
+/// sorts its own points, so the tied-slab family costs O(d·n log n) rather
+/// than O(n²).
 ///
 /// Callers that need the distance take one square root of the result:
 /// correctly rounded `sqrt` is monotone non-decreasing, so that root equals
 /// the smallest per-pair root bit for bit.  Returns `f64::MAX` for fewer than
 /// two points; every caller passes at least 500.
 pub(crate) fn min_squared_distance<const D: usize>(points: &[[f64; D]]) -> f64 {
-    let axis = widest_coordinate(points);
     let mut sorted = points.to_vec();
-    sorted.sort_unstable_by(|p, q| p[axis].total_cmp(&q[axis]));
+    sweep(&mut sorted, 0)
+}
+
+/// [`min_squared_distance`] over `points`, which it sorts, using none of the
+/// coordinates in `used`.
+fn sweep<const D: usize>(points: &mut [[f64; D]], used: u32) -> f64 {
+    if points.len() < 2 {
+        return f64::MAX;
+    }
+    let Some(axis) = widest_unused_coordinate(points, used) else {
+        // Every coordinate is spent, so these points are identical.
+        return 0.0;
+    };
+    points.sort_unstable_by(|p, q| p[axis].total_cmp(&q[axis]));
     let mut min_sq = f64::MAX;
-    for (i, p) in sorted.iter().enumerate() {
-        for q in &sorted[i + 1..] {
-            let gap = q[axis] - p[axis];
-            if gap * gap > min_sq {
-                break;
+    let mut run = 0;
+    while run < points.len() {
+        // The run of points sharing this axis value, and the pairs inside it.
+        let end = points[run..]
+            .iter()
+            .position(|p| p[axis] != points[run][axis])
+            .map_or(points.len(), |k| run + k);
+        if end - run > 1 {
+            let inside = sweep(&mut points[run..end], used | (1 << axis));
+            if inside == 0.0 {
+                return 0.0;
             }
-            let mut sq = 0.0;
-            for (a, b) in p.iter().zip(q) {
-                let delta = a - b;
-                sq += delta * delta;
-            }
-            if sq < min_sq {
-                if sq == 0.0 {
-                    // No distance is smaller, and a gap of zero never stops
-                    // the sweep, so coincident points would otherwise visit
-                    // every pair.
-                    return 0.0;
+            min_sq = min_sq.min(inside);
+        }
+        // Pairs from this run to the later runs, pruned by the axis gap.
+        for p in &points[run..end] {
+            for q in &points[end..] {
+                let gap = q[axis] - p[axis];
+                if gap * gap > min_sq {
+                    break;
                 }
-                min_sq = sq;
+                let mut sq = 0.0;
+                for (a, b) in p.iter().zip(q) {
+                    let delta = a - b;
+                    sq += delta * delta;
+                }
+                if sq < min_sq {
+                    if sq == 0.0 {
+                        return 0.0;
+                    }
+                    min_sq = sq;
+                }
             }
         }
+        run = end;
     }
     min_sq
 }
 
-/// The coordinate whose values span the widest range (the first of equals).
-fn widest_coordinate<const D: usize>(points: &[[f64; D]]) -> usize {
+/// The coordinate outside `used` whose values span the widest range (the
+/// first of equals), or `None` when `used` holds them all.
+fn widest_unused_coordinate<const D: usize>(points: &[[f64; D]], used: u32) -> Option<usize> {
     (0..D)
+        .filter(|k| used & (1 << k) == 0)
         .map(|k| {
             let (lo, hi) = points
                 .iter()
@@ -69,14 +108,11 @@ fn widest_coordinate<const D: usize>(points: &[[f64; D]]) -> usize {
                 });
             (k, hi - lo)
         })
-        .fold((0, f64::NEG_INFINITY), |best, (k, range)| {
-            if range > best.1 {
-                (k, range)
-            } else {
-                best
-            }
+        .fold(None, |best: Option<(usize, f64)>, (k, range)| match best {
+            Some((_, widest)) if widest >= range => best,
+            _ => Some((k, range)),
         })
-        .0
+        .map(|(k, _)| k)
 }
 
 /// H_d(r), the probability that two independent uniform points in the unit
@@ -230,7 +266,26 @@ mod tests {
             // Every point coincident: the case a sweep on one coordinate
             // cannot prune.
             let coincident: Vec<[f64; D]> = vec![[0.25; D]; n];
-            for points in [uniform, grid, wall, clusters, coincident] {
+            // One tied slab, made widest by two outliers: the family that
+            // forces a single-axis sweep to compare every pair.
+            let mut slab: Vec<[f64; D]> = (0..n)
+                .map(|_| std::array::from_fn(|k| if k == 0 { 0.5 } else { rng.next_f64() }))
+                .collect();
+            slab.push(std::array::from_fn(|k| if k == 0 { 0.0 } else { 0.5 }));
+            slab.push(std::array::from_fn(|k| if k == 0 { 1.0 } else { 0.5 }));
+            // Two tied slabs at the ends of the widest coordinate.
+            let split: Vec<[f64; D]> = (0..n)
+                .map(|i| {
+                    std::array::from_fn(|k| {
+                        if k == 0 {
+                            f64::from(u8::from(i % 2 == 0))
+                        } else {
+                            rng.next_f64()
+                        }
+                    })
+                })
+                .collect();
+            for points in [uniform, grid, wall, clusters, coincident, slab, split] {
                 assert_eq!(
                     min_squared_distance(&points).to_bits(),
                     all_pairs_min(&points).to_bits(),
