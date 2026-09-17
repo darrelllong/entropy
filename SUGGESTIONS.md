@@ -2,22 +2,6 @@
 
 Improvements beyond the open defects in [AUDIT.md](AUDIT.md).
 
-## Release verification
-
-- Verify a release candidate from a clean checkout with an empty
-  `CARGO_TARGET_DIR` for each feature set, toolchain and platform:
-
-  ```bash
-  set -euo pipefail
-  root=$(mktemp -d "${TMPDIR:-/tmp}/entropy-verify.XXXXXX")
-  CARGO_TARGET_DIR="$root/default" cargo test --locked --release -- --include-ignored
-  CARGO_TARGET_DIR="$root/no-default" cargo test --locked --release --no-default-features -- --include-ignored
-  ```
-
-- Record sibling revisions, lockfile hash, toolchain and features with every
-  report, beside the source revision and executable SHA-256 the scripts
-  already record.
-
 ## Results
 
 - Structured output with each result's statistic, degrees of freedom,

@@ -63,6 +63,9 @@ run_all() {
         --bin webster_tavares \
         --bin gorilla
 
+    section "provenance"
+    "$ROOT_DIR/scripts/provenance.sh" default "$BIN/run_tests"
+
     section "run_tests  (NIST SP 800-22 · DIEHARD · DIEHARDER)"
     "$BIN/run_tests" --views "$@"
 

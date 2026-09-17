@@ -7,15 +7,16 @@ highlights — while preserving the hand-written "Theory By Test" section and
 refreshing "Auxiliary Probes" when that content is present in the log.
 
 Usage:
-    python scripts/parse_battery.py LOG [--date DATE] [--host HOST]
+    python scripts/parse_battery.py LOG [--date DATE] [--host HOST] [--cpu CPU]
                                         [--output PATH] [--dry-run]
 
 Arguments:
     LOG             Path to the battery log file (e.g. logs/run_all-darby.log).
 
 Options:
-    --date DATE     Run date in YYYY-MM-DD form (default: today).
-    --host HOST     Machine name shown in the header (default: darby.local).
+    --date DATE     Run date in YYYY-MM-DD form (default: from the log).
+    --host HOST     Machine name shown in the header (default: from the log).
+    --cpu CPU       CPU description shown in the header (default: from the log).
     --output PATH   Write the result here (default: TESTS.md in repo root).
     --dry-run       Print the generated TESTS.md to stdout instead of writing.
 
@@ -27,10 +28,7 @@ existing TESTS.md.  Everything else is regenerated.
 
 import argparse
 import math
-import os
-import platform
 import re
-import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -201,67 +199,37 @@ def extract_aux_from_log(log_text: str, run_date: str, host: str) -> str:
 # Markdown generators
 # ---------------------------------------------------------------------------
 
-def detect_cpu() -> str:
-    """Best-effort CPU description for the report header."""
-    ncpu = os.cpu_count() or "?"
-    try:
-        if sys.platform == "darwin":
-            brand = subprocess.check_output(
-                ["sysctl", "-n", "machdep.cpu.brand_string"],
-                text=True, stderr=subprocess.DEVNULL,
-            ).strip()
-            try:
-                perf = subprocess.check_output(
-                    ["sysctl", "-n", "hw.perflevel0.physicalcpu"],
-                    text=True, stderr=subprocess.DEVNULL,
-                ).strip()
-                eff = subprocess.check_output(
-                    ["sysctl", "-n", "hw.perflevel1.physicalcpu"],
-                    text=True, stderr=subprocess.DEVNULL,
-                ).strip()
-                cores = f"{perf}P+{eff}E cores"
-            except subprocess.CalledProcessError:
-                cores = f"{ncpu} cores"
-            return f"{brand}, {cores}"
-        if sys.platform.startswith("linux"):
-            # x86 lists "model name"; ARM commonly does not, so fall back to
-            # lscpu's "Model name" and finally to the arch, always with a count.
-            for line in _read_lines("/proc/cpuinfo"):
-                if line.startswith("model name"):
-                    return f"{line.split(':', 1)[1].strip()}, {ncpu} cores"
-            try:
-                out = subprocess.check_output(
-                    ["lscpu"], text=True, stderr=subprocess.DEVNULL
-                )
-                for line in out.splitlines():
-                    if line.startswith("Model name:"):
-                        model = line.split(":", 1)[1].strip()
-                        if model and model != "-":
-                            return f"{model}, {ncpu} cores"
-            except (OSError, subprocess.CalledProcessError):
-                pass
-            return f"{platform.machine()}, {ncpu} cores"
-    except (OSError, subprocess.CalledProcessError):
-        pass
-    base = platform.processor() or platform.machine()
-    return f"{base}, {ncpu} cores"
+PROVENANCE_KEYS = ("host", "cpu", "os", "date", "rustc", "features",
+                   "Cargo.lock sha256", "entropy", "rump", "cryptography",
+                   "run_tests sha256")
 
 
-def _read_lines(path: str) -> list[str]:
-    try:
-        with open(path) as f:
-            return f.readlines()
-    except OSError:
-        return []
+def parse_provenance(log_text: str) -> dict[str, str]:
+    """The `key: value` lines tests/run_all.sh writes under its provenance
+    section, or an empty dict for a log without one."""
+    m = re.search(r"^provenance\n=+\n\n(.*?)(?:\n\n|\Z)", log_text, re.M | re.S)
+    if not m:
+        return {}
+    fields = {}
+    for line in m.group(1).splitlines():
+        key, sep, value = line.partition(": ")
+        if sep and key in PROVENANCE_KEYS:
+            fields[key] = value.strip()
+    return fields
 
 
-def gen_header(run_date: str, host: str, cpu: str, n_bits: int, n_rngs: int) -> str:
+def gen_header(run_date: str, host: str, cpu: str, n_bits: int, n_rngs: int,
+               provenance: dict[str, str]) -> str:
     mbits = n_bits // 1_000_000
+    source = "\n".join(
+        f"{key}: {provenance[key]}" for key in PROVENANCE_KEYS
+        if key in provenance and key not in ("host", "cpu", "date"))
+    source_block = f"\n```text\n{source}\n```\n" if source else ""
     return f"""\
 # Full Battery Results
 
-Full `run_tests` battery harvested from `{host}` ({cpu}) on {run_date}.
-
+Full `run_tests --views` battery run on `{host}` ({cpu}) on {run_date}.
+{source_block}
 Sample size: **{mbits:,} Mbit** per generator for NIST; DIEHARD/DIEHARDER
 consume **{mbits:,} M 32-bit words** (plus what the live-drawing tests take
 directly).
@@ -269,7 +237,7 @@ directly).
 Command:
 
 ```sh
-./target/release/run_tests
+tests/run_all.sh    # runs run_tests --views, then the auxiliary probes
 ```
 
 Scope:
@@ -404,13 +372,12 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument("log", metavar="LOG", help="battery log file")
-    ap.add_argument("--date", default=str(date.today()),
-                    help="run date YYYY-MM-DD (default: today)")
-    ap.add_argument("--host", default="darby.local",
-                    help="machine name (default: darby.local)")
+    ap.add_argument("--date", default=None,
+                    help="run date YYYY-MM-DD (default: from the log)")
+    ap.add_argument("--host", default=None,
+                    help="machine name (default: from the log)")
     ap.add_argument("--cpu", default=None,
-                    help="CPU description for the header "
-                         "(default: auto-detected on this machine)")
+                    help="CPU description (default: from the log)")
     ap.add_argument("--output", default=str(REPO / "TESTS.md"),
                     help="output path (default: TESTS.md)")
     ap.add_argument("--dry-run", action="store_true",
@@ -419,6 +386,10 @@ def main() -> None:
 
     log_text = Path(args.log).read_text()
     blocks = parse_log(log_text)
+    provenance = parse_provenance(log_text)
+    run_date = args.date or provenance.get("date", "").split(" ")[0] or str(date.today())
+    host = args.host or provenance.get("host", "unknown host")
+    cpu = args.cpu or provenance.get("cpu", "unknown CPU")
 
     if not blocks:
         print("error: no generator blocks found in log", file=sys.stderr)
@@ -436,7 +407,7 @@ def main() -> None:
     # Read existing TESTS.md for stable hand-written sections
     tests_path = Path(args.output)
     theory_section = ""
-    aux_section = extract_aux_from_log(log_text, args.date, args.host)
+    aux_section = extract_aux_from_log(log_text, run_date, host)
     if tests_path.exists():
         existing = tests_path.read_text()
         theory_section = extract_theory_section(existing)
@@ -445,7 +416,7 @@ def main() -> None:
 
     # Assemble new TESTS.md
     parts = [
-        gen_header(args.date, args.host, args.cpu or detect_cpu(), n_bits, len(blocks)),
+        gen_header(run_date, host, cpu, n_bits, len(blocks), provenance),
         gen_summary_table(blocks),
         theory_section,
         gen_failure_highlights(blocks),
