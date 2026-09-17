@@ -18,15 +18,17 @@ independent null trials, and rarer corrected thresholds need more.
 
 | Area | Measured | Missing |
 |---|---|---|
-| Whole battery, every slot | A 200 000-stream campaign over the four suites on PCG64, Xoshiro256 and SFC64 is running on the island (`examples/battery_null.rs`) | Its results: per-slot and per-family rates at 0.001, and the battery's own false-alarm rate |
-| Count-ones Q5−Q4 | 300 000 xoshiro windows reject at 0.01 in 1.060%, 100 000 PCG windows in 1.045% | The finite-window tail at 0.001, which that campaign measures |
+| Whole battery, every slot | 10 000 null streams over the four suites on PCG64, Xoshiro256 and SFC64 (`examples/battery_null.rs`, snapshot in `stats/battery-null-moore.txt`, campaign still running): 57 of 63 slots within 2.5 standard errors of 1% at the 0.01 level | The 0.001 column, which 10 000 streams resolve only to ±0.03 points |
+| Battery-wide decision | Some family rejects 93.4% of null streams at 0.05, 42.6% at 0.01 and 5.1% at 0.001, over about sixty families each held at its own level | A stated battery-level rule, if a single verdict is wanted |
+| Count-ones Q5−Q4 | 300 000 xoshiro windows reject at 0.01 in 1.060%, 100 000 PCG windows in 1.045%; the battery campaign's own slot is within noise | The finite-window tail at 0.001 |
 | DCT position law | 10⁶ runs: 0.104%, 1.015%, 5.029%; an exactly multinomial control gives 0.1046% and 1.013% | Nothing at this resolution: the residual is the Pearson approximation, not the transform |
-| R report | 3 616 held-out null streams through every row: 15 of the 19 are within 2 standard errors of nominal at 0.01, the runs tests' 20 000-stream rate is 1.09% and 0.135% | More streams at 0.001; and see the two conservative rows below |
+| R report | 3 170 held-out null streams through every row (`stats/r-report-null-summary.txt`): 15 of the 18 scored rows are within 2 standard errors of nominal at 0.01, and the runs tests' 20 000-stream rate is 1.09% and 0.135% | More streams at 0.001; and see the two conservative rows below |
 | LZ78 above k = 20 | Cells at k = 21 … 25 with 80–600 runs; a 3 000-run campaign at k = 21, 22, 23 and 25 on xoshiro and SFC64 is running | Its results, and the tail at 0.001 |
 | Minimum distance | Selected modes and thresholds calibrated | The supported parameter cells, at the thresholds used |
 
 Maurer's universal test over-rejects at the battery's sample size, and it is
-the standard's variance that is short. Over 4 000 null streams
+the standard's variance that is short: the campaign's L = 5 slot rejects 1.65%
+of null streams at the 1% level over 10 000 streams. Over 4 000 null streams
 (`examples/universal_variance.rs`) the z it computes has standard deviation
 1.060 at L = 5, 1.034 at L = 6, 1.023 at L = 7 and 1.027 at L = 8, falling to
 1.00 by L = 9, which is the 1.5% rejection rate at the 1% level the campaign

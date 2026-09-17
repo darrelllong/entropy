@@ -1,0 +1,21 @@
+# held-out null streams of 5 000 000 xoshiro256** words through scripts/r_rng_tests.R
+# test	streams	below0.05	below0.01	below0.001
+Cumulative periodogram KS (Bartlett)	3170	152	37	3
+Periodogram chi^2 (10 Exp(1) bins, df=9)	3170	120	16	0
+Periodogram height KS vs Exp(1)	3170	44	1	0
+randtests::bartels.rank.test	3170	158	37	3
+randtests::cox.stuart.test (trend)	3170	156	25	1
+randtests::difference.sign.test	3170	154	22	3
+randtests::rank.test (Mann-Kendall, n=5000)	3170	150	26	2
+randtests::runs.test (median)	3170	148	40	4
+randtests::turning.point.test	3170	148	25	2
+randtoolbox::freq.test (16 bins)	3170	154	37	5
+randtoolbox::gap.test [0,0.5) (Cochran-trimmed, df=16)	3170	167	34	6
+randtoolbox::order.test (d=4)	3170	161	24	3
+randtoolbox::poker.test (5-hand)	3170	158	35	1
+randtoolbox::serial.test (d=8)	3170	150	27	2
+stats::Box.test (Ljung-Box, lag 25)	3170	145	25	3
+stats::chisq.test (256 bins)	3170	154	31	4
+stats::ks.test vs U(0,1)	3170	159	28	3
+tseries::jarque.bera.test (vs Normal*)	3170	3170	3170	3170
+tseries::runs.test (binary)	3170	148	40	4
