@@ -107,7 +107,11 @@ let mut sim = Pcg64::seed_from_u64(42);  // reproducible stream
 | `unit_f64()` | Uniform on the 2⁵³ multiples of 2⁻⁵³ in [0, 1) |
 | `unit_f64_dense()` | A uniform real rounded down to a double: every double in [0, 1), subnormals included, with its gap's probability |
 | `exponential()`, `normal()` | Inversion of dense uniforms, so the tails reach about 744 and ±38 |
-| `shuffle`, `choose` | Durstenfeld's Fisher–Yates with exact indices |
+| `shuffle`, `partial_shuffle`, `choose`, `choose_mut` | Durstenfeld's Fisher–Yates with exact indices |
+| `sample_indices`, `sample`, `sample_array` | Distinct elements, every subset equally likely, in random order (Floyd's algorithm or a partial shuffle) |
+| `choose_weighted`, `sample_weighted` | Probability exactly proportional to integer weights, summed in 128 bits |
+| `choose_from_iter`, `sample_from_iter` | Uniform choice from an iterator of unknown length (Vitter's Algorithm R) |
+| `below_u128` | Exactly uniform 128-bit integers |
 | `fill_bytes` | Little-endian `next_u32` words |
 
 **`thread_rng()`** gives each thread a `FastKeyErasureRng` keyed from the

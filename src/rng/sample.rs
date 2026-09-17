@@ -266,6 +266,193 @@ pub trait Sample: Rng {
             Some(&items[self.below(items.len() as u64) as usize])
         }
     }
+
+    /// A uniformly chosen element, mutably, or `None` for an empty slice.
+    fn choose_mut<'a, T>(&mut self, items: &'a mut [T]) -> Option<&'a mut T> {
+        if items.is_empty() {
+            None
+        } else {
+            let i = self.below(items.len() as u64) as usize;
+            Some(&mut items[i])
+        }
+    }
+
+    /// Put a uniform random ordered sample of `amount` elements (all of them
+    /// if `amount` exceeds the length) at the front of `items`, and return it
+    /// and the rest.  The first `amount` steps of a forward Fisher–Yates
+    /// shuffle.
+    fn partial_shuffle<'a, T>(
+        &mut self,
+        items: &'a mut [T],
+        amount: usize,
+    ) -> (&'a mut [T], &'a mut [T]) {
+        let amount = amount.min(items.len());
+        for i in 0..amount {
+            let j = i + self.below((items.len() - i) as u64) as usize;
+            items.swap(i, j);
+        }
+        items.split_at_mut(amount)
+    }
+
+    /// A uniform integer in [0, `bound`) for a 128-bit bound, by rejection
+    /// from the smallest enclosing power of two: exact, and fewer than two
+    /// draws of two words on average.
+    ///
+    /// # Panics
+    /// Panics if `bound` is 0.
+    fn below_u128(&mut self, bound: u128) -> u128 {
+        assert!(bound > 0, "empty range");
+        let bits = 128 - (bound - 1).leading_zeros();
+        let mask = if bits == 128 {
+            u128::MAX
+        } else {
+            (1u128 << bits) - 1
+        };
+        loop {
+            let v = ((u128::from(self.next_u64()) << 64) | u128::from(self.next_u64())) & mask;
+            if v < bound {
+                return v;
+            }
+        }
+    }
+
+    /// `amount` distinct indices from 0 … `length` − 1, every such set equally
+    /// likely and in uniformly random order; `None` if `amount` exceeds
+    /// `length`.  Uses R. W. Floyd's algorithm (J. Bentley with R. Floyd,
+    /// "Programming pearls: A sample of brilliance," *Communications of the
+    /// ACM* 30(9), pp. 754–757, 1987) for small samples and a partial
+    /// shuffle when the sample is at least half the range, then shuffles the
+    /// result.
+    fn sample_indices(&mut self, length: usize, amount: usize) -> Option<Vec<usize>> {
+        if amount > length {
+            return None;
+        }
+        let mut chosen = if amount * 2 >= length {
+            let mut all: Vec<usize> = (0..length).collect();
+            self.partial_shuffle(&mut all, amount);
+            all.truncate(amount);
+            all
+        } else {
+            let mut set = std::collections::HashSet::with_capacity(amount);
+            let mut order = Vec::with_capacity(amount);
+            for j in length - amount..length {
+                let t = self.below(j as u64 + 1) as usize;
+                let pick = if set.contains(&t) { j } else { t };
+                set.insert(pick);
+                order.push(pick);
+            }
+            order
+        };
+        self.shuffle(&mut chosen);
+        Some(chosen)
+    }
+
+    /// `amount` distinct elements of `items`, uniformly, in random order;
+    /// `None` if there are fewer than `amount`.
+    fn sample<'a, T>(&mut self, items: &'a [T], amount: usize) -> Option<Vec<&'a T>> {
+        self.sample_indices(items.len(), amount)
+            .map(|indices| indices.into_iter().map(|i| &items[i]).collect())
+    }
+
+    /// `K` distinct elements of `items`, uniformly, in random order; `None` if
+    /// there are fewer than `K`.
+    fn sample_array<'a, T, const K: usize>(&mut self, items: &'a [T]) -> Option<[&'a T; K]> {
+        let indices = self.sample_indices(items.len(), K)?;
+        Some(std::array::from_fn(|k| &items[indices[k]]))
+    }
+
+    /// An element chosen with probability exactly proportional to its integer
+    /// weight; `None` if `items` is empty or every weight is 0.
+    fn choose_weighted<'a, T>(
+        &mut self,
+        items: &'a [T],
+        weight: impl Fn(&T) -> u64,
+    ) -> Option<&'a T> {
+        let total: u128 = items.iter().map(|x| u128::from(weight(x))).sum();
+        if total == 0 {
+            return None;
+        }
+        let mut target = self.below_u128(total);
+        for item in items {
+            let w = u128::from(weight(item));
+            if target < w {
+                return Some(item);
+            }
+            target -= w;
+        }
+        unreachable!("the target lies below the total")
+    }
+
+    /// `amount` distinct elements drawn one after another, each with
+    /// probability exactly proportional to its integer weight among those not
+    /// yet drawn; `None` if fewer than `amount` have positive weight.
+    fn sample_weighted<'a, T>(
+        &mut self,
+        items: &'a [T],
+        amount: usize,
+        weight: impl Fn(&T) -> u64,
+    ) -> Option<Vec<&'a T>> {
+        let mut remaining: Vec<(usize, u64)> = items
+            .iter()
+            .enumerate()
+            .map(|(i, x)| (i, weight(x)))
+            .filter(|&(_, w)| w > 0)
+            .collect();
+        if remaining.len() < amount {
+            return None;
+        }
+        let mut chosen = Vec::with_capacity(amount);
+        for _ in 0..amount {
+            let total: u128 = remaining.iter().map(|&(_, w)| u128::from(w)).sum();
+            let mut target = self.below_u128(total);
+            let position = remaining
+                .iter()
+                .position(|&(_, w)| {
+                    let w = u128::from(w);
+                    if target < w {
+                        true
+                    } else {
+                        target -= w;
+                        false
+                    }
+                })
+                .expect("the target lies below the total");
+            chosen.push(&items[remaining.swap_remove(position).0]);
+        }
+        Some(chosen)
+    }
+
+    /// A uniformly chosen item of an iterator of unknown length, or `None` if
+    /// it is empty: reservoir sampling (J. S. Vitter, "Random sampling with a
+    /// reservoir," *ACM Transactions on Mathematical Software* 11(1),
+    /// pp. 37–57, 1985, Algorithm R), one exact index per item.
+    fn choose_from_iter<I: IntoIterator>(&mut self, iter: I) -> Option<I::Item> {
+        let mut chosen = None;
+        for (i, item) in iter.into_iter().enumerate() {
+            if self.below(i as u64 + 1) == 0 {
+                chosen = Some(item);
+            }
+        }
+        chosen
+    }
+
+    /// `amount` distinct items of an iterator, uniformly, in random order,
+    /// by Algorithm R; fewer if the iterator is shorter.
+    fn sample_from_iter<I: IntoIterator>(&mut self, iter: I, amount: usize) -> Vec<I::Item> {
+        let mut reservoir = Vec::with_capacity(amount);
+        for (i, item) in iter.into_iter().enumerate() {
+            if i < amount {
+                reservoir.push(item);
+            } else {
+                let j = self.below(i as u64 + 1) as usize;
+                if j < amount {
+                    reservoir[j] = item;
+                }
+            }
+        }
+        self.shuffle(&mut reservoir);
+        reservoir
+    }
 }
 
 impl<R: Rng + ?Sized> Sample for R {}
@@ -512,5 +699,90 @@ mod tests {
         let q = crate::math::normal_cdf(low);
         assert!((q / 2f64.powi(-202) - 1.0).abs() < 1e-9, "{low}: {q}");
         assert_eq!(high, -low);
+    }
+
+    /// Every 2-subset of 5 appears about equally often, in both orders.
+    #[test]
+    fn sampled_indices_are_uniform_ordered_subsets() {
+        let mut rng = Pcg64::new(21, 21);
+        for amount in [2usize, 4] {
+            let mut counts = std::collections::HashMap::new();
+            let n = 60_000;
+            for _ in 0..n {
+                let s = rng.sample_indices(5, amount).unwrap();
+                let mut sorted = s.clone();
+                sorted.sort_unstable();
+                sorted.dedup();
+                assert_eq!(sorted.len(), amount);
+                *counts.entry(s).or_insert(0u32) += 1;
+            }
+            // Ordered selections: 5·4 = 20 for 2, 5·4·3·2 = 120 for 4.
+            let cells = if amount == 2 { 20 } else { 120 };
+            assert_eq!(counts.len(), cells, "amount {amount}");
+            let e = n as f64 / cells as f64;
+            let chi: f64 = counts
+                .values()
+                .map(|&c| (f64::from(c) - e).powi(2) / e)
+                .sum();
+            assert!(
+                chi < (cells as f64) + 6.0 * (2.0 * cells as f64).sqrt(),
+                "{chi}"
+            );
+        }
+        assert!(rng.sample_indices(3, 4).is_none());
+        assert_eq!(rng.sample_indices(0, 0), Some(vec![]));
+        let items = [10, 20, 30];
+        let picked: [&i32; 3] = rng.sample_array(&items).unwrap();
+        let mut values: Vec<i32> = picked.iter().map(|&&v| v).collect();
+        values.sort_unstable();
+        assert_eq!(values, items);
+        assert_eq!(rng.sample(&items, 2).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn weighted_choices_follow_their_weights() {
+        let mut rng = Pcg64::new(31, 31);
+        let items = [(1u64, 'a'), (0, 'b'), (3, 'c')];
+        let n = 80_000;
+        let c = (0..n)
+            .filter(|_| rng.choose_weighted(&items, |x| x.0).unwrap().1 == 'c')
+            .count() as f64;
+        assert!((c / n as f64 - 0.75).abs() < 5.0 * (0.1875 / n as f64).sqrt());
+        assert!(rng.choose_weighted(&items[1..2], |x| x.0).is_none());
+        let both = rng.sample_weighted(&items, 2, |x| x.0).unwrap();
+        assert!(both.iter().all(|x| x.1 != 'b') && both[0].1 != both[1].1);
+        assert!(rng.sample_weighted(&items, 3, |x| x.0).is_none());
+        // Huge weights sum in 128 bits.
+        let heavy = [u64::MAX, u64::MAX];
+        assert!(rng.choose_weighted(&heavy, |&w| w).is_some());
+    }
+
+    #[test]
+    fn iterator_choices_are_uniform() {
+        let mut rng = Pcg64::new(41, 41);
+        let mut counts = [0u32; 6];
+        let n = 60_000;
+        for _ in 0..n {
+            counts[rng.choose_from_iter(0..6).unwrap()] += 1;
+        }
+        let e = n as f64 / 6.0;
+        let chi: f64 = counts.iter().map(|&c| (f64::from(c) - e).powi(2) / e).sum();
+        assert!(chi < 25.0, "{chi}");
+        assert_eq!(rng.choose_from_iter(std::iter::empty::<u8>()), None);
+        let s = rng.sample_from_iter(0..100, 10);
+        let mut d = s.clone();
+        d.sort_unstable();
+        d.dedup();
+        assert_eq!(d.len(), 10);
+        assert_eq!(rng.sample_from_iter(0..3, 10).len(), 3);
+        let mut v = [1, 2, 3, 4, 5];
+        let (front, back) = rng.partial_shuffle(&mut v, 2);
+        assert_eq!((front.len(), back.len()), (2, 3));
+        *rng.choose_mut(&mut v).unwrap() = 0;
+        assert!(v.contains(&0));
+        for _ in 0..1_000 {
+            assert!(rng.below_u128(u128::MAX) < u128::MAX);
+            assert!(rng.below_u128(3) < 3);
+        }
     }
 }
