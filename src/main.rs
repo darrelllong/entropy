@@ -56,7 +56,7 @@ use cryptography::{
     Snow3g, Twofish128, Zuc128,
 };
 use entropy::rng::{
-    AesCtr, BitReversed, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng,
+    AesCtr, BitReversed, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, Corpus,
     CounterRng, CryptoCtrDrbg, DualEcDrbg, FullWord, HashDrbg, HighHalf, HmacDrbg, Jsf64, Lcg32,
     LcgVariant, LinuxLibcRandom, LowHalf, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64,
     SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand,
@@ -227,6 +227,7 @@ struct Args {
     fail_on_fail: bool,          // exit nonzero if any shown test FAILed
     views: bool,                 // also run the 64-bit generators' output views
     json: bool,                  // one JSON object per result instead of the report
+    corpus: Option<String>,      // test this file of saved words instead of the generators
 }
 
 /// What the command line asks `run_tests` to do.
@@ -263,6 +264,7 @@ impl Args {
         let mut fail_on_fail = false;
         let mut views = false;
         let mut json = false;
+        let mut corpus: Option<String> = None;
 
         let mut argv = argv.into_iter();
         while let Some(arg) = argv.next() {
@@ -271,6 +273,9 @@ impl Args {
                 "--fail-on-fail" => fail_on_fail = true,
                 "--views" => views = true,
                 "--json" => json = true,
+                "--corpus" => {
+                    corpus = Some(argv.next().ok_or("--corpus requires a file")?);
+                }
                 "--help" | "-h" => return Ok(Command::Help),
                 "--suite" => {
                     let v = argv.next().ok_or("--suite requires an argument")?;
@@ -341,7 +346,14 @@ impl Args {
             fail_on_fail,
             views,
             json,
+            corpus,
         };
+        if args.corpus.is_some() && (args.views || !args.rng_filters.is_empty()) {
+            return Err(
+                "--corpus replaces the generators; it cannot be combined with --rng or --views"
+                    .into(),
+            );
+        }
         args.check_test_filter()?;
         Ok(Command::Run(args))
     }
@@ -406,7 +418,7 @@ fn print_usage() {
     // that indents the flag descriptions' continuation lines.
     println!(
         "\
-Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--views] [--json] [--fail-on-fail] [--help]
+Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [--test <name>] [--rng <label>] [--views] [--json] [--corpus <file>] [--fail-on-fail] [--help]
 
  --suite         Run only this battery.  Repeatable: --suite nist --suite diehard.
                  diehard-historical runs the historical DIEHARD tests, which
@@ -433,6 +445,13 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
                  the generator, suite, the word at which the suite's input
                  starts, the result name, its status (scored, insufficient,
                  unsupported or error), the unrounded p-value and the note.
+ --corpus        Test this file instead of the generators: its bytes, a whole
+                 number of little-endian 32-bit words, read in order.  Each
+                 suite reads its own fixed range of words; a suite whose range
+                 starts past the end, or that runs out partway, reports SKIP
+                 and nothing computed from missing words is shown.  NIST reads
+                 the first 500 000 words; every default suite fits in the
+                 first 68 157 440 words (260 MiB).
  --fail-on-fail  Exit 1 if any shown test FAILed.  Without it, exit 0 only
                  means the battery ran to completion.  Negative-control RNGs
                  (BAD…, Constant, Counter, Dual_EC_DRBG) are expected to FAIL,
@@ -483,6 +502,18 @@ type RunFn = Box<dyn FnOnce() -> RngResults + Send + 'static>;
 /// only a suite that `--suite`/`--test` excluded.
 fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     let mut runs = Vec::new();
+    if let Some(path) = &args.corpus {
+        let bytes = std::fs::read(path).map_err(|e| format!("cannot read corpus {path}: {e}"))?;
+        let corpus = Corpus::from_le_bytes(&bytes).map_err(|e| format!("corpus {path}: {e}"))?;
+        let label: &'static str =
+            Box::leak(format!("corpus {path} ({} words)", corpus.len()).into_boxed_str());
+        let a = args.clone();
+        runs.push((
+            label,
+            Box::new(move || run_corpus(label, corpus, &a)) as RunFn,
+        ));
+        return Ok(runs);
+    }
     // Matched labels skipped because their only suite, NIST, is not selected.
     let mut excluded: Vec<&'static str> = Vec::new();
 
@@ -750,6 +781,86 @@ fn run_one<R: Rng>(name: &'static str, rng: R, args: &Args) -> RngResults {
         |r| dieharder::run_all(r, DIEHARD_N, args.quick),
     );
     let diehard_historical = rng.suite(
+        args.run_suite(&Suite::DiehardHistorical),
+        "diehard_historical::input_segment",
+        HISTORICAL_START,
+        STREAM_END,
+        |r| diehard::historical::run_all(r, DIEHARD_HISTORICAL_N),
+    );
+    RngResults {
+        name,
+        nist,
+        diehard,
+        dieharder,
+        diehard_historical,
+        nist_only: false,
+    }
+}
+
+/// One suite over a corpus: SKIP when its input starts past the corpus, or
+/// when the corpus runs out while the suite reads, rather than any result
+/// computed from missing words.
+fn corpus_suite(
+    rng: &mut Positioned<Corpus>,
+    selected: bool,
+    name: &'static str,
+    start: u64,
+    end: u64,
+    suite: impl FnOnce(&mut Positioned<Corpus>) -> Vec<TestResult>,
+) -> Vec<TestResult> {
+    if !selected {
+        return vec![];
+    }
+    let words = rng.inner.len() as u64;
+    if start >= words {
+        return vec![TestResult::insufficient(
+            name,
+            &format!("the corpus has {words} words; this suite reads from word {start}"),
+        )];
+    }
+    let results = rng.suite(true, name, start, end, suite);
+    match rng.inner.exhausted_at() {
+        Some(at) => vec![TestResult::insufficient(
+            name,
+            &format!(
+                "the corpus ran out at word {at}, inside this suite's input from word {start}"
+            ),
+        )],
+        None => results,
+    }
+}
+
+fn run_corpus(name: &'static str, corpus: Corpus, args: &Args) -> RngResults {
+    let mut rng = Positioned {
+        inner: corpus,
+        position: 0,
+    };
+    let nist = corpus_suite(
+        &mut rng,
+        args.run_suite(&Suite::Nist),
+        "nist::input_segment",
+        NIST_START,
+        DIEHARD_START,
+        |r| nist::run_all(r, NIST_N),
+    );
+    let diehard = corpus_suite(
+        &mut rng,
+        args.run_suite(&Suite::Diehard),
+        "diehard::input_segment",
+        DIEHARD_START,
+        DIEHARDER_START,
+        |r| diehard::run_all(r, DIEHARD_N, args.quick),
+    );
+    let dieharder = corpus_suite(
+        &mut rng,
+        args.run_suite(&Suite::Dieharder),
+        "dieharder::input_segment",
+        DIEHARDER_START,
+        HISTORICAL_START,
+        |r| dieharder::run_all(r, DIEHARD_N, args.quick),
+    );
+    let diehard_historical = corpus_suite(
+        &mut rng,
         args.run_suite(&Suite::DiehardHistorical),
         "diehard_historical::input_segment",
         HISTORICAL_START,
@@ -1350,6 +1461,35 @@ mod tests {
         assert!(rng
             .suite(false, "diehard::input_segment", 4, 8, |_| unreachable!())
             .is_empty());
+    }
+
+    /// `--corpus` schedules only the file, labeled with its length, and
+    /// refuses generator selection or an unreadable or partial-word file.
+    #[test]
+    fn corpus_replaces_the_generators() {
+        let dir = std::env::temp_dir().join(format!("run_tests_corpus_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let good = dir.join("good.bin");
+        std::fs::write(&good, [0u8; 12]).unwrap();
+        let bad = dir.join("bad.bin");
+        std::fs::write(&bad, [0u8; 5]).unwrap();
+        let good = good.to_str().unwrap();
+        assert_eq!(
+            scheduled(&["--corpus", good]).unwrap(),
+            [format!("corpus {good} (3 words)")]
+        );
+        assert!(scheduled(&["--corpus", bad.to_str().unwrap()])
+            .unwrap_err()
+            .contains("whole number"));
+        assert!(scheduled(&["--corpus", "/nonexistent/corpus.bin"]).is_err());
+        for extra in ["--views", "--rng"] {
+            let mut argv = vec!["--corpus", good, extra];
+            if extra == "--rng" {
+                argv.push("AES");
+            }
+            assert!(parse(&argv).unwrap_err().contains("--corpus"));
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     /// `--views` adds four views of each of the six 64-bit generators; without

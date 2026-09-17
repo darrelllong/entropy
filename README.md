@@ -97,6 +97,12 @@ high half, low half, full word and bit-reversed high half.  The views of one
 generator share its outputs, so their results are not independent.
 `tests/run_all.sh` passes `--views`.
 
+`--corpus <file>` tests saved output instead of the generators: the file's
+bytes, read as little-endian 32-bit words.  Each suite reads its own fixed
+range of words (NIST the first 500 000; every default suite fits in the first
+68 157 440, 260 MiB), and a suite the file does not cover reports SKIP.
+`--json` prints one JSON object per result.
+
 ### Auxiliary probes only
 
 ```sh

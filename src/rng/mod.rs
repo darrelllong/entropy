@@ -13,6 +13,7 @@ pub mod block_ctr;
 pub mod c_stdlib;
 #[cfg(feature = "cryptography")]
 pub mod chacha20_rng;
+pub mod corpus;
 #[cfg(feature = "cryptography")]
 pub mod crypto_cprng;
 #[cfg(feature = "cryptography")]
@@ -47,6 +48,7 @@ pub use c_stdlib::{
 };
 #[cfg(feature = "cryptography")]
 pub use chacha20_rng::ChaCha20Rng;
+pub use corpus::Corpus;
 #[cfg(feature = "cryptography")]
 pub use crypto_cprng::CryptoCtrDrbg;
 #[cfg(feature = "cryptography")]
