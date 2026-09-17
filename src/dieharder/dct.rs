@@ -51,23 +51,7 @@ pub fn dct(words: &[u32]) -> TestResult {
     if words.len() < needed {
         return TestResult::insufficient("dieharder::dct", "not enough words");
     }
-
-    // v = 2^(rmax_bits−1).  DC mean for a block of N uniform u32 values is
-    // N·(v − 0.5) since E[U32] ≈ 2^31 − 0.5.
-    let v = 1u64 << (RMAX_BITS - 1);
-    let mean_dc = NTUPLE as f64 * (v as f64 - 0.5);
-
-    // position_counts[k]: blocks whose largest |X[k]| is at position k.
-    let mut position_counts = vec![0u64; NTUPLE];
-    let mut transform = FastDct::new();
-
-    for j in 0..TSAMPLES {
-        // The rotation grows by a quarter word every quarter of the blocks.
-        let rot_amount = ((j / (TSAMPLES / 4)) as u32 * (RMAX_BITS / 4)) % RMAX_BITS;
-        let block = &words[j * NTUPLE..(j + 1) * NTUPLE];
-        let coefficients = transform.dct_ii(block, rot_amount);
-        position_counts[max_position(coefficients, mean_dc)] += 1;
-    }
+    let position_counts = position_counts(&words[..needed]);
 
     // Chi-square for uniformity of position counts.
     // Expected count per position = TSAMPLES / NTUPLE.
@@ -86,6 +70,31 @@ pub fn dct(words: &[u32]) -> TestResult {
         format!("ntuple={NTUPLE}, tsamples={TSAMPLES}, χ²={chi_sq:.4}"),
     )
     .chi_square(chi_sq, df as f64)
+}
+
+/// Words per block.
+pub const BLOCK_WORDS: usize = NTUPLE;
+
+/// For each position k = 0 … 255, the number of whole blocks of `words` whose
+/// largest adjusted coefficient is at k.  The words of the i-th of B blocks
+/// are rotated left by 8·⌊4i/B⌋ bits, so each quarter of the blocks puts a
+/// different byte in the most significant place.
+#[must_use]
+pub fn position_counts(words: &[u32]) -> [u64; NTUPLE] {
+    // v = 2^(rmax_bits−1).  DC mean for a block of N uniform u32 values is
+    // N·(v − 0.5) since E[U32] ≈ 2^31 − 0.5.
+    let v = 1u64 << (RMAX_BITS - 1);
+    let mean_dc = NTUPLE as f64 * (v as f64 - 0.5);
+    let blocks = words.len() / NTUPLE;
+    let quarter = (blocks / 4).max(1);
+    let mut counts = [0u64; NTUPLE];
+    let mut transform = FastDct::new();
+    for (j, block) in words.chunks_exact(NTUPLE).enumerate() {
+        let rot_amount = ((j / quarter) as u32 * (RMAX_BITS / 4)) % RMAX_BITS;
+        let coefficients = transform.dct_ii(block, rot_amount);
+        counts[max_position(coefficients, mean_dc)] += 1;
+    }
+    counts
 }
 
 /// The rotated words of a block as numbers.
