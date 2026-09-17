@@ -17,6 +17,8 @@
 /// distance above the minimum: the result is bit for bit the minimum over all
 /// pairs, which the tests check against a scan of every pair.
 ///
+/// The scan returns as soon as it meets a squared distance of zero.
+///
 /// Each point is compared with about n·r later points, where r is the
 /// nearest-pair scale; for n uniform points in the unit d-cube r ≈ n^(−2/d),
 /// against n/2 for a scan of every pair.
@@ -41,6 +43,12 @@ pub(crate) fn min_squared_distance<const D: usize>(points: &[[f64; D]]) -> f64 {
                 sq += delta * delta;
             }
             if sq < min_sq {
+                if sq == 0.0 {
+                    // No distance is smaller, and a gap of zero never stops
+                    // the sweep, so coincident points would otherwise visit
+                    // every pair.
+                    return 0.0;
+                }
                 min_sq = sq;
             }
         }
@@ -196,7 +204,10 @@ mod tests {
                 })
                 .collect();
             clusters.push(clusters[n / 2]);
-            for points in [uniform, grid, wall, clusters] {
+            // Every point coincident: the case a sweep on one coordinate
+            // cannot prune.
+            let coincident: Vec<[f64; D]> = vec![[0.25; D]; n];
+            for points in [uniform, grid, wall, clusters, coincident] {
                 assert_eq!(
                     min_squared_distance(&points).to_bits(),
                     all_pairs_min(&points).to_bits(),
