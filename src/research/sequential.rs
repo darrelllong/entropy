@@ -47,15 +47,18 @@
 use crate::{result::TestResult, rng::Rng};
 use std::f64::consts::LN_2;
 
-/// The most bits a [`MarkovMixture`] accepts, 2⁵³: every count stays an
-/// integer that `f64` represents exactly.
-pub const MAX_BITS: u64 = 1 << 53;
+/// The most bits a [`MarkovMixture`] accepts, 2⁵²: every count, and every
+/// count plus ½, is exactly representable in `f64`.
+pub const MAX_BITS: u64 = 1 << 52;
 
 /// Markov models of orders 0 … `max_order` and their log-wealth.
 pub struct MarkovMixture {
     /// counts[k][context] = [zeros, ones] seen after that k-bit context.
     counts: Vec<Vec<[u64; 2]>>,
     log_wealth: Vec<f64>,
+    /// An upper bound on each model's accumulated floating-point error in
+    /// `log_wealth`.
+    log_error: Vec<f64>,
     history: u64,
     bits: u64,
 }
@@ -71,6 +74,7 @@ impl MarkovMixture {
         Self {
             counts: (0..=max_order).map(|k| vec![[0, 0]; 1 << k]).collect(),
             log_wealth: vec![0.0; max_order + 1],
+            log_error: vec![0.0; max_order + 1],
             history: 0,
             bits: 0,
         }
@@ -81,15 +85,27 @@ impl MarkovMixture {
     /// # Panics
     /// Panics after [`MAX_BITS`] bits.
     pub fn push(&mut self, bit: bool) {
-        assert!(self.bits < MAX_BITS, "more than 2^53 bits");
+        assert!(self.bits < MAX_BITS, "more than 2^52 bits");
         self.bits += 1;
         let x = usize::from(bit);
-        for (k, (table, log_w)) in self.counts.iter_mut().zip(&mut self.log_wealth).enumerate() {
+        let models = self
+            .counts
+            .iter_mut()
+            .zip(&mut self.log_wealth)
+            .zip(&mut self.log_error);
+        for (k, ((table, log_w), log_err)) in models.enumerate() {
             let context = (self.history & ((1u64 << k) - 1)) as usize;
             let cell = &mut table[context];
+            // The counts, their sum, and the numerator and denominator are exact.
             let n = (cell[0] + cell[1]) as f64;
             let q = (cell[x] as f64 + 0.5) / (n + 1.0);
-            *log_w += LN_2 + q.ln();
+            let ln_q = q.ln();
+            let term = LN_2 + ln_q;
+            *log_w += term;
+            // Rounding the quotient moves ln q by at most about ε; rounding
+            // ln, ln 2, the term and the running sum each by at most ε of
+            // their magnitudes.  Twice that sum covers second-order terms.
+            *log_err += 2.0 * f64::EPSILON * (2.0 + ln_q.abs() + term.abs() + log_w.abs());
             cell[x] += 1;
         }
         self.history = (self.history << 1) | x as u64;
@@ -108,6 +124,24 @@ impl MarkovMixture {
         top + (sum / self.log_wealth.len() as f64).ln()
     }
 
+    /// A lower bound on the natural log of the mixture's wealth in exact
+    /// arithmetic: each model's log-wealth less its error bound, averaged,
+    /// less a bound on the averaging's own rounding.
+    #[must_use]
+    pub fn log_wealth_lower_bound(&self) -> f64 {
+        let lower = || {
+            self.log_wealth
+                .iter()
+                .zip(&self.log_error)
+                .map(|(w, e)| w - e)
+        };
+        let top = lower().fold(f64::NEG_INFINITY, f64::max);
+        let sum: f64 = lower().map(|w| (w - top).exp()).sum();
+        let models = self.log_wealth.len() as f64;
+        let value = top + (sum / models).ln();
+        value - 4.0 * f64::EPSILON * (value.abs() + top.abs() + 2.0 * models + 2.0)
+    }
+
     /// The order whose wealth is largest.
     #[must_use]
     pub fn leading_order(&self) -> usize {
@@ -124,13 +158,15 @@ impl MarkovMixture {
 /// p = min(1, 1/sup E) as `sequential::markov_mixture`.  The p-value is valid
 /// for stopping after any word; wealth is not inspected inside a word.
 ///
-/// Log-wealth is a sum of one rounded logarithm per model per bit, so its
-/// floating error grows with the number of bits; the tests compare order 0
-/// with its closed form over 10⁵ bits.
+/// Log-wealth is a sum of one rounded logarithm per model per bit.  Each model
+/// carries a bound on that sum's floating-point error, under the standard
+/// model of rounding (every operation, including `ln`, within one relative ε
+/// of its exact value), and the supremum is taken over the mixture's lower
+/// bound, so p is conservative in floating-point arithmetic as well.
 #[must_use]
 pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> TestResult {
     if words as u64 > MAX_BITS / 32 {
-        return TestResult::unsupported("sequential::markov_mixture", "more than 2^48 words");
+        return TestResult::unsupported("sequential::markov_mixture", "more than 2^47 words");
     }
     let mut mixture = MarkovMixture::new(max_order);
     let mut sup_log = 0.0f64;
@@ -140,7 +176,7 @@ pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> Tes
         for i in 0..32 {
             mixture.push((word >> i) & 1 == 1);
         }
-        let log_wealth = mixture.log_wealth();
+        let log_wealth = mixture.log_wealth_lower_bound();
         if log_wealth > sup_log {
             sup_log = log_wealth;
             sup_at = w + 1;
@@ -151,13 +187,18 @@ pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> Tes
         "sequential::markov_mixture",
         p,
         format!(
-            "words={words}, orders=0..={max_order}, ln sup E={sup_log:.3} after {sup_at} words, \
+            "words={words}, orders=0..={max_order}, ln sup E ≥ {sup_log:.3} after {sup_at} words, \
              final ln E={:.3}, leading order {}; anytime-valid, conservative",
             mixture.log_wealth(),
             mixture.leading_order()
         ),
     )
-    .with_statistic("ln sup E", sup_log, None, "Ville's inequality, p = 1/sup E")
+    .with_statistic(
+        "lower bound on ln sup E",
+        sup_log,
+        None,
+        "Ville's inequality, p = 1/sup E",
+    )
 }
 
 #[cfg(test)]
@@ -215,11 +256,15 @@ mod tests {
         let exact = n * std::f64::consts::LN_2 + lgamma(n0 as f64 + 0.5) + lgamma(n1 as f64 + 0.5)
             - std::f64::consts::PI.ln()
             - lgamma(n + 1.0);
+        let error = (m.log_wealth[0] - exact).abs();
+        assert!(error < 1e-7, "{} vs {exact}", m.log_wealth[0]);
+        // The carried bound covers the observed error and is not vacuous.
         assert!(
-            (m.log_wealth[0] - exact).abs() < 1e-7,
-            "{} vs {exact}",
-            m.log_wealth[0]
+            error <= m.log_error[0] && m.log_error[0] < 1e-6,
+            "{error} vs {}",
+            m.log_error[0]
         );
+        assert!(m.log_wealth_lower_bound() <= m.log_wealth());
     }
 
     /// A count past u32::MAX neither wraps nor panics.

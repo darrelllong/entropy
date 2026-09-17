@@ -45,12 +45,14 @@ sample sizes, have not been measured over repeated independent streams.
 
 ## Numerics
 
-### A6 — The sequential test's floating error is checked, not bounded
+### A6 — The sequential test's error bound assumes a correctly rounded ln
 
-[sequential.rs](src/research/sequential.rs).  Order 0's log-wealth matches its
-closed form over 10⁵ bits; no bound covers 2⁵³ bits or the mixture.  Its
-anytime guarantee is for one monitored stream, not for selection across
-generators or restarts.
+[sequential.rs](src/research/sequential.rs).  Each model now carries a bound
+on its log-wealth's floating-point error and p uses the resulting lower bound,
+which covers the observed error against order 0's closed form.  The bound
+assumes `f64::ln` is within one relative ε, which the platform library does
+not promise.  The anytime guarantee is for one monitored stream, not for
+selection across generators or restarts.
 
 ## Cost
 
