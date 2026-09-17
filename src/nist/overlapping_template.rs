@@ -45,7 +45,7 @@ pub fn overlapping_template(bits: &[u8], m: usize) -> TestResult {
     // step (4), §3.8).  Using it for any other m yields incorrect chi-square
     // probabilities and false p-values.
     if m != 9 {
-        return TestResult::insufficient(
+        return TestResult::unsupported(
             "nist::overlapping_template",
             "only m = 9 is supported; pi table is valid for m = 9, M = 1032 only",
         );

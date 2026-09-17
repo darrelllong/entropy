@@ -10,9 +10,12 @@ pub const ALPHA: f64 = 0.01;
 pub enum Status {
     /// A p-value, finite and in [0, 1].
     Scored,
-    /// The input was too short, or otherwise did not meet the test's
-    /// preconditions, so no statistic was computed.
+    /// The input was too short for the test, so no statistic was computed.
     Insufficient,
+    /// The parameters are outside the test's defined domain, so no statistic
+    /// was computed.  A battery never passes such parameters; a run that
+    /// reports one has a configuration error and has not completed.
+    Unsupported,
     /// A statistic was computed but its p-value is not a probability: NaN
     /// from a failed numerical expansion, an infinity, or a value outside
     /// [0, 1].  A run that reports one has not completed.
@@ -82,10 +85,27 @@ impl TestResult {
         self.status == Status::Scored && self.p_value < ALPHA
     }
 
-    /// `true` if the preconditions were not met.
+    /// A result whose parameters are outside the test's domain.
+    #[must_use]
+    pub fn unsupported(name: &'static str, reason: &str) -> Self {
+        Self {
+            name,
+            p_value: f64::NAN,
+            note: Some(reason.to_owned()),
+            status: Status::Unsupported,
+        }
+    }
+
+    /// `true` if the input was too short.
     #[must_use]
     pub fn skipped(&self) -> bool {
         self.status == Status::Insufficient
+    }
+
+    /// `true` if the parameters were outside the test's domain.
+    #[must_use]
+    pub fn is_unsupported(&self) -> bool {
+        self.status == Status::Unsupported
     }
 
     /// `true` if the computed p-value is not a probability.
@@ -108,6 +128,7 @@ impl fmt::Display for TestResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.status {
             Status::Insufficient => write!(f, "[SKIP] {:<48}  p = N/A", self.name)?,
+            Status::Unsupported => write!(f, "[UNSUPPORTED] {:<41}  p = N/A", self.name)?,
             Status::Error => write!(f, "[ERROR] {:<47}  p = {}", self.name, self.p_value)?,
             Status::Scored => {
                 let status = if self.passed() { "PASS" } else { "FAIL" };
@@ -164,5 +185,15 @@ mod tests {
         assert!(!TestResult::insufficient("t", "why").passed());
         assert!(TestResult::new("t", 0.5).passed());
         assert!(!TestResult::new("t", 0.001).passed());
+    }
+
+    /// Unsupported parameters are neither a pass, a failure, a skip nor an
+    /// error, and print their own tag.
+    #[test]
+    fn unsupported_is_its_own_status() {
+        let r = TestResult::unsupported("t", "d must be 2..=5");
+        assert!(r.is_unsupported());
+        assert!(!r.passed() && !r.failed() && !r.skipped() && !r.errored());
+        assert!(r.to_string().starts_with("[UNSUPPORTED] t"), "{r}");
     }
 }

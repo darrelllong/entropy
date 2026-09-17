@@ -32,7 +32,8 @@
 //! Exit codes: 0 = ran to completion; 1 = usage error (including a
 //! `--rng`/`--suite`/`--test` selection that runs no RNG), or FAILs under
 //! `--fail-on-fail`; 2 = an RNG task panicked (results incomplete); 3 = a
-//! test computed a p-value that is not a probability (results incomplete).
+//! test computed a p-value that is not a probability, or was given parameters
+//! outside its domain (results incomplete).
 //! ```
 //!
 //! Examples:
@@ -418,7 +419,8 @@ Usage: run_tests [--quick] [--suite nist|diehard|dieharder|diehard-historical] [
  Exit codes: 0 = ran to completion (tests may still have FAILed unless
  --fail-on-fail); 1 = usage error (including a selection that runs no RNG),
  or FAILs with --fail-on-fail; 2 = an RNG task panicked and its results are
- missing; 3 = a test reported ERROR, a p-value that is not a probability.
+ missing; 3 = a test reported ERROR, a p-value that is not a probability,
+ or UNSUPPORTED, parameters outside its domain.
 
  Examples:
   run_tests                              # full battery, all RNGs
@@ -777,7 +779,10 @@ fn main() {
         std::process::exit(2);
     }
     if total_error > 0 {
-        eprintln!("error: {total_error} test(s) computed a p-value that is not a probability");
+        eprintln!(
+            "error: {total_error} test(s) computed a p-value that is not a probability \
+             or were given unsupported parameters"
+        );
         std::process::exit(3);
     }
     if args.fail_on_fail && total_fail > 0 {
@@ -891,7 +896,15 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
     let fail = matching.iter().filter(|t| t.failed()).count();
     let skip = matching.iter().filter(|t| t.skipped()).count();
     let error = matching.iter().filter(|t| t.errored()).count();
-    println!("\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP, {error} ERROR");
+    let unsupported = matching.iter().filter(|t| t.is_unsupported()).count();
+    if unsupported > 0 {
+        println!(
+            "\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP, {error} ERROR, \
+             {unsupported} UNSUPPORTED"
+        );
+    } else {
+        println!("\n  Summary: {pass} PASS, {fail} FAIL, {skip} SKIP, {error} ERROR");
+    }
     let n_run = pass + fail;
     if n_run > 0 {
         // Many slots share a name: the 148 non-overlapping templates and the
@@ -916,7 +929,7 @@ fn print_rng_results(r: &RngResults, banner: &str, args: &Args) -> (usize, usize
             n_run as f64 * 0.01
         );
     }
-    (fail, error)
+    (fail, error + unsupported)
 }
 
 #[cfg(test)]

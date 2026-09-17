@@ -20,8 +20,6 @@ Improvements beyond the open defects in [AUDIT.md](AUDIT.md).
 
 ## Results
 
-- Separate unsupported parameters from insufficient input; both are SKIP
-  today.
 - Structured output with each result's statistic, degrees of freedom,
   null-model version, unrounded p-value and input offsets.
 

@@ -57,7 +57,7 @@ pub fn minimum_distance_nd(rng: &mut impl Rng, d: usize, quick: bool) -> TestRes
         4 => pair_count_uniforms::<4>(rng, n_points, repeats),
         5 => pair_count_uniforms::<5>(rng, n_points, repeats),
         _ => {
-            return TestResult::insufficient("dieharder::minimum_distance_nd", "d must be 2..=5");
+            return TestResult::unsupported("dieharder::minimum_distance_nd", "d must be 2..=5");
         }
     };
 
@@ -100,9 +100,9 @@ mod tests {
     use crate::rng::ConstantRng;
 
     #[test]
-    fn unsupported_dimensions_skip() {
+    fn unsupported_dimensions() {
         for d in [0, 1, 6] {
-            assert!(minimum_distance_nd(&mut ConstantRng::new(0), d, true).skipped());
+            assert!(minimum_distance_nd(&mut ConstantRng::new(0), d, true).is_unsupported());
         }
     }
 

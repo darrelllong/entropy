@@ -69,7 +69,7 @@ pub fn non_overlapping_all(bits: &[u8]) -> Vec<TestResult> {
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.7.
 pub fn non_overlapping_template(bits: &[u8], m: usize) -> TestResult {
     if !(MIN_TEMPLATE_LEN..=MAX_TEMPLATE_LEN).contains(&m) {
-        return TestResult::insufficient("nist::non_overlapping_template", TEMPLATE_LEN_NOTE);
+        return TestResult::unsupported("nist::non_overlapping_template", TEMPLATE_LEN_NOTE);
     }
     // Use 000000001 (first aperiodic template of length m) as a single probe.
     let mut template = vec![0u8; m];
@@ -87,10 +87,10 @@ pub fn non_overlapping_template_raw(bits: &[u8], template: &[u8]) -> TestResult 
     let n = bits.len();
     let m = template.len();
     if !(MIN_TEMPLATE_LEN..=MAX_TEMPLATE_LEN).contains(&m) {
-        return TestResult::insufficient("nist::non_overlapping_template", TEMPLATE_LEN_NOTE);
+        return TestResult::unsupported("nist::non_overlapping_template", TEMPLATE_LEN_NOTE);
     }
     if template.iter().any(|&b| b > 1) {
-        return TestResult::insufficient(
+        return TestResult::unsupported(
             "nist::non_overlapping_template",
             "template must contain only 0 and 1 symbols",
         );
@@ -182,16 +182,20 @@ mod tests {
     /// empty templates and non-binary symbols return a skipped result rather
     /// than panicking, hanging, or fabricating a rejection.
     #[test]
-    fn degenerate_templates_are_skipped() {
+    fn degenerate_templates_are_unsupported() {
         let bits = vec![1u8; 1024];
         for m in [0usize, 1, 22, 33, 64] {
-            assert!(non_overlapping_template(&bits, m).skipped(), "m = {m}");
+            assert!(
+                non_overlapping_template(&bits, m).is_unsupported(),
+                "m = {m}"
+            );
         }
-        assert!(non_overlapping_template_raw(&bits, &[]).skipped());
-        assert!(non_overlapping_template_raw(&bits, &[0, 1, 2]).skipped());
-        assert!(non_overlapping_template_raw(&bits, &[2, 2, 2]).skipped());
+        assert!(non_overlapping_template_raw(&bits, &[]).is_unsupported());
+        assert!(non_overlapping_template_raw(&bits, &[0, 1, 2]).is_unsupported());
+        assert!(non_overlapping_template_raw(&bits, &[2, 2, 2]).is_unsupported());
         for m in [2usize, 9, 21] {
-            assert!(!non_overlapping_template(&bits, m).skipped(), "m = {m}");
+            let r = non_overlapping_template(&bits, m);
+            assert!(!r.skipped() && !r.is_unsupported(), "m = {m}");
         }
     }
 

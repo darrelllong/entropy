@@ -38,8 +38,8 @@ use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
     CryptoCtrDrbg, DualEcDrbg, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom,
     Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
-    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32,
-    Xorshift64, Xoshiro256,
+    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64,
+    Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
 

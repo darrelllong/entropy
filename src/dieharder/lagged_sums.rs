@@ -19,7 +19,7 @@ use std::f64::consts::SQRT_2;
 pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
     // lag = 0 sums every word.
     let Some(stride) = lag.checked_add(1) else {
-        return TestResult::insufficient("dieharder::lagged_sums", "lag too large");
+        return TestResult::unsupported("dieharder::lagged_sums", "lag too large");
     };
     let tsamples = words.len() / stride;
 
@@ -51,13 +51,14 @@ pub fn lagged_sums(words: &[u32], lag: usize) -> TestResult {
 mod tests {
     use super::lagged_sums;
 
-    /// Lags at the edges of the parameter range skip rather than panic.
+    /// A lag whose stride overflows is unsupported; the next lag down is a
+    /// valid parameter with too little input.  Neither panics.
     #[test]
-    fn extreme_lags_skip() {
-        for lag in [usize::MAX, usize::MAX - 1] {
-            assert!(lagged_sums(&[], lag).skipped());
-            assert!(lagged_sums(&[1, 2, 3], lag).skipped());
-        }
+    fn extreme_lags_do_not_panic() {
+        assert!(lagged_sums(&[], usize::MAX).is_unsupported());
+        assert!(lagged_sums(&[1, 2, 3], usize::MAX).is_unsupported());
+        assert!(lagged_sums(&[], usize::MAX - 1).skipped());
+        assert!(lagged_sums(&[1, 2, 3], usize::MAX - 1).skipped());
     }
 
     #[test]

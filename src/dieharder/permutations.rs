@@ -17,7 +17,7 @@ use crate::{math::igamc, result::TestResult, rng::Rng};
 /// Robert G. Brown, Dieharder (2006).
 pub fn permutations(rng: &mut impl Rng, t: usize) -> TestResult {
     if !(2..=8).contains(&t) {
-        return TestResult::insufficient("dieharder::permutations", "t must be 2..=8");
+        return TestResult::unsupported("dieharder::permutations", "t must be 2..=8");
     }
 
     let n_perms = factorial(t);
@@ -85,9 +85,9 @@ mod tests {
     use crate::rng::ConstantRng;
 
     #[test]
-    fn window_sizes_outside_the_range_skip() {
+    fn window_sizes_outside_the_range_are_unsupported() {
         for t in [0, 1, 9] {
-            assert!(permutations(&mut ConstantRng::new(0), t).skipped());
+            assert!(permutations(&mut ConstantRng::new(0), t).is_unsupported());
         }
     }
 

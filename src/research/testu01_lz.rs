@@ -325,7 +325,7 @@ fn parameters(summary: &LempelZivSummary) -> String {
 /// `testu01::lzw_sum`.
 pub fn lempel_ziv_sum_result(summary: &LempelZivSummary) -> TestResult {
     match &summary.unsupported {
-        Some(why) => TestResult::insufficient("testu01::lzw_sum", why),
+        Some(why) => TestResult::unsupported("testu01::lzw_sum", why),
         None => TestResult::with_note(
             "testu01::lzw_sum",
             summary.z_sum_p_value,
@@ -338,7 +338,7 @@ pub fn lempel_ziv_sum_result(summary: &LempelZivSummary) -> TestResult {
 /// `testu01::lzw_ks`.
 pub fn lempel_ziv_ks_result(summary: &LempelZivSummary) -> TestResult {
     match &summary.unsupported {
-        Some(why) => TestResult::insufficient("testu01::lzw_ks", why),
+        Some(why) => TestResult::unsupported("testu01::lzw_ks", why),
         None => TestResult::with_note("testu01::lzw_ks", summary.ks_p_value, parameters(summary)),
     }
 }
@@ -527,12 +527,12 @@ mod tests {
 
     /// An unsupported N draws nothing and reports insufficient data.
     #[test]
-    fn unsupported_replications_skip() {
+    fn unsupported_replications() {
         let mut rng = Xorshift32::new(XORSHIFT_SEED);
         let (reps, summary) = lempel_ziv_summary(&mut rng, 10_001, 6, 0, 32, 1);
         assert!(reps.is_empty());
-        assert!(lempel_ziv_sum_result(&summary).skipped());
-        assert!(lempel_ziv_ks_result(&summary).skipped());
+        assert!(lempel_ziv_sum_result(&summary).is_unsupported());
+        assert!(lempel_ziv_ks_result(&summary).is_unsupported());
         let mut fresh = Xorshift32::new(XORSHIFT_SEED);
         assert_eq!(fresh.next_u32(), rng.next_u32());
     }

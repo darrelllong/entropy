@@ -23,7 +23,7 @@ use crate::{math::chi2_pvalue, result::TestResult};
 /// Rukhin et al., NIST SP 800-22 Rev 1a (2010), §2.10.
 pub fn linear_complexity(bits: &[u8], m: usize) -> TestResult {
     if !(500..=5000).contains(&m) {
-        return TestResult::insufficient("nist::linear_complexity", "M must be in [500, 5000]");
+        return TestResult::unsupported("nist::linear_complexity", "M must be in [500, 5000]");
     }
 
     let n = bits.len();
