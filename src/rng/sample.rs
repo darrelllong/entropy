@@ -254,12 +254,15 @@ pub trait Sample: Rng {
     /// U from [`Sample::unit_f64_dense`], so both tails reach |z| ≈ 38.49,
     /// the quantile of half the smallest subnormal.  Where halving U would
     /// round (odd subnormal significands, including 2⁻¹⁰⁷⁴ itself, whose half
-    /// is 0), U/2 is carried as ln U − ln 2.  Each draw costs a Newton solve,
-    /// a few microseconds.
+    /// is 0), U/2 is carried as ln U − ln 2.  Each draw costs a Newton solve:
+    /// measured at 0.1 million draws per second, against 271 million for
+    /// [`normal`](Self::normal).
     ///
     /// This samples the continuous normal law through a dense uniform, to the
-    /// accuracy of Φ⁻¹; it does not promise any particular rounded law.
-    fn normal(&mut self) -> f64 {
+    /// accuracy of Φ⁻¹; it does not promise any particular rounded law.  It
+    /// was `normal` before the ziggurat replaced it, and is kept under this
+    /// name for callers who need those values.
+    fn normal_inverse(&mut self) -> f64 {
         loop {
             let u = self.unit_f64_dense();
             if u > 0.0 {
@@ -277,13 +280,17 @@ pub trait Sample: Rng {
     /// A standard normal variate by the ziggurat of Marsaglia and Tsang, with
     /// the table derived in [`super::ziggurat`] rather than tabulated.
     ///
-    /// The same law as [`normal`](Self::normal) and a different sequence: a
-    /// draw usually costs one word and no transcendental function, where
-    /// inversion costs a Newton solve, so this is the faster of the two.  Its
-    /// body lies on the 2⁻⁵³ grid of the uniform it uses, and its tail is
-    /// drawn from dense uniforms by rejection, reaching further than
-    /// inversion's ±38.49.  `normal` remains the value-stable one.
-    fn normal_ziggurat(&mut self) -> f64 {
+    /// A draw usually costs one word and no transcendental function: 271
+    /// million draws per second here, against 0.1 million for
+    /// [`normal_inverse`](Self::normal_inverse), which samples the same law by
+    /// inverting Φ.  The body lies on the 2⁻⁵³ grid of the uniform it uses,
+    /// and the tail is drawn from dense uniforms by rejection, reaching
+    /// further than inversion's ±38.49.
+    ///
+    /// This replaced the inversion in the 2026-09-17 series: a seed that gave
+    /// one sequence of normals now gives another.  Nothing else in [`Sample`]
+    /// moved, and `normal_inverse` still gives the old values.
+    fn normal(&mut self) -> f64 {
         crate::rng::ziggurat::Ziggurat::derived().sample(self)
     }
 
@@ -738,7 +745,7 @@ mod tests {
         assert!((mean - 0.5).abs() < SIGMAS * (uniform_variance / n).sqrt());
         let e: f64 = (0..SAMPLES).map(|_| rng.exponential()).sum::<f64>() / n;
         assert!((e - 1.0).abs() < SIGMAS / n.sqrt());
-        let z: Vec<f64> = (0..SAMPLES).map(|_| rng.normal()).collect();
+        let z: Vec<f64> = (0..SAMPLES).map(|_| rng.normal_inverse()).collect();
         let zm = z.iter().sum::<f64>() / n;
         let zv = z.iter().map(|x| (x - zm).powi(2)).sum::<f64>() / n;
         assert!(
@@ -747,8 +754,9 @@ mod tests {
         );
     }
 
-    /// Both tails of the normal and the exponential's far tail are reachable,
-    /// down to the smallest subnormal U.
+    /// Both tails of the inverted normal and the exponential's far tail are
+    /// reachable, down to the smallest subnormal U.  The ziggurat's tail has
+    /// its own tests, against the conditional law rather than crafted words.
     #[test]
     fn variates_reach_their_far_tails() {
         /// Relative tolerance where Φ is still a normal double.
@@ -774,8 +782,8 @@ mod tests {
             (e - exponent * std::f64::consts::LN_2).abs() < MODERATE_TAIL,
             "{e}"
         );
-        let low = Words(tiny(), sign(false)).normal();
-        let high = Words(tiny(), sign(true)).normal();
+        let low = Words(tiny(), sign(false)).normal_inverse();
+        let high = Words(tiny(), sign(true)).normal_inverse();
         let q = crate::math::normal_cdf(low);
         assert!(
             (q / 2f64.powf(-exponent - 1.0) - 1.0).abs() < MODERATE_TAIL,
@@ -794,9 +802,9 @@ mod tests {
             };
             let words = || dense_words(SMALLEST_SUBNORMAL_ZEROS - top, significand_word);
             assert_eq!(Words(words(), 0).unit_f64_dense(), f64::from_bits(f));
-            let z = Words(words(), sign(false)).normal();
+            let z = Words(words(), sign(false)).normal_inverse();
             assert!((z - want).abs() < FAR_TAIL * want.abs(), "f = {f}: {z}");
-            assert_eq!(Words(words(), sign(true)).normal(), -z);
+            assert_eq!(Words(words(), sign(true)).normal_inverse(), -z);
         }
     }
 

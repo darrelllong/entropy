@@ -70,8 +70,8 @@ fn main() {
         f64::from(u8::from(r.bernoulli(0.3)))
     });
     report("exponential", draws, rounds, Sample::exponential);
-    report("normal_inverse", draws, rounds, Sample::normal);
-    report("normal_ziggurat", draws, rounds, Sample::normal_ziggurat);
+    report("normal_inverse", draws, rounds, Sample::normal_inverse);
+    report("normal_ziggurat", draws, rounds, Sample::normal);
 
     // The sequence methods, per operation rather than per draw.
     let mut items: Vec<u32> = (0..SLICE as u32).collect();

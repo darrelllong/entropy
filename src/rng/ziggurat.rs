@@ -25,9 +25,10 @@
 //! The rectangles carry a 53-bit uniform, so inside them the draw lies on a
 //! grid of that resolution; the tail is drawn by the rejection of the same
 //! paper, from dense uniforms, and reaches as far as −ln(2⁻¹⁰⁷⁴)/r.  This is
-//! a different sequence from [`Sample::normal`](crate::rng::Sample::normal),
-//! which inverts Φ and is value-stable; both sample the same law, and this one
-//! is the faster of the two.
+//! the sequence of [`Sample::normal`](crate::rng::Sample::normal); the
+//! inversion it replaced is kept as
+//! [`Sample::normal_inverse`](crate::rng::Sample::normal_inverse), and the two
+//! sample the same law.
 
 use crate::{math::erfc, rng::Rng};
 use std::sync::OnceLock;
@@ -301,7 +302,7 @@ mod tests {
         let mut a = Pcg64::new(21, 3);
         let mut b = Pcg64::new(22, 5);
         let mut zig: Vec<f64> = (0..DRAWS).map(|_| normal_cdf(z.sample(&mut a))).collect();
-        let mut inverse: Vec<f64> = (0..DRAWS).map(|_| normal_cdf(b.normal())).collect();
+        let mut inverse: Vec<f64> = (0..DRAWS).map(|_| normal_cdf(b.normal_inverse())).collect();
         assert!(ks_test(&mut zig) > 0.001);
         assert!(ks_test(&mut inverse) > 0.001);
     }
