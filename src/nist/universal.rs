@@ -202,6 +202,18 @@ fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {
 /// prints the later Coron–Naccache approximation
 /// c(L, K) = 0.7 − 0.8/L + (1.6 + 12.8/L)·K^(−4/L) (its reference [2], SAC '98)
 /// but says it is not embedded in the test suite code, so it is not used here.
+///
+/// Measured calibration at the battery's sample size (16 000 000 bits,
+/// `examples/universal_variance.rs`, 4 000 null streams of PCG64, xoshiro256**
+/// and SFC64): the z this σ produces has standard deviation 1.060 at L = 5,
+/// 1.034 at L = 6, 1.023 at L = 7, 1.027 at L = 8 and 1.00 at L = 9 and 10,
+/// so the smaller settings reject about 1.5% of null streams at the 1% level
+/// rather than 1%.  μ and σ² are exact properties of the gap law, so what is
+/// short is c: at these K both published forms agree to four decimals, since
+/// K^(−3/L) and K^(−4/L) have both vanished, leaving 0.7 − 0.8/L.  The
+/// standard's formula is kept, because this is the test SP 800-22 defines;
+/// the over-rejection is a property of that definition at this K, and
+/// AUDIT.md records it.
 fn universal_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
     let l = l as f64;
     let k = k as f64;

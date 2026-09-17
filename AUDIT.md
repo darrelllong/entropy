@@ -25,6 +25,16 @@ independent null trials, and rarer corrected thresholds need more.
 | LZ78 above k = 20 | Cells at k = 21 … 25 with 80–600 runs; a 3 000-run campaign at k = 21, 22, 23 and 25 on xoshiro and SFC64 is running | Its results, and the tail at 0.001 |
 | Minimum distance | Selected modes and thresholds calibrated | The supported parameter cells, at the thresholds used |
 
+Maurer's universal test over-rejects at the battery's sample size, and it is
+the standard's variance that is short. Over 4 000 null streams
+(`examples/universal_variance.rs`) the z it computes has standard deviation
+1.060 at L = 5, 1.034 at L = 6, 1.023 at L = 7 and 1.027 at L = 8, falling to
+1.00 by L = 9, which is the 1.5% rejection rate at the 1% level the campaign
+sees. μ and σ² are exact properties of the gap law, so the shortfall is in
+c(L, K), and at K of a few million both published forms of c agree to four
+decimals. The test is left as SP 800-22 defines it; a reader should treat a
+single low p-value from L = 5 … 8 as weaker evidence than its level says.
+
 Two R rows are conservative rather than calibrated: the periodogram-height
 Kolmogorov–Smirnov test against Exp(1) rejects 1.44% of null streams at 0.05
 and 0.03% at 0.01 (z = −5.4), and the periodogram χ² over ten Exp(1) bins
