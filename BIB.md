@@ -684,7 +684,51 @@ previously missing from this bibliography.
   title        = {Incomplete Gamma and Related Functions},
   howpublished = {NIST Digital Library of Mathematical Functions, Chapter 8},
   url          = {https://dlmf.nist.gov/8},
-  note         = {Series 8.7.1, continued fraction 8.9.2 and uniform expansion 8.12.3--8.12.8 behind math::igamc.}
+  note         = {Series 8.7.1, continued fraction 8.9.2 and uniform expansion 8.12.3--8.12.8 behind math::igamc; the incomplete beta's continued fraction 8.17.22, symmetry 8.17.4 and Student's t relation 8.18 behind math::regularized\_incomplete\_beta and math::student\_t\_quantile.}
+}
+
+@article{lanczos1964gamma,
+  author  = {Lanczos, Cornelius},
+  title   = {A Precision Approximation of the Gamma Function},
+  journal = {Journal of the Society for Industrial and Applied Mathematics, Series B: Numerical Analysis},
+  volume  = {1},
+  pages   = {86--96},
+  year    = {1964},
+  doi     = {10.1137/0701008},
+  note    = {math::ln\_gamma with g = 7 and nine coefficients, re-derived by scripts/lanczos\_coefficients.py. [not in pubs/]}
+}
+
+@article{dekker1971floating,
+  author  = {Dekker, T. J.},
+  title   = {A Floating-Point Technique for Extending the Available Precision},
+  journal = {Numerische Mathematik},
+  volume  = {18},
+  pages   = {224--242},
+  year    = {1971},
+  doi     = {10.1007/BF01397083},
+  note    = {The double-double arithmetic of math::regularized\_incomplete\_beta's continued fraction. [not in pubs/]}
+}
+
+@article{didonato1992beta,
+  author  = {DiDonato, Armido R. and Morris, Alfred H., Jr.},
+  title   = {Algorithm 708: Significant Digit Computation of the Incomplete Beta Function Ratios},
+  journal = {ACM Transactions on Mathematical Software},
+  volume  = {18},
+  number  = {3},
+  pages   = {360--373},
+  year    = {1992},
+  doi     = {10.1145/131766.131776},
+  note    = {The prefactor rearrangement of math::regularized\_incomplete\_beta. [not in pubs/: the ACM Digital Library refuses automated download]}
+}
+
+@book{abramowitz1964handbook,
+  editor    = {Abramowitz, Milton and Stegun, Irene A.},
+  title     = {Handbook of Mathematical Functions with Formulas, Graphs, and Mathematical Tables},
+  series    = {National Bureau of Standards Applied Mathematics Series},
+  number    = {55},
+  publisher = {U.S. Government Printing Office},
+  year      = {1964},
+  note      = {26.7.1, Student's t through the incomplete beta, behind math::student\_t\_quantile. [not in pubs/]}
 }
 
 @misc{dlmf5,

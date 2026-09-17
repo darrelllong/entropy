@@ -33,7 +33,7 @@ fn main() {
 
 ## Dependency Note
 
-This crate depends on Darrell Long's [`rust-mp`](https://github.com/darrelllong/rump) crate (library name `rump`) for ln Γ, and, through the default `cryptography` feature, on his [`cryptography-rs`](https://crates.io/crates/cryptography-rs) crate (library name `cryptography`, source at [darrelllong/cryptography](https://github.com/darrelllong/cryptography)).  Both are taken from sibling checkouts (`../rump`, `../cryptography`) during development, and from their published versions otherwise.  `cryptography-rs` supplies:
+This crate depends, through the default `cryptography` feature, on Darrell Long's [`cryptography-rs`](https://crates.io/crates/cryptography-rs) crate (library name `cryptography`, source at [darrelllong/cryptography](https://github.com/darrelllong/cryptography)).  It is taken from the sibling checkout `../cryptography` during development, and from its published version otherwise; the tests also use [`rust-mp`](https://github.com/darrelllong/rump) (`../rump`) to check the NIST e fixture.  `cryptography-rs` supplies:
 
 - **Block ciphers** used by the CTR-mode RNGs: Camellia-128, Twofish-128, Serpent-128, SM4, Grasshopper (256-bit key), CAST-128, SEED.
 - **Stream ciphers**: Rabbit, Salsa20, Snow3G, ZUC-128.

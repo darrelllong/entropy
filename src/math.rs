@@ -1,7 +1,7 @@
 //! Special functions and distributions shared by the test suites.
 //!
 //! Each function names the mathematics it evaluates and where that comes
-//! from.  ln Γ comes from rump; the fast Fourier transform from `rustfft`.
+//! from.  The fast Fourier transform comes from `rustfft`.
 
 use rustfft::{num_complex::Complex, FftPlanner};
 use std::f64::consts::{FRAC_PI_2, PI, SQRT_2};
@@ -254,16 +254,14 @@ fn lower_normal_quantile_ln(target: f64) -> f64 {
     x
 }
 
-// ── ln Γ ──────────────────────────────────────────────────────────────────────
+// ── ln Γ, incomplete beta and Student's t ─────────────────────────────────────
 
-/// Natural logarithm of the gamma function, ln Γ(x), for x > 0: rump's
-/// Lanczos evaluation (g = 7, nine terms).  rump measures its error below
-/// 5·10⁻¹⁵ absolute on [0.1, 3], where ln Γ passes through zero, and below
-/// 2·10⁻¹⁵ relative elsewhere.
-#[must_use]
-pub fn lgamma(x: f64) -> f64 {
-    rump::number_theory::ln_gamma(x)
-}
+mod beta;
+mod ln_gamma;
+
+pub use beta::{regularized_incomplete_beta, student_t_quantile, NumericalError};
+pub use ln_gamma::ln_gamma;
+use ln_gamma::stirling_remainder;
 
 // ── Regularised incomplete gamma ──────────────────────────────────────────────
 
@@ -324,7 +322,7 @@ pub fn igamc(a: f64, x: f64) -> f64 {
     let ln_prefactor = if a >= STIRLING_SHAPE {
         stirling_ln_prefactor(a, x)
     } else {
-        a * x.ln() - x - lgamma(a)
+        a * x.ln() - x - ln_gamma(a)
     };
     if x < a + 1.0 {
         lower_gamma_series(a, x, ln_prefactor).map_or(f64::NAN, |p| 1.0 - p)
@@ -367,26 +365,10 @@ fn log1p_deficit(mu: f64) -> f64 {
 /// a ln x − x − ln Γ(a) = −a·φ(μ) + ½ ln(a/2π) − ω(a),
 ///
 /// which keeps the O(a ln a) terms that cancel in the direct form out of the
-/// sum.  ω(a) = Σₖ B₂ₖ/(2k(2k − 1)a²ᵏ⁻¹) through B₁₂; at a = 20 the first
-/// omitted term is below 10⁻¹⁹.
+/// sum.  ω is `stirling_remainder`.
 fn stirling_ln_prefactor(a: f64, x: f64) -> f64 {
-    // B₂ₖ/(2k(2k − 1)) for k = 1 … 6.
-    const STIRLING: [f64; 6] = [
-        1.0 / 12.0,
-        -1.0 / 360.0,
-        1.0 / 1260.0,
-        -1.0 / 1680.0,
-        1.0 / 1188.0,
-        -691.0 / 360_360.0,
-    ];
-    let inverse_square = 1.0 / (a * a);
-    let omega = STIRLING
-        .iter()
-        .rev()
-        .fold(0.0, |acc, c| acc * inverse_square + c)
-        / a;
     let mu = (x - a) / a;
-    -a * log1p_deficit(mu) + 0.5 * (a / (2.0 * std::f64::consts::PI)).ln() - omega
+    -a * log1p_deficit(mu) + 0.5 * (a / (2.0 * std::f64::consts::PI)).ln() - stirling_remainder(a)
 }
 
 /// Exponent α of f(μ) = η²/μ² whose series gives 1/η, and so c₀.
@@ -719,7 +701,7 @@ fn ks_pvalue_exact(d: f64, n: usize) -> f64 {
     }
     let (power, exponent) = scaled_matrix_power(&matrix, m, n);
     // n!/nⁿ in logarithms, and the binary exponent of the power.
-    let ln_scale = lgamma(nf + 1.0) - nf * nf.ln() + f64::from(exponent) * std::f64::consts::LN_2;
+    let ln_scale = ln_gamma(nf + 1.0) - nf * nf.ln() + f64::from(exponent) * std::f64::consts::LN_2;
     let below = power[(k - 1) * m + (k - 1)] * ln_scale.exp();
     (1.0 - below).clamp(0.0, 1.0)
 }
@@ -1077,7 +1059,7 @@ pub fn chi_square_pooled_tails(
 
 /// Binomial PMF: P(X = k) for X ~ Binomial(n, p), with `k ≤ n`.
 ///
-/// Evaluated in log space through [`lgamma`], so it stays finite for large n
+/// Evaluated in log space through [`ln_gamma`], so it stays finite for large n
 /// (C(n, k) itself overflows `f64` past n ≈ 1 030).  The degenerate `p ≤ 0`
 /// and `p ≥ 1` cases return the exact point masses instead of taking `ln 0`.
 #[must_use]
@@ -1090,7 +1072,8 @@ pub fn binomial_pmf(n: usize, k: usize, p: f64) -> f64 {
         return if k == n { 1.0 } else { 0.0 };
     }
     let q = 1.0 - p;
-    let log_comb = lgamma((n + 1) as f64) - lgamma((k + 1) as f64) - lgamma((n - k + 1) as f64);
+    let log_comb =
+        ln_gamma((n + 1) as f64) - ln_gamma((k + 1) as f64) - ln_gamma((n - k + 1) as f64);
     (log_comb + (k as f64) * p.ln() + ((n - k) as f64) * q.ln()).exp()
 }
 
@@ -1235,7 +1218,7 @@ mod tests {
     }
 
     // Reference values are exact rationals C(n,k)·pᵏ·(1−p)ⁿ⁻ᵏ rounded once to
-    // f64, independent of the lgamma evaluation.
+    // f64, independent of the ln_gamma evaluation.
     #[test]
     fn binomial_pmf_known_values() {
         let cases = [
@@ -1592,13 +1575,13 @@ mod tests {
     }
 
     #[test]
-    fn lgamma_known_values() {
+    fn ln_gamma_known_values() {
         // Γ(1) = 1  →  ln Γ(1) = 0
-        assert!(lgamma(1.0).abs() < 1e-10);
+        assert!(ln_gamma(1.0).abs() < 1e-10);
         // Γ(2) = 1  →  ln Γ(2) = 0
-        assert!(lgamma(2.0).abs() < 1e-10);
+        assert!(ln_gamma(2.0).abs() < 1e-10);
         // Γ(3) = 2  →  ln Γ(3) = ln 2
-        assert!((lgamma(3.0) - 2.0_f64.ln()).abs() < 1e-10);
+        assert!((ln_gamma(3.0) - 2.0_f64.ln()).abs() < 1e-10);
     }
 
     #[test]
@@ -2015,7 +1998,7 @@ mod tests {
                 }
                 let stirling = series_or_fraction(a, x, stirling_ln_prefactor(a, x));
                 let other = if a == STIRLING_SHAPE {
-                    series_or_fraction(a, x, a * x.ln() - x - lgamma(a))
+                    series_or_fraction(a, x, a * x.ln() - x - ln_gamma(a))
                 } else {
                     uniform_upper_gamma(a, x)
                 };
@@ -2073,9 +2056,9 @@ mod tests {
     }
 
     #[test]
-    fn lgamma_golden_values() {
-        assert!((lgamma(10.0) - 12.801827480081467).abs() < 1e-8);
-        assert!((lgamma(0.5) - 0.5723649429247004).abs() < 1e-10);
+    fn ln_gamma_golden_values() {
+        assert!((ln_gamma(10.0) - 12.801827480081467).abs() < 1e-8);
+        assert!((ln_gamma(0.5) - 0.5723649429247004).abs() < 1e-10);
     }
 
     #[test]

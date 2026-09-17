@@ -239,7 +239,7 @@ mod tests {
     /// of the string; the running sum of logarithms agrees over 10⁵ bits.
     #[test]
     fn order_zero_wealth_matches_its_closed_form() {
-        use crate::{math::lgamma, rng::Rng};
+        use crate::{math::ln_gamma, rng::Rng};
         let mut rng = Pcg64::new(9, 9);
         let mut m = MarkovMixture::new(0);
         let (mut n0, mut n1) = (0u64, 0u64);
@@ -253,9 +253,10 @@ mod tests {
             }
         }
         let n = (n0 + n1) as f64;
-        let exact = n * std::f64::consts::LN_2 + lgamma(n0 as f64 + 0.5) + lgamma(n1 as f64 + 0.5)
-            - std::f64::consts::PI.ln()
-            - lgamma(n + 1.0);
+        let exact =
+            n * std::f64::consts::LN_2 + ln_gamma(n0 as f64 + 0.5) + ln_gamma(n1 as f64 + 0.5)
+                - std::f64::consts::PI.ln()
+                - ln_gamma(n + 1.0);
         let error = (m.log_wealth[0] - exact).abs();
         assert!(error < 1e-7, "{} vs {exact}", m.log_wealth[0]);
         // The carried bound covers the observed error and is not vacuous.

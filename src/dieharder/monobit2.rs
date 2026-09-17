@@ -24,7 +24,7 @@
 //! (2006).
 
 use crate::{
-    math::{binomial_pmf, chi_square_pooled_tails, igamc, lgamma},
+    math::{binomial_pmf, chi_square_pooled_tails, igamc, ln_gamma},
     result::TestResult,
 };
 
@@ -95,8 +95,8 @@ fn level_count(words: usize) -> usize {
             let bits = WORD_BITS * block;
             let blocks = (words / block) as f64;
             let half = bits / 2;
-            let ln_centre = lgamma((bits + 1) as f64)
-                - 2.0 * lgamma((half + 1) as f64)
+            let ln_centre = ln_gamma((bits + 1) as f64)
+                - 2.0 * ln_gamma((half + 1) as f64)
                 - bits as f64 * std::f64::consts::LN_2;
             blocks * ln_centre.exp() >= MIN_CENTRE_EXPECTED
         })

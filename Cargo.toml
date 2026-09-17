@@ -108,7 +108,8 @@ path = "src/lib.rs"
 # `wipe` feature, and Cargo builds one rust-mp with the union of its
 # dependants' features, so every crate that links rump beside it gets limb
 # wiping.  On by default; a consumer that needs only the statistical tests and
-# generators takes the crate with `default-features = false`.
+# generators takes the crate with `default-features = false`, and then links
+# neither cryptography nor rump.
 default = ["cryptography"]
 cryptography = ["dep:cryptography-rs"]
 
@@ -119,7 +120,9 @@ cryptography = ["dep:cryptography-rs"]
 # scrubs its limbs on drop — which is why the dependency is optional; see
 # the feature above.
 cryptography-rs = { version = "0.7", path = "../cryptography", optional = true }
-# ln Γ for the χ², binomial and Kolmogorov–Smirnov distributions.  rump wipes
-# nothing unless a crate that links it asks for its `wipe` feature.
-rust-mp         = { version = "0.3", path = "../rump" }
 rustfft         = "6.2"
+
+[dev-dependencies]
+# Exact binary splitting of e for the test that checks the NIST e fixture.
+# The probability functions that once came from rump live in entropy::math.
+rust-mp         = { version = "0.3", path = "../rump" }

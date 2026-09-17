@@ -102,7 +102,7 @@ pub(crate) fn cube_pair_probability(r: f64, d: usize) -> f64 {
         let term = binomial
             * std::f64::consts::PI.powf((d - k) as f64 / 2.0)
             * r.powf(m)
-            * (-crate::math::lgamma(1.0 + m / 2.0)).exp();
+            * (-crate::math::ln_gamma(1.0 + m / 2.0)).exp();
         sum += if k % 2 == 0 { term } else { -term };
         binomial *= (d - k) as f64 / (k + 1) as f64;
     }

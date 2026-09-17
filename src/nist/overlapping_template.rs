@@ -103,7 +103,7 @@ fn count_overlapping(block: &[u8], template: &[u8]) -> usize {
 #[cfg(test)]
 mod tests {
     use super::{overlapping_template, PI};
-    use crate::math::{chi2_pvalue, lgamma};
+    use crate::math::{chi2_pvalue, ln_gamma};
     use crate::nist::test_vectors::e_bits;
     use std::f64::consts::LN_2;
 
@@ -119,9 +119,9 @@ mod tests {
             *p = (1..=u)
                 .map(|l| {
                     let l = l as f64;
-                    (-eta - u_f * LN_2 + l * eta.ln() - lgamma(l + 1.0) + lgamma(u_f)
-                        - lgamma(l)
-                        - lgamma(u_f - l + 1.0))
+                    (-eta - u_f * LN_2 + l * eta.ln() - ln_gamma(l + 1.0) + ln_gamma(u_f)
+                        - ln_gamma(l)
+                        - ln_gamma(u_f - l + 1.0))
                     .exp()
                 })
                 .sum();
