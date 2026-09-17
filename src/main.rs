@@ -544,8 +544,13 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     if let Some(path) = &args.corpus {
         let bytes = std::fs::read(path).map_err(|e| format!("cannot read corpus {path}: {e}"))?;
         let corpus = Corpus::from_le_bytes(&bytes).map_err(|e| format!("corpus {path}: {e}"))?;
-        let label: &'static str =
-            Box::leak(format!("corpus {path} ({} words)", corpus.len()).into_boxed_str());
+        let digest: String = cryptography::Sha256::digest(&bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        let label: &'static str = Box::leak(
+            format!("corpus {path} ({} words, sha256 {digest})", corpus.len()).into_boxed_str(),
+        );
         let a = args.clone();
         runs.push((
             label,
@@ -1596,9 +1601,13 @@ mod tests {
         let bad = dir.join("bad.bin");
         std::fs::write(&bad, [0u8; 5]).unwrap();
         let good = good.to_str().unwrap();
+        // SHA-256 of twelve zero bytes.
         assert_eq!(
             scheduled(&["--corpus", good]).unwrap(),
-            [format!("corpus {good} (3 words)")]
+            [format!(
+                "corpus {good} (3 words, sha256 \
+                 15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b)"
+            )]
         );
         assert!(scheduled(&["--corpus", bad.to_str().unwrap()])
             .unwrap_err()
