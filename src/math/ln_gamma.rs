@@ -37,7 +37,7 @@ const LN_GAMMA_FINITE_BELOW: f64 = 2.559_983_327_851_638_3e305;
 /// `x ≤ 0` or `NaN`; `+∞` for `+∞`.
 ///
 /// The normalisation of the gamma, chi-squared, beta and Student's `t`
-/// densities; [`regularized_incomplete_beta`] is built on it.
+/// densities; [`crate::math::regularized_incomplete_beta`] is built on it.
 #[must_use]
 pub fn ln_gamma(x: f64) -> f64 {
     /// Where the Stirling series takes over from Lanczos's approximation.

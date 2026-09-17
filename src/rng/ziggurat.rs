@@ -302,7 +302,10 @@ mod tests {
         assert!((base - z.area).abs() <= AREA * z.area, "base {base}");
         for i in 1..LAYERS {
             let piece = z.x[i - 1] * (z.f[i] - z.f[i - 1]);
-            assert!((piece - z.area).abs() <= AREA * z.area, "piece {i} = {piece}");
+            assert!(
+                (piece - z.area).abs() <= AREA * z.area,
+                "piece {i} = {piece}"
+            );
         }
 
         let mut rng = Pcg64::new(13, 17);

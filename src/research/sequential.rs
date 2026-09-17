@@ -183,8 +183,8 @@ impl MarkovMixture {
 /// Log-wealth is a sum of one rounded logarithm per model per bit.  Each model
 /// carries a bound on that sum's floating-point error, and the supremum is
 /// taken over the mixture's lower bound, so p is conservative in
-/// floating-point arithmetic as well — as far as [`ROUNDING_EPSILONS`], the
-/// assumed accuracy of the platform's `ln`, holds.
+/// floating-point arithmetic as well, as far as the assumed accuracy of the
+/// platform's `ln` holds.
 #[must_use]
 pub fn markov_mixture(rng: &mut impl Rng, words: usize, max_order: usize) -> TestResult {
     if words as u64 > MAX_BITS / 32 {

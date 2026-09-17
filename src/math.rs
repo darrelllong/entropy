@@ -1112,9 +1112,10 @@ pub fn fft_magnitudes(x: &[f64]) -> Vec<f64> {
 
 /// Naïve O(n²) DFT of a real sequence, returning magnitudes |X_k| for k = 0..n.
 ///
-/// Reference implementation kept to cross-check [`fft_magnitudes`] (which the
+/// Reference implementation kept to cross-check `fft_magnitudes` (which the
 /// NIST spectral test uses); the two agree to machine precision (see tests).
-/// Prefer [`fft_magnitudes`] for anything beyond a few thousand points.
+/// Prefer `fft_magnitudes`, with the `batteries` feature, for anything
+/// beyond a few thousand points.
 #[must_use]
 pub fn dft_magnitudes(x: &[f64]) -> Vec<f64> {
     let n = x.len();

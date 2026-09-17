@@ -74,7 +74,7 @@ impl Xoshiro256 {
     }
 
     /// Advance by 2^`exponent` steps, for `exponent` up to the 256 bits of
-    /// state, through the jump polynomial derived in [`super::jump`].
+    /// state, through a jump polynomial derived from the generator.
     ///
     /// Jumping is the same forward motion as calling the generator, so a
     /// caller who jumps k times from one seed holds the k-th segment of one

@@ -108,7 +108,8 @@ pub use xoshiro::{Xoroshiro128, Xoshiro256};
 ///
 /// * **64-bit generators** — `next_u32` returns the high half of one 64-bit
 ///   output and discards the low half, so the batteries test that projection
-///   only.  [`views`] provides the low-half, full-word and bit-reversed views.
+///   only.  The `views` module provides the low-half, full-word and
+///   bit-reversed views.
 ///
 /// * **`next_u64` default** — assembles two `next_u32` calls with the *first*
 ///   call becoming the **high** 32 bits: `(hi << 32) | lo`.  Generators that
@@ -160,7 +161,7 @@ pub trait Rng {
     ///   byte first, and a partial final word supplies its low bytes;
     /// * the rest of that final word is discarded, so a fill of length not a
     ///   multiple of 8 is not continuous with the next call, exactly as
-    ///   [`Sample::fill_bytes`](crate::rng::Sample::fill_bytes) is not
+    ///   [`Sample::fill_bytes`] is not
     ///   continuous across a partial `next_u32`;
     /// * a generator whose natural block is wider may serve a request from its
     ///   own block, provided the bytes are those the `next_u64` sequence would

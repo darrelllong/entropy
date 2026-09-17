@@ -237,8 +237,8 @@ pub trait Sample: Rng {
         }
     }
 
-    /// An exponential variate with mean 1, by the ziggurat of
-    /// [`super::ziggurat`] over e^{−x}: usually one word and no
+    /// An exponential variate with mean 1, by a ziggurat over e^{−x} whose
+    /// table is derived at run time: usually one word and no
     /// transcendental function per draw, with the tail beyond the table's r
     /// drawn as r plus another exponential, which the law's lack of memory
     /// makes exact.
@@ -286,8 +286,8 @@ pub trait Sample: Rng {
         }
     }
 
-    /// A standard normal variate by the ziggurat of Marsaglia and Tsang, with
-    /// the table derived in [`super::ziggurat`] rather than tabulated.
+    /// A standard normal variate by the ziggurat of Marsaglia and Tsang,
+    /// with the table derived at run time rather than tabulated.
     ///
     /// A draw usually costs one word and no transcendental function: 271
     /// million draws per second here, against 0.1 million for
@@ -530,7 +530,8 @@ impl<R: Rng + ?Sized> Sample for R {}
 #[cfg(test)]
 mod tests {
     use super::{
-        lemire_below, ProbabilityDigits, Sample, PROBABILITY_BLOCKS, WORD_BITS, ZERO_BITS_TO_ZERO,
+        lemire_below, ProbabilityDigits, Sample, PROBABILITY_BLOCKS, SUBNORMAL_UNIT_EXPONENT,
+        WORD_BITS, ZERO_BITS_TO_ZERO,
     };
     use crate::rng::{CounterRng, Pcg64, Rng};
 
@@ -691,9 +692,15 @@ mod tests {
         assert!(!Words(vec![q1, q2, 1]).bernoulli(p));
         assert!(!Words(vec![q1 + 1]).bernoulli(p));
         assert!(Words(vec![q1 - 1]).bernoulli(p));
-        // Past p's last digit every block of p is 0, so U ≥ p.
-        let last = ProbabilityDigits::new(2f64.powi(-1074));
-        assert_eq!((last.exponent, last.significand), (-1074, 1));
+        // Past p's last digit every block of p is 0, so U ≥ p.  The smallest
+        // subnormal is spelled from its bits: `powi` of a large negative
+        // exponent builds the positive power first, which overflows to
+        // infinity, and returns its reciprocal, 0.
+        let last = ProbabilityDigits::new(f64::from_bits(1));
+        assert_eq!(
+            (last.exponent, last.significand),
+            (SUBNORMAL_UNIT_EXPONENT, 1)
+        );
     }
 
     /// A generator that replays `next_u64` words and answers every
@@ -741,9 +748,10 @@ mod tests {
         // Three zero bits then a one: [1/16, 1/8).
         assert_eq!(dense(3, 0), 0.0625);
         assert_eq!(dense(SMALLEST_SUBNORMAL_ZEROS, 0), f64::from_bits(1));
-        // 1 041 zero bits: U in [2^−1042, 2^−1041), whose floor is 2^−1042.
+        // 1 041 zero bits: U in [2^−1042, 2^−1041), whose floor is 2^−1042,
+        // which `exp2` gives without `powi`'s overflowing intermediate.
         let zeros = 1_041;
-        assert_eq!(dense(zeros, 0), 2f64.powi(-(zeros as i32) - 1));
+        assert_eq!(dense(zeros, 0), (-(f64::from(zeros) + 1.0)).exp2());
         let all_zero = vec![0; PROBABILITY_BLOCKS as usize];
         assert_eq!(Words(all_zero, 0).unit_f64_dense(), 0.0);
 
@@ -796,7 +804,7 @@ mod tests {
         let high = Words(tiny(), sign(true)).normal_inverse();
         let q = crate::math::normal_cdf(low);
         assert!(
-            (q / 2f64.powf(-exponent - 1.0) - 1.0).abs() < MODERATE_TAIL,
+            (q / (-exponent - 1.0).exp2() - 1.0).abs() < MODERATE_TAIL,
             "{low}: {q}"
         );
         assert_eq!(high, -low);

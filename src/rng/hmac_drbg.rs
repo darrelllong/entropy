@@ -162,7 +162,7 @@ impl Rng for HmacDrbg {
         u64::from_le_bytes(self.take_bytes::<8>())
     }
 
-    /// From the buffer, eight bytes per word; see [`ByteBuffered::fill_words`].
+    /// From the buffer, eight bytes per word.
     fn fill_native(&mut self, bytes: &mut [u8]) {
         self.fill_words(bytes);
     }
