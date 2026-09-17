@@ -45,8 +45,10 @@ const LEVELS: [f64; 3] = [0.05, 0.01, 0.001];
 /// Bins of the p-value histogram.
 const BINS: usize = 20;
 
-/// Streams between snapshots of the accumulated counts.
-const SNAPSHOT_EVERY: usize = 500;
+/// Streams a worker runs between merging its counts into the total and
+/// writing a snapshot.  With many workers the file is rewritten often, but a
+/// snapshot costs a few milliseconds against tens of seconds of testing.
+const SNAPSHOT_EVERY: usize = 25;
 
 /// Counts for one result slot.
 #[derive(Clone, Default)]
