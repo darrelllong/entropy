@@ -17,21 +17,20 @@
 //!
 //! # Calibration
 //!
-//! 4 000 streams of 6 400 100 words, each from a separately seeded PCG64
-//! generator, gave 100 000 window p-values with p < 0.01 in 1.045% (binomial
-//! standard deviation 0.031%) and p < 0.001 in 0.089%; a Kolmogorov–Smirnov
-//! test of the 100 000 gave p = 0.028.  12 000 xoshiro256** streams gave
-//! 300 000 p-values with p < 0.01 in 1.060% (standard deviation 0.018%),
-//! p < 0.001 in 0.101% and a Kolmogorov–Smirnov p-value of 0.13.  Q5 − Q4 is
-//! only approximately χ²(2 500), and the excess at 0.01 is about six
-//! hundredths of a percent.  A test below runs a fixed eight-stream version under
-//! `cargo test --release`.
+//! Q5 − Q4 is only approximately χ²(2 500): over 5 000 000 null windows its
+//! mean is 2 500.00 and its standard deviation 71.07 against √5000 = 70.71,
+//! the same in every window, and scored against χ²(2 500) it rejected 1.04%
+//! of them at the 1% level.  [`crate::diehard::count_ones`] scores it against
+//! the gamma law with that measured variance instead.  A test below runs a
+//! fixed eight-stream version under `cargo test --release`.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
 
 use crate::{
-    diehard::count_ones::{hamming_letter, q5_q4, q_difference_p_value, LETTERS_PER_TEST},
+    diehard::count_ones::{
+        hamming_letter, q5_q4, q_difference_p_value, LETTERS_PER_TEST, QDIFF_NULL,
+    },
     result::TestResult,
 };
 
@@ -68,7 +67,7 @@ pub fn count_ones_bytes(words: &[u32]) -> Vec<TestResult> {
                 q_difference_p_value(q5, q4),
                 format!("bits {b} to {}, Q5-Q4={:.2}", b + 7, q5 - q4),
             )
-            .with_statistic("Q5 - Q4", q5 - q4, Some(2_500.0), "chi-square, two-sided")
+            .with_statistic("Q5 - Q4", q5 - q4, Some(2_500.0), QDIFF_NULL)
         })
         .collect()
 }
@@ -87,7 +86,7 @@ mod tests {
     };
 
     /// Sum of the 25 p-values on a fixed PCG64 stream, pinned.
-    const GOLDEN_P_SUM: f64 = 12.546_311_271_523_468;
+    const GOLDEN_P_SUM: f64 = 12.581_780_947_500_436;
 
     /// The 25 results on a fixed stream, in window order, pinned
     /// through their sum.

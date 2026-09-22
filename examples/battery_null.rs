@@ -1,6 +1,6 @@
 //! The whole battery under its null, repeatedly.
 //!
-//! `battery_null <streams> <threads> <output>` runs the four suites at the
+//! `battery_null <streams> <threads> <output> [first]` runs the four suites at the
 //! sizes `run_tests` uses on independently seeded generators, and accumulates,
 //! for every result slot: how often it is scored, insufficient, unsupported or
 //! an error, how often its p-value falls below 0.05, 0.01 and 0.001, and a
@@ -9,7 +9,9 @@
 //! the same over the whole battery.
 //!
 //! A snapshot is written to `<output>` every [`SNAPSHOT_EVERY`] streams, so a
-//! long campaign can be read while it runs.
+//! long campaign can be read while it runs.  Streams are numbered from
+//! `first`, 0 unless given, so a run that validates a correction can take
+//! streams the calibration never saw.
 //!
 //! The streams differ from a `run_tests` run in one way: each suite reads the
 //! generator where the last one stopped, without the fixed input segments that
@@ -212,6 +214,7 @@ fn main() {
     let streams: usize = args[1].parse().expect("streams");
     let threads: usize = args[2].parse().expect("threads");
     let output = args[3].clone();
+    let first: usize = args.get(4).map_or(0, |v| v.parse().expect("first index"));
     let next = Arc::new(AtomicUsize::new(0));
     let total: Arc<Mutex<Tally>> = Arc::new(Mutex::new(Tally::default()));
     let handles: Vec<_> = (0..threads)
@@ -224,7 +227,7 @@ fn main() {
                     if index >= streams {
                         break;
                     }
-                    mine.add_stream(&stream_results(index));
+                    mine.add_stream(&stream_results(first + index));
                     if mine.streams % SNAPSHOT_EVERY as u64 == 0 {
                         let mut all = total.lock().expect("tally");
                         all.merge(&mine);

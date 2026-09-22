@@ -249,7 +249,7 @@ fn count_ones_stream() {
         )],
         &[Golden {
             name: "diehard::count_ones_stream",
-            p: 0.20596684098343668,
+            p: 0.20825926289963892,
             note: "n=256000, Q5=3248.43, Q4=658.62, Q5-Q4=2589.82",
         }],
     );

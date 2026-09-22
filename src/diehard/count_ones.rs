@@ -56,6 +56,20 @@ const LETTER_PROBS: [f64; ALPHA_SIZE] = [
 /// Degrees of freedom of Q5 − Q4: 5⁵ − 5⁴.
 const QDIFF_DF: f64 = (N_CATEGORIES5 - N_CATEGORIES4) as f64;
 
+/// The variance of Q5 − Q4 under the null, as a multiple of the 2·df of the
+/// χ² it approximates.
+///
+/// Measured (`examples/statistic_scale.rs`, `stats/statistic-scale-moore.txt`)
+/// over 5 000 000 byte windows of 256 004 letters from PCG64, xoshiro256**
+/// and SFC64 null streams: the mean is 2 500.00 and the standard deviation
+/// 71.07 against √5000 = 70.71, the same in every one of the 25 windows, so
+/// the ratio is 1.0103 with a standard error of 0.0006.  The excess is the
+/// finite-sample variance of Pearson's statistic where cells are sparse: the
+/// rarest of the 3 125 five-letter cells expects only 256 000·(37/256)⁵ ≈ 16
+/// counts.  With the χ² law as it stood the test rejected 1.04% of null
+/// windows at the 1% level.
+const QDIFF_VARIANCE_RATIO: f64 = 1.0103;
+
 /// Count-the-1s test on a stream of all bytes, by the Q5 − Q4 statistic in
 /// the module documentation.
 ///
@@ -104,7 +118,7 @@ fn count_ones_test(letters: impl Iterator<Item = usize>, name: &'static str) -> 
             q5 - q4
         ),
     )
-    .with_statistic("Q5 - Q4", q5 - q4, Some(QDIFF_DF), "chi-square, two-sided")
+    .with_statistic("Q5 - Q4", q5 - q4, Some(QDIFF_DF), QDIFF_NULL)
 }
 
 /// The Pearson sums (Q5, Q4) over `N_SAMPLES` overlapping
@@ -153,10 +167,24 @@ fn pearson_sum(counts: &[u32], n: f64) -> f64 {
         .sum()
 }
 
-/// The two-sided p-value of Q5 − Q4 in χ²(2 500):
-/// min(1, 2·min(P(χ² ≤ Q5 − Q4), P(χ² ≥ Q5 − Q4))).
+/// The two-sided p-value of Q5 − Q4: min(1, 2·min(P(X ≤ Q5 − Q4),
+/// P(X ≥ Q5 − Q4))) for X the gamma law with the statistic's mean, 2 500,
+/// and its measured variance, 2·2 500·[`QDIFF_VARIANCE_RATIO`]: shape
+/// df/(2ρ) and scale 2ρ, which is χ²(2 500) itself at ρ = 1.
 pub(crate) fn q_difference_p_value(q5: f64, q4: f64) -> f64 {
-    let upper = igamc(QDIFF_DF / 2.0, (q5 - q4).max(0.0) / 2.0);
+    q_difference_p_value_of(q5 - q4)
+}
+
+/// The name the count-ones results record for their null law; see
+/// [`q_difference_p_value_of`].
+pub const QDIFF_NULL: &str = "gamma of measured variance, two-sided";
+
+/// The two-sided p-value of a Q5 − Q4 value in its null law, for a reader
+/// that recomputes p-values from recorded statistics.
+#[must_use]
+pub fn q_difference_p_value_of(q_difference: f64) -> f64 {
+    let scale = 2.0 * QDIFF_VARIANCE_RATIO;
+    let upper = igamc(QDIFF_DF / scale, q_difference.max(0.0) / scale);
     (2.0 * upper.min(1.0 - upper)).min(1.0)
 }
 
@@ -167,14 +195,27 @@ mod tests {
         N_SAMPLES, WORD_LEN,
     };
 
-    /// At the median of χ²(2 500) the two-sided p-value is 1, and it falls
-    /// symmetrically in probability toward either tail.
+    /// At the law's median the two-sided p-value is 1, it falls symmetrically
+    /// in probability toward either tail, and the law is wider than χ²(2 500)
+    /// by the measured ratio: at 2 700 the corrected p-value exceeds the χ²
+    /// one.
     #[test]
-    fn q_difference_p_value_is_two_sided() {
+    fn q_difference_p_value_is_two_sided_and_widened() {
         assert!(q_difference_p_value(2_499.33, 0.0) > 0.99);
         let low = q_difference_p_value(2_300.0, 0.0);
         let high = q_difference_p_value(2_700.0, 0.0);
         assert!(low < 0.01 && high < 0.01, "{low} {high}");
+        let chi_square = 2.0 * crate::math::igamc(super::QDIFF_DF / 2.0, 2_700.0 / 2.0);
+        assert!(high > chi_square, "{high} against χ² {chi_square}");
+        // One standard deviation out, the corrected law is the χ² law
+        // stretched by √1.0103: the p-values agree there to a few percent.
+        let ratio = super::QDIFF_VARIANCE_RATIO.sqrt();
+        let stretched = q_difference_p_value(2_500.0 + 70.71 * ratio, 0.0);
+        let plain = 2.0 * crate::math::igamc(super::QDIFF_DF / 2.0, (2_500.0 + 70.71) / 2.0);
+        assert!(
+            (stretched - plain).abs() < 0.02 * plain,
+            "{stretched} vs {plain}"
+        );
     }
 
     /// Counting the 256 bytes by letter must reproduce the table, and the

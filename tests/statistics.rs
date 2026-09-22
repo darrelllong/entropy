@@ -4,7 +4,8 @@
 //! The suites run on MT19937; each chi-square statistic must give its p-value
 //! through `chi2_pvalue`, each two-sided normal z through erfc(|z|/√2), each
 //! Kolmogorov–Smirnov D and Anderson–Darling A² through their distributions
-//! at the recorded sample size.  A
+//! at the recorded sample size, and each count-ones Q5 − Q4 through the gamma
+//! law of its measured variance.  A
 //! statistic recorded with the wrong degrees of freedom or scale fails here,
 //! and so does a scored result that records none.
 
@@ -33,6 +34,9 @@ fn check(results: &[TestResult]) -> usize {
             "chi-square, two-sided" => {
                 let upper = igamc(stat.df.expect("df") / 2.0, stat.value.max(0.0) / 2.0);
                 (2.0 * upper.min(1.0 - upper)).min(1.0)
+            }
+            n if n == diehard::count_ones::QDIFF_NULL => {
+                diehard::count_ones::q_difference_p_value_of(stat.value)
             }
             "Kolmogorov-Smirnov" => ks_pvalue(stat.value, stat.n.expect("KS n")),
             "Anderson-Darling" => 1.0 - anderson_darling_cdf(stat.n.expect("AD n"), stat.value),
