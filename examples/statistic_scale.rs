@@ -6,9 +6,12 @@
 //! numbered from `first`, 0 unless given, so a validation run can take streams
 //! a calibration never saw),
 //! computes the test's standardised statistic on each, and prints its mean,
-//! standard deviation and the fraction beyond the two-sided 0.05, 0.01 and
-//! 0.001 points of the law the test assumes.  A statistic whose law is right
-//! has mean 0, standard deviation 1 and those fractions.
+//! standard deviation and the fraction of the test's own p-values below 0.05,
+//! 0.01 and 0.001.  A statistic whose law is right has mean 0 and standard
+//! deviation 1, and a test whose p-values are right rejects those fractions;
+//! the two can differ, as for count-ones, where the statistic is standardised
+//! by the χ² law it approximates and the p-value comes from the corrected
+//! law.
 //!
 //! Tests and what is measured:
 //!
@@ -66,13 +69,13 @@ struct Moments {
 }
 
 impl Moments {
-    /// Add a standardised value.  Its two-sided normal p-value decides the
-    /// exceedances, which is the decision the tests make from it.
-    fn add(&mut self, z: f64) {
+    /// Add a standardised value and the p-value the test gave it, or the
+    /// two-sided normal p-value of the value where the test gives none.
+    fn add(&mut self, z: f64, p_value: Option<f64>) {
         self.count += 1;
         self.sum += z;
         self.sum_squares += z * z;
-        let p = erfc(z.abs() / std::f64::consts::SQRT_2);
+        let p = p_value.unwrap_or_else(|| erfc(z.abs() / std::f64::consts::SQRT_2));
         for (count, level) in self.beyond.iter_mut().zip(LEVELS) {
             *count += u64::from(p < level);
         }
@@ -132,44 +135,66 @@ impl Rng for Null {
     }
 }
 
-/// The standardised values one stream yields for `test`, by row name, with
-/// any raw value worth reporting beside them.
-fn measure(test: &str, index: usize, bits: usize) -> Vec<(String, f64, Option<f64>)> {
+/// One measured value: the row's name, the standardised statistic, the raw
+/// value where one is worth reporting, and the test's own p-value where it
+/// gives one.
+struct Value {
+    name: String,
+    z: f64,
+    raw: Option<f64>,
+    p_value: Option<f64>,
+}
+
+/// The values one stream yields for `test`.
+fn measure(test: &str, index: usize, bits: usize) -> Vec<Value> {
     let mut rng = Null::new(index);
     match test {
         "universal" => universal_parametric_all(&rng.collect_bits(bits))
             .into_iter()
             .filter(|r| r.status == Status::Scored)
-            .filter_map(|r| r.statistic.map(|s| (r.name.to_string(), s.value, None)))
+            .filter_map(|r| {
+                r.statistic.map(|s| Value {
+                    name: r.name.to_string(),
+                    z: s.value,
+                    raw: None,
+                    p_value: Some(r.p_value),
+                })
+            })
             .collect(),
         "spectral" => {
             let r = spectral(&rng.collect_bits(bits));
             r.statistic
                 .filter(|_| r.status == Status::Scored)
-                .map(|s| vec![("nist::spectral".to_string(), s.value, None)])
+                .map(|s| {
+                    vec![Value {
+                        name: "nist::spectral".to_string(),
+                        z: s.value,
+                        raw: None,
+                        p_value: Some(r.p_value),
+                    }]
+                })
                 .unwrap_or_default()
         }
         "count_ones_bytes" => count_ones_bytes(&rng.collect_u32s(COUNT_ONES_WORDS))
             .into_iter()
             .zip(1..)
             .filter_map(|(r, window)| {
-                r.statistic.map(|s| {
-                    let z = (s.value - COUNT_ONES_DF) / (2.0 * COUNT_ONES_DF).sqrt();
-                    (
-                        format!("count_ones_bytes window {window:02}"),
-                        z,
-                        Some(s.value),
-                    )
+                r.statistic.map(|s| Value {
+                    name: format!("count_ones_bytes window {window:02}"),
+                    z: (s.value - COUNT_ONES_DF) / (2.0 * COUNT_ONES_DF).sqrt(),
+                    raw: Some(s.value),
+                    p_value: Some(r.p_value),
                 })
             })
             .collect(),
         "parking_lot" => {
             let cars = parked(&mut rng) as f64;
-            vec![(
-                "diehard::parking_lot cars".to_string(),
-                (cars - PARKING_MEAN) / PARKING_SIGMA,
-                Some(cars),
-            )]
+            vec![Value {
+                name: "diehard::parking_lot cars".to_string(),
+                z: (cars - PARKING_MEAN) / PARKING_SIGMA,
+                raw: Some(cars),
+                p_value: None,
+            }]
         }
         other => panic!(
             "unknown test {other}; one of universal, spectral, count_ones_bytes, parking_lot"
@@ -200,11 +225,11 @@ fn main() {
                     if index >= streams {
                         break;
                     }
-                    for (name, z, raw) in measure(&test, first + index, bits) {
-                        let entry = mine.entry(name).or_default();
-                        entry.0.add(z);
-                        if let Some(raw) = raw {
-                            entry.1.add(raw);
+                    for value in measure(&test, first + index, bits) {
+                        let entry = mine.entry(value.name).or_default();
+                        entry.0.add(value.z, value.p_value);
+                        if let Some(raw) = value.raw {
+                            entry.1.add(raw, None);
                         }
                     }
                 }
@@ -222,7 +247,7 @@ fn main() {
     }
 
     println!("# {test}: {streams} streams from {first}, {bits} bits where the test reads bits");
-    println!("row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd");
+    println!("row values mean_z sd_z below_0.05 below_0.01 below_0.001 raw_mean raw_sd");
     for (name, (z, raw)) in total.lock().expect("total").iter() {
         let n = z.count as f64;
         let rates: Vec<String> = z
