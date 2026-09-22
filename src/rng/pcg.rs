@@ -28,7 +28,10 @@
 //! # Author
 //! Melissa E. O'Neill (algorithm).
 
-use super::{OsRng, Rng};
+use super::{
+    streams::{Advance, Streams},
+    OsRng, Rng,
+};
 
 // ── PCG32 (64-bit LCG, XSH-RR output → 32 bits) ─────────────────────────────
 
@@ -159,8 +162,129 @@ impl Rng for Pcg64 {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+/// The affine map s ↦ mult·s + inc composed with itself `steps` times, as a
+/// pair (multiplier, increment), by square-and-multiply: the maps commute, so
+/// (a, c)∘(b, d) = (ab, ad + c) in either order.  Arithmetic is mod 2⁶⁴, the
+/// LCG's own modulus, and the period is 2⁶⁴, so `steps` is taken mod 2⁶⁴.
+fn affine_power_u64(mult: u64, inc: u64, steps: u128) -> (u64, u64) {
+    let (mut result_mult, mut result_inc) = (1u64, 0u64);
+    let (mut base_mult, mut base_inc) = (mult, inc);
+    let mut remaining = steps as u64;
+    while remaining > 0 {
+        if remaining & 1 == 1 {
+            result_mult = result_mult.wrapping_mul(base_mult);
+            result_inc = result_inc.wrapping_mul(base_mult).wrapping_add(base_inc);
+        }
+        base_inc = base_inc.wrapping_mul(base_mult).wrapping_add(base_inc);
+        base_mult = base_mult.wrapping_mul(base_mult);
+        remaining >>= 1;
+    }
+    (result_mult, result_inc)
+}
+
+/// [`affine_power_u64`] for the 128-bit generator, mod 2¹²⁸.
+fn affine_power_u128(mult: u128, inc: u128, steps: u128) -> (u128, u128) {
+    let (mut result_mult, mut result_inc) = (1u128, 0u128);
+    let (mut base_mult, mut base_inc) = (mult, inc);
+    let mut remaining = steps;
+    while remaining > 0 {
+        if remaining & 1 == 1 {
+            result_mult = result_mult.wrapping_mul(base_mult);
+            result_inc = result_inc.wrapping_mul(base_mult).wrapping_add(base_inc);
+        }
+        base_inc = base_inc.wrapping_mul(base_mult).wrapping_add(base_inc);
+        base_mult = base_mult.wrapping_mul(base_mult);
+        remaining >>= 1;
+    }
+    (result_mult, result_inc)
+}
+
+/// Stream segments of PCG32: 2³² steps each, half the period's bits.
+const SEGMENT_LOG2_32: u32 = 32;
+
+/// Stream segments of PCG64: 2⁶⁴ steps each.
+const SEGMENT_LOG2_64: u32 = 64;
+
+impl Advance for Pcg32 {
+    /// The LCG's state map composed `steps` times: about 64 multiplications.
+    fn advance(&mut self, steps: u128) {
+        let (mult, inc) = affine_power_u64(PCG32_MULT, self.inc, steps);
+        self.state = self.state.wrapping_mul(mult).wrapping_add(inc);
+    }
+}
+
+impl Streams for Pcg32 {
+    /// Segment `index` of 2³² steps from this generator's position, on the
+    /// same PCG stream (the increment is unchanged); segments repeat after
+    /// 2³² of them.
+    fn stream(&self, index: u64) -> Self {
+        let mut stream = Self {
+            state: self.state,
+            inc: self.inc,
+        };
+        stream.advance(u128::from(index) << SEGMENT_LOG2_32);
+        stream
+    }
+}
+
+impl Advance for Pcg64 {
+    fn advance(&mut self, steps: u128) {
+        let (mult, inc) = affine_power_u128(PCG64_MULT, self.inc, steps);
+        self.state = self.state.wrapping_mul(mult).wrapping_add(inc);
+    }
+}
+
+impl Streams for Pcg64 {
+    /// Segment `index` of 2⁶⁴ steps from this generator's position, on the
+    /// same PCG stream.
+    fn stream(&self, index: u64) -> Self {
+        let mut stream = Self {
+            state: self.state,
+            inc: self.inc,
+        };
+        stream.advance(u128::from(index) << SEGMENT_LOG2_64);
+        stream
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::super::streams::{Advance, Streams};
+
+    /// An advance is the steps it stands for, for both generators, and a
+    /// stream is an advance of index times the segment.
+    #[test]
+    fn advances_match_stepping() {
+        for steps in [0u128, 1, 2, 1_000_003] {
+            let mut stepped = Pcg32::new(42, 54);
+            for _ in 0..steps {
+                let _ = stepped.next_u32();
+            }
+            let mut jumped = Pcg32::new(42, 54);
+            jumped.advance(steps);
+            assert_eq!(jumped.state, stepped.state, "pcg32, {steps}");
+
+            let mut stepped = Pcg64::new(42, 54);
+            for _ in 0..steps {
+                let _ = stepped.next_u64();
+            }
+            let mut jumped = Pcg64::new(42, 54);
+            jumped.advance(steps);
+            assert_eq!(jumped.state, stepped.state, "pcg64, {steps}");
+        }
+        // The period is 2⁶⁴: advancing by it is the identity for PCG32.
+        let base = Pcg32::new(7, 7);
+        let mut around = Pcg32::new(7, 7);
+        around.advance(1u128 << 64);
+        assert_eq!(around.state, base.state);
+        let mut walked = Pcg64::new(1, 2);
+        walked.advance(9u128 << SEGMENT_LOG2_64);
+        assert_eq!(Pcg64::new(1, 2).stream(9).state, walked.state);
+        let mut walked = Pcg32::new(1, 2);
+        walked.advance(9u128 << SEGMENT_LOG2_32);
+        assert_eq!(Pcg32::new(1, 2).stream(9).state, walked.state);
+    }
+
     use super::*;
 
     /// The first six outputs O'Neill publishes for PCG32 seeded with state 42

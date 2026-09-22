@@ -37,6 +37,7 @@ pub mod spongebob;
 pub mod squidward;
 #[cfg(feature = "cryptography")]
 pub mod stream_rng;
+pub mod streams;
 #[cfg(feature = "cryptography")]
 pub mod thread_rng;
 mod views;
@@ -77,6 +78,7 @@ pub use spongebob::SpongeBob;
 pub use squidward::Squidward;
 #[cfg(feature = "cryptography")]
 pub use stream_rng::StreamRng;
+pub use streams::{Advance, Streams};
 #[cfg(feature = "cryptography")]
 pub use thread_rng::{thread_rng, try_thread_rng, FastKeyErasureRng, ThreadRng};
 pub use views::{BitReversed, FullWord, HighHalf, LowHalf};

@@ -67,12 +67,19 @@
 
 use cryptography::ChaCha20;
 
-use super::{ByteBuffered, OsRng, Rng};
+use super::{
+    streams::{Advance, Streams},
+    ByteBuffered, OsRng, Rng,
+};
 
 const BLOCK_BYTES: usize = 64;
 
 /// Blocks one key and nonce address under RFC 8439 §2.3's 32-bit counter.
 const BLOCKS_PER_NONCE: u64 = 1 << 32;
+
+/// Key and nonce sizes of RFC 8439 §2.3: 256 and 96 bits.
+const KEY_BYTES: usize = 32;
+const NONCE_BYTES: usize = 12;
 
 /// ChaCha20 stream cipher used as a CSPRNG.
 ///
@@ -81,6 +88,10 @@ const BLOCKS_PER_NONCE: u64 = 1 << 32;
 /// docs.
 pub struct ChaCha20Rng {
     cipher: ChaCha20,
+    /// The key and nonce, kept so that a stream can be positioned and so that
+    /// numbered streams can take their own nonces; wiped on drop.
+    key: [u8; KEY_BYTES],
+    nonce: [u8; NONCE_BYTES],
     buf: [u8; BLOCK_BYTES],
     offset: usize,
     /// Blocks the cipher may still produce: 2³² less the initial counter,
@@ -101,6 +112,8 @@ impl ChaCha20Rng {
     pub fn new(key: &[u8; 32], nonce: &[u8; 12], counter: u32) -> Self {
         Self {
             cipher: ChaCha20::with_counter(key, nonce, counter),
+            key: *key,
+            nonce: *nonce,
             buf: [0u8; BLOCK_BYTES],
             offset: BLOCK_BYTES, // force a refill on first use
             blocks_left: BLOCKS_PER_NONCE - u64::from(counter),
@@ -191,16 +204,102 @@ impl Rng for ChaCha20Rng {
 }
 
 impl Drop for ChaCha20Rng {
-    /// Wipe the buffered keystream on drop.  (The ChaCha20 key/nonce live
-    /// inside `cipher`, whose own storage is managed by the cryptography crate.)
+    /// Wipe the buffered keystream, the key and the nonce on drop; the cipher
+    /// wipes its own copy.
     fn drop(&mut self) {
         cryptography::zeroize_slice(&mut self.buf);
+        cryptography::zeroize_slice(&mut self.key);
+        cryptography::zeroize_slice(&mut self.nonce);
+    }
+}
+
+/// Words of `next_u32` in one block.
+const WORDS_PER_BLOCK: u64 = (BLOCK_BYTES / size_of::<u32>()) as u64;
+
+impl Advance for ChaCha20Rng {
+    /// Set the block counter and the offset within the block: the position
+    /// in words is the blocks the cipher has produced times 16, less the
+    /// words still buffered, plus `steps`.
+    ///
+    /// # Panics
+    /// Panics if the position would pass the 2³² blocks one key and nonce
+    /// address, the same limit a read hits.
+    fn advance(&mut self, steps: u128) {
+        let produced = BLOCKS_PER_NONCE - self.blocks_left;
+        let buffered = ((BLOCK_BYTES - self.offset) / size_of::<u32>()) as u64;
+        let position = u128::from(produced) * u128::from(WORDS_PER_BLOCK) - u128::from(buffered);
+        let target = position + steps;
+        let block = target / u128::from(WORDS_PER_BLOCK);
+        assert!(
+            block < u128::from(BLOCKS_PER_NONCE),
+            "ChaCha20Rng: block counter exhausted; RFC 8439 allows 2^32 blocks \
+             per key and nonce, and another block would repeat keystream"
+        );
+        let block = block as u64;
+        let within = (target % u128::from(WORDS_PER_BLOCK)) as usize * size_of::<u32>();
+        self.cipher.set_counter(block as u32);
+        self.blocks_left = BLOCKS_PER_NONCE - block;
+        if within == 0 {
+            self.offset = BLOCK_BYTES;
+        } else {
+            self.buf = self.cipher.keystream_block();
+            self.blocks_left -= 1;
+            self.offset = within;
+        }
+    }
+}
+
+impl Streams for ChaCha20Rng {
+    /// The keystream of the same key under the nonce with `index` XORed into
+    /// its low eight bytes, from block 0: a separate 2³²-block sequence for
+    /// each index, disjoint by construction, with stream 0 the nonce's own.
+    fn stream(&self, index: u64) -> Self {
+        let mut nonce = self.nonce;
+        for (byte, mix) in nonce.iter_mut().zip(index.to_le_bytes()) {
+            *byte ^= mix;
+        }
+        Self::new(&self.key, &nonce, 0)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rng::streams::{Advance, Streams};
+
+    /// An advance is the words it stands for, from every position within a
+    /// block and across blocks, mixing widths, and a stream is the nonce's
+    /// keystream from block 0.
+    #[test]
+    fn advances_match_stepping() {
+        let key = [3u8; KEY_BYTES];
+        let nonce = [5u8; NONCE_BYTES];
+        for skip in [0u32, 1, 15, 16, 17] {
+            for steps in [0u128, 1, 15, 16, 17, 1_000_003] {
+                let mut stepped = ChaCha20Rng::new(&key, &nonce, 7);
+                let mut jumped = ChaCha20Rng::new(&key, &nonce, 7);
+                for _ in 0..skip {
+                    let _ = stepped.next_u32();
+                    let _ = jumped.next_u32();
+                }
+                for _ in 0..steps {
+                    let _ = stepped.next_u32();
+                }
+                jumped.advance(steps);
+                let next: Vec<u64> = (0..3).map(|_| stepped.next_u64()).collect();
+                let jumped_next: Vec<u64> = (0..3).map(|_| jumped.next_u64()).collect();
+                assert_eq!(jumped_next, next, "skip {skip}, {steps} steps");
+            }
+        }
+        let base = ChaCha20Rng::new(&key, &nonce, 9);
+        let mut own = base.stream(0);
+        let mut fresh = ChaCha20Rng::new(&key, &nonce, 0);
+        assert_eq!(own.next_u64(), fresh.next_u64());
+        let mut other_nonce = nonce;
+        other_nonce[0] ^= 6;
+        let mut other = ChaCha20Rng::new(&key, &other_nonce, 0);
+        assert_eq!(base.stream(6).next_u64(), other.next_u64());
+    }
     use crate::rng::hex;
     use crate::seed::K32;
 

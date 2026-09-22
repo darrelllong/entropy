@@ -110,16 +110,6 @@ The shuffle is 9% behind and unexplained: both are Fisher–Yates over the same
 bounded-integer method, so the difference is in how the index is drawn per
 element.
 
-### A5 — Parallel streams exist only for the linear generators
-
-`Xoshiro256` and `Xoroshiro128` now jump, from a polynomial derived from the
-generator rather than a table, so their streams partition reproducibly. The
-other generators have no such partition: PCG can be advanced in logarithmic
-time by its own arithmetic, the counter-based designs would need a counter
-interface, and the cryptographic generators partition by nonce. Deciding one
-interface across them, and measuring that the segments are statistically
-independent rather than merely disjoint, is open.
-
 ## Closed this round
 
 | Finding | What was wrong | Closed by |
@@ -131,6 +121,7 @@ independent rather than merely disjoint, is open.
 | E6, in part | Per-word thread-local and process-id work, a panic on reseed failure, and a permanently cached readiness error | `ThreadRng::try_fill`, `fill` and `try_next_u64`: one check per request, split at the reseed limit; `pool_ready` remembers only success (ceabc3f) |
 | A3, the feature split | The statistics and the application RNG pulled in the FFT and, by default, cryptography | The `batteries` feature carries the four suites and `rustfft`; the four configurations are tested, and the minimal one has no dependencies |
 | A6, the cross-repository moves | Two owners for the probability functions and for the DRBG mechanisms | `ln_gamma`, the incomplete beta, Student's t and `NumericalError` live in `entropy::math` (19fb7fc), factoring pins entropy 0.6 for them and rump has deleted its copies; Hash_DRBG, HMAC_DRBG and fast key erasure live in cryptography with entropy adapting them (ab1b7e5); rump is a dev-dependency here only |
+| A5, parallel streams | Jumps existed for xoshiro and xoroshiro alone, through methods of their own | `Advance` and `Streams` on every deterministic generator: derived polynomials for the linear ones including MT19937, affine composition for PCG, the counter and nonce for ChaCha20, seed-derived streams for SFC64 and JSF64, each tested against real steps |
 | E7 | Points sharing the sweep axis were compared pairwise, and outliers make that axis the widest | A tied run is swept on the widest coordinate it has not used: 162 times faster on the slab family, unchanged on uniform points (acea67a) |
 
 ## Standard of evidence

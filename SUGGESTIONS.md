@@ -13,7 +13,6 @@ unmeasured is in [AUDIT.md](AUDIT.md).
 | 1 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
 | 2 | Close the 9% shuffle gap against rand | A paired measurement per element, with the exact-uniformity invariant kept |
 | 3 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
-| 4 | One parallel-stream interface across the generators | Scheduling invariance, counter exhaustion, stream identity, and the segments' statistical independence |
 
 ## Calibration and power
 
@@ -57,12 +56,10 @@ contracts and black-box tests, never from another crate's implementation.
 Define whether an error leaves the destination unchanged, partially filled or
 unusable, and keep that rule through reseeding.
 
-Xoshiro256 and Xoroshiro128 partition their stream by jumping, with the jump
-polynomial derived from the generator. For the others, evaluate counter-based
-indexing, deriving the design from
-[Salmon et al., *Parallel Random Numbers*](https://users.cs.utah.edu/~hari/teaching/bigdata/random123sc11.pdf),
-and test that the segments behave as independent streams, not merely as
-disjoint ones.
+`Advance` and `Streams` position every deterministic generator. What is not
+measured is that consecutive segments behave as independent streams rather
+than merely disjoint ones — a battery run on interleaved segments would show
+it — and SFC64's and JSF64's streams rest on seeding, not on a partition.
 
 ## Numerical work
 

@@ -181,14 +181,22 @@ subnormal uniform.  `exponential()` is the same construction over e^{−x},
 faster than rand 0.10.2's, with `exponential_inverse()` the −ln U it replaces.  `examples/variate_throughput.rs`
 measures every sampling method.
 
-**Parallel streams.** `Xoshiro256` and `Xoroshiro128` can jump: `jump_pow2(k)`
-advances by 2ᵏ steps at the cost of a few hundred ordinary steps, and
-`stream(index)` is the seed advanced by `index` jumps of half the state's
-bits, so worker *k* holds segment *k* of one stream whatever order the workers
-run in.  The jump polynomial is not a table: the characteristic polynomial of
-the generator's own linear update is recovered by Berlekamp–Massey from a bit
-of its state, and x^(2ᵏ) mod that polynomial is applied to the state.  A test
-checks a jump of 2²⁰ against a million steps of the generator itself.
+**Positioning and parallel streams.** Two traits cover every deterministic
+generator.  `Advance::advance(steps)` moves a generator forward by any number
+of `next_u32` calls in time logarithmic in that number; `Streams::stream(k)`
+gives the generator for stream *k*, the same for the same seed and index
+whatever order the workers run in.
+
+| Generator | `advance` | `stream(k)` |
+|---|---|---|
+| `Xoshiro256`, `Xoroshiro128`, `Xorshift64`, `Xorshift32`, `Mt19937` | A polynomial in the update matrix, derived from the generator: Berlekamp–Massey recovers the recurrence from a bit of the state, and x^steps mod it is applied — a few hundred ordinary steps for xoshiro, one block for the Twister | Segment *k* of one sequence: 2¹²⁸ steps for xoshiro256, 2⁶⁴ for xoroshiro128 and MT19937, 2³² and 2¹⁶ for the xorshifts |
+| `Pcg64`, `Pcg32` | The LCG's affine state map composed `steps` times by square-and-multiply, about 64 or 128 multiplications | Segment *k* of 2⁶⁴ or 2³² steps on the same PCG stream |
+| `ChaCha20Rng` | The block counter and offset are set | The same key under the nonce with *k* XORed into its low bytes, from block 0: a separate 2³²-block keystream per index |
+| `Sfc64`, `Jsf64` | Not implemented: chaotic maps have no shortcut | A separate sequence seeded by SplitMix64 from the state and *k*: distinct and reproducible, but not provably disjoint |
+
+Nothing is tabulated: the jump polynomials are recovered from the generators
+themselves and cached, and each `advance` is tested against a million real
+steps, from mid-block for the Twister and mid-buffer for ChaCha20.
 
 **Value stability.** Every generator, `Sample` method and `Seedable`
 derivation produces the same values from the same seed in every release;

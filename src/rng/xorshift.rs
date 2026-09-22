@@ -12,7 +12,12 @@
 //! 2003.  <https://doi.org/10.18637/jss.v008.i14>
 //! [pubs/marsaglia-2003-xorshift-rngs.pdf]
 
-use super::Rng;
+use super::{
+    jump::{advance_linear, annihilating_polynomial, Poly},
+    streams::{Advance, Streams},
+    Rng,
+};
+use std::sync::OnceLock;
 
 /// 32-bit Xorshift (Marsaglia, 2003, §3: `xor()`).
 ///
@@ -84,8 +89,128 @@ impl Rng for Xorshift64 {
     }
 }
 
+/// Stream segments of xorshift32: 2¹⁶ steps each, half the period's bits.
+const SEGMENT_LOG2_32: u32 = 16;
+
+/// Stream segments of xorshift64: 2³² steps each.
+const SEGMENT_LOG2_64: u32 = 32;
+
+/// Xorshift32's update on a word whose high half stays zero.
+fn advance32(s: &mut [u64; 1]) {
+    let mut x = s[0] as u32;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    s[0] = u64::from(x);
+}
+
+/// Xorshift64's update.
+fn advance64(s: &mut [u64; 1]) {
+    let mut x = s[0];
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+    s[0] = x;
+}
+
+/// The polynomial annihilating xorshift32's update, derived once: the
+/// recurrence has degree 32 and the factor x³² covers the zero high half.
+fn annihilator32() -> &'static Poly {
+    static POLY: OnceLock<Poly> = OnceLock::new();
+    POLY.get_or_init(|| annihilating_polynomial(advance32))
+}
+
+/// The polynomial annihilating xorshift64's update, derived once.
+fn annihilator64() -> &'static Poly {
+    static POLY: OnceLock<Poly> = OnceLock::new();
+    POLY.get_or_init(|| annihilating_polynomial(advance64))
+}
+
+impl Advance for Xorshift32 {
+    fn advance(&mut self, steps: u128) {
+        let mut state = [u64::from(self.state)];
+        advance_linear(&mut state, annihilator32(), steps, 0, advance32);
+        self.state = state[0] as u32;
+    }
+}
+
+impl Streams for Xorshift32 {
+    /// Segment `index` of 2¹⁶ steps from this generator's position; the
+    /// period is 2³² − 1, so segments repeat after 2¹⁶ of them.
+    fn stream(&self, index: u64) -> Self {
+        let mut state = [u64::from(self.state)];
+        advance_linear(
+            &mut state,
+            annihilator32(),
+            u128::from(index),
+            SEGMENT_LOG2_32,
+            advance32,
+        );
+        Self {
+            state: state[0] as u32,
+        }
+    }
+}
+
+impl Advance for Xorshift64 {
+    fn advance(&mut self, steps: u128) {
+        let mut state = [self.state];
+        advance_linear(&mut state, annihilator64(), steps, 0, advance64);
+        self.state = state[0];
+    }
+}
+
+impl Streams for Xorshift64 {
+    /// Segment `index` of 2³² steps from this generator's position; the
+    /// period is 2⁶⁴ − 1, so segments repeat after 2³² of them.
+    fn stream(&self, index: u64) -> Self {
+        let mut state = [self.state];
+        advance_linear(
+            &mut state,
+            annihilator64(),
+            u128::from(index),
+            SEGMENT_LOG2_64,
+            advance64,
+        );
+        Self { state: state[0] }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::super::streams::{Advance, Streams};
+
+    /// An advance is the steps it stands for, for both widths, and a stream
+    /// is an advance of index times the segment.
+    #[test]
+    fn advances_match_stepping() {
+        for steps in [0u128, 1, 7, 1_000_003] {
+            let mut stepped = Xorshift32::new(2_463_534_242);
+            for _ in 0..steps {
+                let _ = stepped.next_u32();
+            }
+            let mut jumped = Xorshift32::new(2_463_534_242);
+            jumped.advance(steps);
+            assert_eq!(jumped.state, stepped.state, "xorshift32, {steps}");
+
+            let mut stepped = Xorshift64::new(88_172_645_463_325_252);
+            for _ in 0..steps {
+                let _ = stepped.next_u32();
+            }
+            let mut jumped = Xorshift64::new(88_172_645_463_325_252);
+            jumped.advance(steps);
+            assert_eq!(jumped.state, stepped.state, "xorshift64, {steps}");
+        }
+        let base = Xorshift64::new(1);
+        let mut walked = Xorshift64::new(1);
+        walked.advance(5u128 << SEGMENT_LOG2_64);
+        assert_eq!(base.stream(5).state, walked.state);
+        let base = Xorshift32::new(1);
+        let mut walked = Xorshift32::new(1);
+        walked.advance(5u128 << SEGMENT_LOG2_32);
+        assert_eq!(base.stream(5).state, walked.state);
+    }
+
     use super::*;
 
     /// Seed 1 through Marsaglia's 32-bit xorshift with the (13, 17, 5) triple

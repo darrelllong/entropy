@@ -20,7 +20,12 @@
 //! # Author
 //! Makoto Matsumoto and Takuji Nishimura (1998).
 
-use super::Rng;
+use super::{
+    jump::{advance_linear, annihilating_polynomial, Poly},
+    streams::{Advance, Streams},
+    Rng,
+};
+use std::sync::OnceLock;
 
 const N: usize = 624;
 const M: usize = 397;
@@ -46,16 +51,90 @@ impl Mt19937 {
     }
 
     fn generate(&mut self) {
-        for i in 0..N {
-            let x = (self.mt[i] & UPPER_MASK) | (self.mt[(i + 1) % N] & LOWER_MASK);
-            let xa = if x & 1 == 0 {
-                x >> 1
-            } else {
-                (x >> 1) ^ MATRIX_A
-            };
-            self.mt[i] = self.mt[(i + M) % N] ^ xa;
-        }
+        twist(&mut self.mt);
         self.idx = 0;
+    }
+}
+
+/// The recurrence applied to the whole array: the linear map one block of
+/// [`N`] outputs advances the state by.
+fn twist(mt: &mut [u32; N]) {
+    for i in 0..N {
+        let x = (mt[i] & UPPER_MASK) | (mt[(i + 1) % N] & LOWER_MASK);
+        let xa = if x & 1 == 0 {
+            x >> 1
+        } else {
+            (x >> 1) ^ MATRIX_A
+        };
+        mt[i] = mt[(i + M) % N] ^ xa;
+    }
+}
+
+/// The array as 64-bit words for the jump machinery, two array words each.
+const PACKED_WORDS: usize = N / 2;
+
+/// Stream segments of MT19937: 2⁶⁴ outputs each.  The period is 2¹⁹⁹³⁷ − 1,
+/// so the count of segments is not the limit of anything.
+const SEGMENT_LOG2: u32 = 64;
+
+fn pack(mt: &[u32; N]) -> [u64; PACKED_WORDS] {
+    std::array::from_fn(|j| u64::from(mt[2 * j]) | u64::from(mt[2 * j + 1]) << 32)
+}
+
+fn unpack(packed: &[u64; PACKED_WORDS]) -> [u32; N] {
+    std::array::from_fn(|i| (packed[i / 2] >> (32 * (i % 2))) as u32)
+}
+
+/// [`twist`] on the packed array: the block step the annihilating polynomial
+/// is derived for and applied to.
+fn twist_packed(packed: &mut [u64; PACKED_WORDS]) {
+    let mut mt = unpack(packed);
+    twist(&mut mt);
+    *packed = pack(&mt);
+}
+
+/// The polynomial annihilating the block step, derived once.  The recurrence
+/// has degree 19 937; the remaining 31 bits, the low bits of `mt[0]`, are
+/// overwritten by a twist before anything reads them, and the factor
+/// x³¹ the derivation adds covers them.
+fn annihilator() -> &'static Poly {
+    static POLY: OnceLock<Poly> = OnceLock::new();
+    POLY.get_or_init(|| annihilating_polynomial(twist_packed))
+}
+
+impl Advance for Mt19937 {
+    /// The outputs left in the current block are skipped one at a time, whole
+    /// blocks by the polynomial, and the remainder one at a time again: at
+    /// most 2·[`N`] ordinary steps beside the jump.
+    fn advance(&mut self, steps: u128) {
+        let in_block = (N - self.idx) as u128;
+        if steps <= in_block {
+            self.idx += steps as usize;
+            return;
+        }
+        let past_block = steps - in_block;
+        let (blocks, rest) = (past_block / N as u128, (past_block % N as u128) as usize);
+        self.idx = N;
+        if blocks > 0 {
+            let mut packed = pack(&self.mt);
+            advance_linear(&mut packed, annihilator(), blocks, 0, twist_packed);
+            self.mt = unpack(&packed);
+        }
+        for _ in 0..rest {
+            let _ = self.next_u32();
+        }
+    }
+}
+
+impl Streams for Mt19937 {
+    /// Segment `index` of 2⁶⁴ outputs from this generator's position.
+    fn stream(&self, index: u64) -> Self {
+        let mut stream = Self {
+            mt: self.mt,
+            idx: self.idx,
+        };
+        stream.advance(u128::from(index) << SEGMENT_LOG2);
+        stream
     }
 }
 
@@ -91,6 +170,39 @@ impl Rng for Mt19937 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An advance is the outputs it stands for, from mid-block and across
+    /// many blocks, and a stream is an advance of index times the segment.
+    #[test]
+    fn advances_match_stepping() {
+        for (skip, steps) in [
+            (0u32, 0u128),
+            (5, 1),
+            (0, N as u128),
+            (7, 1_000_003),
+            (623, 2 * N as u128 + 1),
+        ] {
+            let mut stepped = Mt19937::new(5489);
+            let mut jumped = Mt19937::new(5489);
+            for _ in 0..skip {
+                let _ = stepped.next_u32();
+                let _ = jumped.next_u32();
+            }
+            for _ in 0..steps {
+                let _ = stepped.next_u32();
+            }
+            jumped.advance(steps);
+            let next: Vec<u32> = (0..3).map(|_| stepped.next_u32()).collect();
+            let jumped_next: Vec<u32> = (0..3).map(|_| jumped.next_u32()).collect();
+            assert_eq!(jumped_next, next, "skip {skip}, {steps} steps");
+        }
+        let base = Mt19937::new(1);
+        let mut walked = Mt19937::new(1);
+        walked.advance(3u128 << SEGMENT_LOG2);
+        let mut third = base.stream(3);
+        assert_eq!(third.next_u32(), walked.next_u32());
+        assert_ne!(base.stream(1).next_u32(), base.stream(2).next_u32());
+    }
 
     /// Seed 19650218: outputs of the reference generator, which C++
     /// `std::mt19937(19650218)` also produces.

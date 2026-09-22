@@ -26,7 +26,8 @@
 //! # Author
 //! Chris Doty-Humphrey (SFC64); Bob Jenkins (JSF64).
 
-use super::{OsRng, Rng};
+use super::{streams::Streams, OsRng, Rng};
+use crate::seed::splitmix64;
 
 // ── SFC64 ────────────────────────────────────────────────────────────────────
 
@@ -164,8 +165,67 @@ impl Rng for Jsf64 {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+/// A seed for stream `index` from a generator's state words: each word and
+/// then the index is XORed into a SplitMix64 state and mixed, so that any
+/// change to the state or the index changes every derived word.
+fn derived_seed(words: &[u64], index: u64) -> impl FnMut() -> u64 {
+    let mut mixer = 0u64;
+    for &word in words.iter().chain(std::iter::once(&index)) {
+        mixer ^= word;
+        splitmix64(&mut mixer);
+    }
+    move || splitmix64(&mut mixer)
+}
+
+impl Streams for Sfc64 {
+    /// A separate sequence, seeded by SplitMix64 from this generator's state
+    /// and `index`: distinct for distinct indices, and reproducible, but not
+    /// a segment of this sequence.  SFC64 is a chaotic map whose cycle
+    /// structure is not known, so no jump exists and two streams cannot be
+    /// proved disjoint; with cycles near 2¹²⁸ the chance that s streams of
+    /// length n meet is about s²·n/2¹²⁸.
+    fn stream(&self, index: u64) -> Self {
+        let mut seed = derived_seed(&[self.a, self.b, self.c, self.counter], index);
+        Self::new(seed(), seed(), seed())
+    }
+}
+
+impl Streams for Jsf64 {
+    /// A separate sequence, seeded by SplitMix64 from this generator's state
+    /// and `index`, with the same standing as [`Sfc64`]'s streams: distinct
+    /// and reproducible, not provably disjoint.
+    fn stream(&self, index: u64) -> Self {
+        let mut seed = derived_seed(&[self.a, self.b, self.c, self.d], index);
+        Self::new(seed())
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::super::streams::Streams;
+
+    /// Streams are reproducible, distinct across indices and across seeds.
+    #[test]
+    fn streams_are_distinct_and_reproducible() {
+        let base = Sfc64::new(1, 2, 3);
+        let heads: Vec<u64> = (0..16).map(|k| base.stream(k).next_u64()).collect();
+        assert_eq!(
+            heads,
+            (0..16)
+                .map(|k| base.stream(k).next_u64())
+                .collect::<Vec<_>>()
+        );
+        let mut sorted = heads.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), heads.len());
+        assert_ne!(Sfc64::new(1, 2, 4).stream(0).next_u64(), heads[0]);
+        let base = Jsf64::new(0xdead_beef);
+        let a = base.stream(0).next_u64();
+        assert_eq!(base.stream(0).next_u64(), a);
+        assert_ne!(base.stream(1).next_u64(), a);
+    }
+
     use super::*;
 
     /// Seed of the JSF64 tests, and of the known-answer vector below, which

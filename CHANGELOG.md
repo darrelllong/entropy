@@ -51,10 +51,13 @@ everything that moved.
   process-id and reseed check per request rather than per word, split at the
   2³⁰-byte reseed limit, with the operating system's error reported instead
   of a panic.
-- `Xoshiro256::jump_pow2`, `stream` and the same on `Xoroshiro128`: a jump of
-  2ᵏ steps in a few hundred operations, so workers take disjoint segments of
-  one stream reproducibly. The jump polynomial is derived from the generator
-  by Berlekamp–Massey, not tabulated.
+- `rng::Advance` and `rng::Streams`, one interface over every deterministic
+  generator: `advance(steps)` moves forward by any number of `next_u32` calls
+  in logarithmic time, and `stream(k)` is the generator for stream *k*. The
+  linear generators (xoshiro256, xoroshiro128, both xorshifts, MT19937) jump
+  by a polynomial derived from the generator itself, PCG by composing its
+  affine map, ChaCha20 by its block counter and nonce; SFC64 and JSF64 have
+  seed-derived streams and no `advance`.
 - `math::normal_quantile_ln`, the standard normal quantile from a log
   probability, which reaches probabilities no double can hold.
 - `POWER.md`: how often each NIST family detects each specified defect, and

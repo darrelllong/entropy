@@ -27,7 +27,8 @@
 //! David Blackman and Sebastiano Vigna (algorithm).
 
 use super::{
-    jump::{apply, characteristic_polynomial, jump_polynomial},
+    jump::{advance_linear, annihilating_polynomial, Poly},
+    streams::{Advance, Streams},
     OsRng, Rng,
 };
 use std::sync::OnceLock;
@@ -72,42 +73,41 @@ impl Xoshiro256 {
         advance256(&mut self.s);
         result
     }
+}
 
-    /// Advance by 2^`exponent` steps, for `exponent` up to the 256 bits of
-    /// state, through a jump polynomial derived from the generator.
-    ///
-    /// Jumping is the same forward motion as calling the generator, so a
-    /// caller who jumps k times from one seed holds the k-th segment of one
-    /// stream, whatever order the segments are taken in.  The cost does not
-    /// grow with the exponent.
-    ///
-    /// # Panics
-    /// Panics if `exponent` exceeds 256.
-    pub fn jump_pow2(&mut self, exponent: u32) {
-        assert!(exponent <= 256, "xoshiro256: the state is 256 bits");
-        static CHARACTERISTIC: OnceLock<Vec<u64>> = OnceLock::new();
-        let characteristic = CHARACTERISTIC.get_or_init(|| characteristic_polynomial(advance256));
-        apply(
-            &mut self.s,
-            &jump_polynomial(characteristic, exponent),
-            advance256,
-        );
-    }
+/// Stream segments of xoshiro256: 2¹²⁸ steps each, half the period's bits,
+/// so there are 2¹²⁸ of them.
+const SEGMENT_LOG2_256: u32 = 128;
 
-    /// The generator advanced by `index`·2¹²⁸ steps: stream `index` of the
-    /// 2¹²⁸ segments of length 2¹²⁸ this partition defines.
-    #[must_use]
-    pub fn stream(&self, index: u64) -> Self {
-        let mut stream = Self { s: self.s };
-        for _ in 0..index {
-            stream.jump_pow2(HALF_STATE_BITS);
-        }
-        stream
+/// The polynomial annihilating xoshiro256's update, derived once.
+fn annihilator256() -> &'static Poly {
+    static POLY: OnceLock<Poly> = OnceLock::new();
+    POLY.get_or_init(|| annihilating_polynomial(advance256))
+}
+
+impl Advance for Xoshiro256 {
+    /// Through the derived polynomial: a few hundred ordinary steps whatever
+    /// `steps` is.
+    fn advance(&mut self, steps: u128) {
+        advance_linear(&mut self.s, annihilator256(), steps, 0, advance256);
     }
 }
 
-/// Half the state's bits: the exponent of the default segment length.
-const HALF_STATE_BITS: u32 = 128;
+impl Streams for Xoshiro256 {
+    /// Segment `index` of 2¹²⁸ steps from this generator's position: one
+    /// exponentiation, however large the index.
+    fn stream(&self, index: u64) -> Self {
+        let mut stream = Self { s: self.s };
+        advance_linear(
+            &mut stream.s,
+            annihilator256(),
+            u128::from(index),
+            SEGMENT_LOG2_256,
+            advance256,
+        );
+        stream
+    }
+}
 
 /// The linear part of xoshiro256's step, which the jump polynomial is derived
 /// from and applied to.
@@ -174,36 +174,37 @@ impl Xoroshiro128 {
         advance128(&mut self.s);
         result
     }
+}
 
-    /// Advance by 2^`exponent` steps, as [`Xoshiro256::jump_pow2`].
-    ///
-    /// # Panics
-    /// Panics if `exponent` exceeds 128.
-    pub fn jump_pow2(&mut self, exponent: u32) {
-        assert!(exponent <= 128, "xoroshiro128: the state is 128 bits");
-        static CHARACTERISTIC: OnceLock<Vec<u64>> = OnceLock::new();
-        let characteristic = CHARACTERISTIC.get_or_init(|| characteristic_polynomial(advance128));
-        apply(
-            &mut self.s,
-            &jump_polynomial(characteristic, exponent),
-            advance128,
-        );
-    }
+/// Stream segments of xoroshiro128: 2⁶⁴ steps each, so 2⁶⁴ of them.
+const SEGMENT_LOG2_128: u32 = 64;
 
-    /// The generator advanced by `index`·2⁶⁴ steps: stream `index` of the
-    /// 2⁶⁴ segments of length 2⁶⁴ this partition defines.
-    #[must_use]
-    pub fn stream(&self, index: u64) -> Self {
-        let mut stream = Self { s: self.s };
-        for _ in 0..index {
-            stream.jump_pow2(HALF_STATE_BITS_128);
-        }
-        stream
+/// The polynomial annihilating xoroshiro128's update, derived once.
+fn annihilator128() -> &'static Poly {
+    static POLY: OnceLock<Poly> = OnceLock::new();
+    POLY.get_or_init(|| annihilating_polynomial(advance128))
+}
+
+impl Advance for Xoroshiro128 {
+    fn advance(&mut self, steps: u128) {
+        advance_linear(&mut self.s, annihilator128(), steps, 0, advance128);
     }
 }
 
-/// Half xoroshiro128's state bits: the exponent of its segment length.
-const HALF_STATE_BITS_128: u32 = 64;
+impl Streams for Xoroshiro128 {
+    /// Segment `index` of 2⁶⁴ steps from this generator's position.
+    fn stream(&self, index: u64) -> Self {
+        let mut stream = Self { s: self.s };
+        advance_linear(
+            &mut stream.s,
+            annihilator128(),
+            u128::from(index),
+            SEGMENT_LOG2_128,
+            advance128,
+        );
+        stream
+    }
+}
 
 /// The linear part of xoroshiro128's step.
 fn advance128(s: &mut [u64; 2]) {
@@ -231,67 +232,63 @@ impl Rng for Xoroshiro128 {
 
 #[cfg(test)]
 mod tests {
-    /// A jump of 2^k is exactly 2^k steps, checked at k = 20 against a
-    /// million steps of the generator itself, for both generators.  The jump
-    /// polynomial is derived from the generator, so this checks the whole
-    /// derivation: Berlekamp–Massey, the squaring chain and the application.
+    /// An advance is exactly the steps it stands for, checked against a
+    /// million and more steps of the generator itself, for both generators.
+    /// The polynomial is derived from the generator, so this checks the whole
+    /// derivation: Berlekamp–Massey, the reciprocal, the exponentiation and
+    /// the application.
     #[test]
-    fn a_jump_is_the_steps_it_stands_for() {
-        const EXPONENT: u32 = 20;
-        let mut stepped = xoshiro256_fixed();
-        for _ in 0..1u64 << EXPONENT {
-            let _ = stepped.next_u64();
-        }
-        let mut jumped = xoshiro256_fixed();
-        jumped.jump_pow2(EXPONENT);
-        assert_eq!(jumped.s, stepped.s, "xoshiro256");
+    fn an_advance_is_the_steps_it_stands_for() {
+        for steps in [0u128, 1, 2, 1_000_003, 1 << 20] {
+            let mut stepped = xoshiro256_fixed();
+            for _ in 0..steps {
+                let _ = stepped.next_u64();
+            }
+            let mut jumped = xoshiro256_fixed();
+            jumped.advance(steps);
+            assert_eq!(jumped.s, stepped.s, "xoshiro256, {steps} steps");
 
-        let mut stepped = Xoroshiro128::new(0x1234_5678_9abc_def0, 0x0fed_cba9_8765_4321);
-        for _ in 0..1u64 << EXPONENT {
-            let _ = stepped.next_u64();
+            let seed = (0x1234_5678_9abc_def0, 0x0fed_cba9_8765_4321);
+            let mut stepped = Xoroshiro128::new(seed.0, seed.1);
+            for _ in 0..steps {
+                let _ = stepped.next_u64();
+            }
+            let mut jumped = Xoroshiro128::new(seed.0, seed.1);
+            jumped.advance(steps);
+            assert_eq!(jumped.s, stepped.s, "xoroshiro128, {steps} steps");
         }
-        let mut jumped = Xoroshiro128::new(0x1234_5678_9abc_def0, 0x0fed_cba9_8765_4321);
-        jumped.jump_pow2(EXPONENT);
-        assert_eq!(jumped.s, stepped.s, "xoroshiro128");
     }
 
-    /// Two jumps of 2^k are one jump of 2^(k+1), at exponents no walk could
-    /// reach, and a jump of 2^0 is one step.
+    /// Advances compose: 2^k twice is 2^(k+1) once, at counts no walk could
+    /// reach, and a stream's start is an advance of index times the segment.
     #[test]
-    fn jumps_compose_as_powers_of_two() {
-        for exponent in [0u32, 1, 63, 64, 127, 128, 255] {
+    fn advances_compose_and_streams_are_segments() {
+        for exponent in [63u32, 64, 100, 126] {
             let mut twice = xoshiro256_fixed();
-            twice.jump_pow2(exponent);
-            twice.jump_pow2(exponent);
+            twice.advance(1 << exponent);
+            twice.advance(1 << exponent);
             let mut once = xoshiro256_fixed();
-            once.jump_pow2(exponent + 1);
+            once.advance(1 << (exponent + 1));
             assert_eq!(twice.s, once.s, "2^{exponent} twice");
         }
-        let mut one = xoshiro256_fixed();
-        one.jump_pow2(0);
-        let mut stepped = xoshiro256_fixed();
-        let _ = stepped.next_u64();
-        assert_eq!(one.s, stepped.s);
-    }
-
-    /// Streams are the segments of one stream: stream k is k jumps, they
-    /// differ from one another, and stream 0 is the seed itself.
-    #[test]
-    fn streams_partition_one_stream() {
         let base = xoshiro256_fixed();
         assert_eq!(base.stream(0).s, base.s);
-        let mut jumped = xoshiro256_fixed();
-        jumped.jump_pow2(128);
-        assert_eq!(base.stream(1).s, jumped.s);
+        // Segment 3 of xoroshiro128 is 3·2⁶⁴ steps, which fits a u128.
+        let small = Xoroshiro128::new(1, 2);
+        let mut walked = Xoroshiro128::new(1, 2);
+        walked.advance(3u128 << SEGMENT_LOG2_128);
+        assert_eq!(small.stream(3).s, walked.s);
+        // Consecutive segments of xoshiro256 differ from one another.
         let heads: Vec<u64> = (0..8).map(|k| base.stream(k).next_u64()).collect();
         let mut sorted = heads.clone();
         sorted.sort_unstable();
         sorted.dedup();
         assert_eq!(sorted.len(), heads.len(), "streams repeat: {heads:?}");
-        let mut small = Xoroshiro128::new(1, 2);
-        assert_eq!(small.stream(0).s, [1, 2]);
-        assert_ne!(small.stream(3).s, small.stream(4).s);
-        let _ = small.next_u64();
+        // And segment 2 is segment 1 advanced by one segment.
+        let mut second = base.stream(1);
+        second.advance(1u128 << 127);
+        second.advance(1u128 << 127);
+        assert_eq!(second.s, base.stream(2).s);
     }
 
     use super::*;
