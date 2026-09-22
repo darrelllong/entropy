@@ -1,8 +1,10 @@
 //! The null distribution of each standardised statistic the battery
 //! campaign found off its nominal law: measured, not assumed.
 //!
-//! `statistic_scale <test> <streams> <threads> [bits]` draws `streams`
-//! independently seeded null streams (PCG64, xoshiro256** and SFC64 in turn),
+//! `statistic_scale <test> <streams> <threads> [bits] [first]` draws `streams`
+//! independently seeded null streams (PCG64, xoshiro256** and SFC64 in turn,
+//! numbered from `first`, 0 unless given, so a validation run can take streams
+//! a calibration never saw),
 //! computes the test's standardised statistic on each, and prints its mean,
 //! standard deviation and the fraction beyond the two-sided 0.05, 0.01 and
 //! 0.001 points of the law the test assumes.  A statistic whose law is right
@@ -183,6 +185,7 @@ fn main() {
     let bits: usize = args
         .get(4)
         .map_or(DEFAULT_BITS, |v| v.parse().expect("bits"));
+    let first: usize = args.get(5).map_or(0, |v| v.parse().expect("first index"));
     let next = Arc::new(AtomicUsize::new(0));
     // Row name -> (standardised moments, raw moments).
     let total: Arc<Mutex<BTreeMap<String, (Moments, Moments)>>> =
@@ -197,7 +200,7 @@ fn main() {
                     if index >= streams {
                         break;
                     }
-                    for (name, z, raw) in measure(&test, index, bits) {
+                    for (name, z, raw) in measure(&test, first + index, bits) {
                         let entry = mine.entry(name).or_default();
                         entry.0.add(z);
                         if let Some(raw) = raw {
@@ -218,7 +221,7 @@ fn main() {
         handle.join().expect("worker");
     }
 
-    println!("# {test}: {streams} streams, {bits} bits where the test reads bits");
+    println!("# {test}: {streams} streams from {first}, {bits} bits where the test reads bits");
     println!("row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd");
     for (name, (z, raw)) in total.lock().expect("total").iter() {
         let n = z.count as f64;
