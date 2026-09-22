@@ -164,7 +164,7 @@ fn universal_with_l(bits: &[u8], l: usize, q: usize, name: &'static str) -> Test
 
     let f_n = universal_statistic(bits, l, q, k);
     let (mu, sigma2) = EXPECTED_LOG_GAP_STATS[l];
-    let sigma = universal_sigma(l, k, sigma2);
+    let sigma = calibrated_sigma(l, k, sigma2);
     let p_value = erfc((f_n - mu).abs() / (sigma * SQRT_2));
 
     TestResult::with_note(
@@ -195,30 +195,53 @@ fn universal_statistic(bits: &[u8], l: usize, q: usize, k: usize) -> f64 {
     sum / k as f64
 }
 
-/// Standard deviation of fₙ: σ = c(L, K)·√(σ²/K).
+/// The standard's deviation of fₙ: σ = c(L, K)·√(σ²/K).
 ///
 /// c(L, K) = 0.7 − 0.8/L + (4 + 32/L)·K^(−3/L)/15 is the form of SP 800-22
 /// Rev. 1a §2.9.4 step (5), which is Maurer's (1992) eq. (13).  §3.9 also
 /// prints the later Coron–Naccache approximation
 /// c(L, K) = 0.7 − 0.8/L + (1.6 + 12.8/L)·K^(−4/L) (its reference [2], SAC '98)
-/// but says it is not embedded in the test suite code, so it is not used here.
-///
-/// Measured calibration at the battery's sample size (16 000 000 bits,
-/// `examples/universal_variance.rs`, 4 000 null streams of PCG64, xoshiro256**
-/// and SFC64): the z this σ produces has standard deviation 1.060 at L = 5,
-/// 1.034 at L = 6, 1.023 at L = 7, 1.027 at L = 8 and 1.00 at L = 9 and 10,
-/// so the smaller settings reject about 1.5% of null streams at the 1% level
-/// rather than 1%.  μ and σ² are exact properties of the gap law, so what is
-/// short is c: at these K both published forms agree to four decimals, since
-/// K^(−3/L) and K^(−4/L) have both vanished, leaving 0.7 − 0.8/L.  The
-/// standard's formula is kept, because this is the test SP 800-22 defines;
-/// the over-rejection is a property of that definition at this K, and
-/// AUDIT.md records it.
-fn universal_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
+/// but says it is not embedded in the test suite code.  At K in the hundreds
+/// of thousands and above both forms are 0.7 − 0.8/L to four decimals, since
+/// their powers of K have vanished.  This is the σ the standard's printed
+/// examples use; the test itself uses [`calibrated_sigma`].
+fn standard_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
     let l = l as f64;
     let k = k as f64;
     let c = 0.7 - 0.8 / l + (4.0 + 32.0 / l) * k.powf(-3.0 / l) / 15.0;
     c * (sigma2 / k).sqrt()
+}
+
+/// The measured standard deviation of fₙ as a multiple of [`standard_sigma`],
+/// by L; 1 where nothing was measured (L outside 5 … 10).
+///
+/// Measured over 200 000 null streams of PCG64, xoshiro256** and SFC64 at each
+/// of 16 000 000, 4 194 304 and 1 048 576 bits, as far as each L scores
+/// (`examples/statistic_scale.rs`, `stats/statistic-scale.txt`): the standard
+/// deviation of the z the standard's σ gives, whose mean is 0 to within
+/// 0.003 throughout.  It is the same at every sample size to within its
+/// standard error of 0.0016 — 1.066, 1.065 and 1.063 at L = 5 across a
+/// sixteen-fold range of K — so it is c(L, K) that is off by a constant
+/// factor at each L, not the finite-K terms, and the entries are the means
+/// over the sizes measured.  μ and σ² are exact properties of the gap law
+/// (`constants_match_maurer_series`), so nothing else in σ can carry the
+/// error.  Scored with the standard's σ the test rejected 1.59% of null
+/// streams at the 1% level at L = 5 and 0.94% at L = 10.
+const SIGMA_RATIO: [f64; 17] = [
+    1.0, 1.0, 1.0, 1.0, 1.0,    // L = 0 … 4: not run
+    1.0648, // L = 5
+    1.0404, // L = 6
+    1.0265, // L = 7
+    1.0134, // L = 8
+    1.0014, // L = 9
+    0.9890, // L = 10
+    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, // L = 11 … 16: never reached at 16 Mbit
+];
+
+/// The standard deviation the test divides by: [`standard_sigma`] times the
+/// measured [`SIGMA_RATIO`] for its L.
+fn calibrated_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
+    standard_sigma(l, k, sigma2) * SIGMA_RATIO[l]
 }
 
 /// Interpret an L-bit slice (values 0/1) as a big-endian index.
@@ -240,6 +263,11 @@ mod tests {
     /// SP 800-22 quotes σ for its example to six decimals.
     const SP_800_22_SIGMA: f64 = 5e-7;
 
+    /// The test's p-value for the 10⁶ bits of e of Appendix B, with the
+    /// calibrated σ at L = 7 (SIGMA_RATIO 1.0265): the standard's 0.282568
+    /// becomes this.
+    const E_ROW_P: f64 = 0.295202;
+
     /// σ recomputed from the shipped table, which agrees to nine decimals.
     const SHIPPED_SIGMA: f64 = 1e-9;
 
@@ -253,7 +281,7 @@ mod tests {
     const PUBLISHED_SUM: f64 = 1e-5;
 
     use super::{
-        choose_l, universal, universal_parametric_all, universal_sigma, universal_statistic,
+        choose_l, standard_sigma, universal, universal_parametric_all, universal_statistic,
         EXPECTED_LOG_GAP_STATS,
     };
     use crate::math::erfc;
@@ -429,7 +457,7 @@ mod tests {
     /// 0.036445141413707395 here.
     #[test]
     fn uses_nist_correction_factor() {
-        let sigma = universal_sigma(7, 1_000, EXPECTED_LOG_GAP_STATS[7].1);
+        let sigma = standard_sigma(7, 1_000, EXPECTED_LOG_GAP_STATS[7].1);
         assert!(
             (sigma - 0.034399103037796475).abs() < SHIPPED_TABLE,
             "σ = {sigma}"
@@ -447,7 +475,7 @@ mod tests {
         let (l, q) = (7, 1280);
         let k = 1_048_576 / l - q;
         assert_eq!(k, 148_516);
-        let sigma = universal_sigma(l, k, 3.125);
+        let sigma = standard_sigma(l, k, 3.125);
         assert!((sigma - 0.002703).abs() < SP_800_22_SIGMA, "σ = {sigma}");
         let f_n = 919_924.038020 / k as f64;
         let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
@@ -456,7 +484,7 @@ mod tests {
         // printed 6.1962507 and 3.125; an independent Python replica gives
         // σ = 0.002702824 and P = 0.427772059 for the same printed sum.
         let (mu7, var7) = EXPECTED_LOG_GAP_STATS[l];
-        let sigma = universal_sigma(l, k, var7);
+        let sigma = standard_sigma(l, k, var7);
         let p = erfc((f_n - mu7).abs() / (sigma * SQRT_2));
         assert!(
             (sigma - 0.002702824).abs() < SHIPPED_SIGMA,
@@ -467,21 +495,21 @@ mod tests {
 
     /// SP 800-22 Appendix B prints P-value = 0.282568 for 10⁶ bits of e, where
     /// L = 7, Q = 1280 and K = 141 577.  The sum of log₂ gaps is
-    /// 877 667.758407; the printed μ = 6.1962507 and σ² = 3.125 give that
-    /// P-value, and the 12-digit table entries this module uses give 0.282591
-    /// for the same sum.
+    /// 877 667.758407; the printed μ = 6.1962507 and σ² = 3.125 with the
+    /// standard's σ give that P-value, and the test itself, with the 12-digit
+    /// table entries and the calibrated σ, gives `E_ROW_P` for the same sum.
     #[test]
     fn matches_appendix_b_e_row() {
         let e = e_bits(1_000_000);
         let r = universal(&e);
-        assert!((r.p_value - 0.282591).abs() < PUBLISHED, "{r}");
+        assert!((r.p_value - E_ROW_P).abs() < PUBLISHED, "{r}");
         let (l, q) = (7, 1280);
         let k = e.len() / l - q;
         assert_eq!(k, 141_577);
         let f_n = universal_statistic(&e, l, q, k);
         let sum = f_n * k as f64;
         assert!((sum - 877_667.758407).abs() < PUBLISHED_SUM, "sum = {sum}");
-        let sigma = universal_sigma(l, k, 3.125);
+        let sigma = standard_sigma(l, k, 3.125);
         let p = erfc((f_n - 6.1962507).abs() / (sigma * SQRT_2));
         assert!((p - 0.282568).abs() < PUBLISHED, "p = {p}");
     }

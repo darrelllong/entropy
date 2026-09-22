@@ -5,13 +5,13 @@
 //! the mean and standard deviation of the z the test computes, with the
 //! rejection rates that follow.
 //!
-//! The test divides f_n − μ by σ = c(L, K)·√(σ²/K).  μ and σ² are exact
-//! properties of the geometric gap law, so if z has standard deviation 1 the
-//! factor c is right for this K, and if it does not, c is what is wrong.  Two
-//! published forms of c are compared: SP 800-22 Rev. 1a §2.9.4 step (5), which
-//! is Maurer (1992) eq. (13) and what the suite computes, and the
-//! Coron–Naccache form SP 800-22 §3.9 prints but does not use.  A standard
-//! deviation of s under the first means the second would give s·c/c′.
+//! The test divides f_n − μ by the σ it uses, the standard's c(L, K)·√(σ²/K)
+//! times the measured ratio of `nist::universal::SIGMA_RATIO`.  μ and σ² are
+//! exact properties of the geometric gap law, so the z it reports has
+//! standard deviation 1 exactly when that σ is right; a standard deviation s
+//! says the ratio should be multiplied by s.  The last column scales s to what
+//! the Coron–Naccache form of c that SP 800-22 §3.9 prints would give, which
+//! at the battery's K is the same to four decimals.
 
 use entropy::{
     nist::universal::universal_parametric_all,
