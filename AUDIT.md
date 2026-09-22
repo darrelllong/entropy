@@ -18,17 +18,35 @@ independent null trials, and rarer corrected thresholds need more.
 
 | Area | Measured | Missing |
 |---|---|---|
-| Whole battery, every slot | 10 000 null streams over the four suites on PCG64, Xoshiro256 and SFC64 (`examples/battery_null.rs`, snapshot in `stats/battery-null-moore.txt`, campaign still running): 57 of 63 slots within 2.5 standard errors of 1% at the 0.01 level | The 0.001 column, which 10 000 streams resolve only to ±0.03 points |
-| Battery-wide decision | Some family rejects 93.4% of null streams at 0.05, 42.6% at 0.01 and 5.1% at 0.001, over about sixty families each held at its own level | A stated battery-level rule, if a single verdict is wanted |
-| Count-ones Q5−Q4 | 300 000 xoshiro windows reject at 0.01 in 1.060%, 100 000 PCG windows in 1.045%; the battery campaign's own slot is within noise | The finite-window tail at 0.001 |
+| Whole battery, every slot | 200 000 null streams over the four suites on PCG64, Xoshiro256 and SFC64 (`examples/battery_null.rs`, `stats/battery-null-moore.txt`, read with `scripts/battery_null_report.py`): the standard error at 0.01 is 0.022 points and at 0.001 it is 0.007, so both columns now resolve. 44 of the 57 scored slots are within three standard errors of nominal at 0.01; the thirteen that are not are listed below | The listed slots, each of which is a property of its test's published approximation |
+| Battery-wide decision | Some family rejects 93.5% of null streams at 0.05, 42.3% at 0.01 and 5.5% at 0.001, over about sixty families each held at its own level | A stated battery-level rule, if a single verdict is wanted |
+| Count-ones Q5−Q4 | 5 000 000 byte windows in the campaign reject 5.12% at 0.05, 1.04% at 0.01 and 0.106% at 0.001, a 4% excess at 0.01 that 300 000 earlier windows had put at 6%; the stream form rejects 1.06% at 0.01 over 200 000 | Deriving the finite-window tail rather than measuring it |
 | DCT position law | 10⁶ runs: 0.104%, 1.015%, 5.029%; an exactly multinomial control gives 0.1046% and 1.013% | Nothing at this resolution: the residual is the Pearson approximation, not the transform |
 | R report | 3 170 held-out null streams through every row (`stats/r-report-null-summary.txt`): 15 of the 18 scored rows are within 2 standard errors of nominal at 0.01, and the runs tests' 20 000-stream rate is 1.09% and 0.135% | More streams at 0.001; and see the two conservative rows below |
-| LZ78 above k = 20 | Cells at k = 21 … 25 with 80–600 runs; a 3 000-run campaign at k = 21, 22, 23 and 25 on xoshiro and SFC64 is running | Its results, and the tail at 0.001 |
+| LZ78 above k = 20 | k = 21, 22, 23 and 25 at 3 000 runs each (2 000 at k = 25) on both xoshiro256** and SFC64: every cell within three standard deviations of 1% at 0.01 and every Kolmogorov–Smirnov test of its p-values passing (`stats/lz78-held-out-cells.txt`); the 3.33% once seen at k = 21 was one seed range | The tail at 0.001, which 3 000 runs do not reach |
 | Minimum distance | Selected modes and thresholds calibrated | The supported parameter cells, at the thresholds used |
 
-Maurer's universal test over-rejects at the battery's sample size, and it is
-the standard's variance that is short: the campaign's L = 5 slot rejects 1.65%
-of null streams at the 1% level over 10 000 streams. Over 4 000 null streams
+The slots the campaign puts more than three standard errors from nominal at
+0.01, over 200 000 streams:
+
+| Slot | 0.05 | 0.01 | 0.001 | z at 0.01 |
+|---|--:|--:|--:|--:|
+| maurer::universal_l05 | 6.54% | 1.50% | 0.177% | +22.5 |
+| maurer::universal_l06 | 6.08% | 1.37% | 0.157% | +16.7 |
+| maurer::universal_l07 | 5.68% | 1.26% | 0.146% | +11.6 |
+| nist::spectral | 5.68% | 1.21% | 0.146% | +9.6 |
+| diehard_historical::count_ones_bytes | 5.12% | 1.04% | 0.106% | +8.5 |
+| nist::random_excursions | 5.08% | 1.07% | 0.119% | +8.3 |
+| maurer::universal_l08 | 5.37% | 1.12% | 0.129% | +5.6 |
+| diehard::parking_lot | 4.79% | 1.09% | 0.097% | +4.0 |
+| dieharder::bit_distribution | 5.00% | 1.00% | 0.102% | +3.9 |
+| nist::random_excursions_variant | 4.95% | 1.02% | 0.118% | +3.7 |
+| nist::universal, maurer::universal_l10 | 4.72% | 0.92% | 0.093% | −3.6 |
+| nist::block_frequency | 4.93% | 0.92% | 0.078% | −3.6 |
+
+Three are worth a reader's attention and the rest are within a few
+hundredths of a point. Maurer's universal test over-rejects at L = 5 … 8, and
+it is the standard's variance that is short. Over 4 000 null streams
 (`examples/universal_variance.rs`) the z it computes has standard deviation
 1.060 at L = 5, 1.034 at L = 6, 1.023 at L = 7 and 1.027 at L = 8, falling to
 1.00 by L = 9, which is the 1.5% rejection rate at the 1% level the campaign
@@ -36,6 +54,15 @@ sees. μ and σ² are exact properties of the gap law, so the shortfall is in
 c(L, K), and at K of a few million both published forms of c agree to four
 decimals. The test is left as SP 800-22 defines it; a reader should treat a
 single low p-value from L = 5 … 8 as weaker evidence than its level says.
+
+The spectral test rejects 1.21% at 0.01 and 0.146% at 0.001, with the
+Kim–Umeno–Hasegawa variance n·0.95·0.05/4 that SP 800-22 Rev. 1a adopted
+already in place. Its statistic counts peaks below a threshold, and the peaks
+are not independent, so that variance is itself an approximation; the
+measurement that would settle it is the one `universal_variance` makes for
+Maurer's test, the empirical standard deviation of d over null streams, which
+would give the divisor the data support. Not done. Random excursions rejects
+1.07%, from the small expected counts in its outer χ² cells at J near 500.
 
 Two R rows are conservative rather than calibrated: the periodogram-height
 Kolmogorov–Smirnov test against Exp(1) rejects 1.44% of null streams at 0.05

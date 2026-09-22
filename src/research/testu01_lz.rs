@@ -39,8 +39,12 @@
 //!
 //! # Validation
 //!
-//! xoshiro256** streams, seeded apart from the PCG64 streams behind the
-//! tables, rejected at 0.01 near the nominal rate in both statistics:
+//! Streams seeded apart from the PCG64 streams behind the tables rejected at
+//! 0.01 near the nominal rate in both statistics.  Up to k = 20 the streams
+//! are xoshiro256**; above it each cell was run on xoshiro256** and on SFC64,
+//! and the two rates are given in that order (`stats/lz78-held-out-cells.txt`).
+//! With 3 000 runs a cell's binomial standard deviation at 0.01 is 0.18
+//! points, and every cell is within three of them.
 //!
 //! | k | N | runs | Z | KS |
 //! |---|---|---|---|---|
@@ -48,13 +52,15 @@
 //! | 17 | 10 000 | 300 | 0.33% | 1.33% |
 //! | 20 | 1 000 | 2 000 | 1.30% | 1.25% |
 //! | 20 | 10 000 | 200 | 1.50% | 1.00% |
-//! | 22 | 10 000 | 100 | 1.00% | 2.00% |
-//! | 23 | 1 000 | 150 | 0.67% | 0.67% |
-//! | 25 | 1 000 | 80 | 1.25% | 2.50% |
+//! | 21 | 10 000 | 3 000 each | 0.90%, 1.23% | 0.73%, 1.03% |
+//! | 22 | 10 000 | 3 000 each | 1.13%, 1.17% | 1.30%, 1.40% |
+//! | 23 | 1 000 | 3 000 each | 1.20%, 0.90% | 1.33%, 0.90% |
+//! | 25 | 1 000 | 2 000 each | 0.95%, 1.05% | 0.70%, 1.50% |
 //!
 //! With tables a tenth as large, k = 20 at N = 1 000 had rejected 2.3% and
-//! 2.5% of 400 runs; the larger table removed that excess.  The runs above
-//! k = 20 are few, so they bound only gross miscalibration.
+//! 2.5% of 400 runs; the larger table removed that excess.  A Kolmogorov–
+//! Smirnov test of each cell's p-values against uniform passes at 0.01 in
+//! every cell, the smallest being 0.013 for the Z statistic at k = 22.
 
 use super::{lz78_counts::PHRASE_COUNTS, strip_b};
 use crate::{

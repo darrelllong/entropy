@@ -70,7 +70,12 @@ fn main() {
         f64::from(u8::from(r.bernoulli(0.3)))
     });
     report("exponential", draws, rounds, Sample::exponential);
-    report("exponential_inverse", draws, rounds, Sample::exponential_inverse);
+    report(
+        "exponential_inverse",
+        draws,
+        rounds,
+        Sample::exponential_inverse,
+    );
     report("normal", draws, rounds, Sample::normal);
     report("normal_inverse", draws, rounds, Sample::normal_inverse);
 

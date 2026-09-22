@@ -1,0 +1,16 @@
+k=21 N=10000 runs=3000 xoshiro sum: below0.01=0.0090 below0.05=0.0533 KS=0.1491
+k=21 N=10000 runs=3000 xoshiro ks: below0.01=0.0073 below0.05=0.0507 KS=0.0709
+k=21 N=10000 runs=3000 sfc sum: below0.01=0.0123 below0.05=0.0603 KS=0.4099
+k=21 N=10000 runs=3000 sfc ks: below0.01=0.0103 below0.05=0.0577 KS=0.3051
+k=22 N=10000 runs=3000 xoshiro sum: below0.01=0.0113 below0.05=0.0560 KS=0.0128
+k=22 N=10000 runs=3000 xoshiro ks: below0.01=0.0130 below0.05=0.0617 KS=0.2334
+k=22 N=10000 runs=3000 sfc sum: below0.01=0.0117 below0.05=0.0507 KS=0.4170
+k=22 N=10000 runs=3000 sfc ks: below0.01=0.0140 below0.05=0.0553 KS=0.9277
+k=23 N=1000 runs=3000 xoshiro sum: below0.01=0.0120 below0.05=0.0577 KS=0.6435
+k=23 N=1000 runs=3000 xoshiro ks: below0.01=0.0133 below0.05=0.0547 KS=0.0403
+k=23 N=1000 runs=3000 sfc sum: below0.01=0.0090 below0.05=0.0517 KS=0.3622
+k=23 N=1000 runs=3000 sfc ks: below0.01=0.0090 below0.05=0.0550 KS=0.0506
+k=25 N=1000 runs=2000 xoshiro sum: below0.01=0.0095 below0.05=0.0520 KS=0.6743
+k=25 N=1000 runs=2000 xoshiro ks: below0.01=0.0070 below0.05=0.0505 KS=0.8331
+k=25 N=1000 runs=2000 sfc sum: below0.01=0.0105 below0.05=0.0545 KS=0.5814
+k=25 N=1000 runs=2000 sfc ks: below0.01=0.0150 below0.05=0.0445 KS=0.8031
