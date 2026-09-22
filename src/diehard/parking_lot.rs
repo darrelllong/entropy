@@ -4,8 +4,12 @@
 //! position in a 100 × 100 lot.  An attempt fails if the new car overlaps a
 //! parked one, max(|Δx|, |Δy|) < 1.  The number parked is approximately normal
 //! with mean 3 523 and standard deviation 21.9, values Marsaglia determined
-//! by simulation.  Ten lots give ten values of Φ(z), and a
-//! Kolmogorov–Smirnov test of them is the result.
+//! by simulation; 2 000 000 lots here (`examples/statistic_scale.rs`,
+//! `stats/statistic-scale-moore.txt`) give 3 523.49 and 21.86, and 0.98% of
+//! them beyond his two-sided 1% point, so his values stand.  Ten lots give
+//! ten values of Φ(z), and a Kolmogorov–Smirnov test of them is the result;
+//! over 200 000 null runs that test rejects 1.09% at the 1% level, an excess
+//! the count's law does not account for.
 //!
 //! # Author
 //! George Marsaglia, *DIEHARD: A Battery of Tests of Randomness* (1995).
