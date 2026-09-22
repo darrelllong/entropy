@@ -12,7 +12,8 @@
 
 use crate::{math::ks_test, result::TestResult, rng::Rng};
 
-const ATTEMPTS: usize = 12_000;
+/// Attempts to park per lot.
+pub const ATTEMPTS: usize = 12_000;
 /// Mean and standard deviation of the number parked (Marsaglia, DIEHARD).
 const MEAN: f64 = 3_523.0;
 const SIGMA: f64 = 21.9;
@@ -44,6 +45,12 @@ pub fn parking_lot(rng: &mut impl Rng, quick: bool) -> TestResult {
         format!("attempts={ATTEMPTS}, mean={MEAN}, σ={SIGMA}, repeats={repeats}"),
     )
     .kolmogorov_smirnov(d, p_values.len())
+}
+
+/// The number of cars parked in one lot of [`ATTEMPTS`] attempts: the
+/// quantity whose null mean and standard deviation the test standardises by.
+pub fn parked(rng: &mut impl Rng) -> usize {
+    simulate(rng)
 }
 
 fn simulate(rng: &mut impl Rng) -> usize {
