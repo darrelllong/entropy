@@ -10,11 +10,10 @@ unmeasured is in [AUDIT.md](AUDIT.md).
 
 | Order | Work | Acceptance experiment |
 |---|---|---|
-| 1 | Finish the calibration campaigns and publish the rates at 0.001 | Per-slot, per-family and whole-battery null rates from held-out streams, with intervals |
-| 2 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
-| 3 | Close the 9% shuffle gap against rand | A paired measurement per element, with the exact-uniformity invariant kept |
-| 4 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
-| 5 | One parallel-stream interface across the generators | Scheduling invariance, counter exhaustion, stream identity, and the segments' statistical independence |
+| 1 | A portable OS entropy story | Per-target tests of the backend, short and interrupted reads, permanent and transient failure, and fork |
+| 2 | Close the 9% shuffle gap against rand | A paired measurement per element, with the exact-uniformity invariant kept |
+| 3 | Power for DIEHARD, DIEHARDER and the research probes | The `power_curves` treatment extended: defect strength against sample size, with intervals |
+| 4 | One parallel-stream interface across the generators | Scheduling invariance, counter exhaustion, stream identity, and the segments' statistical independence |
 
 ## Calibration and power
 
@@ -88,10 +87,10 @@ neither consumer.
 
 | Owner | Keeps | State |
 |---|---|---|
-| rump | BigInt, modular arithmetic, primality, exact polynomial, finite-field, GF(2) and lattice support | Deletes its probability functions once factoring has switched |
+| rump | BigInt, modular arithmetic, primality, exact polynomial, finite-field, GF(2) and lattice support | Its probability functions are deleted; entropy::math is the only copy |
 | cryptography | Ciphers, hashes, authenticated schemes, DRBG mechanisms, key erasure and state wiping | Owns Hash_DRBG, HMAC_DRBG and fast key erasure; entropy adapts them |
 | entropy | Noncryptographic generators, OS seeding, sampling, stream views, thread-local access, probability functions, batteries | Split by feature: the batteries and the FFT are optional, and the minimal build has no dependencies |
-| factoring | Rho, ECM, QS and GNFS orchestration, relation and cofactor policy, polynomial selection, cost dispatch | Switching its Student's t and ln Γ to `entropy::math` |
+| factoring | Rho, ECM, QS and GNFS orchestration, relation and cofactor policy, polynomial selection, cost dispatch | Pins entropy 0.6 for Student's t and ln Γ, with no default features |
 
 Keep the distinction between rump's quality-neutral `RandomSource`,
 cryptography's byte-oriented `Csprng` and entropy's generator and `CryptoRng`

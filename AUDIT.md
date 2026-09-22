@@ -120,15 +120,6 @@ interface, and the cryptographic generators partition by nonce. Deciding one
 interface across them, and measuring that the segments are statistically
 independent rather than merely disjoint, is open.
 
-### A6 — Cross-repository work in flight
-
-`ln_gamma`, `regularized_incomplete_beta`, `student_t_quantile` and
-`NumericalError` now live in `entropy::math` (19fb7fc); factoring has still to
-switch to them, and only then does rump delete its copies. The Hash_DRBG,
-HMAC_DRBG and fast-key-erasure cores now live in cryptography, with entropy
-adapting them (ab1b7e5). Rump is only a dev-dependency here, so a minimal
-entropy build links neither sibling.
-
 ## Closed this round
 
 | Finding | What was wrong | Closed by |
@@ -139,6 +130,7 @@ entropy build links neither sibling.
 | E5 | The anytime-valid bound assumed an accuracy of `ln` that Rust does not specify | `ROUNDING_EPSILONS` names the assumption, both error terms are charged against it, and a test measures exp(ln q) over the estimator's own values (ceabc3f) |
 | E6, in part | Per-word thread-local and process-id work, a panic on reseed failure, and a permanently cached readiness error | `ThreadRng::try_fill`, `fill` and `try_next_u64`: one check per request, split at the reseed limit; `pool_ready` remembers only success (ceabc3f) |
 | A3, the feature split | The statistics and the application RNG pulled in the FFT and, by default, cryptography | The `batteries` feature carries the four suites and `rustfft`; the four configurations are tested, and the minimal one has no dependencies |
+| A6, the cross-repository moves | Two owners for the probability functions and for the DRBG mechanisms | `ln_gamma`, the incomplete beta, Student's t and `NumericalError` live in `entropy::math` (19fb7fc), factoring pins entropy 0.6 for them and rump has deleted its copies; Hash_DRBG, HMAC_DRBG and fast key erasure live in cryptography with entropy adapting them (ab1b7e5); rump is a dev-dependency here only |
 | E7 | Points sharing the sweep axis were compared pairwise, and outliers make that axis the widest | A tied run is swept on the widest coordinate it has not used: 162 times faster on the slab family, unchanged on uniform points (acea67a) |
 
 ## Standard of evidence
