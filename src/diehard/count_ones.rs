@@ -67,7 +67,9 @@ const QDIFF_DF: f64 = (N_CATEGORIES5 - N_CATEGORIES4) as f64;
 /// finite-sample variance of Pearson's statistic where cells are sparse: the
 /// rarest of the 3 125 five-letter cells expects only 256 000·(37/256)⁵ ≈ 16
 /// counts.  With the χ² law as it stood the test rejected 1.04% of null
-/// windows at the 1% level.
+/// windows at the 1% level; with this ratio, on 5 000 000 further windows
+/// the calibration never saw (`stats/statistic-validate.txt`), it rejects
+/// 4.999%, 0.995% and 0.098% at 0.05, 0.01 and 0.001.
 const QDIFF_VARIANCE_RATIO: f64 = 1.0103;
 
 /// Count-the-1s test on a stream of all bytes, by the Q5 − Q4 statistic in

@@ -226,7 +226,11 @@ fn standard_sigma(l: usize, k: usize, sigma2: f64) -> f64 {
 /// over the sizes measured.  μ and σ² are exact properties of the gap law
 /// (`constants_match_maurer_series`), so nothing else in σ can carry the
 /// error.  Scored with the standard's σ the test rejected 1.59% of null
-/// streams at the 1% level at L = 5 and 0.94% at L = 10.
+/// streams at the 1% level at L = 5 and 0.94% at L = 10; scored with these
+/// ratios, on 200 000 further streams at 16 000 000 bits and 200 000 at
+/// 1 048 576 that the calibration never saw (`stats/statistic-validate.txt`),
+/// the z has standard deviation 0.997 to 1.003 at every L and the test
+/// rejects 0.97% to 1.04% at the 1% level.
 const SIGMA_RATIO: [f64; 17] = [
     1.0, 1.0, 1.0, 1.0, 1.0,    // L = 0 … 4: not run
     1.0648, // L = 5
