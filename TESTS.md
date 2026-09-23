@@ -1,16 +1,16 @@
 # Full Battery Results
 
-Full `run_tests --views --alternatives` battery run on `dyson` (Apple M4 Pro, 8P+4E cores) on 2026-09-17.
+Full `run_tests --views --alternatives` battery run on `dyson` (Apple M4 Pro, 8P+4E cores) on 2026-09-23.
 
 ```text
 os: Darwin 27.0.0 arm64
 rustc: rustc 1.93.1 (01f6ddf75 2026-02-11)
 features: default
-Cargo.lock sha256: 995745efeed35539e407f061d078d5604bc8fbdbb9f5b5a1fe14efa2e0a66945
-entropy: d7c2b7f1525162276da64a8e9d36bd59ea073bb8
-rump: 0996ee6771c7501eec423b43ce2c63eca07a5967
-cryptography: 69d9fa6eb848ebdf0d04953372ccbceeee8f1982
-run_tests sha256: be64fb66504a7f56a6abfa75af8561e0a0b757591693d483bed43a9f303b9309
+Cargo.lock sha256: d414f50a5be7511d34223fc4abc9518e9a16eb9ba342c906bebef2c795459c33
+entropy: 48d7382fdc647ac4ebcf95a2fdc7e542c7067aab
+rump: 6c003da7d09aaf9a25aa0455b0f3b9ef913360ba
+cryptography: 8001bd503787e35707f463279f4e4e168db85683
+run_tests sha256: a85fd74d508a5cf5e1927757c5c3cc0b3c78ced63568814887af68ae8f92d88e
 ```
 
 Sample size: **16 Mbit** per generator for NIST; DIEHARD/DIEHARDER
@@ -79,7 +79,7 @@ holds the rates, read with `scripts/battery_null_report.py`.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 739 | 725 | 8 | 6 |
+| OsRng (/dev/urandom) | 739 | 728 | 5 | 6 |
 | MT19937 (seed=19650218) | 739 | 729 | 4 | 6 |
 | Xorshift64 (seed=1) | 739 | 728 | 5 | 6 |
 | Xorshift32 (seed=1) | 739 | 719 | 14 | 6 |
@@ -106,18 +106,18 @@ holds the rates, read with `scripts/battery_null_report.py`.
 | Salsa20 (key=00..1f, nonce=00..07) | 739 | 722 | 11 | 6 |
 | Snow3G (key=00..0f, iv=00..0f) | 739 | 724 | 9 | 6 |
 | ZUC-128 (key=00..0f, iv=00..0f) | 739 | 728 | 5 | 6 |
-| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 729 | 4 | 6 |
-| Squidward (SHA-256 chain, OsRng seed) | 739 | 727 | 6 | 6 |
-| PCG32 (OsRng seed) | 739 | 695 | 12 | 32 |
-| PCG64 (OsRng seed) | 739 | 725 | 8 | 6 |
-| Xoshiro256 (OsRng seed) | 739 | 722 | 11 | 6 |
-| Xoroshiro128 (OsRng seed) | 739 | 725 | 8 | 6 |
-| SFC64 (OsRng seed) | 739 | 724 | 9 | 6 |
-| JSF64 (OsRng seed) | 739 | 701 | 6 | 32 |
-| ChaCha20 CSPRNG (OsRng key) | 739 | 729 | 4 | 6 |
+| SpongeBob (SHA3-512 chain, OsRng seed) | 739 | 726 | 7 | 6 |
+| Squidward (SHA-256 chain, OsRng seed) | 739 | 728 | 5 | 6 |
+| PCG32 (OsRng seed) | 739 | 727 | 6 | 6 |
+| PCG64 (OsRng seed) | 739 | 727 | 6 | 6 |
+| Xoshiro256 (OsRng seed) | 739 | 725 | 8 | 6 |
+| Xoroshiro128 (OsRng seed) | 739 | 699 | 8 | 32 |
+| SFC64 (OsRng seed) | 739 | 728 | 5 | 6 |
+| JSF64 (OsRng seed) | 739 | 726 | 7 | 6 |
+| ChaCha20 CSPRNG (OsRng key) | 739 | 697 | 10 | 32 |
 | FastKeyErasureRng ChaCha20 (key=00..1f) | 739 | 701 | 6 | 32 |
-| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 728 | 5 | 6 |
-| Hash_DRBG SHA-256 (OsRng seed) | 739 | 727 | 6 | 6 |
+| HMAC_DRBG SHA-256 (OsRng seed) | 739 | 699 | 8 | 32 |
+| Hash_DRBG SHA-256 (OsRng seed) | 739 | 726 | 7 | 6 |
 | cryptography::CtrDrbgAes256 (seed=00..2f) | 739 | 695 | 12 | 32 |
 | PCG64 (state=1, seq=1) [high half] | 739 | 727 | 6 | 6 |
 | PCG64 (state=1, seq=1) [low half] | 739 | 724 | 9 | 6 |
@@ -628,7 +628,7 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3)
+- **OsRng (/dev/urandom)**: 5/739 — `dieharder::bit_distribution` (×2), `maurer::universal_l10`, `nist::non_overlapping_template`, `nist::universal`
 - **MT19937 (seed=19650218)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
 - **Xorshift64 (seed=1)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 14/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×10), `dieharder::monobit2`, `nist::matrix_rank`
@@ -655,18 +655,18 @@ One line per generator.  Test-family repetition counts in parentheses.
 - **Salsa20 (key=00..1f, nonce=00..07)**: 11/739 — `dieharder::bit_distribution` (×8), `nist::non_overlapping_template`, `nist::serial_delta1`, `nist::serial_delta2`
 - **Snow3G (key=00..0f, iv=00..0f)**: 9/739 — `dieharder::bit_distribution` (×5), `dieharder::lagged_sums`, `nist::non_overlapping_template` (×3)
 - **ZUC-128 (key=00..0f, iv=00..0f)**: 5/739 — `dieharder::bit_distribution` (×5)
-- **SpongeBob (SHA3-512 chain, OsRng seed)**: 4/739 — `diehard::craps_throws`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template`
-- **Squidward (SHA-256 chain, OsRng seed)**: 6/739 — `diehard::binary_rank_32x32`, `diehard::oqso`, `dieharder::bit_distribution` (×4)
-- **PCG32 (OsRng seed)**: 12/739 — `dieharder::bit_distribution` (×10), `maurer::universal_l10`, `nist::universal`
-- **PCG64 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`, `nist::serial_delta2`
-- **Xoshiro256 (OsRng seed)**: 11/739 — `diehard::count_ones_stream`, `dieharder::bit_distribution` (×5), `nist::random_excursions_variant` (×5)
-- **Xoroshiro128 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×2)
-- **SFC64 (OsRng seed)**: 9/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template` (×2), `nist::spectral`
-- **JSF64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×5), `nist::spectral`
-- **ChaCha20 CSPRNG (OsRng key)**: 4/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template`
+- **SpongeBob (SHA3-512 chain, OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template` (×3)
+- **Squidward (SHA-256 chain, OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::overlapping_template`
+- **PCG32 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`, `nist::serial_delta2`
+- **PCG64 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×3), `nist::non_overlapping_template` (×3)
+- **Xoshiro256 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×7), `nist::random_excursions`
+- **Xoroshiro128 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×5), `nist::non_overlapping_template` (×3)
+- **SFC64 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×5)
+- **JSF64 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×6), `nist::non_overlapping_template`
+- **ChaCha20 CSPRNG (OsRng key)**: 10/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×3)
 - **FastKeyErasureRng ChaCha20 (key=00..1f)**: 6/739 — `diehard::minimum_distance_2d`, `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×3)
-- **HMAC_DRBG SHA-256 (OsRng seed)**: 5/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×3)
-- **Hash_DRBG SHA-256 (OsRng seed)**: 6/739 — `dieharder::bit_distribution` (×6)
+- **HMAC_DRBG SHA-256 (OsRng seed)**: 8/739 — `dieharder::bit_distribution` (×5), `dieharder::ks_uniform`, `nist::non_overlapping_template` (×2)
+- **Hash_DRBG SHA-256 (OsRng seed)**: 7/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×4), `nist::random_excursions`
 - **cryptography::CtrDrbgAes256 (seed=00..2f)**: 12/739 — `dieharder::bit_distribution` (×7), `nist::non_overlapping_template` (×5)
 - **PCG64 (state=1, seq=1) [high half]**: 6/739 — `dieharder::bit_distribution` (×5), `nist::random_excursions_variant`
 - **PCG64 (state=1, seq=1) [low half]**: 9/739 — `diehard::spheres_3d`, `dieharder::bit_distribution` (×7), `nist::random_excursions_variant`
@@ -716,7 +716,7 @@ One line per generator.  Test-family repetition counts in parentheses.
 ## Auxiliary Probes
 
 These probes are not part of `run_tests`; they are recorded separately here
-from `tests/run_all.sh` on `dyson` (2026-09-17).
+from `tests/run_all.sh` on `dyson` (2026-09-23).
 
 These probes exercise statistical properties not covered by the NIST/DIEHARD/DIEHARDER
 battery.  They run with their default parameters; use the individual binaries for
