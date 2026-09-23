@@ -73,7 +73,6 @@ pub fn random_excursions_variant(bits: &[u8]) -> TestResult {
 /// skipped `nist::random_excursions_variant` result, so the vector keeps its
 /// length.
 pub fn random_excursions_variant_all(bits: &[u8]) -> Vec<TestResult> {
-    // Build random walk.
     let (walk, j) = build_walk(bits);
 
     // §2.15.4 (as in sts): J must be at least max(0.005·√n, 500).

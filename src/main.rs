@@ -61,8 +61,9 @@ use entropy::rng::{
     AesCtr, BitReversed, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, Corpus,
     CounterRng, CryptoCtrDrbg, DualEcDrbg, FastKeyErasureRng, FullWord, HashDrbg, HighHalf,
     HmacDrbg, Jsf64, Lcg32, LcgVariant, LinuxLibcRandom, LowHalf, Mt19937, OsRng, Pcg32, Pcg64,
-    Rand48, Rng, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand, WindowsDotNetRandom,
-    WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
+    Rand48, Rng, Seedable, Sfc64, SpongeBob, Squidward, StreamRng, SystemVRand,
+    WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128, Xorshift32, Xorshift64,
+    Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
 use entropy::{
@@ -623,9 +624,9 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
     );
     run!(
         "ANSI C sample LCG (1103515245,12345; seed=1)",
-        Lcg32::ansi_c()
+        Lcg32::ansi_c(1)
     );
-    run!("LCG MINSTD (seed=1)", Lcg32::minstd());
+    run!("LCG MINSTD (seed=1)", Lcg32::minstd(1));
     run!(
         "BAD Borland C++ rand() LCG (seed=1)",
         Lcg32::new(LcgVariant::Borland, 1)

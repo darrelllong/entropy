@@ -37,9 +37,9 @@ use cryptography::{
 use entropy::rng::{
     AesCtr, BlockCtrRng, BsdRandCompat, BsdRandom, ChaCha20Rng, ConstantRng, CounterRng,
     CryptoCtrDrbg, DualEcDrbg, FastKeyErasureRng, HashDrbg, HmacDrbg, Jsf64, Lcg32, LcgVariant,
-    LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Sfc64, SpongeBob, Squidward,
-    StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd, Xoroshiro128,
-    Xorshift32, Xorshift64, Xoshiro256,
+    LinuxLibcRandom, Mt19937, OsRng, Pcg32, Pcg64, Rand48, Rng, Seedable, Sfc64, SpongeBob,
+    Squidward, StreamRng, SystemVRand, WindowsDotNetRandom, WindowsMsvcRand, WindowsVb6Rnd,
+    Xoroshiro128, Xorshift32, Xorshift64, Xoshiro256,
 };
 use entropy::seed::{CONSTANT_RNG_WORD, IV16, IV8, JSF64_PROBE_SEED, K16, K32};
 
@@ -166,8 +166,8 @@ fn main() {
         "windows_msvc_rand" => measure(WindowsMsvcRand::new(1), n),
         "windows_vb6_rnd" => measure(WindowsVb6Rnd::new(1), n),
         "windows_dotnet_random" => measure(WindowsDotNetRandom::new(1), n),
-        "ansi_c_lcg" => measure(Lcg32::ansi_c(), n),
-        "lcg_minstd" => measure(Lcg32::minstd(), n),
+        "ansi_c_lcg" => measure(Lcg32::ansi_c(1), n),
+        "lcg_minstd" => measure(Lcg32::minstd(1), n),
         "borland_lcg" => measure(Lcg32::new(LcgVariant::Borland, 1), n),
         // Byte-identical to "windows_msvc_rand" — see the note in dump_rng.rs.
         "msvc_lcg" => measure(Lcg32::new(LcgVariant::Msvc, 1), n),

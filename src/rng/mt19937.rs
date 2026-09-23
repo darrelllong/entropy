@@ -158,7 +158,7 @@ impl Rng for Mt19937 {
         }
         let mut y = self.mt[self.idx];
         self.idx += 1;
-        // Tempering
+        // Tempering, the paper's output transform (Matsumoto and Nishimura §2.2).
         y ^= y >> 11;
         y ^= (y << 7) & 0x9D2C_5680;
         y ^= (y << 15) & 0xEFC6_0000;

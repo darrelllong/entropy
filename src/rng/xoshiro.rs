@@ -29,7 +29,7 @@
 use super::{
     jump::{advance_linear, annihilating_polynomial, Poly},
     streams::{Advance, Streams},
-    OsRng, Rng,
+    Rng, Seedable,
 };
 use std::sync::OnceLock;
 
@@ -52,18 +52,6 @@ impl Xoshiro256 {
         );
         Self {
             s: [s0, s1, s2, s3],
-        }
-    }
-
-    /// Construct from 256 bits drawn from the operating system RNG.
-    #[must_use]
-    pub fn from_os_rng() -> Self {
-        let mut os = OsRng::new();
-        loop {
-            let s = [os.next_u64(), os.next_u64(), os.next_u64(), os.next_u64()];
-            if s[0] | s[1] | s[2] | s[3] != 0 {
-                return Self { s };
-            }
         }
     }
 
@@ -128,7 +116,8 @@ impl Default for Xoshiro256 {
 }
 
 impl Rng for Xoshiro256 {
-    // Return the upper 32 bits (marginally higher avalanche quality).
+    // The high half, the projection every 64-bit generator here gives the
+    // batteries.
     fn next_u32(&mut self) -> u32 {
         (self.step() >> 32) as u32
     }
@@ -154,18 +143,6 @@ impl Xoroshiro128 {
     pub fn new(s0: u64, s1: u64) -> Self {
         assert!(s0 | s1 != 0, "xoroshiro128: all-zero seed forbidden");
         Self { s: [s0, s1] }
-    }
-
-    /// Construct from 128 bits drawn from the operating system RNG.
-    #[must_use]
-    pub fn from_os_rng() -> Self {
-        let mut os = OsRng::new();
-        loop {
-            let s = [os.next_u64(), os.next_u64()];
-            if s[0] | s[1] != 0 {
-                return Self { s };
-            }
-        }
     }
 
     #[inline]

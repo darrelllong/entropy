@@ -5,14 +5,18 @@
 //! order its constructor takes them.  [`Seedable::seed_from_u64`] expands one
 //! 64-bit value to those bytes with SplitMix64 (G. L. Steele, D. Lea and
 //! C. H. Flood, "Fast splittable pseudorandom number generators," OOPSLA
-//! 2014), so nearby seeds give unrelated states.  [`Seedable::from_os`] draws
-//! them from the operating system.  All three are value-stable.
+//! 2014), so nearby seeds give unrelated states.  [`Seedable::from_os_rng`] draws
+//! them from the operating system, and [`Seedable::try_from_os_rng`] reports
+//! its failure instead of panicking.  The first two are value-stable.
 //!
 //! A byte string a generator cannot use (all zeros for xoshiro and
 //! xoroshiro, whose all-zero state is a fixed point) is replaced by the
 //! SplitMix64 expansion of 0, so every call returns a working generator.
 
-use super::{os::os_random, Jsf64, Mt19937, Pcg32, Pcg64, Sfc64, Xoroshiro128, Xoshiro256};
+use super::{
+    os::{os_random, OS_FAILED},
+    Jsf64, Mt19937, Pcg32, Pcg64, Sfc64, Xoroshiro128, Xoshiro256,
+};
 use crate::seed::splitmix64;
 use std::io;
 
@@ -40,9 +44,18 @@ pub trait Seedable: Sized {
 
     /// A generator seeded from the operating system.
     ///
+    /// # Panics
+    /// Panics if the operating system's entropy source fails;
+    /// [`Self::try_from_os_rng`] returns the error instead.
+    fn from_os_rng() -> Self {
+        Self::try_from_os_rng().expect(OS_FAILED)
+    }
+
+    /// A generator seeded from the operating system.
+    ///
     /// # Errors
     /// Any error from [`os_random`].
-    fn from_os() -> io::Result<Self> {
+    fn try_from_os_rng() -> io::Result<Self> {
         #[cfg_attr(not(feature = "cryptography"), allow(unused_mut))]
         let mut bytes = vec![0u8; Self::SEED_BYTES];
         os_random(&mut bytes)?;
@@ -216,7 +229,7 @@ mod tests {
             Pcg64::seed_from_u64(1).next_u64(),
             Pcg64::seed_from_u64(2).next_u64()
         );
-        assert!(Xoshiro256::from_os().is_ok());
+        assert!(Xoshiro256::try_from_os_rng().is_ok());
     }
 
     #[test]

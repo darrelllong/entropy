@@ -47,7 +47,11 @@
 
 use cryptography::DrbgError;
 
-use super::{os::os_random, ByteBuffered, Rng};
+use super::{
+    os::{os_random, OS_FAILED},
+    ByteBuffered, Rng,
+};
+use std::io;
 
 /// HMAC-SHA-256 output, in bytes: one block and one streaming refill.
 const OUT: usize = 32;
@@ -86,16 +90,25 @@ impl HmacDrbg {
     /// Instantiate from OS entropy (entropy_input 32 bytes, nonce 16 bytes).
     ///
     /// # Panics
-    /// Panics if the operating system's entropy source fails.
+    /// Panics if the operating system's entropy source fails;
+    /// [`Self::try_from_os_rng`] returns the error instead.
     #[must_use]
     pub fn from_os_rng() -> Self {
+        Self::try_from_os_rng().expect(OS_FAILED)
+    }
+
+    /// Instantiate from the operating system, as [`Self::from_os_rng`].
+    ///
+    /// # Errors
+    /// Any error from [`os_random`].
+    pub fn try_from_os_rng() -> io::Result<Self> {
         let mut seed = [0u8; ENTROPY_BYTES + NONCE_BYTES];
-        os_random(&mut seed).expect("HMAC_DRBG: the operating system's entropy source failed");
+        os_random(&mut seed)?;
         let (entropy_input, nonce) = seed.split_at(ENTROPY_BYTES);
         let core = cryptography::HmacDrbg::instantiate(entropy_input, nonce, &[])
             .unwrap_or_else(|e| refused(e));
         cryptography::zeroize_slice(&mut seed);
-        Self::from_core(core)
+        Ok(Self::from_core(core))
     }
 
     /// Instantiate deterministically from explicit entropy input, nonce, and

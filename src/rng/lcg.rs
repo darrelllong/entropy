@@ -140,14 +140,14 @@ impl Lcg32 {
         }
     }
 
-    /// Convenience: ANSI C sample LCG with seed 1.
-    pub fn ansi_c() -> Self {
-        Self::new(LcgVariant::AnsiC, 1)
+    /// The ANSI C sample generator from `seed`.
+    pub fn ansi_c(seed: u64) -> Self {
+        Self::new(LcgVariant::AnsiC, seed)
     }
 
-    /// Convenience: MINSTD (a = 48 271) with seed 1.
-    pub fn minstd() -> Self {
-        Self::new(LcgVariant::Minstd, 1)
+    /// MINSTD (a = 48 271) from `seed`.
+    pub fn minstd(seed: u64) -> Self {
+        Self::new(LcgVariant::Minstd, seed)
     }
 
     /// One raw LCG step.  Returns the bit-narrow value defined by the
@@ -256,7 +256,7 @@ mod tests {
         ];
         let mut raw = Lcg32::new(LcgVariant::AnsiC, 1);
         assert_eq!(expected.map(|_| raw.next_raw()), expected);
-        let mut words = Lcg32::ansi_c();
+        let mut words = Lcg32::ansi_c(1);
         assert_eq!(expected.map(|_| words.next_u32()), expected);
     }
 

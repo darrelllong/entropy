@@ -30,7 +30,7 @@
 
 use super::{
     streams::{Advance, Streams},
-    OsRng, Rng,
+    Rng, Seedable,
 };
 
 // ── PCG32 (64-bit LCG, XSH-RR output → 32 bits) ─────────────────────────────
@@ -60,13 +60,6 @@ impl Pcg32 {
         rng.state = rng.state.wrapping_add(state);
         rng.step();
         rng
-    }
-
-    /// Construct from 128 bits drawn from the operating system RNG.
-    #[must_use]
-    pub fn from_os_rng() -> Self {
-        let mut os = OsRng::new();
-        Self::new(os.next_u64(), os.next_u64())
     }
 
     #[inline]
@@ -121,15 +114,6 @@ impl Pcg64 {
         rng.state = rng.state.wrapping_add(state);
         rng.step();
         rng
-    }
-
-    /// Construct from 256 bits drawn from the operating system RNG.
-    #[must_use]
-    pub fn from_os_rng() -> Self {
-        let mut os = OsRng::new();
-        let s = ((os.next_u64() as u128) << 64) | os.next_u64() as u128;
-        let q = ((os.next_u64() as u128) << 64) | os.next_u64() as u128;
-        Self::new(s, q)
     }
 
     #[inline]

@@ -35,7 +35,8 @@ pub fn parking_lot(rng: &mut impl Rng, quick: bool) -> TestResult {
     for _ in 0..repeats {
         let parked = simulate(rng);
         let z = (parked as f64 - MEAN) / SIGMA;
-        // Convert z to uniform via normal CDF.
+        // Each lot's count is scored on its own; the KS summary below tests
+        // the p-values for uniformity.
         let p = crate::math::normal_cdf(z);
         p_values.push(p.clamp(1e-15, 1.0 - 1e-15));
     }

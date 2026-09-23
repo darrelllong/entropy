@@ -34,7 +34,11 @@
 
 use cryptography::Sha3_512;
 
-use super::{ByteBuffered, OsRng, Rng};
+use super::{
+    os::{os_random, OS_FAILED},
+    ByteBuffered, Rng,
+};
+use std::io;
 
 const STATE_BYTES: usize = 64;
 
@@ -46,31 +50,42 @@ pub struct SpongeBob {
 }
 
 impl SpongeBob {
-    /// Construct from arbitrary-length seed bytes.
+    /// The generator whose chain starts at the hash of `seed`, of any length.
     #[must_use]
-    pub fn from_seed(seed: &[u8]) -> Self {
+    pub fn new(seed: &[u8]) -> Self {
         Self {
             state: Sha3_512::digest(seed),
             offset: 0,
         }
     }
 
-    /// Construct from 512 bits drawn from the operating system RNG.
+    /// A generator seeded with STATE_BYTES bytes from the operating system.
+    ///
+    /// # Panics
+    /// Panics if the operating system's entropy source fails;
+    /// [`Self::try_from_os_rng`] returns the error instead.
     #[must_use]
     pub fn from_os_rng() -> Self {
-        let mut os = OsRng::new();
+        Self::try_from_os_rng().expect(OS_FAILED)
+    }
+
+    /// A generator seeded with STATE_BYTES bytes from the operating system.
+    ///
+    /// # Errors
+    /// Any error from [`os_random`].
+    pub fn try_from_os_rng() -> io::Result<Self> {
         let mut seed = [0u8; STATE_BYTES];
-        for chunk in seed.chunks_exact_mut(4) {
-            chunk.copy_from_slice(&os.next_u32().to_le_bytes());
-        }
-        Self::from_seed(&seed)
+        os_random(&mut seed)?;
+        let rng = Self::new(&seed);
+        cryptography::zeroize_slice(&mut seed);
+        Ok(rng)
     }
 
     /// Fixed seed `00 01 … 3f` for reproducible benchmarks.
     #[must_use]
     pub fn with_test_seed() -> Self {
         let seed: [u8; STATE_BYTES] = core::array::from_fn(|i| i as u8);
-        Self::from_seed(&seed)
+        Self::new(&seed)
     }
 }
 
@@ -123,8 +138,8 @@ mod tests {
     #[test]
     fn identical_seed_replays_identically() {
         let seed = b"SpongeBob likes deterministic tests";
-        let mut a = SpongeBob::from_seed(seed);
-        let mut b = SpongeBob::from_seed(seed);
+        let mut a = SpongeBob::new(seed);
+        let mut b = SpongeBob::new(seed);
         for _ in 0..32 {
             assert_eq!(a.next_u64(), b.next_u64());
         }
@@ -134,7 +149,7 @@ mod tests {
     fn pool_is_sha3_512_chain() {
         let seed = b"entropy::SpongeBob";
         let x0 = Sha3_512::digest(seed);
-        let mut rng = SpongeBob::from_seed(seed);
+        let mut rng = SpongeBob::new(seed);
         for chunk in x0.chunks_exact(8) {
             assert_eq!(
                 rng.next_u64(),
@@ -148,7 +163,7 @@ mod tests {
         let seed = b"hash the state again";
         let x0 = Sha3_512::digest(seed);
         let x1 = Sha3_512::digest(&x0);
-        let mut rng = SpongeBob::from_seed(seed);
+        let mut rng = SpongeBob::new(seed);
         for _ in 0..8 {
             let _ = rng.next_u64();
         }
@@ -160,8 +175,8 @@ mod tests {
 
     #[test]
     fn u32_and_u64_share_byte_stream() {
-        let mut a = SpongeBob::from_seed(b"stream");
-        let mut b = SpongeBob::from_seed(b"stream");
+        let mut a = SpongeBob::new(b"stream");
+        let mut b = SpongeBob::new(b"stream");
         for _ in 0..64 {
             let lo = a.next_u32() as u64;
             let hi = a.next_u32() as u64;

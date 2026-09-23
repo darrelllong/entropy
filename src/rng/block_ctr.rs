@@ -151,13 +151,12 @@ mod tests {
         let key = [0u8; 16];
         let cipher = Aes128::new(&key);
         let mut rng = BlockCtrRng::new(cipher, 0);
-        // Drain block 0 (4 words × 4 bytes = 16 bytes).
+        // One 16-byte block is four words.
         let block0: Vec<u32> = (0..4).map(|_| rng.next_u32()).collect();
-        // Read block 1.
         let block1: Vec<u32> = (0..4).map(|_| rng.next_u32()).collect();
-        // AES(key=0, ctr=0) ≠ AES(key=0, ctr=1): these are deterministic and unequal.
+        // The two blocks encrypt different counters under one key.
         assert_ne!(block0, block1, "consecutive CTR blocks must differ");
-        // First word of block 0 is the zero-key/zero-block KAT value (verified above).
+        // Block 0 is the zero-key, zero-block known answer.
         assert_eq!(block0[0], AES128_ZERO_KEY_WORD0);
     }
 }

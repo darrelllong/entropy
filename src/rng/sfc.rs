@@ -26,7 +26,7 @@
 //! # Author
 //! Chris Doty-Humphrey (SFC64); Bob Jenkins (JSF64).
 
-use super::{streams::Streams, OsRng, Rng};
+use super::{streams::Streams, Rng, Seedable};
 use crate::seed::splitmix64;
 
 // ── SFC64 ────────────────────────────────────────────────────────────────────
@@ -58,13 +58,6 @@ impl Sfc64 {
             rng.step();
         }
         rng
-    }
-
-    /// Construct from 192 bits drawn from the operating system RNG.
-    #[must_use]
-    pub fn from_os_rng() -> Self {
-        let mut os = OsRng::new();
-        Self::new(os.next_u64(), os.next_u64(), os.next_u64())
     }
 
     #[inline]
@@ -129,12 +122,6 @@ impl Jsf64 {
             rng.step();
         }
         rng
-    }
-
-    /// Construct from 64 bits drawn from the operating system RNG.
-    #[must_use]
-    pub fn from_os_rng() -> Self {
-        Self::new(OsRng::new().next_u64())
     }
 
     #[inline]

@@ -18,7 +18,7 @@
 //! one it was seeded under, so a forked child never repeats its parent's
 //! stream.
 
-use super::{os::os_random, Rng};
+use super::{os::os_random, Rng, Seedable};
 use cryptography::{cprng::fast_key_erasure::KEY, zeroize_slice, FastKeyErasure};
 use std::{cell::RefCell, io, marker::PhantomData};
 
@@ -35,18 +35,6 @@ impl FastKeyErasureRng {
     #[must_use]
     pub fn new(key: [u8; KEY]) -> Self {
         Self(FastKeyErasure::new(key))
-    }
-
-    /// A generator keyed from the operating system.
-    ///
-    /// # Errors
-    /// Any error from [`os_random`].
-    pub fn from_os() -> io::Result<Self> {
-        let mut key = [0u8; KEY];
-        os_random(&mut key)?;
-        let rng = Self::new(key);
-        zeroize_slice(&mut key);
-        Ok(rng)
     }
 
     /// Serve `bytes`, erasing each from the generator's buffer as it goes.
@@ -112,7 +100,7 @@ fn with_generator<T>(
         if fresh_process {
             let seedings = slot.as_ref().map_or(0, |s| s.seedings);
             *slot = Some(ThreadState {
-                rng: FastKeyErasureRng::from_os()?,
+                rng: FastKeyErasureRng::try_from_os_rng()?,
                 served: 0,
                 pid,
                 seedings: seedings + 1,

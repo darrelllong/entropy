@@ -42,7 +42,11 @@
 
 use cryptography::{cprng::hash_drbg::SEEDLEN, DrbgError};
 
-use super::{os::os_random, ByteBuffered, Rng};
+use super::{
+    os::{os_random, OS_FAILED},
+    ByteBuffered, Rng,
+};
+use std::io;
 
 /// SHA-256 output, in bytes: one Hashgen block.
 const OUTLEN: usize = 32;
@@ -84,16 +88,25 @@ impl HashDrbg {
     /// 16-byte nonce, no personalization.
     ///
     /// # Panics
-    /// Panics if the operating system's entropy source fails.
+    /// Panics if the operating system's entropy source fails;
+    /// [`Self::try_from_os_rng`] returns the error instead.
     #[must_use]
     pub fn from_os_rng() -> Self {
+        Self::try_from_os_rng().expect(OS_FAILED)
+    }
+
+    /// Instantiate from the operating system, as [`Self::from_os_rng`].
+    ///
+    /// # Errors
+    /// Any error from [`os_random`].
+    pub fn try_from_os_rng() -> io::Result<Self> {
         let mut seed = [0u8; SEEDLEN + NONCE_BYTES];
-        os_random(&mut seed).expect("Hash_DRBG: the operating system's entropy source failed");
+        os_random(&mut seed)?;
         let (entropy_input, nonce) = seed.split_at(SEEDLEN);
         let core = cryptography::HashDrbg::instantiate(entropy_input, nonce, &[])
             .unwrap_or_else(|e| refused(e));
         cryptography::zeroize_slice(&mut seed);
-        Self::from_core(core)
+        Ok(Self::from_core(core))
     }
 
     /// Instantiate deterministically from explicit entropy input, nonce, and

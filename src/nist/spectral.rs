@@ -78,7 +78,8 @@ struct Dft {
 fn dft_statistic(bits: &[u8]) -> Dft {
     let n = bits.len();
 
-    // Convert bits to ±1.
+    // The DFT of the ±1 sequence; a bit's zero mean under H₀ is what makes
+    // |Sⱼ|²/n exponential.
     let x: Vec<f64> = bits
         .iter()
         .map(|&b| if b == 1 { 1.0 } else { -1.0 })

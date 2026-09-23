@@ -86,6 +86,9 @@ pub fn os_random(bytes: &mut [u8]) -> io::Result<()> {
     File::open("/dev/urandom")?.read_exact(bytes)
 }
 
+/// The panic of every infallible constructor whose `try_` form failed.
+pub(crate) const OS_FAILED: &str = "the operating system's entropy source failed";
+
 impl OsRng {
     /// Open `/dev/urandom`.
     ///

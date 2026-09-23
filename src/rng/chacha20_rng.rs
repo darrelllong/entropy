@@ -69,7 +69,7 @@ use cryptography::ChaCha20;
 
 use super::{
     streams::{Advance, Streams},
-    ByteBuffered, OsRng, Rng,
+    ByteBuffered, Rng, Seedable,
 };
 
 const BLOCK_BYTES: usize = 64;
@@ -118,22 +118,6 @@ impl ChaCha20Rng {
             offset: BLOCK_BYTES, // force a refill on first use
             blocks_left: BLOCKS_PER_NONCE - u64::from(counter),
         }
-    }
-
-    /// Construct with a fresh key and nonce from the operating system RNG,
-    /// starting at block counter 0.
-    #[must_use]
-    pub fn from_os_rng() -> Self {
-        let mut os = OsRng::new();
-        let mut key = [0u8; 32];
-        let mut nonce = [0u8; 12];
-        for chunk in key.chunks_exact_mut(4) {
-            chunk.copy_from_slice(&os.next_u32().to_le_bytes());
-        }
-        for chunk in nonce.chunks_exact_mut(4) {
-            chunk.copy_from_slice(&os.next_u32().to_le_bytes());
-        }
-        Self::new(&key, &nonce, 0)
     }
 }
 
@@ -336,12 +320,12 @@ mod tests {
     #[test]
     fn chacha20_rng_refills_across_block_boundary() {
         let mut rng = ChaCha20Rng::from_os_rng();
-        // Drain one full 64-byte block via u32 (16 calls) then read across boundary.
+        // A block is sixteen words; the seventeenth comes from the next block.
         for _ in 0..16 {
             let _ = rng.next_u32();
         }
-        let v = rng.next_u32(); // triggers refill
-        assert_ne!(v, 0xffff_ffff); // trivially non-constant
+        let v = rng.next_u32();
+        assert_ne!(v, 0xffff_ffff);
     }
 
     /// RFC 8439 §2.3.2: key 00:01:…:1f, nonce 00:00:00:09:00:00:00:4a:00:00:00:00,
