@@ -26,7 +26,7 @@
 //! variance n·0.95·0.05/4 is short by a factor of about 1.05 at every size,
 //! and scored by it the test rejected 1.2% of null streams at the 1% level.
 //! The statistic the test records, and takes its p-value from, is therefore
-//! d divided by [`SIGMA_RATIO`], the mean of the three; d itself, printed in
+//! d divided by `SIGMA_RATIO` = 1.026, the mean of the three; d itself, printed in
 //! the note and checked against the publication's example, keeps the
 //! standard's form.  On streams the calibration never saw
 //! (`stats/statistic-validate.txt`: 200 000 at each of 1 048 576 and
