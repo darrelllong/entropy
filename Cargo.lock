@@ -10,7 +10,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "cryptography-rs"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "rust-mp",
 ]
@@ -53,7 +53,7 @@ dependencies = [
 
 [[package]]
 name = "rng-entropy"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "cryptography-rs",
  "rust-mp",

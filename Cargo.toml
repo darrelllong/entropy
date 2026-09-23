@@ -1,6 +1,6 @@
 [package]
 name        = "rng-entropy"
-version     = "0.7.0"
+version     = "0.7.1"
 edition     = "2021"
 description = "Statistical tests of random number generators (NIST SP 800-22, DIEHARD, DIEHARDER) and the generators, in safe Rust."
 license     = "BSD-2-Clause"
@@ -167,10 +167,10 @@ cryptography = ["dep:cryptography-rs"]
 [dependencies]
 # Side-by-side sibling checkout, matching how cryptography-rs itself takes
 # rust-mp: the path serves local development, the version takes over when
-# published. 0.7 pulls rump's `wipe` feature transitively, so `BigUint`
+# published. It pulls rump's `wipe` feature transitively, so `BigUint`
 # scrubs its limbs on drop — which is why the dependency is optional; see
 # the feature above.
-cryptography-rs = { version = "0.7", path = "../cryptography", optional = true }
+cryptography-rs = { version = "0.8", path = "../cryptography", optional = true }
 rustfft         = { version = "6.2", optional = true }
 
 [dev-dependencies]
