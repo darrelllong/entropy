@@ -34,3 +34,11 @@ __pycache__/
 .codex/
 CLAUDE.md
 AGENTS.md
+
+# Working documents: reviews, to-do lists and one-off reports stay local
+AUDIT.md
+SUGGESTIONS.md
+CHANGELOG.md
+POWER.md
+R-REPORT.md
+review/

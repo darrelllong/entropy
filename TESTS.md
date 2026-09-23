@@ -72,7 +72,8 @@ are noise, not structure.
 family at or below its level, but some family rejects 94% of null streams at
 0.05, 42% at 0.01 and 5% at 0.001, because there are about sixty families.  A
 verdict on a generator needs its own correction, or a reading of which
-families failed and whether they share an input; AUDIT.md records the rates.
+families failed and whether they share an input; `stats/battery-null-moore.txt`
+holds the rates, read with `scripts/battery_null_report.py`.
 
 ## Summary Table
 

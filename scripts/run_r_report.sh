@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Build R-REPORT.md by running scripts/r_rng_tests.R against every RNG.
+# Cross-check every RNG with R's randomness packages, by running
+# scripts/r_rng_tests.R on a stream from each, and write the report to
+# target/r-report.md (or $R_REPORT).  The report is a local artifact.
 # usage: ./scripts/run_r_report.sh
 #
 # R_REMOTE=host:dir runs R on `host` instead, for a machine that can build
@@ -11,7 +13,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET="${CARGO_TARGET_DIR:-$ROOT/target}"
 DUMP="$TARGET/release/dump_rng"
 R_SCRIPT="$ROOT/scripts/r_rng_tests.R"
-OUT="$ROOT/R-REPORT.md"
+OUT="${R_REPORT:-$ROOT/target/r-report.md}"
+mkdir -p "$(dirname "$OUT")"
 
 # Always build: a binary left from other sources or features would be
 # reported as this checkout's.
@@ -129,7 +132,7 @@ RNGS=(
 # ----- header ----------------------------------------------------------------
 {
 cat <<'EOF'
-# R-REPORT — RNG tests via R's standard randomness packages
+# R report — RNG tests via R's standard randomness packages
 
 Each generator below was sampled into a binary stream of little-endian u32
 words. R then read the stream, normalised it to U[0,1), and ran the
@@ -272,7 +275,7 @@ for entry in "${RNGS[@]}"; do
 done
 } > "$OUT.tmp"
 
-# A report missing a generator is not a report: leave R-REPORT.md alone.
+# A report missing a generator is not a report: leave the old one alone.
 if (( ${#FAILED[@]} > 0 )); then
   mv -f "$OUT.tmp" "$OUT.incomplete"
   echo "[fail] ${#FAILED[@]} generator(s) failed: ${FAILED[*]}; partial output in $OUT.incomplete" >&2

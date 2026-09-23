@@ -1,17 +1,14 @@
 #!/usr/bin/env python3
-"""Rebuild the rejection table in POWER.md from `examples/power_curves` output.
+"""Print the rejection table of an `examples/power_curves` run as Markdown.
 
-The table replaces everything between the BEGIN and END markers; the prose
-around it is kept.  Each cell is the number of streams, out of the run's
-count, whose family rejected at the family level.
+Each cell is the number of streams, out of the run's count, whose family
+rejected at the family level.  `stats/nist-power-100-streams.txt` is the run
+the crate keeps.
 
-usage: scripts/power_report.py <power_curves output> POWER.md
+usage: scripts/power_report.py <power_curves output>
 """
 import collections
 import sys
-
-BEGIN = "<!-- power table: begin -->"
-END = "<!-- power table: end -->"
 
 # Column order and short headings for the NIST families.
 NIST_FAMILIES = [
@@ -59,9 +56,9 @@ def strength_key(strength):
 
 
 def main():
-    if len(sys.argv) != 3:
-        sys.exit("usage: power_report.py <power output> <POWER.md>")
-    source, report = sys.argv[1], sys.argv[2]
+    if len(sys.argv) != 2:
+        sys.exit("usage: power_report.py <power output>")
+    source = sys.argv[1]
     counts = collections.defaultdict(dict)
     streams = None
     with open(source) as fh:
@@ -88,17 +85,7 @@ def main():
         cells.append(str(max(maurer)) if maurer else "-")
         label = DEFECT_TEXT[defect].format(strength)
         lines.append(f"| {label} | 2^{bits.bit_length() - 1} | " + " | ".join(cells) + " |")
-    table = "\n".join(lines)
-
-    with open(report) as fh:
-        text = fh.read()
-    start, end = text.find(BEGIN), text.find(END)
-    if start < 0 or end < start:
-        sys.exit(f"power_report: {report} lacks the table markers")
-    text = text[: start + len(BEGIN)] + "\n" + table + "\n" + text[end:]
-    with open(report, "w") as fh:
-        fh.write(text)
-
+    print("\n".join(lines))
 
 if __name__ == "__main__":
     main()
