@@ -17,7 +17,8 @@
 //!
 //! * `universal`: the z of each Maurer setting L = 5 … that scores at `bits`
 //!   (default 16 000 000): (f_n − μ)/σ with the standard's σ.
-//! * `spectral`: the d of SP 800-22 §2.6 at `bits`: (N₁ − N₀)/√(n·0.95·0.05/4).
+//! * `spectral`: the statistic the test records at `bits`: the d of SP 800-22
+//!   §2.6, (N₁ − N₀)/√(n·0.95·0.05/4), divided by its calibrated SIGMA_RATIO.
 //! * `count_ones_bytes`: (Q5 − Q4 − 2 500)/√5 000 for every one of the 25
 //!   byte windows, so each stream gives 25 values; χ²(2 500) standardised.
 //! * `parking_lot`: the number of cars parked in one lot, standardised by

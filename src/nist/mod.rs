@@ -121,7 +121,9 @@ mod tests {
             // probabilities; the exact probabilities give 0.718366.
             (longest_run::longest_run(&e), 0.718366),
             (matrix_rank::matrix_rank(&e), 0.306156),
-            (spectral::spectral(&e), 0.847187),
+            // Appendix B prints 0.847187, from step (8)'s law; the
+            // calibrated law (spectral's SIGMA_RATIO) gives 0.851013.
+            (spectral::spectral(&e), 0.851013),
             (
                 non_overlapping_template::non_overlapping_template(&e, 9),
                 0.078790,

@@ -30,3 +30,36 @@ count_ones_bytes window 23 200000 +0.00021 1.00331 0.05044 0.00993 0.00097 2500.
 count_ones_bytes window 24 200000 +0.00002 1.00493 0.05125 0.01035 0.00110 2500.0016 71.0592
 count_ones_bytes window 25 200000 +0.00242 1.00658 0.05058 0.01024 0.00105 2500.1711 71.1759
 
+# universal: 200000 streams, 16000000 bits where the test reads bits
+row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd
+maurer::universal_l05 200000 +0.00139 1.06614 0.06571 0.01587 0.00201 - -
+maurer::universal_l06 200000 -0.00107 1.04019 0.05971 0.01320 0.00145 - -
+maurer::universal_l07 200000 -0.00168 1.02682 0.05649 0.01231 0.00129 - -
+maurer::universal_l08 200000 -0.00022 1.01575 0.05378 0.01108 0.00114 - -
+maurer::universal_l09 200000 -0.00071 1.00140 0.05031 0.01019 0.00100 - -
+maurer::universal_l10 200000 -0.00090 0.98895 0.04680 0.00938 0.00087 - -
+
+# universal: 200000 streams, 4194304 bits where the test reads bits
+row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd
+maurer::universal_l05 200000 +0.00253 1.06513 0.06602 0.01589 0.00209 - -
+maurer::universal_l06 200000 -0.00144 1.04050 0.05992 0.01293 0.00153 - -
+maurer::universal_l07 200000 +0.00231 1.02618 0.05671 0.01205 0.00130 - -
+maurer::universal_l08 200000 +0.00066 1.01104 0.05235 0.01078 0.00108 - -
+
+# universal: 200000 streams, 1048576 bits where the test reads bits
+row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd
+maurer::universal_l05 200000 +0.00153 1.06304 0.06482 0.01578 0.00198 - -
+maurer::universal_l06 200000 -0.00256 1.04063 0.06026 0.01337 0.00145 - -
+maurer::universal_l07 200000 +0.00057 1.02651 0.05536 0.01185 0.00142 - -
+
+# spectral: 200000 streams, 16000000 bits where the test reads bits
+row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd
+nist::spectral 200000 -0.00188 1.02377 0.05572 0.01207 0.00131 - -
+# spectral: 200000 streams, 4194304 bits where the test reads bits
+row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd
+nist::spectral 200000 +0.00011 1.02680 0.05600 0.01174 0.00129 - -
+
+# spectral: 200000 streams, 1048576 bits where the test reads bits
+row values mean_z sd_z beyond_0.05 beyond_0.01 beyond_0.001 raw_mean raw_sd
+nist::spectral 200000 +0.00148 1.02723 0.05602 0.01184 0.00136 - -
+

@@ -129,8 +129,9 @@ Where a printed law was measurably wrong, the test scores by the measured
 one and its documentation gives both: DIEHARD's count-the-1s difference
 Q5 − Q4 has 1.0103 times the variance of the χ² that approximates it, and
 Maurer's universal statistic has a standard deviation 6.5% above the
-standard's σ at L = 5 and 1.1% below it at L = 10.  The parking-lot count's law
-was confirmed over two million lots.
+standard's σ at L = 5 and 1.1% below it at L = 10, and the spectral test's d
+has standard deviation 1.026 at every sample size.  The parking-lot count's
+law was confirmed over two million lots.
 
 ## Generators
 
