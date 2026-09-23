@@ -92,19 +92,12 @@ pub use xoshiro::{Xoroshiro128, Xoshiro256};
 /// All tests consume bits or 32-bit words; the trait methods below are the
 /// only ones needed.  Blanket impls fill in the derived methods.
 ///
-/// ## Design note — no CSPRNG marker type
+/// ## Cryptographic generators
 ///
-/// This trait is intentionally flat: every generator from `ConstantRng` to
-/// `ChaCha20Rng` implements the same `Rng`.  This is correct for a test
-/// harness whose job is to compare generators uniformly, but it means the
-/// **type system provides no barrier** against substituting a weak generator
-/// where a strong one is required.  Any function that accepts `impl Rng` will
-/// silently compile with `ConstantRng` or `SystemVRand`.
-///
-/// **Do not copy this design into production code.**  In an application,
-/// define a separate `CsprngRng: Rng` marker subtrait (or a newtype) and
-/// restrict security-sensitive functions to `impl CsprngRng` so that weak
-/// generators are rejected at compile time.
+/// Every generator, from `ConstantRng` to `ChaCha20Rng`, implements the same
+/// `Rng`, so the batteries compare them alike, and `impl Rng` alone accepts
+/// a weak one.  [`CryptoRng`] marks the cryptographic constructions; take
+/// `impl CryptoRng` where a weak generator must not compile.
 ///
 /// ## Byte and word ordering contract
 ///

@@ -105,7 +105,7 @@ fn annihilator() -> &'static Poly {
 impl Advance for Mt19937 {
     /// The outputs left in the current block are skipped one at a time, whole
     /// blocks by the polynomial, and the remainder one at a time again: at
-    /// most 2·[`N`] ordinary steps beside the jump.
+    /// most 2·N (1 248) ordinary steps beside the jump.
     fn advance(&mut self, steps: u128) {
         let in_block = (N - self.idx) as u128;
         if steps <= in_block {

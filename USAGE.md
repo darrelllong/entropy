@@ -1,36 +1,303 @@
-# USAGE — entropy RNG test suite
+# Using entropy
 
-## Overview
+`entropy` is two things behind one `Rng` trait: a library of generators with
+an exact sampling interface for programs, and the statistical batteries that
+test them.  This document is the library's interface; [README.md](README.md)
+covers the batteries' command lines and results.
 
-`entropy` is a statistical test harness, not a production RNG library. It
-implements the NIST SP 800-22, DIEHARD (Marsaglia), and DIEHARDER (Brown)
-batteries against a collection of generators that spans the spectrum from
-deliberately broken to cryptographically strong. The purpose is auditing and
-comparison, not deployment. No generator in this crate should be copied into
-production code on the basis of passing these tests alone: passing is necessary
-but nowhere near sufficient for cryptographic suitability.
+The cryptographic generators here are standard constructions (ChaCha20 with
+fast key erasure, the SP 800-90A DRBGs, AES in counter mode) and are marked
+`CryptoRng`.  Passing the batteries is not what makes them fit for use; their
+construction is, and every fixed or test seed in this document is public.
 
----
+## The `Rng` trait
 
-## Opt-in historical DIEHARD suite
+```rust
+pub trait Rng {
+    fn next_u32(&mut self) -> u32;
+    fn next_u64(&mut self) -> u64;                     // default: (next_u32() << 32) | next_u32()
+    fn fill_native(&mut self, bytes: &mut [u8]);      // little-endian next_u64 words
+    fn next_f64(&mut self) -> f64;                     // [0, 1) from one next_u32
+    fn collect_bits(&mut self, n: usize) -> Vec<u8>;  // bit 0 of word 0 first
+    fn collect_u32s(&mut self, n: usize) -> Vec<u32>;
+    fn collect_f64s(&mut self, n: usize) -> Vec<f64>;
+}
+```
 
-`run_tests` runs NIST SP 800-22, DIEHARD and DIEHARDER by default. A fourth
-suite, `diehard-historical`, holds DIEHARD tests that the default battery
-does not run, and runs only when it is named:
+**Words.** A 64-bit generator gives `next_u32` the high half of one output
+and discards the low half, so the batteries test that projection; `--views`
+in the runner tests the others.  The default `next_u64` puts the first
+`next_u32` in the high half.  Byte-backed generators (the DRBGs, the hash
+chains, ChaCha20Rng, `StreamRng`) read four or eight little-endian bytes
+instead, and mixing `next_u32` with `next_u64` at one of their buffer
+boundaries discards up to seven bytes; `AesCtr`, `CryptoCtrDrbg` and
+`DualEcDrbg` read `next_u32` big-endian.  Each type's documentation states
+its rule.
+
+**Bytes.** `fill_native` is the byte interface for programs: whole
+`next_u64` words, least significant byte first, a shorter final chunk
+taking the low bytes of one more word.  A buffered or keystream generator
+serves it from its buffer rather than a call per word, and the bytes are
+the same either way.  `Sample::fill_bytes` is a different stream,
+little-endian `next_u32` words, kept so the battery's projection of a
+64-bit generator does not move.  On this Mac Xoshiro256 and JSF64 fill at
+about 10 GiB/s through `fill_native`, and the fast-key-erasure generator
+at about 850 MiB/s, the rate of cryptography's own core
+(`examples/fill_throughput.rs`).
+
+**`next_f64` uses 32 bits** and is what the batteries need.  Programs take
+`Sample::unit_f64` (53 bits) or `unit_f64_dense`.
+
+**`CryptoRng`** marks `OsRng`, `ChaCha20Rng`, `FastKeyErasureRng`,
+`ThreadRng`, `HmacDrbg`, `HashDrbg` and `CryptoCtrDrbg`.  Accept
+`impl CryptoRng` where a weak generator must not compile.  The marker
+describes the construction, not the key.
+
+## Constructing a generator
+
+Every generator follows one vocabulary:
+
+| Constructor | Meaning |
+|---|---|
+| `new(…)` | The generator from its state: the integers of the recurrence, the key and nonce of a cipher, the seed bytes of a hash chain |
+| `from_os_rng()` | Seeded from the operating system; panics if the source fails |
+| `try_from_os_rng()` | The same, returning `io::Result` |
+| `with_test_seed()`, `AesCtr::with_nist_key()` | A fixed published seed or key, for reproducible runs of the battery and benchmarks; never for anything else |
+| `HashDrbg::from_entropy(entropy, nonce, personalization)`, `HmacDrbg::from_entropy(…)` | SP 800-90A instantiation from explicit inputs, for known-answer tests |
+| `Default` | `from_os_rng()` for the generators that have it |
+
+`Seedable` is implemented by PCG32, PCG64, Xoshiro256, Xoroshiro128, SFC64,
+JSF64, MT19937, ChaCha20Rng and FastKeyErasureRng, and adds two portable
+seeds to the pair above:
+
+```rust
+pub trait Seedable: Sized {
+    const SEED_BYTES: usize;
+    fn from_seed_bytes(seed: &[u8]) -> Self;   // the constructor's integers, little-endian
+    fn seed_from_u64(seed: u64) -> Self;       // SplitMix64 expansion of one word
+    fn from_os_rng() -> Self;
+    fn try_from_os_rng() -> io::Result<Self>;
+}
+```
+
+An all-zero byte string, which xoshiro and xoroshiro cannot use, is replaced
+by the SplitMix64 expansion of 0, so every call returns a working generator.
+
+`OsRng::new()` and `OsRng::try_new()` open `/dev/urandom`.  On Linux the
+first use reads one byte from `/dev/random`, which blocks until the kernel
+pool is initialized, so `/dev/urandom` is never read unseeded; only a
+successful check is remembered.  `os_random(&mut bytes)` fills a buffer the
+same way.  `OsRng` is Unix-only: without FFI or a dependency there is no
+portable system call for Windows.
+
+## Random values in programs
+
+```rust
+use entropy::rng::{thread_rng, Pcg64, Sample, Seedable};
+
+let mut rng = thread_rng();              // per-thread ChaCha20 with fast key erasure
+let die = rng.range(1, 7);               // exactly uniform in 1..=6
+let coin = rng.bernoulli(0.3);           // exactly probability 0.3
+let x = rng.unit_f64();                  // 53-bit uniform in [0, 1)
+let z = rng.normal();                    // standard normal, full tails
+let mut deck: Vec<u8> = (0..52).collect();
+rng.shuffle(&mut deck);                  // uniform over all orderings
+
+let mut sim = Pcg64::seed_from_u64(42);  // a reproducible stream
+```
+
+| `Sample` method, on every generator | What it guarantees |
+|---|---|
+| `below(n)`, `range(lo, hi)`, `below_u128(n)` | Exactly uniform integers by Lemire's multiply-and-reject method, checked exhaustively at 12-bit words for every bound |
+| `ratio(a, b)`, `bernoulli(p)` | Probability exactly a/b, or exactly the double p, ties included |
+| `unit_f64()` | Uniform on the 2⁵³ multiples of 2⁻⁵³ in [0, 1) |
+| `unit_f64_dense()` | A uniform real rounded down to a double: every double in [0, 1), subnormals included, with its gap's probability |
+| `normal()` | Marsaglia and Tsang's ziggurat with its table derived at run time; 271 million draws a second here beside 311 million raw `next_u64` |
+| `normal_inverse()` | The same law by inverting Φ from a dense uniform, 2 700 times slower, resolved to the smallest subnormal |
+| `exponential()` | The ziggurat over e^{−x}, the tail drawn by the law's lack of memory |
+| `exponential_inverse()` | −ln U from a dense uniform, so the tail reaches about 744 |
+| `shuffle`, `partial_shuffle`, `choose`, `choose_mut` | Durstenfeld's Fisher–Yates with exact indices |
+| `sample_indices`, `sample`, `sample_array` | Distinct elements, every subset equally likely, in random order (Floyd's algorithm or a partial shuffle) |
+| `choose_weighted`, `sample_weighted` | Probability exactly proportional to integer weights, summed in 128 bits |
+| `choose_from_iter`, `sample_from_iter` | Uniform choice from an iterator of unknown length (Vitter's Algorithm R) |
+| `fill_bytes` | Little-endian `next_u32` words, the battery's projection |
+
+The ziggurat tables are not tabulated: the equal-area recurrence is closed by
+bisecting for r, and the tests check the areas, the closure, the
+distribution, the moments and the tail's own law.
+`examples/variate_throughput.rs` measures every method.
+
+**`thread_rng()`** gives each thread a `FastKeyErasureRng` keyed from the
+operating system: ChaCha20 whose key is replaced by the first 32 bytes of
+each refill and whose served bytes are erased, so a captured state reveals
+no earlier output (Bernstein, "Fast-key-erasure random-number generators",
+2017).  It takes a fresh key after every 2³⁰ bytes and whenever the process
+id changes, so a forked child never repeats its parent.  `ThreadRng::fill`
+serves a whole request with one thread-local lookup and one reseed check,
+splitting a request that would cross the 2³⁰-byte limit so the bytes after
+it come from the new key.  `try_thread_rng()`, `ThreadRng::try_fill` and
+`ThreadRng::try_next_u64` return the operating system's error instead of
+panicking.
+
+### Positioning and parallel streams
+
+`Advance::advance(steps)` moves a generator forward by any number of
+`next_u32` calls in time logarithmic in that number; `Streams::stream(k)`
+gives the generator for stream *k*, the same for the same seed and index
+whatever order the workers run in.
+
+| Generator | `advance` | `stream(k)` |
+|---|---|---|
+| `Xoshiro256`, `Xoroshiro128`, `Xorshift64`, `Xorshift32`, `Mt19937` | A polynomial in the update matrix, derived from the generator: Berlekamp–Massey recovers the recurrence from a bit of the state and x^steps mod it is applied, a few hundred ordinary steps for xoshiro, one block for the Twister | Segment *k* of one sequence: 2¹²⁸ steps for xoshiro256, 2⁶⁴ for xoroshiro128 and MT19937, 2³² and 2¹⁶ for the xorshifts |
+| `Pcg64`, `Pcg32` | The LCG's affine state map composed `steps` times by square-and-multiply | Segment *k* of 2⁶⁴ or 2³² steps on the same PCG stream |
+| `ChaCha20Rng` | The block counter and offset are set | The same key under the nonce with *k* XORed into its low bytes, from block 0: a separate 2³²-block keystream per index |
+| `Sfc64`, `Jsf64` | Not implemented: chaotic maps have no shortcut | A separate sequence seeded by SplitMix64 from the state and *k*: distinct and reproducible, but not provably disjoint |
+
+The jump polynomials are recovered from the generators themselves and
+cached, and each `advance` is tested against a million real steps.
+
+### Value stability
+
+Every generator, `Sample` method and `Seedable` derivation produces the same
+values from the same seed in every release; known-answer tests pin them, and
+a change to any of them is a breaking change.  `thread_rng` is seeded from
+the operating system and has no stable values.
+
+## Seeding utilities (`entropy::seed`)
+
+These exist for the battery and the tests, and nothing here is secret.
+
+- `seed_material::<N>(seed: u64) -> [u8; N]`: SplitMix64 expansion of one
+  word, XORed first with a fixed constant so that seed 0 is not the all-zero
+  state.
+- `sequential_bytes::<N>() -> [u8; N]`: `00 01 02 …`, the keys and IVs of
+  the published test vectors: `K16`, `K32`, `IV8`, `IV16`.
+- `splitmix64(&mut state) -> u64`: the mixer itself.
+
+A cipher or DRBG keyed with any of these in a program is broken by
+construction; key it from `OsRng`.
+
+## The generators
+
+### Degenerate controls
+
+| Type | Construction |
+|---|---|
+| `ConstantRng` | `ConstantRng::new(value)`: the same word forever |
+| `CounterRng` | `CounterRng::new(start)`: 0, 1, 2, … |
+
+They must fail every test.
+
+### Historical generators
+
+| Type | Notes |
+|---|---|
+| `Lcg32::ansi_c(seed)` | The ANSI C sample LCG (1103515245, 12345); its 31-bit output is zero-extended, so bit 31 is always 0 |
+| `Lcg32::minstd(seed)` | MINSTD, a = 48 271 (C++ `minstd_rand`); `LcgVariant::Minstd0` is the original a = 16 807; a seed ≡ 0 (mod 2³¹ − 1) is remapped to 1 |
+| `Lcg32::new(LcgVariant::Borland, seed)` | Borland C++ `rand()`: the 15-bit raws are packed into 32-bit words by `next_u32`; `next_raw()` gives the C value |
+| `SystemVRand`, `Rand48`, `BsdRandom`, `LinuxLibcRandom`, `BsdRandCompat` | Unix libc generators, each `new(seed)` |
+| `WindowsMsvcRand`, `WindowsVb6Rnd`, `WindowsDotNetRandom` | Windows-family generators, each `new(seed)` |
+
+Every one is recoverable from a short output window.
+
+### Simulation generators
+
+| Type | Construction | State |
+|---|---|---|
+| `Mt19937` | `new(seed)` | 19 968 bits |
+| `Xorshift32`, `Xorshift64` | `new(seed)`, nonzero | 32, 64 bits |
+| `Pcg32` | `new(state, seq)` | 64 + 64 bits |
+| `Pcg64` | `new(state, seq)` | 128 + 128 bits |
+| `Xoshiro256` | `new(s0, s1, s2, s3)`, not all zero | 256 bits |
+| `Xoroshiro128` | `new(s0, s1)`, not all zero | 128 bits |
+| `Sfc64` | `new(a, b, c)` | 256 bits |
+| `Jsf64` | `new(seed)` | 256 bits |
+
+All but the xorshifts implement `Seedable`.  They pass the batteries and
+suit simulation; every one is invertible from its output, so none belongs
+where an observer benefits from predicting the next value: session
+identifiers, nonces, tokens, experiment assignment under an adversary.  The
+MT19937 state is recoverable from 624 consecutive outputs.
+
+### Cipher-based generators
+
+`StreamRng<C>` reads a stream cipher's keystream and `BlockCtrRng<C>` runs a
+block cipher in SP 800-38A counter mode from a given counter; the ciphers
+come from `cryptography`.
+
+| Generator | Key | IV | Construction |
+|---|---|---|---|
+| `StreamRng<Rabbit>` | 128 | 64 | `StreamRng::new(Rabbit::new(&key, &iv))` |
+| `StreamRng<Salsa20>` | 256 | 64 | same |
+| `StreamRng<Snow3g>` | 128 | 128 | same |
+| `StreamRng<Zuc128>` | 128 | 128 | same |
+| `AesCtr` | 128 | counter | `AesCtr::new(&key, counter)`; `with_nist_key()` is the SP 800-38A F.5 key at counter 0 |
+| `BlockCtrRng<Camellia128>`, `<Twofish128>`, `<Serpent128>`, `<Sm4>`, `<Cast128>`, `<SeedCipher>` | 128 | counter | `BlockCtrRng::new(Camellia128::new(&key), counter)` |
+| `BlockCtrRng<Grasshopper>` | 256 | counter | same |
+
+The same key with the same IV or counter gives the same stream.
+
+### DRBGs and hash chains
+
+| Type | Construction | Notes |
+|---|---|---|
+| `ChaCha20Rng` | `new(&key, &nonce, counter)`, `from_os_rng()` | RFC 8439 keystream; 2³² blocks (256 GiB) per key and nonce, after which `advance` and the stream panic rather than wrap |
+| `FastKeyErasureRng` | `new(key)`, `from_os_rng()` | What `thread_rng` uses |
+| `HmacDrbg` | `from_os_rng()`, `from_entropy(…)` | HMAC-SHA-256, SP 800-90A; `generate(nbytes, additional_input)` is the discrete Generate |
+| `HashDrbg` | `from_os_rng()`, `from_entropy(…)` | SHA-256, SP 800-90A |
+| `CryptoCtrDrbg` | `new(&seed_material)`, `with_test_seed()` | AES-256 CTR_DRBG from `cryptography` |
+| `SpongeBob` | `new(seed)`, `from_os_rng()`, `with_test_seed()` | SHA3-512 hash chain |
+| `Squidward` | `new(seed)`, `from_os_rng()`, `with_test_seed()` | SHA-256 hash chain |
+
+`HmacDrbg` and `HashDrbg` panic at the SP 800-90A reseed interval of 2⁴⁸
+requests rather than continue; a long-running program reseeds by
+constructing anew.
+
+### Backdoored control
+
+`DualEcDrbg::p256(&seed)` is Dual_EC_DRBG on P-256 with the Q point of
+SP 800-90 Appendix A.1.1.  Whoever holds the discrete logarithm of Q to P
+recovers the state from one 30-byte output block.
+It passes the batteries, which is the point of including it; the runner
+limits it to the NIST suite because three scalar multiplications per block
+make the others prohibitively slow.  It must never produce anything.
+
+## Choosing
+
+| Goal | Generator |
+|---|---|
+| Random values in a program | `thread_rng()` |
+| Cryptographic output under a key you hold | `FastKeyErasureRng`, `ChaCha20Rng` or `CryptoCtrDrbg`, seeded with `from_os_rng()` |
+| Reproducible simulation | `Pcg64` or `Xoshiro256` from `seed_from_u64`, with `Streams` for parallel work |
+| Fastest simulation, no reproducibility | `Sfc64` or `Jsf64` |
+| Operating-system entropy directly | `OsRng` |
+| A control that must fail | `ConstantRng`, `CounterRng` |
+
+## Running the batteries from the library
+
+```rust
+use entropy::{diehard, dieharder, nist, rng::{Pcg64, Seedable}};
+
+let mut rng = Pcg64::seed_from_u64(1);
+let quick = false;
+let results = nist::run_all(&mut rng, 16_000_000);          // bits
+let results = diehard::run_all(&mut rng, 16_000_000, quick); // 32-bit words
+let results = dieharder::run_all(&mut rng, 16_000_000, quick);
+```
+
+Each result carries its name, status, p-value, statistic and a note, and
+prints as one line or as JSON.  Every test is also a function on a bit or
+word slice in its own module, for example `nist::spectral::spectral(&bits)`.
+
+### The historical DIEHARD suite
+
+`diehard::historical::run_all(&mut rng, n_words)` runs four DIEHARD tests the
+default battery does not, and the runner takes them only by name:
 
 ```sh
 cargo run --release -- --suite diehard-historical --rng MT19937
 cargo run --release -- --test diehard_historical::operm5 --rng PCG64
-cargo run --release -- --suite diehard --suite diehard-historical --rng AES
 ```
-
-Running every suite, the default, never includes it. Without `--suite`, a
-`--test` pattern that starts with `diehard_historical::`, or with its alias
-`diehard-historical::`, selects it. A pattern that matches no result name, or
-only results of suites the selection does not run, is a usage error: nothing
-runs and `run_tests` exits 1. The suite's tests read one capture of
-16 000 000 words and report 53 results per generator, and `--quick` does not
-change them:
 
 | Result name | Test | Words |
 |---|---|---|
@@ -40,417 +307,6 @@ change them:
 | `diehard_historical::rank_6x8_windows` | 6×8 rank on each of the 25 byte offsets, each on its own words; 25 results | 15 000 000 |
 | `diehard_historical::rank_6x8_windows_summary` | Anderson–Darling summary of those 25 p-values | (same words) |
 
-From the library, `entropy::diehard::historical::run_all(&mut rng, n_words)`
-runs the same tests, and each module under `entropy::diehard::historical`
-exposes its test on a word slice. The module documentation gives each test's
-statistic, its null distribution and its calibration.
-
----
-
-## The `Rng` Trait
-
-Every generator implements the minimal interface in `entropy::rng`:
-
-```rust
-pub trait Rng {
-    fn next_u32(&mut self) -> u32;
-    fn next_u64(&mut self) -> u64;   // default: (next_u32() << 32) | next_u32()
-    fn next_f64(&mut self) -> f64;   // uniform [0, 1) from 32 bits
-    fn collect_bits(&mut self, n: usize) -> Vec<u8>;   // LSB-first
-    fn collect_u32s(&mut self, n: usize) -> Vec<u32>;
-    fn collect_f64s(&mut self, n: usize) -> Vec<f64>;
-}
-```
-
-**Byte-ordering contract.** The default `next_u64` places the first `next_u32`
-call in the high 32 bits. Byte-backed generators (HMAC_DRBG, Hash_DRBG,
-ChaCha20Rng, Squidward) override this to read 8 little-endian bytes directly;
-mixing `next_u32` and `next_u64` calls at a buffer-refill boundary in those
-generators silently discards up to 7 trailing bytes.
-
-**`next_f64` uses only 32 bits.** The default `next_f64` always calls
-`next_u32`, so it produces at most 2³² distinct values even from 64-bit
-generators (PCG64, Xoshiro256, ChaCha20Rng, etc.). This is sufficient for
-the p-value calculations in this crate. Do not rely on `next_f64` for
-high-precision floating-point sampling from a 64-bit generator.
-
-**`CryptoRng` marks cryptographic constructions.** `OsRng`, `ChaCha20Rng`,
-`FastKeyErasureRng`, `ThreadRng`, `HmacDrbg`, `HashDrbg` and `CryptoCtrDrbg`
-implement it.  Accept `impl CryptoRng` where a weak generator must not
-compile.  The marker describes the construction, not the key: a generator
-keyed with a published test key is not secret.
-
----
-
-## Random Values in Applications
-
-`entropy::rng` also serves programs that need random values, not only tests.
-
-```rust
-use entropy::rng::{thread_rng, Sample, Seedable, Pcg64};
-
-let mut rng = thread_rng();              // per-thread ChaCha20, fast key erasure
-let die = rng.range(1, 7);               // exactly uniform in 1..=6
-let coin = rng.bernoulli(0.3);           // exactly probability 0.3
-let x = rng.unit_f64();                  // 53-bit uniform in [0, 1)
-let z = rng.normal();                    // standard normal, full tails
-let mut deck: Vec<u8> = (0..52).collect();
-rng.shuffle(&mut deck);                  // uniform over all orderings
-
-let mut sim = Pcg64::seed_from_u64(42);  // reproducible stream
-```
-
-| Method (`Sample`, on every generator) | What it guarantees |
-|---|---|
-| `below(n)`, `range(lo, hi)` | Exactly uniform integers, by Lemire's multiply-and-reject method; checked exhaustively at 12-bit words for every bound |
-| `ratio(a, b)`, `bernoulli(p)` | Probability exactly a/b, or exactly the double p, ties included |
-| `unit_f64()` | Uniform on the 2⁵³ multiples of 2⁻⁵³ in [0, 1) |
-| `unit_f64_dense()` | A uniform real rounded down to a double: every double in [0, 1), subnormals included, with its gap's probability |
-| `exponential()` | Marsaglia and Tsang's ziggurat over e^{−x}, with the tail drawn by the law's lack of memory |
-| `exponential_inverse()` | The same law as −ln U from a dense uniform, so the tail reaches about 744 |
-| `normal()` | Marsaglia and Tsang's ziggurat, with the table derived at run time: a 2⁻⁵³ grid in the body and a rejection tail |
-| `normal_inverse()` | The same law by inverting Φ from a dense uniform: 2 700 times slower, resolved to the smallest subnormal |
-| `shuffle`, `partial_shuffle`, `choose`, `choose_mut` | Durstenfeld's Fisher–Yates with exact indices |
-| `sample_indices`, `sample`, `sample_array` | Distinct elements, every subset equally likely, in random order (Floyd's algorithm or a partial shuffle) |
-| `choose_weighted`, `sample_weighted` | Probability exactly proportional to integer weights, summed in 128 bits |
-| `choose_from_iter`, `sample_from_iter` | Uniform choice from an iterator of unknown length (Vitter's Algorithm R) |
-| `below_u128` | Exactly uniform 128-bit integers |
-| `fill_bytes` | Little-endian `next_u32` words: the battery's projection, unchanged |
-| `fill_native` (on `Rng`) | Little-endian `next_u64` words, a partial final chunk taking one more word's low bytes: the byte interface for applications |
-
-**Bytes in bulk.** `Rng::fill_native` is the native byte interface: whole
-`next_u64` words, least significant byte first, with a shorter final chunk
-taking the low bytes of one more word and discarding the rest of it.  A
-generator backed by a buffer or a keystream (ChaCha20Rng, the DRBGs,
-FastKeyErasureRng, ThreadRng) serves a request from that buffer instead of a
-call per word, and the bytes are the same either way, which
-`fill_native_matches_repeated_words` checks against repeated `next_u64` at
-lengths across every buffer size.
-
-It is a different stream from `Sample::fill_bytes`, which stays little-endian
-`next_u32` words so that the battery's projection of a 64-bit generator does
-not move; neither substitutes for the other.  `examples/fill_throughput.rs`
-measures both, as the median of several rounds: on this Mac, Xoshiro256 and
-JSF64 fill at about 10 GiB/s through `fill_native`, two to four times their
-`fill_bytes` rate, and ChaCha20Rng and FastKeyErasureRng at about 1.3 to 2
-times theirs, since whole blocks go straight into the caller's buffer.  On an
-otherwise quiet machine the fast-key-erasure fill reaches about 850 MiB/s for
-a 16 MiB request, against 856 for cryptography's own core, so the wrapper
-costs nothing.  The medians here are taken under load; treat them as ranges,
-and measure your own case.
-
-**`thread_rng()`** gives each thread a `FastKeyErasureRng` keyed from the
-operating system: ChaCha20 whose key is replaced by the first 32 bytes of
-each refill and whose served bytes are erased, so a captured state reveals no
-earlier output (Bernstein, "Fast-key-erasure random-number generators",
-2017).  It takes a fresh key after every 2³⁰ bytes and whenever the process id
-changes, so a forked child never repeats its parent.  `try_thread_rng()`,
-`ThreadRng::try_fill` and `ThreadRng::try_next_u64` return the operating
-system's error instead of panicking.
-
-`ThreadRng::fill(&mut bytes)` (and its fallible `try_fill`) serves a whole
-request with one thread-local lookup, one process-id check and one reseed
-check, instead of one of each per word, and charges the whole request against
-the reseed interval; a request that would cross 2³⁰ bytes is split there, so
-the bytes after the limit come from the new key.  Its bytes are the
-generator's keystream in order — the same sequence `next_u32` delivers
-little-endian — while `Sample::fill_bytes`, which every generator shares,
-is defined as little-endian `next_u32` words so that the battery's stream
-projection stays fixed.
-
-**OS entropy.** `os_random(&mut bytes)`, `OsRng::try_new()` and
-`OsRng::try_fill` return `io::Result`.  On Linux the first use reads a byte
-from `/dev/random`, which blocks until the kernel pool is initialized, so
-`/dev/urandom` is never read unseeded.  Only a successful check is
-remembered: a failure can be transient, so the next call tries again.  `OsRng` is Unix-only: without FFI or
-a dependency there is no portable system call for Windows.
-
-**Seeding.** `Seedable` is implemented by PCG32, PCG64, Xoshiro256,
-Xoroshiro128, SFC64, JSF64, MT19937, ChaCha20Rng and FastKeyErasureRng:
-`from_seed_bytes` (the constructor's integers, little-endian),
-`seed_from_u64` (SplitMix64 expansion) and `from_os`.
-
-**Normal variates.** `normal()` is Marsaglia and Tsang's ziggurat: usually one
-word and no transcendental per draw, measured here at 271 million draws per
-second beside 311 million raw `next_u64`.  Its table is derived at run time,
-not tabulated: the equal-area recurrence is closed by bisecting for r, and the
-tests check the areas, the closure, the distribution, the moments and the
-tail's own law.  `normal_inverse()` samples the same law by inverting Φ, at
-0.1 million draws per second, resolving the tails down to the smallest
-subnormal uniform.  `exponential()` is the same construction over e^{−x},
-faster than rand 0.10.2's, with `exponential_inverse()` the −ln U it replaces.  `examples/variate_throughput.rs`
-measures every sampling method.
-
-**Positioning and parallel streams.** Two traits cover every deterministic
-generator.  `Advance::advance(steps)` moves a generator forward by any number
-of `next_u32` calls in time logarithmic in that number; `Streams::stream(k)`
-gives the generator for stream *k*, the same for the same seed and index
-whatever order the workers run in.
-
-| Generator | `advance` | `stream(k)` |
-|---|---|---|
-| `Xoshiro256`, `Xoroshiro128`, `Xorshift64`, `Xorshift32`, `Mt19937` | A polynomial in the update matrix, derived from the generator: Berlekamp–Massey recovers the recurrence from a bit of the state, and x^steps mod it is applied — a few hundred ordinary steps for xoshiro, one block for the Twister | Segment *k* of one sequence: 2¹²⁸ steps for xoshiro256, 2⁶⁴ for xoroshiro128 and MT19937, 2³² and 2¹⁶ for the xorshifts |
-| `Pcg64`, `Pcg32` | The LCG's affine state map composed `steps` times by square-and-multiply, about 64 or 128 multiplications | Segment *k* of 2⁶⁴ or 2³² steps on the same PCG stream |
-| `ChaCha20Rng` | The block counter and offset are set | The same key under the nonce with *k* XORed into its low bytes, from block 0: a separate 2³²-block keystream per index |
-| `Sfc64`, `Jsf64` | Not implemented: chaotic maps have no shortcut | A separate sequence seeded by SplitMix64 from the state and *k*: distinct and reproducible, but not provably disjoint |
-
-Nothing is tabulated: the jump polynomials are recovered from the generators
-themselves and cached, and each `advance` is tested against a million real
-steps, from mid-block for the Twister and mid-buffer for ChaCha20.
-
-**Value stability.** Every generator, `Sample` method and `Seedable`
-derivation produces the same values from the same seed in every release;
-known-answer tests pin them, and a change to any of them is a breaking
-change recorded in the commit history.  `thread_rng` is seeded from the
-operating system and has no stable values.
-
-
----
-
-## Seeding Utilities (`entropy::seed`)
-
-### `seed_material(seed: u64) -> [u8; N]` — FOR TESTS ONLY
-
-Expands a single 64-bit seed into `N` bytes using the Vigna splitmix64 mixer,
-XOR'd first with the wyhash wyp0 prime `0xa076_1d64_78bd_642f` so that
-`seed = 0` does not collapse to the all-zeros splitmix64 state. Output is
-deterministic and suitable for reproducible test runs.
-**Never use `seed_material` to generate key material, nonces, or any value
-that must be unpredictable.** The output is fully determined by the 64-bit
-seed; an adversary who can guess or observe the seed recovers the entire key.
-
-### `sequential_bytes<const N>() -> [u8; N]` — FOR TESTS ONLY
-
-Produces `[0x00, 0x01, 0x02, ..., N-1 mod 256]`. This function exists solely
-to initialize the fixed test-vector keys `K16`, `K32`, `IV8`, and `IV16` in
-one place. **Never call this for production key material.**
-
-### Pre-built constants
-
-| Constant | Value | Use in this crate |
-|----------|-------|-------------------|
-| `K16`    | `[0x00..0x0f]` 128-bit key | test-vector only |
-| `K32`    | `[0x00..0x1f]` 256-bit key | test-vector only |
-| `IV8`    | `[0x00..0x07]` 64-bit IV   | test-vector only |
-| `IV16`   | `[0x00..0x0f]` 128-bit IV  | test-vector only |
-
-All four are present in every published test-vector corpus. Any cipher
-initialized with them in a real deployment is immediately broken.
-
----
-
-## Generator Categories
-
-### Degenerate — zero entropy, sanity checks only
-
-| Type | Construction |
-|------|-------------|
-| `ConstantRng` | `ConstantRng::new(value)` — emits the same word forever |
-| `CounterRng`  | `CounterRng::new(start)` — emits 0, 1, 2, … |
-
-These exist to verify that the statistical batteries correctly reject
-non-random sequences. They must fail every test. Use them as negative controls.
-
----
-
-### Legacy and broken PRNGs
-
-| Type | Notes |
-|------|-------|
-| `Lcg32::ansi_c()` | ANSI C sample LCG (multiplier 1103515245, addend 12345); the 31-bit raw output is deliberately zero-extended by `next_u32` (bit 31 always 0) as a documented negative control |
-| `Lcg32::minstd()` | MINSTD (Park–Miller–Stockmeyer, a = 48271, C++ `minstd_rand`; `LcgVariant::Minstd0` is the original a = 16807); trivially invertible; 31-bit raw output zero-extended like `AnsiC` (negative control); seeds ≡ 0 (mod 2³¹−1) are remapped to 1 to avoid the zero fixed point |
-| `Lcg32::new(LcgVariant::Borland, seed)` | Borland C++ `rand()`: a=22695477, c=1, m=2³²; the 15-bit raws (`(state >> 16) & 0x7FFF`) are packed into full 32-bit words by `next_u32` (same rule as MSVC); the raw C-API value is available via `next_raw()` |
-| `SystemVRand`, `Rand48`, `BsdRandom`, `LinuxLibcRandom`, `BsdRandCompat` | Historical Unix libc variants; various short periods and low-bit weaknesses |
-| `WindowsMsvcRand`, `WindowsVb6Rnd`, `WindowsDotNetRandom` | Historical Windows-family generators; included as negative controls |
-
-**Seeding note.** The internal state of every LCG variant is trivially
-recoverable from a short output window. Never use any of these for key
-derivation, nonce generation, or any purpose where an adversary may observe
-output.
-
----
-
-### Quality simulation PRNGs
-
-These generators have no cryptographic claims but perform well on all three
-batteries and are appropriate for Monte Carlo simulation and statistical testing.
-
-**Do not use any generator in this section in any adversarial context.**
-PCG, Xoshiro, Xoroshiro, SFC64, JSF64, and Xorshift are all
-invertible: an adversary who can observe output can reconstruct the internal
-state and predict all future (and past) values. "Not for keys" is the minimum
-caveat; the correct rule is: do not use any of these anywhere an adversary can
-observe output and benefit from predicting future values — this includes session
-identifiers, OAuth state parameters, nonces, load-balancing tokens, and
-experiment assignments in adversarial environments.
-
-| Type | Construction | State |
-|------|-------------|-------|
-| `Mt19937`             | `Mt19937::new(seed)`              | 19968 bits |
-| `Sfc64`               | `Sfc64::from_os_rng()`            | 256 bits |
-| `Jsf64`               | `Jsf64::from_os_rng()`            | 256 bits |
-| `Pcg32`               | `Pcg32::from_os_rng()`            | 128 bits (64 state + 64 stream) |
-| `Pcg64`               | `Pcg64::from_os_rng()`            | 256 bits (128 state + 128 stream) |
-| `Xoshiro256`  | `Xoshiro256::from_os_rng()` | 256 bits |
-| `Xoroshiro128`| `Xoroshiro128::from_os_rng()` | 128 bits |
-| `Xorshift32/64`       | `Xorshift32::new(seed)` — seed must be nonzero | 32/64 bits |
-
-The `from_os_rng()` constructors draw seed bytes from `/dev/urandom` via
-`OsRng`. All small-state generators (≤128 bits) are vulnerable to
-birthday-bound state collisions for very long outputs; prefer Xoshiro256 or
-SFC64 when output lengths exceed a few billion words.
-
-`Mt19937` has a period of 2¹⁹⁹³⁷−1 and passes DIEHARD; it is the default
-generator in MATLAB and R (NumPy's legacy `RandomState` also uses it, though
-NumPy's `default_rng` has been PCG64 since NumPy 1.17) and is well-suited for
-scientific simulation.
-Its one limitation is a security property unrelated to simulation quality:
-**the full 624-word state is recoverable from 624 consecutive 32-bit outputs**,
-so it must not be used in any context where an adversary can observe output and
-benefit from predicting future values.
-
----
-
-### Cryptographic stream-cipher RNGs
-
-These use the `StreamRng` adapter over a cipher primitive from the
-`cryptography` crate.
-
-| Generator | Key size | IV size | Construction |
-|-----------|----------|---------|-------------|
-| `StreamRng<Rabbit>`  | 128 bit | 64 bit  | `StreamRng::new(Rabbit::new(&key, &iv))` |
-| `StreamRng<Salsa20>` | 256 bit | 64 bit  | `StreamRng::new(Salsa20::new(&key, &iv))` |
-| `StreamRng<Snow3g>`  | 128 bit | 128 bit | `StreamRng::new(Snow3g::new(&key, &iv))` |
-| `StreamRng<Zuc128>`  | 128 bit | 128 bit | `StreamRng::new(Zuc128::new(&key, &iv))` |
-
-**Key and IV reuse is catastrophic.** Reusing a (key, IV) pair across sessions
-reduces the cipher to a fixed pad; two ciphertexts XOR'd together expose the
-plaintext directly. In the test harness these ciphers are all initialized with
-`K16`/`K32` and `IV8`/`IV16` — sequential test vectors that must never appear
-in any real deployment.
-
-For any non-test use: generate keys with `OsRng` and generate a fresh random IV
-per session. Never derive keys with `seed_material` or `sequential_bytes`.
-
----
-
-### Block-cipher CTR-mode RNGs
-
-`BlockCtrRng<C>` wraps any block cipher implementing the NIST SP 800-38A CTR
-mode, starting from a given counter value.
-
-Available block cipher variants and key sizes:
-
-| Cipher | Key | Construction |
-|--------|-----|-------------|
-| `AesCtr` (NIST key) | 128 bit | `AesCtr::with_nist_key()` |
-| `BlockCtrRng<Camellia128>` | 128 bit | `BlockCtrRng::new(Camellia128::new(&key), counter)` |
-| `BlockCtrRng<Twofish128>`  | 128 bit | same pattern |
-| `BlockCtrRng<Serpent128>`  | 128 bit | same pattern |
-| `BlockCtrRng<Sm4>`         | 128 bit | same pattern |
-| `BlockCtrRng<Grasshopper>` | 256 bit | `BlockCtrRng::new(Grasshopper::new(&K32), 0)` |
-| `BlockCtrRng<Cast128>`     | 128 bit | same pattern |
-| `BlockCtrRng<SeedCipher>`  | 128 bit | same pattern |
-
-**Counter reuse warning.** Starting two instances with the same key and counter
-value produces identical output streams. In the test harness the counter always
-starts at zero; a production system must either use a unique key per session or
-maintain a persistent counter that is never rewound.
-
----
-
-### NIST DRBGs
-
-| Type | Construction | Notes |
-|------|-------------|-------|
-| `HashDrbg`      | `HashDrbg::from_os_rng()`       | SHA-256 hash chain; NIST SP 800-90A |
-| `HmacDrbg`      | `HmacDrbg::from_os_rng()`       | HMAC-SHA-256; NIST SP 800-90A |
-| `CryptoCtrDrbg` | `CryptoCtrDrbg::with_test_seed()` | AES-256-CTR DRBG; test seed in harness |
-| `ChaCha20Rng`   | `ChaCha20Rng::from_os_rng()`    | ChaCha20-based stream DRBG |
-| `SpongeBob`     | `SpongeBob::from_os_rng()`      | SHA3-512 hash chain |
-| `Squidward`     | `Squidward::from_os_rng()`      | SHA-256 hash chain |
-
-`from_os_rng()` constructors seed from `/dev/urandom` and are safe to use in
-test contexts.
-
-**NIST DRBG reseed intervals.** `HashDrbg` and `HmacDrbg` enforce the SP
-800-90A §10.1 reseed interval of 2⁴⁸ generate calls by panicking if the
-limit is reached; no automatic reseed is provided. The test battery never
-approaches this bound. `CryptoCtrDrbg` is managed externally (see the
-`cryptography` crate). For long-running applications outside this harness,
-implement periodic reseeding per SP 800-90A §8.6.
-
-**`ChaCha20Rng` has no reseed API.** There is no `reseed()` method on
-`ChaCha20Rng`; the only way to reseed is to construct a fresh
-`ChaCha20Rng::from_os_rng()`. The 32-bit block counter limits output to
-256 GiB before wrap; long-running applications should rotate the key by
-constructing a new instance before reaching that limit.
-
-`CryptoCtrDrbg::with_test_seed()` uses a fixed sequential seed and must not
-be used outside the test harness.
-
----
-
-### Backdoored and compromised generators
-
-| Type | Construction | Hazard |
-|------|-------------|--------|
-| `DualEcDrbg`    | `DualEcDrbg::p256(&seed)`       | **BACKDOORED** — see below |
-
-**Dual_EC_DRBG.** The NIST P-256 Q point embedded in this standard encodes a
-discrete-log trapdoor (Checkoway et al. 2014; Bernstein, Lange, and
-Niederhagen 2016). An adversary who knows the trapdoor scalar can recover the
-full internal state from 30 bytes of output — one P-256 output block — and
-predict all future and past output. This generator is
-included to demonstrate that the backdoor is statistically invisible — it
-*passes* the batteries (197 of 200 NIST slots in the last harvest) while
-being cryptographically compromised — and to provide a reference
-implementation of a known-bad design. It must never be used to
-produce any material in any context. The harness limits it to the NIST battery
-because three P-256 scalar multiplications per 30-byte block make DIEHARD and
-DIEHARDER runs prohibitively slow.
-
----
-
-## Critical Seeding Warnings
-
-1. **`sequential_bytes()`, `K16`, `K32`, `IV8`, `IV16` are not secret.** They
-   are present verbatim in every published test-vector corpus. Any cipher or
-   DRBG initialized with them is trivially broken.
-
-2. **Never reuse a (key, IV) pair** for stream ciphers, or a (key, counter)
-   starting state for block CTR generators, across independent sessions. Reuse
-   completely destroys confidentiality.
-
-3. **Cryptographic generators must be seeded from `OsRng`** or an equivalent
-   OS entropy source. Seeding from `seed_material(42)` or any fixed constant
-   produces a deterministic, reproducible stream — suitable for a test harness,
-   fatal for a cryptographic application.
-
-4. **MT19937 and all LCG variants are state-recoverable from output.** The
-   MT19937 state is fully determined by any 624 consecutive 32-bit outputs.
-   LCG states are recoverable in O(1) steps by modular arithmetic. Neither
-   family provides any security against an observer.
-
-5. **Passing statistical tests is not a security proof.** NIST SP 800-22,
-   DIEHARD, and DIEHARDER test distributional uniformity. They do not test
-   unpredictability, backtracking resistance, or resistance to side-channel
-   analysis.
-
----
-
-## Which Generator to Choose
-
-| Goal | Generator | Notes |
-|------|-----------|-------|
-| Fast simulation, no reproducibility requirement | `Sfc64` or `Jsf64` | Among the fastest generators in the suite |
-| Reproducible simulation or testing | `Pcg64` or `Xoshiro256` | `Seedable::seed_from_u64(n)`; value-stable across releases |
-| Random values in an application | `thread_rng()` | Fast key erasure, reseeded from the OS, fork-safe |
-| Cryptographic-quality output with a chosen key | `FastKeyErasureRng`, `ChaCha20Rng` or `CryptoCtrDrbg` (AES-256) | Seed with `Seedable::from_os`; `ChaCha20Rng` stops at 256 GiB per key |
-| OS entropy directly | `OsRng` | Wraps `/dev/urandom`; not buffered |
-| Negative control — must fail all tests | `ConstantRng` or `CounterRng` | Sanity check that batteries are working |
-| Never use for anything | `DualEcDrbg` | Known backdoor; included for reference only |
-
-For the test harness itself, `seed_material` provides the reproducibility
-needed to rerun a specific seed against a suite. For any other purpose, treat
-every fixed or sequential seed as a known plaintext attack waiting to happen.
+The suite reads one capture of 16 000 000 words and reports 53 results per
+generator; `--quick` does not change them.  A `--test` pattern that matches
+nothing the selection runs is a usage error and exits 1.
