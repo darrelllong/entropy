@@ -28,7 +28,11 @@
 //! The statistic the test records, and takes its p-value from, is therefore
 //! d divided by [`SIGMA_RATIO`], the mean of the three; d itself, printed in
 //! the note and checked against the publication's example, keeps the
-//! standard's form.
+//! standard's form.  On streams the calibration never saw
+//! (`stats/statistic-validate.txt`: 200 000 at each of 1 048 576 and
+//! 4 194 304 bits, 50 000 at 16 000 000) the recorded statistic has standard
+//! deviation 1.002, 1.001 and 0.999 and the test rejects 0.98%, 0.98% and
+//! 0.93% at the 1% level.
 //!
 //! # References
 //! * A. Rukhin et al., *NIST SP 800-22 Rev. 1a*, 2010, §2.6 and §3.6.
