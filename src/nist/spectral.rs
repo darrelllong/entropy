@@ -60,6 +60,10 @@ pub fn spectral(bits: &[u8]) -> TestResult {
     .normal(d)
 }
 
+/// The fraction of peaks below the threshold under H₀, §2.6.4 step (5): T is
+/// the height that 95% of the |Sⱼ| fall under.
+const BELOW_THRESHOLD: f64 = 0.95;
+
 /// The quantities of §2.6.4 steps (4)–(8).
 struct Dft {
     /// Peak-height threshold T.
@@ -88,13 +92,15 @@ fn dft_statistic(bits: &[u8]) -> Dft {
     // FFT magnitudes; only the first n/2 are independent.
     let mags = fft_magnitudes(&x);
 
-    // Threshold T such that P(|X_k| < T) = 0.95 under H₀.
-    let threshold = (n as f64 * 0.05_f64.ln().abs()).sqrt();
+    // |Sⱼ|²/n is exponential under H₀, so P(|Sⱼ| < T) = BELOW_THRESHOLD at
+    // T² = −n·ln(1 − BELOW_THRESHOLD).
+    let threshold = (-(n as f64) * (1.0 - BELOW_THRESHOLD).ln()).sqrt();
 
-    let n0 = 0.95 * n as f64 / 2.0; // expected count below threshold
+    let n0 = BELOW_THRESHOLD * n as f64 / 2.0;
     let n1 = mags[..n / 2].iter().filter(|&&m| m < threshold).count();
 
-    let d = (n1 as f64 - n0) / (n as f64 * 0.95 * 0.05 / 4.0).sqrt();
+    let variance = n as f64 * BELOW_THRESHOLD * (1.0 - BELOW_THRESHOLD) / 4.0;
+    let d = (n1 as f64 - n0) / variance.sqrt();
     let p_value = erfc(d.abs() / SQRT_2);
 
     Dft {
