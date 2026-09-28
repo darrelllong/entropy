@@ -309,7 +309,10 @@ mod minstd_seed_tests {
             (LcgVariant::Minstd0, 1_043_618_065),
         ] {
             let mut rng = Lcg32::new(variant, 1);
-            let last = (0..10_000).map(|_| rng.next_u32()).last();
+            let mut last = None;
+            for _ in 0..10_000 {
+                last = Some(rng.next_u32());
+            }
             assert_eq!(last, Some(want), "{variant:?}");
         }
     }

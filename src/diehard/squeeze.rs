@@ -38,6 +38,10 @@ const CUTOFF: f64 = 5.0;
 
 /// P(j falls in cell c) for c = 0 … 42, from [`step_count_distribution`]
 /// at k = 2³¹ − 1 (see the module documentation).
+// The literals are the shortest decimal forms that round-trip to their f64,
+// which clippy 1.87 (the MSRV) reports as excessive precision; later clippy
+// does not.
+#[allow(clippy::excessive_precision)]
 pub const CELL_PROBABILITIES: [f64; N_CELLS] = [
     2.10325190895967e-05,
     5.779251312082994e-05,

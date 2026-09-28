@@ -36,7 +36,7 @@ jobs:
       # they live on a development machine.
       #
       # Both siblings are pinned, by full SHA, to the commits this crate is
-      # verified against (cryptography 342989a, rump 3ff885c), so a push to
+      # verified against (cryptography 49da243, rump 0c015f3), so a push to
       # either repository cannot change what CI builds.  These pins must move
       # together with any change here that needs newer siblings, and as a
       # pair, since cryptography takes rump by path.
@@ -55,12 +55,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: darrelllong/cryptography
-          ref: 342989abf5f9b8da585843a4a01e5435dddc4bc3
+          ref: 49da2434164a1ef262514ea547ed6fcf2b041529
           path: cryptography
       - uses: actions/checkout@v4
         with:
           repository: darrelllong/rump
-          ref: 3ff885c5d585fb3f2768bb37a1ac44e106d714f3
+          ref: 0c015f34fe7693cde4703e91cf7c29bfcb982e17
           path: rump
       - name: Install Rust ${{ matrix.rust }}
         run: rustup toolchain install ${{ matrix.rust }} --profile minimal --component clippy,rustfmt && rustup default ${{ matrix.rust }}
@@ -77,9 +77,12 @@ jobs:
         run: cargo test
       - name: Release tests, including the release-only ones
         # Tests marked #[cfg_attr(debug_assertions, ignore)] are too slow
-        # unoptimized; debug `cargo test` above skips them.
+        # unoptimized; debug `cargo test` above skips them.  The ln Γ sweep
+        # is skipped here: it needs the reference file that
+        # scripts/lanczos_coefficients.py --sweep writes, and is run by hand
+        # as its documentation says.
         if: matrix.rust == 'stable'
-        run: cargo test --release -- --include-ignored
+        run: cargo test --release -- --include-ignored --skip the_log_gamma_sweep_matches_high_precision
       - name: Doc build (deny missing docs)
         run: RUSTDOCFLAGS="-D missing_docs" cargo doc --no-deps
       - name: Tests without default features, in an empty target directory

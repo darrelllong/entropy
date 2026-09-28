@@ -1655,6 +1655,10 @@ mod tests {
     }
 
     #[test]
+    // The literals are the shortest decimal forms that round-trip to their f64,
+    // which clippy 1.87 (the MSRV) reports as excessive precision; later clippy
+    // does not.
+    #[allow(clippy::excessive_precision)]
     fn igamc_large_shape_parameter() {
         /// Relative error allowed against R near the centre.
         const CENTRAL: f64 = 2e-14;

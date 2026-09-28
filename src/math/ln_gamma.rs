@@ -136,6 +136,10 @@ mod tests {
     /// neighbours, the minimum near 1.4616, and large arguments up to
     /// where the value approaches `f64::MAX`.
     #[test]
+    // The literals are the shortest decimal forms that round-trip to their f64,
+    // which clippy 1.87 (the MSRV) reports as excessive precision; later clippy
+    // does not.
+    #[allow(clippy::excessive_precision)]
     fn the_log_gamma_is_accurate_from_the_least_subnormal_up() {
         let reference: [(f64, f64); 43] = [
             (5e-324, 744.4400719213812),
