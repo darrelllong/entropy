@@ -127,9 +127,9 @@ Lempel–Ziv cells.
 
 Where a printed law was measurably wrong, the test scores by the measured
 one and its documentation gives both: DIEHARD's count-the-1s difference
-Q5 − Q4 has 1.0103 times the variance of the χ² that approximates it, and
+$Q_5 - Q_4$ has 1.0103 times the variance of the $\chi^2$ that approximates it, and
 Maurer's universal statistic has a standard deviation 6.5% above the
-standard's σ at L = 5 and 1.1% below it at L = 10, and the spectral test's d
+standard's $\sigma$ at $L = 5$ and 1.1% below it at $L = 10$, and the spectral test's $d$
 has standard deviation 1.026 at every sample size.  The parking-lot count's
 law was confirmed over two million lots.
 
@@ -156,13 +156,13 @@ The runner exercises, from the same `Rng` trait:
 
 | Tests | How they are checked |
 |---|---|
-| NIST SP 800-22: frequency, block frequency, runs, longest run, matrix rank, spectral, serial, approximate entropy, cumulative sums, universal, linear complexity, non-overlapping templates (all 148 aperiodic 9-bit templates), overlapping template, random excursions and its variant | The statistics of Rev. 1a; the unit tests run the publication's worked examples, including those on the first 10⁶ binary digits of e, and each module explains any printed figure that does not follow from the publication's own formulas |
-| Maurer's universal test, L = 5 … 16 | Runs a setting when the sample holds the K ≥ 1000·2ᴸ blocks of §2.9.7; σ calibrated per L on 200 000 null streams |
-| DIEHARD: birthday spacings, binary rank (31×31, 32×32, 6×8), bitstream, OPSO, OQSO, DNA, count-the-1s, parking lot, minimum distance, 3-D spheres, squeeze, runs, craps | Marsaglia's statistics with exact rank probabilities, squeeze's cells from an exact recurrence, disjoint letter fields and exact missing-word moments for the monkey tests, and Kolmogorov–Smirnov summaries over repeated trials |
-| DIEHARD historical suite (opt-in): OPERM5, overlapping sums, count-the-1s and 6×8 rank on every byte offset | OPERM5's covariance built exactly by enumeration; the overlapping-sums correction computed from characteristic functions; each module documents its calibration |
-| DIEHARDER: bit and byte distribution, DCT, fill tree, GCD, KS uniform, lagged sums, minimum distance in n dimensions, monobit², permutations | Brown's and Bauer's statistics; fill-tree's law exact, the GCD step law from a 10¹²-pair simulation; sparse χ² cells pooled so every observation is scored once |
+| NIST SP 800-22: frequency, block frequency, runs, longest run, matrix rank, spectral, serial, approximate entropy, cumulative sums, universal, linear complexity, non-overlapping templates (all 148 aperiodic 9-bit templates), overlapping template, random excursions and its variant | The statistics of Rev. 1a; the unit tests run the publication's worked examples, including those on the first $10^6$ binary digits of $e$, and each module explains any printed figure that does not follow from the publication's own formulas |
+| Maurer's universal test, $L = 5, \ldots, 16$ | Runs a setting when the sample holds the $K \ge 1000 \cdot 2^L$ blocks of §2.9.7; $\sigma$ calibrated per $L$ on 200 000 null streams |
+| DIEHARD: birthday spacings, binary rank ($31 \times 31$, $32 \times 32$, $6 \times 8$), bitstream, OPSO, OQSO, DNA, count-the-1s, parking lot, minimum distance, 3-D spheres, squeeze, runs, craps | Marsaglia's statistics with exact rank probabilities, squeeze's cells from an exact recurrence, disjoint letter fields and exact missing-word moments for the monkey tests, and Kolmogorov–Smirnov summaries over repeated trials |
+| DIEHARD historical suite (opt-in): OPERM5, overlapping sums, count-the-1s and $6 \times 8$ rank on every byte offset | OPERM5's covariance built exactly by enumeration; the overlapping-sums correction computed from characteristic functions; each module documents its calibration |
+| DIEHARDER: bit and byte distribution, DCT, fill tree, GCD, KS uniform, lagged sums, minimum distance in $n$ dimensions, monobit2, permutations | Brown's and Bauer's statistics; fill-tree's law exact, the GCD step law from a $10^{12}$-pair simulation; sparse $\chi^2$ cells pooled so every observation is scored once |
 | Knuth's permutation and gap tests; Wald–Wolfowitz runs; ApEn over m = 2 … 6 | `bib_tests` |
-| L'Ecuyer–Simard Lempel–Ziv, Hamming-weight correlation and independence; Doty-Humphrey's FPF | `testu01_lz` and `upstream_tests`; the LZ78 phrase count against its exact law for k ≤ 5 and simulated laws above |
+| L'Ecuyer–Simard Lempel–Ziv, Hamming-weight correlation and independence; Doty-Humphrey's FPF | `testu01_lz` and `upstream_tests`; the LZ78 phrase count against its exact law for $k \le 5$ and simulated laws above |
 | Marsaglia–Tsang Gorilla; Webster–Tavares avalanche; Ville's martingale test of fair bits | `gorilla`, `webster_tavares`, `sequential` |
 
 ## Layout
