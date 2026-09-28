@@ -31,6 +31,7 @@ REPO = Path(__file__).parent.parent
 # Curated machine order and column headers.  Directories not listed here are
 # appended in alphabetical order under their raw name.
 KNOWN_MACHINES = [
+    ("paris", "paris MW/s"),
     ("dyson", "Dyson MW/s"),
     ("dmz", "dmz MW/s"),
     ("moore", "moore MW/s"),
@@ -86,7 +87,7 @@ def discover_machines(stats_root: Path) -> list[tuple[str, str]]:
 
 def gen_table(stats_root: Path, generators: list[tuple[str, str]],
               machines: list[tuple[str, str]]) -> str:
-    header = "| Generator | " + " | ".join(f"{h} | ±CI" for _, h in machines) + " |"
+    header = "| Generator | " + " | ".join(f"{h} | CI width" for _, h in machines) + " |"
     rule = "|---|" + "|".join(["---:"] * (2 * len(machines))) + "|"
     lines = [header, rule]
     for short, display in generators:
@@ -98,8 +99,11 @@ def gen_table(stats_root: Path, generators: list[tuple[str, str]],
             else:
                 # Pass mean and CI through verbatim: the .bench file is the
                 # source of record, so the table must not silently reround it.
+                # The CI is pilot-bench's width of the whole interval; older
+                # .bench files carry it with a "±" that made it read as a
+                # half-width, and the sign is dropped here.
                 mean, ci = data
-                cells.extend([mean, ci])
+                cells.extend([mean, ci.removeprefix("±")])
         lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n"
 

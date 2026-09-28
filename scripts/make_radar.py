@@ -34,9 +34,11 @@ RINGS              = [105, 150, 195, 240, 285]
 LABEL_LINE_SPACING = 18   # vertical gap between label name and MW/s annotation
 
 # Per-machine rendering: (stats subdir, fill, stroke, dot fill, legend label)
+# The first machine with data supplies the spoke annotations.
 MACHINES = [
-    ("dyson", "#3c6bb855", "#1b4b9f", "#1b4b9f", "Dyson (Apple M4 aarch64)"),
-    ("dmz",   "#b83c3c55", "#9f1b1b", "#9f1b1b", "dmz.lan (Intel i5 x86_64)"),
+    ("paris", "#2e7d4f55", "#1f5e3a", "#1f5e3a", "paris (NVIDIA GB10, Cortex-X925; pilot-bench 475063f)"),
+    ("dyson", "#3c6bb855", "#1b4b9f", "#1b4b9f", "Dyson (Apple M4 aarch64; pilot-bench before f01eec4)"),
+    ("dmz",   "#b83c3c55", "#9f1b1b", "#9f1b1b", "dmz.lan (Intel i5 x86_64; pilot-bench before f01eec4)"),
 ]
 
 # ---------------------------------------------------------------------------

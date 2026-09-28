@@ -26,26 +26,39 @@
 <line x1="450" y1="450" x2="164.7" y2="357.3"/>
 <line x1="450" y1="450" x2="273.7" y2="207.3"/>
 </g>
-<polygon points="450.0,180.1 603.4,238.8 694.6,370.5 697.8,530.5 596.4,651.5 450.0,644.3 357.0,578.0 347.8,483.2 366.8,423.0 408.9,393.4" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="3"/>
+<polygon points="450.0,251.3 606.3,234.9 694.8,370.5 714.4,535.9 595.9,650.8 450.0,669.8 340.7,600.4 349.8,482.6 354.2,418.9 311.2,259.0" fill="#2e7d4f55" stroke="#1f5e3a" stroke-width="3"/>
 <g>
-<circle cx="450.0" cy="180.1" r="4.5" fill="#1b4b9f"/>
-<circle cx="603.4" cy="238.8" r="4.5" fill="#1b4b9f"/>
-<circle cx="694.6" cy="370.5" r="4.5" fill="#1b4b9f"/>
-<circle cx="697.8" cy="530.5" r="4.5" fill="#1b4b9f"/>
-<circle cx="596.4" cy="651.5" r="4.5" fill="#1b4b9f"/>
-<circle cx="450.0" cy="644.3" r="4.5" fill="#1b4b9f"/>
-<circle cx="357.0" cy="578.0" r="4.5" fill="#1b4b9f"/>
-<circle cx="347.8" cy="483.2" r="4.5" fill="#1b4b9f"/>
-<circle cx="366.8" cy="423.0" r="4.5" fill="#1b4b9f"/>
-<circle cx="408.9" cy="393.4" r="4.5" fill="#1b4b9f"/>
+<circle cx="450.0" cy="251.3" r="4.5" fill="#1f5e3a"/>
+<circle cx="606.3" cy="234.9" r="4.5" fill="#1f5e3a"/>
+<circle cx="694.8" cy="370.5" r="4.5" fill="#1f5e3a"/>
+<circle cx="714.4" cy="535.9" r="4.5" fill="#1f5e3a"/>
+<circle cx="595.9" cy="650.8" r="4.5" fill="#1f5e3a"/>
+<circle cx="450.0" cy="669.8" r="4.5" fill="#1f5e3a"/>
+<circle cx="340.7" cy="600.4" r="4.5" fill="#1f5e3a"/>
+<circle cx="349.8" cy="482.6" r="4.5" fill="#1f5e3a"/>
+<circle cx="354.2" cy="418.9" r="4.5" fill="#1f5e3a"/>
+<circle cx="311.2" cy="259.0" r="4.5" fill="#1f5e3a"/>
 </g>
-<polygon points="450.0,264.2 601.4,241.6 670.7,378.3 673.1,522.5 579.3,627.9 450.0,633.5 368.5,562.2 365.4,477.5 385.5,429.1 408.3,392.6" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3"/>
+<polygon points="450.0,180.0 603.4,238.8 695.1,370.4 698.0,530.6 596.4,651.6 450.0,644.5 336.5,606.2 346.9,483.5 366.6,422.9 409.0,393.6" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="3"/>
+<g>
+<circle cx="450.0" cy="180.0" r="4.5" fill="#1b4b9f"/>
+<circle cx="603.4" cy="238.8" r="4.5" fill="#1b4b9f"/>
+<circle cx="695.1" cy="370.4" r="4.5" fill="#1b4b9f"/>
+<circle cx="698.0" cy="530.6" r="4.5" fill="#1b4b9f"/>
+<circle cx="596.4" cy="651.6" r="4.5" fill="#1b4b9f"/>
+<circle cx="450.0" cy="644.5" r="4.5" fill="#1b4b9f"/>
+<circle cx="336.5" cy="606.2" r="4.5" fill="#1b4b9f"/>
+<circle cx="346.9" cy="483.5" r="4.5" fill="#1b4b9f"/>
+<circle cx="366.6" cy="422.9" r="4.5" fill="#1b4b9f"/>
+<circle cx="409.0" cy="393.6" r="4.5" fill="#1b4b9f"/>
+</g>
+<polygon points="450.0,264.2 601.2,241.9 670.7,378.3 672.9,522.4 578.6,627.1 450.0,633.5 368.5,562.2 365.4,477.5 385.5,429.1 408.3,392.6" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="3"/>
 <g>
 <circle cx="450.0" cy="264.2" r="4.5" fill="#9f1b1b"/>
-<circle cx="601.4" cy="241.6" r="4.5" fill="#9f1b1b"/>
+<circle cx="601.2" cy="241.9" r="4.5" fill="#9f1b1b"/>
 <circle cx="670.7" cy="378.3" r="4.5" fill="#9f1b1b"/>
-<circle cx="673.1" cy="522.5" r="4.5" fill="#9f1b1b"/>
-<circle cx="579.3" cy="627.9" r="4.5" fill="#9f1b1b"/>
+<circle cx="672.9" cy="522.4" r="4.5" fill="#9f1b1b"/>
+<circle cx="578.6" cy="627.1" r="4.5" fill="#9f1b1b"/>
 <circle cx="450.0" cy="633.5" r="4.5" fill="#9f1b1b"/>
 <circle cx="368.5" cy="562.2" r="4.5" fill="#9f1b1b"/>
 <circle cx="365.4" cy="477.5" r="4.5" fill="#9f1b1b"/>
@@ -54,32 +67,34 @@
 </g>
 <g font-family="Georgia, serif" font-size="17" fill="#3f3426">
 <text x="450.0" y="108.0" text-anchor="middle">Squidward</text>
-<text x="450.0" y="126.0" text-anchor="middle" font-size="13" fill="#7a6850">239.6 MW/s</text>
+<text x="450.0" y="126.0" text-anchor="middle" font-size="13" fill="#7a6850">36.22 MW/s</text>
 <text x="644.3" y="181.3" text-anchor="start">FreeBSD rand_r</text>
-<text x="644.3" y="199.3" text-anchor="start" font-size="13" fill="#7a6850">189.1 MW/s</text>
+<text x="644.3" y="199.3" text-anchor="start" font-size="13" fill="#7a6850">215.3 MW/s</text>
 <text x="757.3" y="343.3" text-anchor="start">ChaCha20</text>
-<text x="757.3" y="361.3" text-anchor="start" font-size="13" fill="#7a6850">170.7 MW/s</text>
+<text x="757.3" y="361.3" text-anchor="start" font-size="13" fill="#7a6850">171.8 MW/s</text>
 <text x="757.3" y="550.7" text-anchor="start">ANSI C LCG</text>
-<text x="757.3" y="568.7" text-anchor="start" font-size="13" fill="#7a6850">186.7 MW/s</text>
+<text x="757.3" y="568.7" text-anchor="start" font-size="13" fill="#7a6850">297 MW/s</text>
 <text x="644.3" y="714.7" text-anchor="start">AES-128-CTR</text>
-<text x="644.3" y="732.7" text-anchor="start" font-size="13" fill="#7a6850">137.8 MW/s</text>
+<text x="644.3" y="732.7" text-anchor="start" font-size="13" fill="#7a6850">134.4 MW/s</text>
 <text x="450.0" y="782.0" text-anchor="middle">SpongeBob</text>
-<text x="450.0" y="800.0" text-anchor="middle" font-size="13" fill="#7a6850">32.22 MW/s</text>
+<text x="450.0" y="800.0" text-anchor="middle" font-size="13" fill="#7a6850">63.43 MW/s</text>
 <text x="255.7" y="714.7" text-anchor="end">Hash_DRBG</text>
-<text x="255.7" y="732.7" text-anchor="end" font-size="13" fill="#7a6850">12.37 MW/s</text>
+<text x="255.7" y="732.7" text-anchor="end" font-size="13" fill="#7a6850">25.81 MW/s</text>
 <text x="142.7" y="546.7" text-anchor="end">HMAC_DRBG</text>
-<text x="142.7" y="564.7" text-anchor="end" font-size="13" fill="#7a6850">3.218 MW/s</text>
+<text x="142.7" y="564.7" text-anchor="end" font-size="13" fill="#7a6850">3.046 MW/s</text>
 <text x="142.7" y="343.3" text-anchor="end">CtrDrbgAes256</text>
-<text x="142.7" y="361.3" text-anchor="end" font-size="13" fill="#7a6850">1.893 MW/s</text>
+<text x="142.7" y="361.3" text-anchor="end" font-size="13" fill="#7a6850">2.69 MW/s</text>
 <text x="255.7" y="179.3" text-anchor="end">OsRng</text>
-<text x="255.7" y="197.3" text-anchor="end" font-size="13" fill="#7a6850">1.191 MW/s</text>
+<text x="255.7" y="197.3" text-anchor="end" font-size="13" fill="#7a6850">97.64 MW/s</text>
 </g>
 <g font-family="Georgia, serif" font-size="14" fill="#3f3426">
+<rect x="30" y="792" width="18" height="14" fill="#2e7d4f55" stroke="#1f5e3a" stroke-width="2"/>
+<text x="54" y="804">paris (NVIDIA GB10, Cortex-X925; pilot-bench 475063f)</text>
 <rect x="30" y="814" width="18" height="14" fill="#3c6bb855" stroke="#1b4b9f" stroke-width="2"/>
-<text x="54" y="826">Dyson (Apple M4 aarch64)</text>
+<text x="54" y="826">Dyson (Apple M4 aarch64; pilot-bench before f01eec4)</text>
 <rect x="30" y="836" width="18" height="14" fill="#b83c3c55" stroke="#9f1b1b" stroke-width="2"/>
-<text x="54" y="848">dmz.lan (Intel i5 x86_64)</text>
+<text x="54" y="848">dmz.lan (Intel i5 x86_64; pilot-bench before f01eec4)</text>
 </g>
 <text x="450" y="52" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#2f2418">Throughput — Slow Generators (log-normalized)</text>
-<text x="450" y="76" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#6f5d46">dyson · dmz · pilot-bench normal preset</text>
+<text x="450" y="76" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#6f5d46">paris · dyson · dmz · pilot-bench normal preset</text>
 </svg>

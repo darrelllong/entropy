@@ -25,6 +25,14 @@
 #   PILOT_PRESET      quick | normal | strict       (default: quick)
 #   PILOT_MACHINE     machine subdirectory name     (default: hostname -s)
 #   PILOT_CONF_LEVEL  confidence level              (default: 0.90)
+#   PILOT_RAW_DIR     keep each session's pilot-bench output in <dir>/<name>
+#                     (default: pilot-bench's own pilot_result_* directory)
+#
+# The CI column is the width of the confidence interval as pilot-bench reports
+# it: the whole interval, not a half-width.  MW/s is declared type 1, a ratio,
+# so pilot-bench (from 475063f) averages it by the harmonic mean and finds the
+# interval from the reciprocals of the readings; that interval is not
+# symmetric about the mean.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -101,6 +109,12 @@ measure() {
     fi
 
     local out mean ci rounds
+    local raw_opt=()
+    if [[ -n "${PILOT_RAW_DIR:-}" ]]; then
+        mkdir -p "$PILOT_RAW_DIR"
+        rm -rf "${PILOT_RAW_DIR:?}/$rng_name"
+        raw_opt=(-o "$PILOT_RAW_DIR/$rng_name")
+    fi
     # A single failed generator must not abort the whole sweep under set -e:
     # log it to stderr and continue with the next one.
     if ! out=$("$BENCH" run_program \
@@ -108,6 +122,7 @@ measure() {
           --confidence-level "$CONF_LEVEL" \
           --pi "${rng_name},MW/s,0,1,1" \
           --env "PILOT_RNG_WORDS=${words}" \
+          ${raw_opt[@]+"${raw_opt[@]}"} \
           -- "$RNG_BIN" "$rng_name" 2>&1); then
         echo "[err] $rng_name failed:" >&2
         echo "$out" >&2
@@ -129,7 +144,7 @@ measure() {
 
     local row
     row=$(printf "| %-36s | %8s | %-8s | %5s |" \
-                 "$display" "$mean" "±$ci" "$rounds")
+                 "$display" "$mean" "$ci" "$rounds")
 
     # Cache for future runs.
     echo "$row" > "$stat_file"
@@ -146,7 +161,7 @@ echo ""
 CI_PCT=$(echo "$CONF_LEVEL * 100" | bc | sed -E 's/(\.[0-9]*[1-9])0+$/\1/; s/\.0*$//')
 echo "Throughput in MW/s (10⁶ u32 words/s).  CI is ${CI_PCT}%."
 echo ""
-echo "| Generator                            |   MW/s   | ±CI ${CI_PCT}%  | Runs  |"
+echo "| Generator                            |   MW/s   | ${CI_PCT}% CI width | Runs  |"
 echo "|--------------------------------------|----------|----------|-------|"
 
 # Keep each probe comfortably above timer noise. The ultra-fast synthetic
