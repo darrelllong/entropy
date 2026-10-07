@@ -87,8 +87,9 @@ by the SplitMix64 expansion of 0, so every call returns a working generator.
 first use reads one byte from `/dev/random`, which blocks until the kernel
 pool is initialized, so `/dev/urandom` is never read unseeded; only a
 successful check is remembered.  `os_random(&mut bytes)` fills a buffer the
-same way.  `OsRng` is Unix-only: without FFI or a dependency there is no
-portable system call for Windows.
+same way.  On Windows, which has no `/dev/urandom` and no system call
+reachable without a foreign function, `OsRng` calls `ProcessPrng` through the
+`getrandom` crate, the crate's only Windows-specific dependency.
 
 ## Random values in programs
 

@@ -21,7 +21,9 @@
 //! transform the spectral test needs.  `cryptography` (default) adds the
 //! cipher-, hash- and DRBG-backed generators from the sibling crate.  With
 //! neither, the crate is the generators, [`rng::Sample`], [`rng::Seedable`],
-//! [`math`] and [`result`], and it has no dependencies at all.
+//! [`math`] and [`result`], and it has no dependencies at all, except on
+//! Windows, where [`rng::OsRng`] takes `ProcessPrng` from the `getrandom`
+//! crate.
 //!
 //! # Example
 //!

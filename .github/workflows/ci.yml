@@ -20,14 +20,22 @@ jobs:
             rust: stable
           - os: macos-latest
             rust: stable
-          # MSRV on both hosts — keep in sync with rust-version in Cargo.toml.
+          # Windows: OsRng takes ProcessPrng through getrandom there.
+          - os: windows-latest
+            rust: stable
+          # MSRV on every host — keep in sync with rust-version in Cargo.toml.
           - os: ubuntu-latest
             rust: "1.87"
           - os: macos-latest
             rust: "1.87"
+          - os: windows-latest
+            rust: "1.87"
     defaults:
       run:
         working-directory: entropy
+        # The steps below set environment variables with shell syntax, so the
+        # Windows runner uses bash (Git for Windows) rather than PowerShell.
+        shell: bash
     steps:
       # The trio builds side-by-side: this crate's Cargo.toml takes
       # cryptography-rs from ../cryptography, which in turn takes rust-mp
@@ -44,10 +52,11 @@ jobs:
       # Pinning has a cost.  The siblings' own downstream jobs build this
       # crate's main against their HEAD but run only `cargo test`, on
       # ubuntu-latest with stable, so a sibling push that breaks this crate's
-      # clippy -D warnings, docs, 1.87 build or macOS build is caught by no CI
-      # until the pins move.  Moving them therefore means first running this
-      # whole matrix locally against the new sibling commits: fmt, clippy,
-      # tests and docs, on stable and on 1.87, on Linux and on macOS.  There
+      # clippy -D warnings, docs, 1.87 build, macOS build or Windows build is
+      # caught by no CI until the pins move.  Moving them therefore means
+      # first running this whole matrix locally against the new sibling
+      # commits: fmt, clippy, tests and docs, on stable and on 1.87, on Linux,
+      # macOS and Windows.  There
       # is deliberately no scheduled or unpinned job to catch it sooner.
       - uses: actions/checkout@v4
         with:
