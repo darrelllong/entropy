@@ -590,7 +590,7 @@ fn make_runs(args: Args) -> Result<Vec<(&'static str, RunFn)>, String> {
         }};
     }
 
-    run!("OsRng (/dev/urandom)", OsRng::new());
+    run!("OsRng (OS entropy)", OsRng::new());
     // MT19937: full 624-word state is recoverable from 624 consecutive outputs.
     // Not for adversarial contexts. Fixed seed is for test reproducibility only.
     run!("MT19937 (seed=19650218)", Mt19937::new(19650218));

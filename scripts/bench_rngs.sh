@@ -168,7 +168,7 @@ echo "|--------------------------------------|----------|----------|-------|"
 # generators need much larger batches than the cryptographic or libc RNGs.
 #
 #              name             display                                      words/probe
-measure osrng         "OsRng (/dev/urandom)"                           100000
+measure osrng         "OsRng (OS entropy)"                             100000
 measure mt19937       "MT19937 (seed=19650218)"                       25000000
 measure xorshift64    "Xorshift64 (seed=1)"                           25000000
 measure xorshift32    "Xorshift32 (seed=1)"                           25000000

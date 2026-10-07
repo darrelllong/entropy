@@ -140,7 +140,7 @@ law was confirmed over two million lots.
 
 The runner exercises, from the same `Rng` trait:
 
-- **Operating system**: `OsRng` over `/dev/urandom`.
+- **Operating system**: `OsRng` over the OS CSPRNG, `/dev/urandom` or Windows' `ProcessPrng`.
 - **Degenerate controls**: `ConstantRng`, `CounterRng`.
 - **Historical**: System V `rand()`, `mrand48()`, BSD `random()`, glibc
   `rand()`, FreeBSD `rand_r()`, Windows CRT `rand()`, VB6 `Rnd()`, .NET
