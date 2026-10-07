@@ -79,7 +79,7 @@ holds the rates, read with `scripts/battery_null_report.py`.
 
 | RNG | Total | PASS | FAIL | SKIP |
 |---|---:|---:|---:|---:|
-| OsRng (/dev/urandom) | 739 | 728 | 5 | 6 |
+| OsRng (OS entropy) | 739 | 728 | 5 | 6 |
 | MT19937 (seed=19650218) | 739 | 729 | 4 | 6 |
 | Xorshift64 (seed=1) | 739 | 728 | 5 | 6 |
 | Xorshift32 (seed=1) | 739 | 719 | 14 | 6 |
@@ -628,7 +628,7 @@ underweight.
 
 One line per generator.  Test-family repetition counts in parentheses.
 
-- **OsRng (/dev/urandom)**: 5/739 — `dieharder::bit_distribution` (×2), `maurer::universal_l10`, `nist::non_overlapping_template`, `nist::universal`
+- **OsRng (OS entropy)**: 5/739 — `dieharder::bit_distribution` (×2), `maurer::universal_l10`, `nist::non_overlapping_template`, `nist::universal`
 - **MT19937 (seed=19650218)**: 4/739 — `dieharder::bit_distribution` (×2), `nist::non_overlapping_template` (×2)
 - **Xorshift64 (seed=1)**: 5/739 — `dieharder::bit_distribution` (×4), `nist::non_overlapping_template`
 - **Xorshift32 (seed=1)**: 14/739 — `diehard::binary_rank_31x31`, `diehard::binary_rank_32x32`, `dieharder::bit_distribution` (×10), `dieharder::monobit2`, `nist::matrix_rank`

@@ -72,7 +72,7 @@ N_DUAL_EC=1000000
 # (label, rng_name)  — order kept stable for the report
 RNGS=(
   # OS entropy
-  "OsRng (/dev/urandom)|osrng"
+  "OsRng (OS entropy)|osrng"
   # Degenerate
   "ConstantRng|constant"
   "CounterRng|counter"
