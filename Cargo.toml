@@ -173,6 +173,14 @@ cryptography = ["dep:cryptography-rs"]
 cryptography-rs = { version = "0.8", path = "../cryptography", optional = true }
 rustfft         = { version = "6.2", optional = true }
 
+# `OsRng` on Windows.  The crate forbids `unsafe`, so it cannot declare the
+# foreign function itself; getrandom calls `ProcessPrng` (the generator the
+# standard library seeds `HashMap` from) with no further dependency on
+# Windows.  Everywhere else `OsRng` reads `/dev/urandom` and this is not
+# built.  Its `std` feature converts its error into `std::io::Error`.
+[target.'cfg(windows)'.dependencies]
+getrandom = { version = "0.3", features = ["std"] }
+
 [dev-dependencies]
 # Exact binary splitting of e for the test that checks the NIST e fixture.
 # The probability functions that once came from rump live in entropy::math.

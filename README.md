@@ -67,7 +67,10 @@ probability functions and the result type — with no dependencies at all:
 cargo add rng-entropy --no-default-features
 ```
 
-The crate has no `unsafe` code and no foreign functions.  The tests use
+The crate has no `unsafe` code and no foreign functions.  On Windows alone,
+`OsRng` takes `ProcessPrng` from the `getrandom` crate, since without a
+foreign function there is no other way to it; everywhere else it reads
+`/dev/urandom`.  The tests use
 [`rust-mp`](https://github.com/darrelllong/rump) to check the NIST fixture of
 the digits of e; nothing else does.
 
