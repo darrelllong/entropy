@@ -202,14 +202,23 @@ fn positive_shapes(a: f64, b: f64) -> bool {
 
 /// `I_x(a, b)` from `x` and `1 − x`, each held to the bits its caller has:
 /// the fraction takes the side below `(a+1)/(a+b+2)`, and the other side is
-/// one less it.
+/// one less it. The side is decided on whichever part is the smaller, since
+/// `x < (a+1)/(a+b+2)` exactly when `1 − x > (b+1)/(a+b+2)`: a part near one
+/// and a switch near one both round to one in a double, and deciding on
+/// them sent a far tail at a vast shape through one less a mass near one,
+/// which has none of the tail's bits.
 fn incomplete_beta_from(
     x: DoubleDouble,
     complement: DoubleDouble,
     a: f64,
     b: f64,
 ) -> Result<f64, NumericalError> {
-    let value = if x.hi < (a + 1.0) / (a + b + 2.0) {
+    let below_switch = if x.hi <= complement.hi {
+        x.hi < (a + 1.0) / (a + b + 2.0)
+    } else {
+        complement.hi > (b + 1.0) / (a + b + 2.0)
+    };
+    let value = if below_switch {
         incomplete_beta_tail(x, a, b)?
     } else {
         1.0 - incomplete_beta_tail(complement, b, a)?
@@ -616,7 +625,11 @@ mod tests {
 
     /// At `2⁶⁰` degrees of freedom, where the 0.975 quantile came out as
     /// `√128`, the quantile is the normal's just past three quarters, on the
-    /// tail's side of the switch, and at 0.975. The fraction takes some
+    /// tail's side of the switch, at 0.975, and at `1 − 10⁻¹⁰`, where the
+    /// tail's argument and the switch both round to one and deciding the
+    /// side on them gave `6.361338`, a part in two million short of the
+    /// normal's `6.361340889697422` (half `erfc(z/√2)` bracketed at that
+    /// double), which every `t` quantile exceeds. The fraction takes some
     /// hundred thousand steps a value there, so this runs optimised.
     #[test]
     #[cfg_attr(debug_assertions, ignore)]
@@ -625,11 +638,31 @@ mod tests {
         for (probability, z) in [
             (next_past_three_quarters, NORMAL_QUANTILES[0].1),
             NORMAL_QUANTILES[2],
+            (1.0 - 1e-10, 6.361_340_889_697_422),
         ] {
             let t = student_t_quantile(1 << 60, probability).expect("in the domain");
             assert!(
                 (t / z - 1.0).abs() < QUANTILE,
                 "2^60 at {probability}: {t} against {z}"
+            );
+        }
+    }
+
+    /// `I_{1−q}(a, 1) = (1 − q)^a`, at a shape of `2⁶⁰` and `q` of `2⁻⁵⁵`
+    /// and `2⁻⁵⁴`: `1 − q` and the switch both round to one, and deciding
+    /// the side on them gave the first seven per cent high and refused the
+    /// second; decided on `q`, both are the closed form to a part in
+    /// `10¹²`.
+    #[test]
+    fn the_entry_from_parts_keeps_a_far_tail_at_a_vast_shape() {
+        let a = (1u64 << 60) as f64;
+        for q in [2f64.powi(-55), 2f64.powi(-54)] {
+            let value =
+                regularized_incomplete_beta_from_parts(1.0 - q, q, a, 1.0).expect("in the domain");
+            let closed = (a * (-q).ln_1p()).exp();
+            assert!(
+                (value / closed - 1.0).abs() < 1e-12,
+                "I_(1-{q})(2^60, 1) = {value} against {closed}"
             );
         }
     }
