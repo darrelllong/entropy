@@ -28,12 +28,20 @@ impl std::error::Error for NumericalError {}
 /// freedom: the point `t` with `P(T ≤ t) = probability`, for a bound on a
 /// difference of means from few observations.
 ///
-/// The distribution function is `P(|T| > t) = I_x(ν/2, 1/2)` with
-/// `x = ν/(ν + t²)` and `I` the regularised incomplete beta function
-/// (DLMF 8.17.1 and §8.18; Abramowitz & Stegun 26.7.1), inverted by
-/// bisection on `t` to a part in a billion. A Cornish–Fisher expansion
-/// about the normal quantile would be five per cent short at the far points
-/// on few degrees of freedom, where its terms have not begun to shrink.
+/// The two-sided tail is `P(|T| > t) = I_x(ν/2, 1/2)` with `x = ν/(ν + t²)`
+/// and `I` the regularised incomplete beta function (DLMF 8.17.1 and
+/// §8.18; Abramowitz & Stegun 26.7.1), and the centre is
+/// `P(|T| ≤ t) = I_y(1/2, ν/2)` with `y = t²/(ν + t²)` (DLMF 8.17.4). The
+/// quantile is found by bisection on `t`, to a part in a billion, on
+/// whichever of the two is the smaller: the centre up to `p = 3/4`, the
+/// tail past it. Each is then computed to its relative accuracy from an
+/// argument that keeps `t²`, and its target, `2(p − ½)` or `2(1 − p)`, is
+/// exact. The tail alone would not do near the median: `ν + t²` rounds to
+/// `ν` for `t` below `√(νε)`, so `x` is one and the tail is one for every
+/// such `t`, and a bisection on it stopped at a rounding step near `10⁻⁸`
+/// where the quantile is near `10⁻¹⁶`. A Cornish–Fisher expansion about
+/// the normal quantile would be five per cent short at the far points on
+/// few degrees of freedom, where its terms have not begun to shrink.
 ///
 /// # Errors
 ///
@@ -46,12 +54,28 @@ pub fn student_t_quantile(freedom: usize, probability: f64) -> Result<f64, Numer
         return Err(NumericalError::Domain);
     }
     let nu = freedom as f64;
-    let tail = 2.0 * (1.0 - probability);
-    let two_sided_tail = |t: f64| regularized_incomplete_beta(nu / (nu + t * t), nu / 2.0, 0.5);
+    // The smaller mass and its target; both differences are exact
+    // (Sterbenz), so the target carries every bit of `probability`.
+    let centre = probability <= 0.75;
+    let target = if centre {
+        2.0 * (probability - 0.5)
+    } else {
+        2.0 * (1.0 - probability)
+    };
+    // Whether `t` is still short of the quantile: the centre grows with `t`
+    // and the tail falls.
+    let short = |t: f64| -> Result<bool, NumericalError> {
+        let square = t * t;
+        Ok(if centre {
+            regularized_incomplete_beta(square / (nu + square), 0.5, nu / 2.0)? < target
+        } else {
+            regularized_incomplete_beta(nu / (nu + square), nu / 2.0, 0.5)? > target
+        })
+    };
     /// Relative width at which the bisection stops.
     const BISECTION_TOLERANCE: f64 = 1e-9;
     let (mut low, mut high) = (0.0f64, 1.0f64);
-    while two_sided_tail(high)? > tail {
+    while short(high)? {
         high *= 2.0;
         if !high.is_finite() {
             return Err(NumericalError::NotConverged);
@@ -59,7 +83,7 @@ pub fn student_t_quantile(freedom: usize, probability: f64) -> Result<f64, Numer
     }
     while high - low > BISECTION_TOLERANCE * high {
         let middle = 0.5 * (low + high);
-        if two_sided_tail(middle)? > tail {
+        if short(middle)? {
             low = middle;
         } else {
             high = middle;
@@ -453,6 +477,44 @@ mod tests {
             checked += 1;
         }
         assert!(checked > T_ROWS, "only {checked} quantiles");
+    }
+
+    /// From the next double past one half to three quarters and on into the
+    /// tail, against the closed forms: `t = tan(π(p − ½))` at one degree of
+    /// freedom and `t = (2p − 1)·√2 / √(1 − (2p − 1)²)` at two. Near the
+    /// median `ν/(ν + t²)` rounds to one for `t` below `√(νε)`, and a
+    /// bisection on the tail alone stopped at a rounding step near `10⁻⁸`
+    /// where the quantile is `3.5·10⁻¹⁶`.
+    #[test]
+    fn student_t_matches_the_closed_forms_from_the_median() {
+        let next_past_half = f64::from_bits(0.5f64.to_bits() + 1);
+        for probability in [
+            next_past_half,
+            0.5 + 1e-12,
+            0.500_000_001,
+            0.500_001,
+            0.5001,
+            0.51,
+            0.6,
+            0.74,
+            0.75,
+            0.76,
+            0.9,
+            0.975,
+            0.999,
+            0.999_999,
+        ] {
+            let z = 2.0 * (probability - 0.5);
+            let cauchy = (core::f64::consts::PI * (probability - 0.5)).tan();
+            let two = z * core::f64::consts::SQRT_2 / (1.0 - z * z).sqrt();
+            for (freedom, expected) in [(1, cauchy), (2, two)] {
+                let t = student_t_quantile(freedom, probability).expect("in the domain");
+                assert!(
+                    (t / expected - 1.0).abs() < QUANTILE,
+                    "{freedom} at {probability}: {t} against {expected}"
+                );
+            }
+        }
     }
 
     #[test]
