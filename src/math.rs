@@ -260,7 +260,10 @@ fn lower_normal_quantile_ln(target: f64) -> f64 {
 mod beta;
 mod ln_gamma;
 
-pub use beta::{regularized_incomplete_beta, student_t_quantile, NumericalError};
+pub use beta::{
+    regularized_incomplete_beta, regularized_incomplete_beta_from_parts, student_t_quantile,
+    NumericalError,
+};
 pub use ln_gamma::ln_gamma;
 use ln_gamma::stirling_remainder;
 

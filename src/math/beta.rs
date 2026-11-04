@@ -34,12 +34,16 @@ impl std::error::Error for NumericalError {}
 /// `P(|T| ≤ t) = I_y(1/2, ν/2)` with `y = t²/(ν + t²)` (DLMF 8.17.4). The
 /// quantile is found by bisection on `t`, to a part in a billion, on
 /// whichever of the two is the smaller: the centre up to `p = 3/4`, the
-/// tail past it. Each is then computed to its relative accuracy from an
-/// argument that keeps `t²`, and its target, `2(p − ½)` or `2(1 − p)`, is
-/// exact. The tail alone would not do near the median: `ν + t²` rounds to
-/// `ν` for `t` below `√(νε)`, so `x` is one and the tail is one for every
-/// such `t`, and a bisection on it stopped at a rounding step near `10⁻⁸`
-/// where the quantile is near `10⁻¹⁶`. A Cornish–Fisher expansion about
+/// tail past it. Each is taken from both `x = ν/(ν + t²)` and
+/// `y = t²/(ν + t²)`, formed apart so that whichever is the smaller keeps
+/// its bits ([`regularized_incomplete_beta_from_parts`]); and each target,
+/// `2(p − ½)` or `2(1 − p)`, is exact. Forming `x` alone would not do:
+/// `ν + t²` rounds to `ν` for `t` below `√(νε)`, so `x` is one and the tail
+/// is one for every such `t`, and a bisection on it stopped at that
+/// rounding step, near `10⁻⁸` where the quantile is `3.5·10⁻¹⁶` at one
+/// degree of freedom and the next double past one half, and at `√128`
+/// where it is `1.96` at `2⁶⁰` degrees and `p = 0.975`. A Cornish–Fisher
+/// expansion about
 /// the normal quantile would be five per cent short at the far points on
 /// few degrees of freedom, where its terms have not begun to shrink.
 ///
@@ -66,10 +70,11 @@ pub fn student_t_quantile(freedom: usize, probability: f64) -> Result<f64, Numer
     // and the tail falls.
     let short = |t: f64| -> Result<bool, NumericalError> {
         let square = t * t;
+        let (x, y) = (nu / (nu + square), square / (nu + square));
         Ok(if centre {
-            regularized_incomplete_beta(square / (nu + square), 0.5, nu / 2.0)? < target
+            regularized_incomplete_beta_from_parts(y, x, 0.5, nu / 2.0)? < target
         } else {
-            regularized_incomplete_beta(nu / (nu + square), nu / 2.0, 0.5)? > target
+            regularized_incomplete_beta_from_parts(x, y, nu / 2.0, 0.5)? > target
         })
     };
     /// Relative width at which the bisection stops.
@@ -123,8 +128,7 @@ pub fn student_t_quantile(freedom: usize, probability: f64) -> Result<f64, Numer
 /// `[0, 1]` by more than `10⁻¹⁴` (a result that close is rounded into the
 /// interval).
 pub fn regularized_incomplete_beta(x: f64, a: f64, b: f64) -> Result<f64, NumericalError> {
-    let positive = |v: f64| v.is_finite() && v > 0.0;
-    if !(positive(a) && positive(b) && (0.0..=1.0).contains(&x)) {
+    if !(positive_shapes(a, b) && (0.0..=1.0).contains(&x)) {
         return Err(NumericalError::Domain);
     }
     if x == 0.0 {
@@ -133,11 +137,81 @@ pub fn regularized_incomplete_beta(x: f64, a: f64, b: f64) -> Result<f64, Numeri
     if x == 1.0 {
         return Ok(1.0);
     }
-    let value = if x < (a + 1.0) / (a + b + 2.0) {
-        incomplete_beta_tail(DoubleDouble::from(x), a, b)?
+    // 1 − x exactly, so no input bit is lost on the complement side.
+    let complement = DoubleDouble::from(1.0).add(DoubleDouble::from(-x));
+    incomplete_beta_from(DoubleDouble::from(x), complement, a, b)
+}
+
+/// `I_x(a, b)` from `x` and its complement `1 − x`, each given to its own
+/// accuracy by a caller that can form both without cancellation, as
+/// Student's `t` can from `ν/(ν + t²)` and `t²/(ν + t²)`: `t²` vanishes
+/// against `ν` in the first once `t² < ν·ε`, and the second is near one in
+/// the far tail, so neither alone serves both ends, while whichever is the
+/// smaller is within a few ulps. The smaller part carries the bits and the
+/// other is one less it, held exactly, so the fraction has the small part
+/// whole on either side of its switch; the accuracy is
+/// [`regularized_incomplete_beta`]'s with the smaller part's own bits.
+///
+/// # Errors
+///
+/// [`NumericalError::Domain`] if the shapes are not positive finite
+/// numbers, either part lies outside `[0, 1]`, or the two do not sum to one
+/// within eight ulps; [`NumericalError::NotConverged`] as
+/// [`regularized_incomplete_beta`].
+pub fn regularized_incomplete_beta_from_parts(
+    x: f64,
+    complement: f64,
+    a: f64,
+    b: f64,
+) -> Result<f64, NumericalError> {
+    let unit = 0.0..=1.0;
+    if !(positive_shapes(a, b)
+        && unit.contains(&x)
+        && unit.contains(&complement)
+        && (x + complement - 1.0).abs() <= 8.0 * f64::EPSILON)
+    {
+        return Err(NumericalError::Domain);
+    }
+    if x == 0.0 {
+        return Ok(0.0);
+    }
+    if complement == 0.0 {
+        return Ok(1.0);
+    }
+    // The smaller part carries the bits, and the other is one less it,
+    // exactly, so that the fraction sees the small part whole on either
+    // side of the switch: the prefactor's `x^a` at a large shape magnifies
+    // the rounding of a part near one by `a`.
+    let one = DoubleDouble::from(1.0);
+    let (x, complement) = if x <= complement {
+        (DoubleDouble::from(x), one.add(DoubleDouble::from(-x)))
     } else {
-        // 1 − x exactly, so no input bit is lost on the complement side.
-        let complement = DoubleDouble::from(1.0).add(DoubleDouble::from(-x));
+        (
+            one.add(DoubleDouble::from(-complement)),
+            DoubleDouble::from(complement),
+        )
+    };
+    incomplete_beta_from(x, complement, a, b)
+}
+
+/// Whether `a` and `b` are shapes: positive and finite.
+fn positive_shapes(a: f64, b: f64) -> bool {
+    let positive = |v: f64| v.is_finite() && v > 0.0;
+    positive(a) && positive(b)
+}
+
+/// `I_x(a, b)` from `x` and `1 − x`, each held to the bits its caller has:
+/// the fraction takes the side below `(a+1)/(a+b+2)`, and the other side is
+/// one less it.
+fn incomplete_beta_from(
+    x: DoubleDouble,
+    complement: DoubleDouble,
+    a: f64,
+    b: f64,
+) -> Result<f64, NumericalError> {
+    let value = if x.hi < (a + 1.0) / (a + b + 2.0) {
+        incomplete_beta_tail(x, a, b)?
+    } else {
         1.0 - incomplete_beta_tail(complement, b, a)?
     };
     // A probability within the documented absolute error of 0 or 1 can land
@@ -424,6 +498,14 @@ mod tests {
     const CLOSED_FORM_SCALE: f64 = 1e-3;
     /// Rows the reference files must hold.
     const T_ROWS: usize = 1_000;
+    /// The standard normal's quantiles at three quarters, nine tenths, 0.975
+    /// and 0.999.
+    const NORMAL_QUANTILES: [(f64, f64); 4] = [
+        (0.75, 0.674_489_750_196_081_7),
+        (0.9, 1.281_551_565_544_600_4),
+        (0.975, 1.959_963_984_540_054),
+        (0.999, 3.090_232_306_167_813),
+    ];
     const BETA_ROWS: usize = 1_500;
 
     /// Double-double `1 − x`, as the function forms it.
@@ -515,6 +597,64 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The normal quantiles, to which Student's `t` tends: at `2⁴⁰` degrees
+    /// of freedom the difference is Cornish–Fisher's `(z³ + z)/(4ν)`, below
+    /// `10⁻¹¹`, far inside the part in a billion. Forming `ν/(ν + t²)` lost
+    /// `t²` here: every `t` below `√(νε)` gave the same `x`.
+    #[test]
+    fn student_t_at_vast_freedom_is_the_normal_quantile() {
+        for (probability, z) in NORMAL_QUANTILES {
+            let t = student_t_quantile(1 << 40, probability).expect("in the domain");
+            assert!(
+                (t / z - 1.0).abs() < QUANTILE,
+                "2^40 at {probability}: {t} against {z}"
+            );
+        }
+    }
+
+    /// At `2⁶⁰` degrees of freedom, where the 0.975 quantile came out as
+    /// `√128`, the quantile is the normal's just past three quarters, on the
+    /// tail's side of the switch, and at 0.975. The fraction takes some
+    /// hundred thousand steps a value there, so this runs optimised.
+    #[test]
+    #[cfg_attr(debug_assertions, ignore)]
+    fn student_t_at_two_to_the_sixty_is_the_normal_quantile() {
+        let next_past_three_quarters = f64::from_bits(0.75f64.to_bits() + 1);
+        for (probability, z) in [
+            (next_past_three_quarters, NORMAL_QUANTILES[0].1),
+            NORMAL_QUANTILES[2],
+        ] {
+            let t = student_t_quantile(1 << 60, probability).expect("in the domain");
+            assert!(
+                (t / z - 1.0).abs() < QUANTILE,
+                "2^60 at {probability}: {t} against {z}"
+            );
+        }
+    }
+
+    /// The entry from parts is the entry at those parts where both are
+    /// exact, and refuses parts that are not one argument's.
+    #[test]
+    fn the_entry_from_parts_is_the_entry_at_its_parts() {
+        for (a, b) in [(0.5, 0.5), (0.5, 3.0), (7.0, 0.5), (2.5, 4.0)] {
+            for x in [0.0, 0.125, 0.25, 0.5, 0.75, 0.875, 1.0] {
+                assert_eq!(
+                    regularized_incomplete_beta_from_parts(x, 1.0 - x, a, b),
+                    regularized_incomplete_beta(x, a, b),
+                    "I_{x}({a}, {b})"
+                );
+            }
+        }
+        assert_eq!(
+            regularized_incomplete_beta_from_parts(0.25, 0.5, 1.0, 1.0),
+            Err(NumericalError::Domain)
+        );
+        assert_eq!(
+            regularized_incomplete_beta_from_parts(0.25, -0.75, 1.0, 1.0),
+            Err(NumericalError::Domain)
+        );
     }
 
     #[test]
