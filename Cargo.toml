@@ -184,4 +184,7 @@ getrandom = { version = "0.3", features = ["std"] }
 [dev-dependencies]
 # Exact binary splitting of e for the test that checks the NIST e fixture.
 # The probability functions that once came from rump live in entropy::math.
-rust-mp         = { version = "0.3", path = "../rump" }
+# Both of rump's releases the test has been run against: CI's pinned rump is
+# 0.3.0, and rump's `main`, which its own CI builds this crate against, is
+# 0.4.0; the test uses only `BigUint` arithmetic, the same in both.
+rust-mp         = { version = ">=0.3, <0.5", path = "../rump" }
